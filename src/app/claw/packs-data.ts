@@ -154,7 +154,7 @@ const CLAW_HAS_ANIM = new Set([
 
 // Bump CLAW_REV whenever the machine pixels change (rebrand passes) so browsers fetch the new
 // image instead of a cached older one (filenames stay the same across edits).
-const CLAW_REV = "13";
+const CLAW_REV = "14";
 
 export function clawMachine(pack: Pack): { webp: string; anim?: string } {
   const base = pack.image.replace("/images/claw/", "").replace("-icon.webp", "");

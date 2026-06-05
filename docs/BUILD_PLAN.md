@@ -6,6 +6,7 @@
 >
 > **Status:** AUTHORITATIVE PLAN — 2026-06-05. Supersedes the earlier DigitalOcean/Supabase-targeted
 > draft (preserved in git history). **Local-first; this plan chooses no cloud host.**
+> Verified 2026-06-05 against the installed `medusa-dev` skills + Medusa v2 docs (price/workflow/SDK/link rules baked in below).
 
 ---
 
@@ -86,7 +87,7 @@ Pokenic_Game/                  ← git root = STOREFRONT (unchanged)
     └── src/
         ├── modules/packs/      ← Pack, PackOdds, Card, Pull models + MedusaService
         ├── workflows/open-pack/← weighted seeded roll w/ per-step compensation
-        ├── links/              ← defineLink: pack↔product, card↔inventoryItem
+        ├── links/              ← one defineLink per file: pack↔product, card↔product
         ├── api/store/ + api/admin/
         ├── admin/routes/packs/ + admin/widgets/pack-odds.tsx
         ├── subscribers/pack-opened.ts
@@ -113,19 +114,55 @@ PackOdds  (the gacha table — admin-editable)
   weight        ← relative probability (e.g. 1000 = common, 1 = chase)
   // pull chance = weight / sum(weights in pack)
 
-Card
-  id, name, set, grader (PSA | Fanatics | Alt), grade, rarity
-  image, market_value
-  ── links to ──▶ Medusa Inventory item (vault custody / stock)
+Card  (gacha metadata for a sellable / “vaulted” card)
+  id, name, set, grader (PSA | Fanatics | Alt), grade, rarity, image, market_value
+  ── links to ──▶ Medusa Product (its default variant carries price, inventory & checkout)
+  // open-pack reserves THAT variant's inventory (reserveInventoryStep); the marketplace lists it
 
 Pull   (ledger — one row per opened pack)
   id, customer_id, pack_id, card_id (result), rolled_at, order_id
   // source of truth for the live-pulls feed + leaderboard
 ```
 
+**Card = Product + custom model (resolved).** A “card” is represented twice on purpose: a Medusa
+**Product** (its default variant gives it price, inventory, Stripe checkout, and a marketplace listing
+via `sdk.store.product.list()`) **plus** the custom `Card` model above for gacha metadata (grader /
+grade / rarity) and odds, linked to that product. Modelling it as a Product is what makes the secondary
+marketplace, checkout, and `reserveInventoryStep` all fall out for free instead of needing bespoke
+plumbing. Display fields (fmv / grade / grader) are also mirrored onto the Product's `metadata` (seeded
+in Phase 2) so the storefront renders from the Product alone; the `Card` model stays the canonical gacha
+record that `PackOdds` / `Pull` reference. `Pack` is a Product too — its price/variant is what the
+customer pays to open.
+
 **Provably-fair note:** real phygitals advertises *provably fair* odds (commit-reveal / on-chain seed).
 For the clone we implement a simpler **server-side seeded RNG with an auditable Pull ledger**. A true
 commit-reveal scheme is an optional later enhancement, documented but not required for v1.
+
+## Medusa v2 rules that shape this plan (verified vs. the installed `medusa-dev` skills + docs)
+
+These change *what we build*, so they belong here. Everything else the skills enforce — workflow
+composition constraints (`function`, no async/conditionals, `transform()`/`when()`), `StepResponse`
+vs `WorkflowResponse`, camelCase module names, never `.linkable()` on a model, one `defineLink` per
+file, admin `@medusajs/ui` / FocusModal-vs-Drawer patterns — is **enforced by the `medusa-dev` skills
+already installed in this repo**; consult them at build time rather than duplicating them here.
+
+- **Prices are stored as-is (decimals), NOT cents.** `49.99` is saved and shown as `49.99` — never
+  ×100 on save or ÷100 on display, anywhere (seed, API, storefront, admin). Our marketplace data is
+  already decimals (`18.4`, `29.99`), so it maps 1:1. *(This reverses Medusa v1 / common knowledge —
+  the single easiest rule to get wrong.)*
+- **Every mutation runs through a workflow; API routes stay thin.** Not only open-pack — saving odds,
+  creating/seeding packs, etc. All business logic & validation (pack active, customer paid, weights
+  ≥0, ownership) lives in **workflow steps**, never in routes (putting it in a route bypasses rollback).
+- **HTTP verbs: GET, POST, DELETE only — never PUT/PATCH.** So “save odds” is a **POST** to a custom
+  admin route that runs a save-odds workflow.
+- **Storefront & admin reach Medusa only through the JS SDK.** Built-in data → `sdk.store.*` /
+  `sdk.admin.*`; our custom routes (`/store/packs`, `/store/packs/:id/open`, `/store/pulls/recent`,
+  `/store/leaderboard`) → `sdk.client.fetch()`. **Never** raw `fetch()` (it omits the publishable-key /
+  auth headers) and **never** `JSON.stringify` the body (the SDK serializes — pass a plain object).
+- **Our hot reads are single-module, so no Index Module in v1.** The live feed and leaderboard
+  aggregate the one-module `Pull` ledger → `query.graph()` / `listAndCount` are enough. `query.graph()`
+  *cannot* filter by linked-module fields and we don’t need it to; only add `@medusajs/index` (+ feature
+  flag) later **if** a real cross-module filter appears. Don’t JS-`.filter()` linked data.
 
 ## Verified Medusa v2 specifics to use (no training-data guesses)
 
@@ -135,8 +172,11 @@ commit-reveal scheme is an optional later enhancement, documented but not requir
 - **Module:** `model.define("pack", {…})` with `model.enum([...])` / `model.number()` / relations;
   `class PacksModuleService extends MedusaService({ Pack, PackOdds, Card, Pull }) {}`;
   `Module(PACKS_MODULE, { service: PacksModuleService })`; register in `medusa-config.ts`.
-- **Links to core:** `defineLink(PacksModule.linkable.pack, ProductModule.linkable.product)` and
-  `…card ↔ InventoryModule.linkable.inventoryItem`; read linked data with `query.graph({…})`.
+- **Links to core (one `defineLink` per file in `src/links/`):**
+  `defineLink(PacksModule.linkable.pack, ProductModule.linkable.product)` and
+  `defineLink(PacksModule.linkable.card, ProductModule.linkable.product)` — each card *is* a product,
+  whose variant carries inventory. Read linked data with `query.graph()`. **Run `npx medusa db:migrate`
+  immediately after adding a link** (skipping it causes runtime errors).
 - **Workflow:** `createWorkflow` + `createStep(name, invoke, compensate)` returning
   `new StepResponse(result, rollbackData)`; run via `openPackWorkflow(req.scope).run({ input })`.
   Use `reserveInventoryStep` for stock and `emitEventStep({ eventName: "pack.opened", data })`.
@@ -146,24 +186,31 @@ commit-reveal scheme is an optional later enhancement, documented but not requir
 - **Storefront SDK:** `@medusajs/js-sdk` → `src/lib/medusa.ts` (`new Medusa({ baseUrl, publishableKey })`);
   auth via `sdk.auth.register/login` (emailpass), data via `sdk.store.product.list`, `sdk.store.cart.*`,
   `sdk.store.customer.*`. Create the publishable key in Admin → Settings, attached to a sales channel.
-- **Stripe (test):** register `@medusajs/medusa/payment` with provider `@medusajs/medusa/payment-stripe`
-  (`apiKey: STRIPE_API_KEY`); enable on the region in Admin; storefront uses `@stripe/react-stripe-js`
-  (mirror the official Next.js B2C starter's checkout session→confirm sequence as reference only).
+- **Stripe (test):** register the Payment Module `@medusajs/medusa/payment` with provider
+  `@medusajs/medusa/payment-stripe`, `id: "stripe"`, `options.apiKey: STRIPE_API_KEY`. At runtime the
+  provider id becomes **`pp_stripe_stripe`** (format `pp_{identifier}_{id}`) — use that when enabling it
+  on the region. Storefront uses `@stripe/react-stripe-js` (mirror the official Next.js B2C starter's
+  checkout session→confirm sequence as reference only).
 - **Admin UI:** route `backend/src/admin/routes/packs/page.tsx` (`defineRouteConfig`) + odds editor
   widget `defineWidgetConfig({ zone: "product.details.after" })`, weights table in `@medusajs/ui`,
-  live `pull chance % = weight / Σweights`.
+  live `pull chance % = weight / Σweights`. Saving = **POST** custom admin route → save-odds workflow;
+  the widget’s display query loads on mount and is invalidated after the save.
 - **Realtime:** Medusa has **no built-in client WebSocket** — add Socket.io via a loader, a
   `pack.opened` subscriber emits to a room; Redis adapter only for prod/multi-process.
 
 ## Component → Medusa Store API wiring map
 
 Pattern (verified for Next 16): fetch in an `async` **server component**, pass data as props into the
-existing `"use client"` component (keeps its animations). `src/app/marketplace/page.tsx` already does
-this split — replicate it. Introduce a `src/lib/data/*.ts` seam first so the app never breaks.
+existing `"use client"` component (keeps its animations). `src/app/marketplace/page.tsx` already
+demonstrates the server-page → client-child split (today it just delegates with no data) — extend it to
+fetch and pass props. Introduce a `src/lib/data/*.ts` seam first so the app never breaks. **All calls go
+through the SDK** (built-in → `sdk.store.*`; custom routes → `sdk.client.fetch()`); client mutations
+(open pack, login) use the SDK with React Query `useMutation`; the live feed uses the Socket.io client.
+Render prices **as-is** (no ÷100).
 
 | File | Today | Rewire to |
 |---|---|---|
-| `src/app/marketplace/MarketplaceClient.tsx` | 16 hardcoded `CARDS`, 13 `CATEGORIES` | `sdk.store.product.list()` + `productCategory.list()` (price/fmv from variant + metadata) |
+| `src/app/marketplace/MarketplaceClient.tsx` | 16 hardcoded `CARDS`, 13 `CATEGORIES` | `sdk.store.product.list()` + `productCategory.list()` (price from variant; display metadata — fmv / grade / grader — from the Product's `metadata`, seeded in Phase 2) |
 | `src/components/OpenPacksSection.tsx` | 6 hardcoded categories | `GET /store/packs?group=category` |
 | `src/app/claw/page.tsx` | hardcoded packs; "Open" inert | list via `GET /store/packs`; **"Open" → `POST /store/packs/:id/open`** (customer JWT) → reveal animation from returned `Card`/`Pull` |
 | `src/components/RecentPullsSection.tsx` | 8 hardcoded pulls | initial `GET /store/pulls/recent`; live via **Socket.io** `pack.opened` |
@@ -180,8 +227,10 @@ for live + leaderboard); add `loading.tsx` for `/marketplace`, `/leaderboard`, `
    `:9000/app`, log in, create publishable key + sales channel. Set `*_CORS` to include `:3000`.
 1. **SDK seam (no UI change).** Add `@medusajs/js-sdk`; create `src/lib/medusa.ts` + `src/lib/data/*.ts`
    returning the *current* hardcoded arrays; add `.env.local`. App runs identically.
-2. **Catalog.** Seed card products + categories in Medusa; flip `lib/data/products.ts` to
-   `sdk.store.product.list`; server-fetch in `marketplace/page.tsx` and home `OpenPacksSection`.
+2. **Catalog.** Seed each card as a Product (price as a decimal; fmv/grade/grader on the Product's
+   `metadata`) + categories; flip `lib/data/products.ts` to `sdk.store.product.list`; server-fetch in
+   `marketplace/page.tsx` and home `OpenPacksSection`. Marketplace is fully renderable here — the custom
+   `Card` model (Phase 4) adds odds/pull linkage, not display data.
 3. **Auth.** Storefront auth context + Login/Sign Up via `sdk.auth.*`; header reflects session.
 4. **Packs module.** Models + service + links; `db:generate packs` + `db:migrate`; seed packs/odds;
    `GET /store/packs`; wire `/claw` listing.

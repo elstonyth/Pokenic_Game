@@ -2,7 +2,7 @@
 
 ## Project
 - **Storefront:** `C:\Users\PC\Desktop\Projects\Pokenic_Game` (Next.js 16 + React 19 + Tailwind v4)
-- **Backend plan:** Medusa v2 on Supabase PG + Upstash Redis + Railway; storefront on Vercel. See `docs/BUILD_PLAN.md`.
+- **Backend plan:** Medusa v2 wired **locally** (Postgres only; Redis/Socket.io optional, for prod/multi-process realtime), run as a `/backend` sibling to the root storefront — **local-first, no cloud host chosen**. See `docs/BUILD_PLAN.md`.
 - **Git root is `storefront/` itself** (not parent) â€” so Agent worktree isolation from parent fails; dispatch builder agents in-place.
 
 ## Running the app (IMPORTANT)

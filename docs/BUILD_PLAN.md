@@ -1,118 +1,102 @@
-# Phygitals-Style Marketplace — Build Plan
+# Build Plan — Wire the Pokenic frontend to a prebuilt Medusa v2 backend
 
-> A pixel-faithful front-end (cloned from phygitals.com for UI/UX study) wired to **your own**
-> Medusa v2 commerce backend, with a custom pack-opening (gacha) system and real-time live-pull feeds.
+> Wire the (already-built) Pokenic front-end clone to a prebuilt **Medusa v2** backend for full
+> functionality: auth, catalog, Stripe (test mode), the gacha pack-opening + pull ledger, realtime
+> live feed + leaderboard, and admin odds management.
 >
-> **Status:** PLAN — nothing scaffolded yet. Review and approve before Phase 0 begins.
-> **Last updated:** 2026-05-30
+> **Status:** AUTHORITATIVE PLAN — 2026-06-05. Supersedes the earlier DigitalOcean/Supabase-targeted
+> draft (preserved in git history). **Local-first; this plan chooses no cloud host.**
 
 ---
 
-## 0. Scope, intent & ground rules
+## Scope & ground rules (carried forward — unchanged intent)
 
-**What this project is:** a learning/portfolio build. We are reconstructing the *look and feel* of
-phygitals.com and pairing it with an original, self-built backend (Medusa + custom modules) running
-on **mock/seed data**. This is your own product built on open-source foundations.
+**What this project is:** a learning/portfolio build. We reconstruct the *look and feel* of
+phygitals.com and pair it with an original, self-built backend (Medusa + custom modules) running on
+mock/seed data. This is your own product built on open-source foundations.
 
 **What this project is NOT:**
-- Not a copy of phygitals' real backend, inventory, or data (impossible — none of that is public).
+- Not a copy of phygitals' real backend, inventory, or data (none of that is public).
 - Not a deployable look-alike of their auth/checkout meant to impersonate them or handle real users'
   money. We build our *own* auth/payments against test keys (Stripe test mode), never a replica of theirs.
 - Not their brand/logo/trademarked content in any shipped/deployed form. Cloned text & assets are
   scaffolding/reference during development; real launch content must be original.
 
 **Hard rules baked into every phase:**
-- Stripe stays in **test mode** until/unless this becomes a real, owned, legally-cleared product.
+- Stripe stays in **test mode** (`sk_test_…`) until/unless this becomes a real, owned, legally-cleared product.
 - No real user data. All accounts, cards, packs, pulls are seeded/fake.
-- Every build step must compile (`tsc --noEmit`) and the app must run before moving on.
+- Every build step must pass `npm run check` (lint + typecheck + build) and run before moving on.
 
 ---
 
-## 1. Architecture overview
+## Context
+
+`Pokenic_Game` is a **complete, static** front-end clone of phygitals.com — a trading-card
+pack-opening (gacha) marketplace (Next.js 16.2.1 App Router, React 19, Tailwind v4, shadcn/ui).
+Today **every page is hardcoded**: no API layer, no `fetch`, no auth, no env vars. The Login/Sign Up
+buttons and the claw "Open" button are presentational only.
+
+The goal is to wire in the most capable prebuilt open-source backend; we chose **Medusa v2**
+(~31k★, the leading Node/TS open-source headless commerce engine) with **full scope**: auth, catalog,
+Stripe (test mode), gacha pack-opening + pull ledger, realtime live feed + leaderboard, and admin odds
+management.
+
+"Prebuilt" here = Medusa gives products/orders/payments/customers/inventory/admin **out of the box**
+via `create-medusa-app`; we only add a small custom gacha module and rewire the existing UI to its
+Store API. An earlier draft of this plan targeted Medusa v2 on a DigitalOcean/Supabase architecture;
+this version adapts it to the *clone-and-wire*, **local-first** approach and corrects several stale
+facts (next section), verified against current Medusa v2 docs.
+
+**Why not the alternatives** (surveyed, for the record): Supabase (fastest, great realtime, but
+not commerce-native — you build orders/checkout yourself); Mercur (prebuilt multi-vendor marketplace
+on Medusa, but ~680★ and heaviest); PocketBase (simplest single binary, but no commerce primitives).
+Medusa wins on commerce-out-of-the-box + TypeScript stack match + an official Next.js reference storefront.
+
+## Architecture decisions (verified against current Medusa v2 docs)
+
+These are baked into this plan and correct the earlier DigitalOcean/Supabase draft:
+
+- **Redis/Valkey is optional for local dev.** Medusa ships in-process event bus + in-memory cache +
+  workflow engine. Local dev needs **Postgres only**; Redis is a prod recommendation (and for
+  multi-process Socket.io fan-out). The earlier draft listed Valkey as a hard requirement — it isn't.
+- **Drop Supabase entirely.** The earlier draft's architecture diagram still showed a Supabase realtime
+  mirror; the text already pivoted to Socket.io. Realtime = Socket.io attached to the Medusa Node process.
+- **Node rationale is mis-attributed but the conclusion holds.** The `<25` ceiling is the Next.js
+  *starter* storefront's constraint, not Medusa's (Medusa needs Node 20+). Keep the pinned **24.14.0**.
+- **CORS must target `:3000`.** `create-medusa-app` defaults `STORE_CORS`/`AUTH_CORS` to `:8000`;
+  this storefront runs on `:3000`.
+- **Hosting (DigitalOcean) is out of scope** for this wiring task — local-first.
+
+## Recommended layout: keep storefront at repo root, add a `/backend` sibling
+
+Do **not** move the storefront into `/storefront`. The repo root *is* the storefront (its
+`package.json`, `next.config.ts`, `@/*`→`./src/*`, the hundreds of extracted assets under `public/`,
+the `clone-website` skill, Playwright config, CI). Moving it churns every tooling path for zero gain,
+and `create-medusa-app` won't merge into a populated root anyway.
 
 ```
-┌────────────────────────────────┐   REST/Store API + publishable key   ┌─────────────────────────────┐
-│  Storefront (Next.js 16 +      │  ──────────────────────────────────▶ │  Medusa v2 backend          │
-│  React 19 + Tailwind v4 +      │   NEXT_PUBLIC_MEDUSA_BACKEND_URL      │  ├─ Core: products, orders, │
-│  shadcn) — phygitals UI clone  │   :9000                              │  │   inventory, payments,    │
-│                                │ ◀──────────────────────────────────  │  │   customers, auth         │
-│                                │        cart / order / pull responses  │  ├─ Admin dashboard (built-in)│
-└───────────────┬────────────────┘                                      │  └─ CUSTOM "Packs" module   │
-                │                                                        │      (cards, odds, pull wf) │
-                │ subscribe (live pulls, leaderboard)                    └──────────────┬──────────────┘
-                ▼                                                                       │ emits events
-┌────────────────────────────────┐   realtime stream                                    │
-│  Supabase (Realtime + Postgres │ ◀────────────────────────────────────────────────────┘
-│  mirror for feed/leaderboard)  │   pull events fan out to all connected clients
-└────────────────────────────────┘
+Pokenic_Game/                  ← git root = STOREFRONT (unchanged)
+├── src/app, src/components…   ← existing Next.js 16 app (rewired in place)
+├── public/…                   ← extracted assets (unchanged)
+├── package.json               ← add @medusajs/js-sdk
+├── .env.local                 ← NEW: NEXT_PUBLIC_MEDUSA_BACKEND_URL, NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+└── backend/                   ← NEW: create-medusa-app output (Medusa v2 + admin at :9000/app)
+    ├── medusa-config.ts        ← register packs module + Stripe payment provider
+    ├── .env                    ← DATABASE_URL, STRIPE_API_KEY=sk_test_…, secrets, *_CORS=…:3000
+    └── src/
+        ├── modules/packs/      ← Pack, PackOdds, Card, Pull models + MedusaService
+        ├── workflows/open-pack/← weighted seeded roll w/ per-step compensation
+        ├── links/              ← defineLink: pack↔product, card↔inventoryItem
+        ├── api/store/ + api/admin/
+        ├── admin/routes/packs/ + admin/widgets/pack-odds.tsx
+        ├── subscribers/pack-opened.ts
+        ├── loaders/socket.ts   ← Socket.io on the Medusa HTTP server
+        └── scripts/seed.ts
 ```
+Two plain npm apps (not Turborepo): backend `npm run dev` in `backend/` (`:9000`), storefront
+`npm run dev` at root (`:3000`).
 
-**All on DigitalOcean App Platform (one platform, no Docker):**
-1. **Medusa backend** (`/backend`) — DO **web** component (API) + **worker** component. Commerce + gacha
-   module + admin. Connects to DO Managed Postgres + DO Managed Valkey (private networking).
-2. **Storefront** (`/storefront`) — the cloned phygitals Next.js frontend, calls Medusa's Store API.
-   Another **web** component in the same DO app.
-3. **Realtime** — a small **Socket.io** layer inside the Medusa backend pushes `pack.opened` events to
-   browsers for the live-pulls feed + leaderboard (replaces the earlier Supabase Realtime choice).
-
-> ⚠️ **Medusa's backend canNOT run on Vercel serverless** — it needs a persistent Node server (+ worker,
-> min 2GB RAM). DO App Platform's web/worker components handle this natively.
-> **No Docker needed even locally:** run Medusa + storefront as plain Node processes pointed at the DO
-> managed databases (or a local Postgres/Redis if you prefer offline dev).
-
-> The Medusa **Next.js *starter*** is used as a **reference implementation** for *how* to call the Store
-> API (cart, checkout, customer flows) — we copy patterns from it, but ship the phygitals-cloned UI.
-
----
-
-## 2. Tech stack & pinned versions
-
-| Layer | Choice | Version / note |
-|---|---|---|
-| Runtime | Node.js | **24.14.0** — satisfies Medusa (`<25`) AND cloner template (`24+`). Do NOT upgrade to 25. |
-| Backend | Medusa | v2.14.0+ |
-| Backend DB | **DO Managed Postgres** | managed Postgres on DigitalOcean (same platform as everything else) |
-| Backend cache/events | **DO Managed Valkey** | Redis-compatible; powers Medusa event bus, workflow engine, cache |
-| Backend host | **DO App Platform** | **web** component (API) + **worker** component (background jobs). Min 2GB RAM. |
-| Storefront | Next.js / React / Tailwind | 16 / 19 / v4 (from cloner template) |
-| Storefront host | **DO App Platform** | Next.js as another web component in the same DO app |
-| UI components | shadcn/ui | as in template |
-| Payments | Stripe | **test mode** |
-| Realtime | **Socket.io** (in backend) | small WebSocket service pushing `pack.opened` → live feed/leaderboard (no Supabase) |
-| Image storage | **DO Spaces** | S3-compatible object storage on DigitalOcean |
-| Pkg manager | npm | 11.x |
-| Local dev | no Docker | run Medusa + storefront locally as Node processes → DO managed PG + Valkey (or local PG/Redis if preferred) |
-
-> **Everything on one platform: DigitalOcean App Platform** — backend (web), worker, Postgres, Valkey,
-> storefront, and Spaces. One bill, one dashboard, private networking between components.
-
----
-
-## 3. Repository / directory layout
-
-```
-phygitals-clone/
-├── docs/
-│   ├── BUILD_PLAN.md              ← this file
-│   ├── research/                  ← cloner output: per-page extraction artifacts
-│   └── design-references/         ← cloner output: screenshots
-├── backend/                       ← Medusa v2 app (create-medusa-app)
-│   └── src/
-│       ├── modules/packs/         ← CUSTOM gacha module (models, service)
-│       ├── workflows/open-pack/   ← weighted-pull workflow w/ rollback
-│       ├── api/                   ← custom Store + Admin routes for packs
-│       ├── admin/widgets/         ← admin UI: edit pull odds
-│       └── subscribers/           ← on pull → push event to Supabase
-└── storefront/                    ← cloned phygitals frontend (Next.js)
-    └── src/...                    ← from ai-website-cloner-template, rewired to Medusa
-```
-
-> Decision to confirm: **monorepo** (above, one folder) vs **two sibling repos**. Plan assumes monorepo
-> for simplicity; not a Turborepo — just two npm apps side by side.
-
----
-
-## 4. Data model — the custom "Packs" (gacha) module
+## Data model — the custom "Packs" (gacha) module (carried forward)
 
 Built as a Medusa custom module so it auto-gets migrations, CRUD, and container access to core modules.
 
@@ -143,145 +127,88 @@ Pull   (ledger — one row per opened pack)
 For the clone we implement a simpler **server-side seeded RNG with an auditable Pull ledger**. A true
 commit-reveal scheme is an optional later enhancement, documented but not required for v1.
 
----
+## Verified Medusa v2 specifics to use (no training-data guesses)
 
-## 5. The pack-opening workflow (gacha core)
+- **Scaffold:** `npx create-medusa-app@latest backend` (decline its starter storefront — we keep ours).
+  Needs Postgres 15+. DB lifecycle: `npx medusa db:generate packs` → `npx medusa db:migrate`;
+  seed via `npx medusa exec ./src/scripts/seed.ts`.
+- **Module:** `model.define("pack", {…})` with `model.enum([...])` / `model.number()` / relations;
+  `class PacksModuleService extends MedusaService({ Pack, PackOdds, Card, Pull }) {}`;
+  `Module(PACKS_MODULE, { service: PacksModuleService })`; register in `medusa-config.ts`.
+- **Links to core:** `defineLink(PacksModule.linkable.pack, ProductModule.linkable.product)` and
+  `…card ↔ InventoryModule.linkable.inventoryItem`; read linked data with `query.graph({…})`.
+- **Workflow:** `createWorkflow` + `createStep(name, invoke, compensate)` returning
+  `new StepResponse(result, rollbackData)`; run via `openPackWorkflow(req.scope).run({ input })`.
+  Use `reserveInventoryStep` for stock and `emitEventStep({ eventName: "pack.opened", data })`.
+- **API routes:** `backend/src/api/store/packs/route.ts`, `…/[id]/open/route.ts`,
+  `backend/src/api/admin/packs/…`; store routes need `x-publishable-api-key`, customer routes need
+  `Authorization: Bearer <JWT>`; validation/auth in `backend/src/api/middlewares.ts`.
+- **Storefront SDK:** `@medusajs/js-sdk` → `src/lib/medusa.ts` (`new Medusa({ baseUrl, publishableKey })`);
+  auth via `sdk.auth.register/login` (emailpass), data via `sdk.store.product.list`, `sdk.store.cart.*`,
+  `sdk.store.customer.*`. Create the publishable key in Admin → Settings, attached to a sales channel.
+- **Stripe (test):** register `@medusajs/medusa/payment` with provider `@medusajs/medusa/payment-stripe`
+  (`apiKey: STRIPE_API_KEY`); enable on the region in Admin; storefront uses `@stripe/react-stripe-js`
+  (mirror the official Next.js B2C starter's checkout session→confirm sequence as reference only).
+- **Admin UI:** route `backend/src/admin/routes/packs/page.tsx` (`defineRouteConfig`) + odds editor
+  widget `defineWidgetConfig({ zone: "product.details.after" })`, weights table in `@medusajs/ui`,
+  live `pull chance % = weight / Σweights`.
+- **Realtime:** Medusa has **no built-in client WebSocket** — add Socket.io via a loader, a
+  `pack.opened` subscriber emits to a room; Redis adapter only for prod/multi-process.
 
-`open-pack` workflow steps (each with rollback):
-1. **Validate** — customer authenticated, pack active, customer has paid / has credit.
-2. **Charge** — create a Medusa order for the pack price (Stripe test) OR debit balance.
-3. **Roll** — load `PackOdds` for the pack, compute weighted random pick (seeded), select `card_id`.
-4. **Allocate inventory** — reserve/decrement the won card's inventory item.
-5. **Record** — write a `Pull` ledger row (customer, pack, card, order).
-6. **Emit event** — `pack.opened` → subscriber pushes to Supabase Realtime (feed + leaderboard).
+## Component → Medusa Store API wiring map
 
-If any step fails, prior steps roll back (no orphaned charge, no lost card). This is exactly what
-Medusa workflows are built for.
+Pattern (verified for Next 16): fetch in an `async` **server component**, pass data as props into the
+existing `"use client"` component (keeps its animations). `src/app/marketplace/page.tsx` already does
+this split — replicate it. Introduce a `src/lib/data/*.ts` seam first so the app never breaks.
 
----
+| File | Today | Rewire to |
+|---|---|---|
+| `src/app/marketplace/MarketplaceClient.tsx` | 16 hardcoded `CARDS`, 13 `CATEGORIES` | `sdk.store.product.list()` + `productCategory.list()` (price/fmv from variant + metadata) |
+| `src/components/OpenPacksSection.tsx` | 6 hardcoded categories | `GET /store/packs?group=category` |
+| `src/app/claw/page.tsx` | hardcoded packs; "Open" inert | list via `GET /store/packs`; **"Open" → `POST /store/packs/:id/open`** (customer JWT) → reveal animation from returned `Card`/`Pull` |
+| `src/components/RecentPullsSection.tsx` | 8 hardcoded pulls | initial `GET /store/pulls/recent`; live via **Socket.io** `pack.opened` |
+| `src/components/LeaderboardSection.tsx` + `src/app/leaderboard/page.tsx` | hardcoded entries/podium | `GET /store/leaderboard?period=weekly\|alltime` — aggregation over `Pull` ledger |
+| `src/components/SiteHeader.tsx` | inert Login/Sign Up | auth context → `sdk.auth.login/register`, reflect `customer.retrieve()` |
+| Hero / HowItWorks / Community / Cta / how-it-works / pack-party | static marketing | leave as-is (no backend data) |
 
-## 6. Admin experience (content + odds management)
+Honor Next 16: `await params`/`searchParams`; `fetch` uncached by default (use `<Suspense>` / `use cache`
+for live + leaderboard); add `loading.tsx` for `/marketplace`, `/leaderboard`, `/claw`.
 
-Inherited from Medusa admin dashboard (no code): products, inventory, orders, customers, refunds.
+## Phased sequence (app stays runnable; each phase ends green via `npm run check`)
 
-Custom additions we build:
-- **Admin UI route** `/app/packs` — list/create/edit packs.
-- **Admin widget** on the pack page — a table to edit each card's `weight`, with a live-computed
-  "pull chance %" column so the admin sees real probabilities as they tune.
-- Validation: weights must be ≥ 0; show warning if a pack has no cards / total weight 0.
+0. **Backend scaffold.** Local Postgres up → `npx create-medusa-app@latest backend`; admin loads at
+   `:9000/app`, log in, create publishable key + sales channel. Set `*_CORS` to include `:3000`.
+1. **SDK seam (no UI change).** Add `@medusajs/js-sdk`; create `src/lib/medusa.ts` + `src/lib/data/*.ts`
+   returning the *current* hardcoded arrays; add `.env.local`. App runs identically.
+2. **Catalog.** Seed card products + categories in Medusa; flip `lib/data/products.ts` to
+   `sdk.store.product.list`; server-fetch in `marketplace/page.tsx` and home `OpenPacksSection`.
+3. **Auth.** Storefront auth context + Login/Sign Up via `sdk.auth.*`; header reflects session.
+4. **Packs module.** Models + service + links; `db:generate packs` + `db:migrate`; seed packs/odds;
+   `GET /store/packs`; wire `/claw` listing.
+5. **open-pack workflow + Stripe.** Stripe test provider + region; workflow
+   (validate → charge → weighted seeded roll → reserve inventory → write `Pull` → emit `pack.opened`),
+   each step with compensation; `POST /store/packs/:id/open`; wire claw "Open" → reveal.
+6. **Admin odds.** `/app/packs` route + odds widget with live pull-chance %; validate weights ≥0, Σ>0.
+7. **Realtime + leaderboard.** Socket.io loader + `pack.opened` subscriber → room; `GET /store/pulls/recent`
+   and `GET /store/leaderboard` (ledger aggregation); wire live feed + leaderboard tabs.
+8. **Polish/QA.** `loading.tsx`/error boundaries, realistic seed data, responsive QA, `npm run check` both apps.
 
-This is the answer to your earlier question — **yes, an admin manages items AND configures pull rates**,
-through a real dashboard page, no code.
+## Verification
 
----
+- **Per phase:** root `npm run check` (lint + typecheck + build) stays green; `backend` `npm run dev` boots.
+- **Phase 0:** admin dashboard loads at `:9000/app`, login succeeds, seed products visible.
+- **Phase 2/3:** marketplace + home render real Medusa data; register/login round-trips; header shows user.
+- **Phase 5 (critical):** logged-in user opens a pack → Stripe **test** payment → weighted card revealed →
+  `Pull` row written. **Force a mid-workflow failure** and confirm the Stripe charge + inventory reserve
+  roll back (no orphaned charge, no lost card).
+- **Phase 7:** open a pack in tab A → live-pulls feed + leaderboard update in tab B.
+- **Hard rules:** Stripe stays `sk_test_`; all accounts/cards/packs/pulls are seeded/fake.
 
-## 7. Real-time feeds (Supabase)
+## Risks
 
-- A **Socket.io** server runs inside the Medusa backend (or as a tiny sibling service).
-- Medusa **subscriber** on `pack.opened` emits the pull to a Socket.io room/channel.
-- Storefront connects via Socket.io client → homepage "Live Pulls" feed updates instantly.
-- **Leaderboard** = aggregation query over the `Pull` ledger (top pullers / rarest cards), refreshed on
-  each new pull event (or polled). Cached in Valkey for cheap reads.
-
-Why Socket.io: keeps **everything on one platform (DO)** with no extra realtime provider. Trade-off vs
-the earlier Supabase Realtime option = ~a day of WebSocket plumbing instead of zero-code subscriptions.
-
----
-
-## 8. Front-end cloning plan (page by page)
-
-Driven by the `clone-website` skill + Chrome MCP. Order = simplest/most-static first.
-
-| # | Page | Route | Notes / dynamic bits |
-|---|---|---|---|
-| 1 | Home | `/` | Hero, pack categories, **live-pulls feed** (wire to Supabase), 3-step, footer |
-| 2 | How it works | `/how-it-works` | Static content — easiest, good warm-up |
-| 3 | About | `/about` | Static content |
-| 4 | Marketplace | `/marketplace` | Grid of listings → Medusa products (mock/seed) |
-| 5 | Leaderboard | `/leaderboard` | Table → Supabase aggregation |
-| 6 | Packs / Claw | `/claw` | Pack-opening **animation/UI** → `open-pack` workflow + reveal |
-| 7 | Pack Party | `/pack-party` | Group/live opening — assess after core is up |
-| 8 | Auth | login/signup | Our **own** Medusa auth, NOT a visual replica of theirs |
-
-For templated/dynamic detail pages (individual card, individual pack), clone **one template each**,
-then populate from backend data — not every URL.
-
----
-
-## 9. Phased milestones
-
-Each phase ends with a concrete, verifiable deliverable. We stop and confirm between phases.
-**Build order: FRONTEND FIRST** (per decision) — get the UI cloned and running before backend work.
-
-**Phase 0 — Storefront scaffold & verify it runs**
-- Place the `ai-website-cloner-template` into `/storefront` (monorepo). Confirm Node 24.x.
-- Run the base template locally (`npm run dev`) and confirm it serves a page.
-- ✅ Done when: the base Next.js storefront runs at `localhost:3000`.
-
-**Phase 1 — Clone the homepage (+ verify)**
-- Use the `clone-website` skill + Chrome MCP to clone `https://www.phygitals.com/` homepage.
-- Extract assets, CSS, content; build sections; assemble `page.tsx`. Live-pulls feed = static mock for now.
-- ✅ Done when: cloned homepage runs locally and visually matches the original at 1440 + 390px.
-
-**Phase 2 — Clone remaining static pages**
-- How-it-works, About (easy), then Marketplace + Leaderboard shells (mock data), Claw UI.
-- ✅ Done when: pages run and match reference screenshots; all on mock data.
-
-**Phase 3 — Backend scaffold (no Docker)**
-- Create DO Managed Postgres + Valkey (or local for dev), Stripe test keys.
-- `create-medusa-app` into `/backend`; backend + admin run at `:9000` / `:9000/app`.
-- ✅ Done when: admin dashboard loads, can log in, seed data visible.
-
-**Phase 4 — Wire storefront → Medusa**
-- Point the cloned storefront at the Medusa Store API; replace mock data with real products/listings.
-- ✅ Done when: marketplace/home render real Medusa data.
-
-**Phase 5 — Packs/gacha module**
-- Build `packs` module (models + service), `open-pack` workflow, Store/Admin API routes.
-- Admin odds-editing page + widget. Wire claw page → open-pack → reveal animation.
-- ✅ Done when: admin sets odds; a user opens a pack in the UI and sees the weighted result; Pull ledger writes.
-
-**Phase 6 — Realtime feeds (Socket.io)**
-- Socket.io in backend; subscriber on `pack.opened`; wire home live-feed + leaderboard.
-- ✅ Done when: opening a pack updates the live feed in another browser tab.
-
-**Phase 7 — Polish & QA**
-- Visual QA diff vs original (per cloner skill Phase 5), responsive pass, seed realistic demo data.
-- ✅ Done when: side-by-side matches, all flows work on seed data.
-
----
-
-## 10. Prerequisites checklist (before Phase 0)
-
-**For Phase 0–2 (frontend, what we're doing now): nothing external needed** — just Node 24.x (have it).
-
-Needed later, at the backend phases (Phase 3+):
-- [ ] **No Docker needed.** ✅
-- [ ] **DigitalOcean** account → App Platform, Managed Postgres, Managed Valkey, Spaces
-- [ ] **Stripe** account + **test** API keys
-- [ ] Layout: **monorepo** (confirmed ✅)
-- [ ] Keep Node pinned at 24.x (do not move to 25)
-
----
-
-## 11. Risks & open questions
-
-| Risk / question | Mitigation / decision needed |
-|---|---|
-| "Provably fair" is on-chain on the real site | v1 uses seeded server RNG + audit ledger; on-chain is optional later |
-| Pack Party (live group opening) is complex realtime | Defer to after core (Phase 7+), assess then |
-| Cloning auth UI could resemble phishing | We build our OWN auth flow, not a visual replica of theirs |
-| Medusa is a multi-week backend to learn | Phased plan; each phase independently runnable |
-| **Medusa backend can't run on Vercel** | Hosting is **DO App Platform** (web + worker components handle persistent Node) |
-| DO managed DB add-ons add fixed cost | ~$15/mo each for Postgres + Valkey; fine for this project, note for budgeting |
-| Realtime now needs custom Socket.io | ~1 day of WebSocket plumbing (vs zero-code Supabase) — accepted trade for one-platform hosting |
-| Cloning against no backend yet | Frontend-first build uses **mock data**; swap to Medusa data in Phase 4 |
-| Storefront needs rewrite to use Medusa API | Use Medusa's Next.js starter as the API-call reference (Phase 4) |
-
----
-
-## 12. Immediate next step (on approval)
-
-Begin **Phase 0**: place the cloner template into `/storefront`, verify the base Next.js app runs
-locally, then **Phase 1** — run the `clone-website` skill against the phygitals homepage and confirm the
-clone renders. No external accounts needed until the backend phases.
+- **Atomicity** of charge↔inventory is the whole point of workflow compensation — test the rollback path.
+- **Auth gate**: `/claw` open needs a customer JWT + publishable key — Phase 3 must precede Phase 5 usefully.
+- **Two ports / two `node_modules`** (`:3000` storefront, `:9000` backend) — never run `create-medusa-app`
+  at the repo root.
+- **Next 16 async APIs** and uncached `fetch` — keep animations in client components, fetch in server parents.
+- Medusa is a multi-week backend to learn; the phased order keeps the app runnable throughout.

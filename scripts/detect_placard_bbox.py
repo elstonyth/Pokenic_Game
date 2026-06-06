@@ -11,8 +11,10 @@ from PIL import Image, ImageFilter, ImageDraw
 import numpy as np
 
 def load_git(rev, path):
-    data = subprocess.run(["git", "show", f"{rev}:{path}"], capture_output=True).stdout
-    return Image.open(io.BytesIO(data)).convert("RGB")
+    cp = subprocess.run(["git", "show", f"{rev}:{path}"], capture_output=True)
+    if cp.returncode != 0:
+        raise RuntimeError(f"git show {rev}:{path} failed: {cp.stderr.decode('utf-8', 'replace').strip()}")
+    return Image.open(io.BytesIO(cp.stdout)).convert("RGB")
 
 def label_text_bbox(im, region, darkthr=100, brightthr=195):
     W, H = im.size

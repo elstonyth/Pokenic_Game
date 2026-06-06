@@ -162,12 +162,6 @@ export default function PackDetailClient({
                 +90% Buyback Boost
               </span>
             )}
-            {/* soft themed glow behind the machine */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 z-0 motion-safe:animate-[clawGlow_5s_ease-in-out_infinite]"
-              style={{ background: "radial-gradient(45% 45% at 50% 45%, rgba(255,255,255,0.9), transparent 70%)" }}
-            />
             {/* Claw-machine render. Like the live site this is an ANIMATED AVIF (the claw slides
                 left↔right INSIDE the file) rendered in a FIXED <img> — no whole-image float. The full
                 Pokenic rebrand is baked frame-by-frame into the asset: the banner wordmark, the

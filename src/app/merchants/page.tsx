@@ -1,21 +1,38 @@
 "use client";
 
+// /merchants — "Trusted Merchants" directory matching live phygitals: centered hero
+// (Global Network pill + heading + subtitle + search), centered category chips, and a
+// grid of real, well-known TCG merchants with rating + region + shipping badges.
+
 import { useState } from "react";
-import { Store, Star, ArrowUpRight, Globe } from "lucide-react";
+import { Search, Star, SlidersHorizontal, Globe, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Reveal from "@/components/Reveal";
 
-type Merchant = { name: string; region: string; cat: string; rating: number; blurb: string };
+type Merchant = {
+  name: string;
+  country: string;
+  code: string;
+  cat: string;
+  rating: number;
+  ago: string;
+  blurb: string;
+  badges: string[];
+};
+
+// Real, recognizable trading-card merchants (matching the live site's curated list).
 const MERCHANTS: Merchant[] = [
-  { name: "CardVault EU", region: "Europe", cat: "Pokémon", rating: 4.9, blurb: "A continent-wide marketplace with tracked, insured worldwide shipping." },
-  { name: "Kingdom Cards", region: "USA", cat: "Sports", rating: 4.8, blurb: "A trusted source for graded sports cards and supplies since 2007." },
-  { name: "TCG Bazaar", region: "North America", cat: "Magic", rating: 4.7, blurb: "One of the largest marketplaces for collectible card games online." },
-  { name: "Collector's Den", region: "USA", cat: "Yu-Gi-Oh!", rating: 4.6, blurb: "Trading cards, board games, and collectibles — a partner since 1991." },
-  { name: "Prisma Cards", region: "Japan", cat: "Pokémon", rating: 4.9, blurb: "Direct-from-Japan singles, sealed product, and exclusive promos." },
-  { name: "Vintage Vault", region: "USA", cat: "Sports", rating: 4.7, blurb: "Specialists in vintage and high-grade slabs with white-glove handling." },
-  { name: "DuelHaus", region: "Europe", cat: "Yu-Gi-Oh!", rating: 4.5, blurb: "Competitive singles and tournament supplies shipped fast across the EU." },
-  { name: "Spellbound Cards", region: "North America", cat: "Magic", rating: 4.8, blurb: "Curated rares, foils, and commander staples with buylist pricing." },
+  { name: "Cardmarket EU", country: "Germany", code: "DE", cat: "Pokémon", rating: 4.8, ago: "2h ago", blurb: "Europe's premier trading card marketplace with worldwide shipping.", badges: ["Free Shipping €50+", "Express Available"] },
+  { name: "Card Kingdom", country: "United States", code: "US", cat: "Magic", rating: 4.9, ago: "30m ago", blurb: "America's trusted source for trading cards and gaming supplies.", badges: ["Free Shipping $75+", "Same Day Processing"] },
+  { name: "TCGPlayer", country: "New York", code: "US", cat: "Magic", rating: 4.7, ago: "1h ago", blurb: "The largest online marketplace for collectible card games in North America.", badges: ["Free Shipping $35+", "Express Available"] },
+  { name: "Troll and Toad", country: "United States", code: "US", cat: "Yu-Gi-Oh!", rating: 4.6, ago: "3h ago", blurb: "One of the largest online card stores, serving collectors since 1991.", badges: ["Free Shipping $50+"] },
+  { name: "CoolStuffInc", country: "Florida", code: "US", cat: "Magic", rating: 4.7, ago: "1h ago", blurb: "Games, singles, and supplies with fast, reliable fulfillment.", badges: ["Free Shipping $99+", "Same Day Processing"] },
+  { name: "401 Games", country: "Canada", code: "CA", cat: "Pokémon", rating: 4.6, ago: "5h ago", blurb: "Canada's largest game store with deep singles inventory.", badges: ["Free Shipping $75+"] },
+  { name: "Dave & Adam's", country: "United States", code: "US", cat: "Sports", rating: 4.7, ago: "2h ago", blurb: "Sports cards, boxes, and collectibles with a 100% satisfaction guarantee.", badges: ["Free Shipping $50+", "Express Available"] },
+  { name: "Blowout Cards", country: "United States", code: "US", cat: "Sports", rating: 4.5, ago: "4h ago", blurb: "Sealed sports and TCG product at case-break-friendly prices.", badges: ["Free Shipping $99+"] },
+  { name: "Magic Madhouse", country: "United Kingdom", code: "GB", cat: "Yu-Gi-Oh!", rating: 4.5, ago: "6h ago", blurb: "UK retailer for TCG singles, sealed product, and accessories.", badges: ["Free Shipping £50+", "Express Available"] },
 ];
+
 const CATS = ["All", "Pokémon", "Magic", "Yu-Gi-Oh!", "Sports"];
 
 export default function MerchantsPage() {
@@ -23,38 +40,85 @@ export default function MerchantsPage() {
   const list = cat === "All" ? MERCHANTS : MERCHANTS.filter((m) => m.cat === cat);
 
   return (
-    <div className="mx-auto w-full px-fluid py-6">
-      <Reveal as="header" className="mb-5">
-        <div className="flex items-center gap-2.5">
-          <Store className="h-5 w-5 text-amber-400" aria-hidden />
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-white sm:text-4xl">Trusted Merchants</h1>
-        </div>
-        <p className="mt-2 text-sm text-white/55">A curated selection of verified trading-card merchants worldwide.</p>
-      </Reveal>
+    <div className="mx-auto w-full px-fluid py-10">
+      {/* Centered hero */}
+      <div className="mx-auto max-w-2xl text-center">
+        <Reveal className="mb-5 flex justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[12px] font-medium text-white/70">
+            <Globe className="h-3.5 w-3.5 text-white/55" aria-hidden /> Global Network
+          </span>
+        </Reveal>
+        <Reveal as="h1" delay={60} className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
+          Trusted Merchants
+        </Reveal>
+        <Reveal as="p" delay={120} className="mx-auto mt-3 max-w-md text-sm text-white/55 sm:text-base">
+          Curated selection of verified trading card merchants worldwide
+        </Reveal>
+        <Reveal delay={180} className="relative mx-auto mt-7 max-w-xl">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" aria-hidden />
+          <input
+            type="text"
+            placeholder="Search merchants..."
+            aria-label="Search merchants"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-11 pr-12 text-sm text-white placeholder:text-white/40 focus:border-white/25 focus:outline-none"
+          />
+          <SlidersHorizontal className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" aria-hidden />
+        </Reveal>
+      </div>
 
-      <div className="mb-5 flex flex-wrap gap-1.5">
+      {/* Centered category chips */}
+      <div className="mb-8 mt-8 flex flex-wrap justify-center gap-2">
         {CATS.map((c) => (
-          <button key={c} type="button" onClick={() => setCat(c)} className={cn("rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors", cat === c ? "bg-white text-neutral-950" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white")}>{c}</button>
+          <button
+            key={c}
+            type="button"
+            onClick={() => setCat(c)}
+            aria-pressed={cat === c}
+            className={cn(
+              "rounded-full px-4 py-2 text-[13px] font-medium transition-colors",
+              cat === c ? "bg-white text-neutral-950" : "border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white",
+            )}
+          >
+            {c}
+          </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Merchant grid */}
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((m, i) => (
           <Reveal key={m.name} delay={Math.min(i, 8) * 50} className="h-full">
-            <a href="#" className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06]">
+            <a
+              href="#"
+              className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06]"
+            >
               <div className="flex items-start justify-between">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-white/15 to-white/5 font-heading text-base font-bold text-white">
+                <span className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/30 via-violet-500/20 to-sky-500/20 font-heading text-lg font-bold text-white">
                   {m.name.charAt(0)}
+                  <BadgeCheck className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-neutral-900 text-sky-400" aria-hidden />
                 </span>
-                <ArrowUpRight className="h-4 w-4 text-white/30 transition-colors group-hover:text-white/60" aria-hidden />
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-black/40 px-2 py-1 text-[12px] font-semibold text-white">
+                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden />
+                    {m.rating}
+                  </span>
+                  <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-white/40">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" aria-hidden />
+                    {m.ago}
+                  </div>
+                </div>
               </div>
               <h2 className="mt-3 font-heading text-base font-bold text-white">{m.name}</h2>
-              <div className="mt-1 flex items-center gap-3 text-[12px] text-white/45">
-                <span className="inline-flex items-center gap-1"><Globe className="h-3 w-3" aria-hidden />{m.region}</span>
-                <span className="inline-flex items-center gap-1 text-amber-400"><Star className="h-3 w-3 fill-current" aria-hidden />{m.rating}</span>
-                <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/70">{m.cat}</span>
+              <div className="mt-0.5 text-[12px] text-white/45">
+                <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-white/35">{m.code}</span>
+                {m.country}
               </div>
-              <p className="mt-3 text-[13px] leading-relaxed text-white/55">{m.blurb}</p>
+              <p className="mt-2 flex-1 text-[13px] leading-relaxed text-white/55">{m.blurb}</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {m.badges.map((b) => (
+                  <span key={b} className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">{b}</span>
+                ))}
+              </div>
             </a>
           </Reveal>
         ))}

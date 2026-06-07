@@ -256,15 +256,17 @@ function FilterSidebar({
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
 
   return (
-    <aside
-      className={cn(
-        "shrink-0 lg:w-64",
-        // Mobile: full-screen overlay drawer; desktop: static column.
-        "fixed inset-0 z-40 bg-neutral-950/95 backdrop-blur-sm lg:static lg:z-auto lg:bg-transparent lg:backdrop-blur-none",
-        open ? "block" : "hidden lg:block",
-      )}
-    >
-      <div className="flex h-full flex-col overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900/60 p-3 lg:h-auto">
+    // Left drawer on ALL breakpoints (opened by the toolbar "Filters" button) — the
+    // live marketplace has no persistent sidebar at desktop widths, just a Filters panel.
+    <aside className={cn("fixed inset-0 z-40", open ? "block" : "hidden")}>
+      <button
+        type="button"
+        aria-label="Close filters"
+        onClick={onClose}
+        tabIndex={-1}
+        className="absolute inset-0 cursor-default bg-black/70 backdrop-blur-sm"
+      />
+      <div className="absolute left-0 top-0 flex h-full w-[min(20rem,90vw)] flex-col overflow-y-auto border-r border-white/10 bg-neutral-900 p-3">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-1 pb-3">
           <div className="flex items-center gap-2 text-white">

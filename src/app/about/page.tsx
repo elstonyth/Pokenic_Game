@@ -73,6 +73,11 @@ export default function AboutPage() {
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950/80 via-neutral-950/70 to-neutral-950/95" />
         <div className="relative px-6 py-16 text-center sm:px-10 sm:py-20 lg:py-24">
+          <Reveal className="mb-5 flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[12px] font-medium text-white/70">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden /> Powering 100K+ collectibles
+            </span>
+          </Reveal>
           <Reveal as="h1" className="mx-auto max-w-3xl font-heading text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
             The Infrastructure for <span className="text-neutral-500">Digital Collectibles</span>
           </Reveal>
@@ -80,16 +85,19 @@ export default function AboutPage() {
             Buy digital packs backed by real physical cards. Instantly reveal, securely vault, and
             ship or sell whenever you want.
           </Reveal>
-          <Reveal delay={180} className="mt-10">
-            <p className="mb-4 text-[11px] font-medium uppercase tracking-widest text-white/40">
-              Powered by Trusted Infrastructure
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-8 opacity-70">
-              {VAULT_LOGOS.map((l) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={l.alt} src={l.src} alt={l.alt} className="h-7 w-auto object-contain" />
-              ))}
-            </div>
+          <Reveal delay={180} className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/claw"
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-7 py-3 text-sm font-semibold text-neutral-950 shadow-lg transition-colors duration-300 hover:bg-white/90"
+            >
+              Explore Packs
+            </Link>
+            <a
+              href="#launch"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-7 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-white/10"
+            >
+              Launch With Us
+            </a>
           </Reveal>
         </div>
       </section>
@@ -142,6 +150,7 @@ export default function AboutPage() {
       </section>
 
       {/* 4. LAUNCH WITH US */}
+      <div id="launch" className="scroll-mt-24" />
       <Reveal as="section" className="mb-16 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-8 sm:p-10">
         <div className="grid gap-8 md:grid-cols-2 md:items-center">
           <div>

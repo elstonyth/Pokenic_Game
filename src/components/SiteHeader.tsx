@@ -19,6 +19,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AuthModal from './AuthModal';
+import { openAuth } from './AuthButton';
 
 type NavItem = {
   label: string;
@@ -155,19 +157,21 @@ export default function SiteHeader() {
             <HelpCircle className="h-4 w-4 text-neutral-400" aria-hidden />
             How it works
           </a>
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={() => openAuth('login')}
             className="hidden h-10 items-center gap-2 rounded-lg bg-white/5 px-3.5 text-sm font-medium text-neutral-50 transition-all duration-200 ease-in-out hover:bg-white/10 lg:flex"
           >
             <LogIn className="h-4 w-4" aria-hidden />
             Login
-          </Link>
-          <Link
-            href="/signup"
+          </button>
+          <button
+            type="button"
+            onClick={() => openAuth('signup')}
             className="hidden h-10 items-center justify-center whitespace-nowrap rounded-lg bg-gradient-to-r from-white/90 via-white to-white/90 px-4 text-sm font-medium text-black transition-all duration-300 hover:opacity-90 lg:inline-flex"
           >
             Sign Up
-          </Link>
+          </button>
 
           {/* mobile hamburger */}
           <button
@@ -249,22 +253,27 @@ export default function SiteHeader() {
           </a>
 
           <div className="mt-2 flex flex-col gap-2 border-t border-neutral-800 pt-3">
-            <Link
-              href="/login"
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); openAuth('login'); }}
               className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white/5 px-4 text-sm font-medium text-neutral-50 transition-all duration-200 hover:bg-white/10"
             >
               <LogIn className="h-4 w-4" aria-hidden />
               Login
-            </Link>
-            <Link
-              href="/signup"
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); openAuth('signup'); }}
               className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-gradient-to-r from-white/90 via-white to-white/90 px-5 text-sm font-medium text-black transition-all duration-300 hover:opacity-90"
             >
               Sign Up
-            </Link>
+            </button>
           </div>
         </nav>
       </div>
+
+      {/* Global login/signup modal (live uses a modal, not /login //signup pages) */}
+      <AuthModal />
     </header>
   );
 }

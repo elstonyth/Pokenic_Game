@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Sparkles, UserPlus, Gamepad2, Banknote } from "lucide-react";
 import Reveal from "@/components/Reveal";
+import AuthButton from "@/components/AuthButton";
 
 export const metadata: Metadata = {
   title: "Your Free Pack is Waiting — Pokenic",
@@ -59,12 +59,12 @@ export default function FreePage() {
               />
             ))}
           </div>
-          <Link
-            href="/signup"
+          <AuthButton
+            mode="signup"
             className="mt-10 inline-flex h-12 items-center justify-center rounded-2xl bg-white px-8 text-sm font-semibold text-neutral-950 shadow-lg transition-opacity hover:opacity-90"
           >
             Sign Up &amp; Claim Free Pack
-          </Link>
+          </AuthButton>
         </div>
       </section>
 

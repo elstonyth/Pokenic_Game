@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Gift, Sparkles } from "lucide-react";
 import Reveal from "@/components/Reveal";
+import AuthButton from "@/components/AuthButton";
 
 export const metadata: Metadata = {
   title: "Pokémon Card Airdrop — Pokenic",
@@ -27,9 +27,9 @@ export default function AirdropPage() {
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/65 sm:text-base">
             Reserve your spot now and claim a free graded card when the airdrop goes live.
           </p>
-          <Link href="/signup" className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-8 text-sm font-semibold text-white shadow-lg transition-opacity hover:opacity-90">
+          <AuthButton mode="signup" className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-8 text-sm font-semibold text-white shadow-lg transition-opacity hover:opacity-90">
             <Sparkles className="h-4 w-4" aria-hidden /> Claim Free Pokémon Cards
-          </Link>
+          </AuthButton>
         </div>
       </section>
 

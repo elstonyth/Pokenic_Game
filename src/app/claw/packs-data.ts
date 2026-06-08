@@ -146,13 +146,16 @@ export function findCategory(slug: string): PackCategory | null {
 // ---------------------------------------------------------------------------
 // Machines that ship a REBRANDED ANIMATED avif ({base}-anim.avif) — the live claw render is an
 // animated AVIF (claw slides L-R inside the file); these are rebranded frame-by-frame. The rest
-// fall back to the static rebranded webp. (black-pack-jjnfuk's source is a single static frame.)
+// fall back to the static rebranded webp.
 const CLAW_HAS_ANIM = new Set([
   "mythic-pack", "legend-pack", "elite-pack", "platinum-pack", "rookie-pack", "trainer-pack",
   "starter-riftbound-pack", "legend-pack-1dpaec", "modern-grails-noafw0", "pro-soccer-pack",
   // premium pokemon tiers: full banner+placard+url rebrand on the busy red-neon / crystal-refraction
   // backgrounds (scripts/rebrand-premium-banner.mjs blur-patch + make_patch per-base BAND).
   "black-pack", "diamond-pack",
+  // NBA Black: 142-frame anim, banner+placard+url already rebranded "pokenic" (only a sub-pixel
+  // preview-card watermark remains, below render-scale legibility).
+  "black-pack-jjnfuk",
 ]);
 
 // Packs that ship NO rebranded claw-machine render yet. Empty now that the premium tiers are baked;
@@ -162,7 +165,7 @@ const CLAW_NO_MACHINE = new Set<string>([]);
 
 // Bump CLAW_REV whenever the machine pixels change (rebrand passes) so browsers fetch the new
 // image instead of a cached older one (filenames stay the same across edits).
-const CLAW_REV = "15";
+const CLAW_REV = "16";
 
 export function clawMachine(pack: Pack): { webp: string; anim?: string } {
   const base = pack.image.replace("/images/claw/", "").replace("-icon.webp", "");

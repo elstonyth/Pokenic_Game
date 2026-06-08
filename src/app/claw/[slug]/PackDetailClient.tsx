@@ -203,6 +203,8 @@ export default function PackDetailClient({
         image: res.card.image,
         value: res.card.value,
         rarity: res.card.rarity,
+        packName: active.name,
+        packIcon: active.image,
         agoLabel: "just now",
       };
       setRecent((prev) => [justPulled, ...prev].slice(0, 12));

@@ -19,6 +19,7 @@ import { logger } from "@/lib/logger";
 import { isRarity, formatValue } from "@/lib/packs-format";
 import {
   CATEGORIES as MOCK_CATEGORIES,
+  findPack,
   type Pack,
   type PackCategory,
   type PackCard,
@@ -169,6 +170,7 @@ interface BackendRecentPull {
   image: string;
   market_value: number;
   rarity: string;
+  pack_id: string;
   rolled_at: string;
 }
 
@@ -178,9 +180,15 @@ export interface RecentPull {
   image: string;
   value: string;
   rarity: Rarity;
+  /** Source pack name + icon (for the feed's pack label). */
+  packName: string;
+  packIcon: string;
   /** Relative timestamp, e.g. "4m ago" (computed at render). */
   agoLabel: string;
 }
+
+// Fallback pack label when a pull's pack_id isn't in the static catalog.
+const FALLBACK_PACK_ICON = "/images/claw/rookie-pack-icon.webp";
 
 // rolled_at -> "just now" / "4m ago" / "2h ago" / "3d ago".
 function relativeTime(iso: string): string {
@@ -218,14 +226,19 @@ export async function getRecentPulls(): Promise<RecentPull[]> {
           isRarity(p.rarity) &&
           Number.isFinite(p.market_value)
       )
-      .map((p, i) => ({
-        id: `${p.handle}-${p.rolled_at}-${i}`,
-        name: p.name,
-        image: p.image,
-        value: formatValue(p.market_value),
-        rarity: p.rarity as Rarity,
-        agoLabel: relativeTime(p.rolled_at),
-      }));
+      .map((p, i) => {
+        const pack = findPack(p.pack_id);
+        return {
+          id: `${p.handle}-${p.rolled_at}-${i}`,
+          name: p.name,
+          image: p.image,
+          value: formatValue(p.market_value),
+          rarity: p.rarity as Rarity,
+          packName: pack?.name ?? "Mystery Pack",
+          packIcon: pack?.image ?? FALLBACK_PACK_ICON,
+          agoLabel: relativeTime(p.rolled_at),
+        };
+      });
   } catch (error) {
     logger.error("[packs] failed to load recent pulls:", error);
     return [];

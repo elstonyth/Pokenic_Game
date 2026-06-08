@@ -37,6 +37,9 @@ export async function GET(
         // market_value is a BigNumber — normalize to a JSON number (USD decimal).
         market_value: Number(card.market_value),
         image: card.image,
+        // pack the card came from (= Pack.slug) — for the feed's pack label.
+        // Still NO customer_id: the feed stays PII-free.
+        pack_id: p.pack_id,
         rolled_at: p.rolled_at,
       };
     })

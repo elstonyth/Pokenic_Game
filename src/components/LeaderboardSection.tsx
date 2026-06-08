@@ -3,99 +3,7 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useInView, usePrefersReducedMotion } from '@/lib/use-reveal';
-
-type LeaderboardEntry = {
-  rank: number;
-  name: string;
-  volume: string;
-  pulls: string;
-  points: string;
-  avatar: string;
-};
-
-// Real data + avatar URLs extracted verbatim from phygitals.com homepage "Weekly Leaderboard".
-const ENTRIES: LeaderboardEntry[] = [
-  {
-    rank: 1,
-    name: 'FightingProdigy3098',
-    volume: 'US$8,173,374.26',
-    pulls: '1403',
-    points: '812,296,655',
-    avatar: '/images/pfps/pfp-30.webp',
-  },
-  {
-    rank: 2,
-    name: 'love',
-    volume: 'US$4,293,513.36',
-    pulls: '232',
-    points: '428,287,429',
-    avatar: '/images/pfps/pfp-81.webp',
-  },
-  {
-    rank: 3,
-    name: 'PsychicGuardian5685',
-    volume: 'US$1,399,630.64',
-    pulls: '723',
-    points: '139,937,985',
-    avatar: '/images/pfps/pfp-71.webp',
-  },
-  {
-    rank: 4,
-    name: 'HyperResearcher7463',
-    volume: 'US$1,189,685.65',
-    pulls: '360',
-    points: '118,968,718',
-    avatar: '/images/pfps/pfp-58.webp',
-  },
-  {
-    rank: 5,
-    name: 'PrinceOfDragons',
-    volume: 'US$469,126.15',
-    pulls: '827',
-    points: '46,912,908',
-    avatar: '/images/pfps/pfp-31.webp',
-  },
-  {
-    rank: 6,
-    name: 'AncientMaster2024',
-    volume: 'US$392,343.09',
-    pulls: '41',
-    points: '39,234,328',
-    avatar: '/images/pfps/pfp-60.webp',
-  },
-  {
-    rank: 7,
-    name: 'RapidDefender3371',
-    volume: 'US$358,774.38',
-    pulls: '120',
-    points: '35,737,514',
-    avatar: '/images/pfps/pfp-1.webp',
-  },
-  {
-    rank: 8,
-    name: 'EnergyProdigy7233',
-    volume: 'US$298,032.28',
-    pulls: '33',
-    points: '29,803,240',
-    avatar: '/images/pfps/pfp-76.webp',
-  },
-  {
-    rank: 9,
-    name: 'RockHunter9181',
-    volume: 'US$230,400',
-    pulls: '12',
-    points: '23,040,000',
-    avatar: '/images/pfps/pfp-66.webp',
-  },
-  {
-    rank: 10,
-    name: 'AquaCatcher6841',
-    volume: 'US$214,782.06',
-    pulls: '82',
-    points: '21,478,238',
-    avatar: '/images/pfps/pfp-28.webp',
-  },
-];
+import { MOCK_LEADERBOARD, type LeaderboardEntry } from '@/lib/data/leaderboard';
 
 function Avatar({ src, name }: { src: string; name: string }) {
   return (
@@ -111,7 +19,14 @@ function Avatar({ src, name }: { src: string; name: string }) {
   );
 }
 
-export default function LeaderboardSection({ showHeading = true }: { showHeading?: boolean }) {
+export default function LeaderboardSection({
+  showHeading = true,
+  entries = MOCK_LEADERBOARD,
+}: {
+  showHeading?: boolean;
+  /** Live leaderboard rows; defaults to the static mock board. */
+  entries?: LeaderboardEntry[];
+}) {
   // Rows stagger-fade-up when the leaderboard scrolls into view (the "leaderboard
   // goes in" animation). Fires once; respects prefers-reduced-motion.
   const [ref, shown] = useInView<HTMLDivElement>();
@@ -140,7 +55,7 @@ export default function LeaderboardSection({ showHeading = true }: { showHeading
       <div className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900">
         {/* Mobile list */}
         <div className="block divide-y divide-neutral-800 sm:hidden">
-          {ENTRIES.map((e, i) => (
+          {entries.map((e, i) => (
             <div
               key={e.rank}
               style={{ transitionDelay: show && !reduced ? `${i * 45}ms` : "0ms" }}
@@ -190,7 +105,7 @@ export default function LeaderboardSection({ showHeading = true }: { showHeading
               </tr>
             </thead>
             <tbody>
-              {ENTRIES.map((e, i) => (
+              {entries.map((e, i) => (
                 <tr
                   key={e.rank}
                   style={{ transitionDelay: show && !reduced ? `${i * 45}ms` : "0ms" }}

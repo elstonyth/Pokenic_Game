@@ -9,9 +9,11 @@
  * to it. The client learns the auth state via the same-origin `/api/me` route.
  */
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import type { HttpTypes } from "@medusajs/types";
 import { sdk } from "@/lib/medusa";
+import { logger } from "@/lib/logger";
 
 const AUTH_COOKIE = "_pokenic_jwt";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
@@ -39,18 +41,71 @@ async function getAuthToken(): Promise<string | undefined> {
   return store.get(AUTH_COOKIE)?.value;
 }
 
-/** The logged-in customer (from the httpOnly JWT cookie), or null if logged out. */
-export async function getCustomer(): Promise<HttpTypes.StoreCustomer | null> {
+/**
+ * The logged-in customer (from the httpOnly JWT cookie), or null if logged out.
+ *
+ * `cache()`-wrapped so the account layout's auth gate and the page that renders
+ * inside it share a single backend round-trip per request instead of two.
+ */
+export const getCustomer = cache(
+  async (): Promise<HttpTypes.StoreCustomer | null> => {
+    const token = await getAuthToken();
+    if (!token) return null;
+    try {
+      const { customer } = await sdk.store.customer.retrieve(
+        {},
+        { Authorization: `Bearer ${token}` },
+      );
+      return customer;
+    } catch {
+      // Expired/invalid token — treat as logged out.
+      return null;
+    }
+  },
+);
+
+// Order list field selection (verified against the backend): scalar order facts
+// plus the line items. The Store API doesn't guarantee an order without an
+// explicit sort, so `getOrders` sorts newest-first after fetching.
+const ORDER_FIELDS =
+  "id,display_id,status,fulfillment_status,payment_status,total,currency_code,created_at,*items";
+const ORDER_LIST_LIMIT = 50;
+
+/**
+ * The logged-in customer's orders (newest first), or `[]` when logged out or the
+ * backend is unreachable. Empty until the Phase 5 checkout flow creates orders —
+ * that empty result is expected, not a failure.
+ */
+export async function getOrders(): Promise<HttpTypes.StoreOrder[]> {
   const token = await getAuthToken();
-  if (!token) return null;
+  if (!token) return [];
   try {
-    const { customer } = await sdk.store.customer.retrieve(
-      {},
+    const { orders } = await sdk.store.order.list(
+      { limit: ORDER_LIST_LIMIT, fields: ORDER_FIELDS },
       { Authorization: `Bearer ${token}` },
     );
-    return customer;
-  } catch {
-    // Expired/invalid token — treat as logged out.
-    return null;
+    return [...orders].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+  } catch (error) {
+    logger.error("[orders] failed to load orders from backend:", error);
+    return [];
   }
+}
+
+/**
+ * Update the logged-in customer's own profile (data layer — no validation here).
+ * Throws when logged out so the calling server action can surface a clean error;
+ * `email` is intentionally not part of `StoreUpdateCustomer` (not updatable here).
+ */
+export async function updateCustomerProfile(
+  body: HttpTypes.StoreUpdateCustomer,
+): Promise<HttpTypes.StoreCustomer> {
+  const token = await getAuthToken();
+  if (!token) throw new Error("Not authenticated.");
+  const { customer } = await sdk.store.customer.update(body, {}, {
+    Authorization: `Bearer ${token}`,
+  });
+  return customer;
 }

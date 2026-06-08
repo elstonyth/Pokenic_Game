@@ -1,36 +1,43 @@
 import type { Metadata } from "next";
-import { AccountHeader, Panel, DemoNote } from "@/components/account/ui";
+import { AccountHeader, Panel } from "@/components/account/ui";
+import SettingsForm from "@/components/account/SettingsForm";
+import { getCustomer } from "@/lib/data/customer";
 
 export const metadata: Metadata = { title: "Settings | Pokenic" };
 
-const Field = ({ label, defaultValue, type = "text" }: { label: string; defaultValue?: string; type?: string }) => (
-  <label className="block">
-    <span className="mb-1.5 block text-[12px] font-medium text-white/55">{label}</span>
-    <input
-      type={type}
-      defaultValue={defaultValue}
-      className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-white placeholder:text-white/40 focus:border-white/25 focus:outline-none"
-    />
-  </label>
-);
+// Per-customer data behind the auth gate — always rendered fresh.
+export const dynamic = "force-dynamic";
 
-const TOGGLES = ["Email notifications", "Pull alerts", "Marketplace activity", "Two-factor authentication"];
+// Static visual preferences — these don't persist yet (no backend representation;
+// 2FA/notifications are tracked as launch follow-ups in docs/note.md).
+const TOGGLES = [
+  "Email notifications",
+  "Pull alerts",
+  "Marketplace activity",
+  "Two-factor authentication",
+];
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const customer = await getCustomer();
+  // The account layout gate redirects unauthenticated visitors, so this is a
+  // defensive guard for the nullable type rather than a reachable state.
+  if (!customer) return null;
+
   return (
     <>
       <AccountHeader title="Settings" sub="Manage your profile, security, and notifications." />
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel>
           <h2 className="mb-4 font-heading text-lg font-bold text-white">Profile</h2>
-          <div className="flex flex-col gap-4">
-            <Field label="Display name" defaultValue="FightingProdigy3098" />
-            <Field label="Email" type="email" defaultValue="collector@pokenic.com" />
-            <Field label="Bio" defaultValue="Chasing grails one pack at a time." />
-            <button type="button" className="self-start rounded-xl bg-neutral-200 px-5 py-2.5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-white">
-              Save changes
-            </button>
-          </div>
+          <SettingsForm
+            customer={{
+              id: customer.id,
+              email: customer.email,
+              first_name: customer.first_name ?? null,
+              last_name: customer.last_name ?? null,
+              phone: customer.phone ?? null,
+            }}
+          />
         </Panel>
         <Panel>
           <h2 className="mb-4 font-heading text-lg font-bold text-white">Notifications &amp; security</h2>
@@ -44,9 +51,9 @@ export default function SettingsPage() {
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-[11px] text-white/35">Preferences are illustrative and don&apos;t persist yet.</p>
         </Panel>
       </div>
-      <DemoNote />
     </>
   );
 }

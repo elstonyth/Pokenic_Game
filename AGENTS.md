@@ -58,7 +58,7 @@ scripts/            # Asset download scripts
 ```
 
 ## MOST IMPORTANT NOTES
-- When launching Claude Code agent teams, ALWAYS have each teammate work in their own worktree branch and merge everyone's work at the end, resolving any merge conflicts smartly since you are basically serving the orchestrator role and have full context to our goals, work given, work achieved, and desired outcomes.
+- When launching Claude Code agent teams, prefer giving each teammate its own worktree branch and merging at the end (you serve the orchestrator role with full context). **EXCEPTION for this repo:** the git root *is* this repo (no parent monorepo), so Agent worktree isolation **fails** — dispatch builder sub-agents **in-place** here, not in per-teammate worktrees. See CLAUDE.md / `.claude/rules/common/agents.md`.
 - After editing `AGENTS.md`, run `bash scripts/sync-agent-rules.sh` to regenerate platform-specific instruction files.
 - After editing `.claude/skills/clone-website/SKILL.md`, run `node scripts/sync-skills.mjs` to regenerate the skill for all platforms.
 

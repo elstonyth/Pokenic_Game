@@ -2,15 +2,6 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -c \"import json,sys,re,os; d=json.load(sys.stdin); c=d.get('tool_input',d).get('command',''); print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','additionalContext':'graphify: a code knowledge graph exists at graphify-out/. Prefer: graphify query <question> (or path/explain) for a scoped subgraph instead of grepping raw files; read GRAPH_REPORT.md only for broad architecture.'}})) if (os.path.isfile('graphify-out/graph.json') and re.search(r'(?:^|[\\s|&;])(?:grep|egrep|fgrep|rg|ripgrep|ag|ack|fd|find)\\b', c)) else None\" 2>/dev/null || true"
-          }
-        ]
-      },
-      {
         "matcher": "Edit|Write",
         "hooks": [
           {

@@ -25,7 +25,7 @@ The Feature Implementation Workflow describes the development pipeline: research
    - Write tests first (RED)
    - Implement to pass tests (GREEN)
    - Refactor (IMPROVE)
-   - Verify 80%+ coverage
+   - Verify 80%+ coverage of genuine logic (presentational work uses the Playwright capture/compare loop — see web/testing.md)
 
 3. **Code Review**
    - Use the `ecc:code-reviewer` agent (or `/ecc:code-review`) after writing code

@@ -39,8 +39,8 @@ Before marking code complete:
 - [ ] Errors are handled explicitly
 - [ ] No hardcoded secrets or credentials
 - [ ] No console.log or debug statements
-- [ ] Tests exist for new functionality
-- [ ] Test coverage meets 80% minimum
+- [ ] Tests exist for new behavioral logic
+- [ ] Coverage ~80% of genuine logic (utilities/hooks/backend); presentational/visual components are covered by Playwright instead — see testing.md
 
 ## Security Review Triggers
 
@@ -85,7 +85,7 @@ These are plugin-provided (`ecc:` prefix) — not in `~/.claude/agents/`.
 2. Check security checklist first
 3. Review code quality checklist
 4. Run relevant tests
-5. Verify coverage >= 80%
+5. Verify coverage of genuine logic (visual components via Playwright — see testing.md)
 6. Use appropriate agent for detailed review
 ```
 

@@ -468,6 +468,7 @@ export default function PackDetailClient({
           isReal={reveal.isReal}
           packImage={active.image}
           packName={active.name}
+          category={pack.categoryName}
           opening={opening}
           reduced={reduced}
           onClose={() => setReveal(null)}

@@ -156,6 +156,13 @@ const CLAW_HAS_ANIM = new Set([
   // NBA Black: 142-frame anim, banner+placard+url already rebranded "pokenic" (only a sub-pixel
   // preview-card watermark remains, below render-scale legibility).
   "black-pack-jjnfuk",
+  // One Piece + Yu-Gi-Oh: these have NO top "phygitals" banner (top = tier name / "PR-OH"), so only the
+  // bottom pedestal zones are rebranded — url "Pokenic.com", the "RIP & REVEAL by pokenic" pill, and
+  // (Yu-Gi-Oh) the "pokenic / claw." placard (scripts/rebrand-onepiece-yugioh.mjs blur-patch + redraw,
+  // make_patch BAND=0 so the bottom-only mask never freezes the claw). Platinum carries no legible
+  // phygitals (occluded by its silver waves), so its anim is the source re-used as-is.
+  "elite-one-piece-pack", "legend-one-piece-pack", "starter-one-piece-pack",
+  "one-piece-platinum-pack", "yugioh-pro-pack",
 ]);
 
 // Packs that ship NO rebranded claw-machine render yet. Empty now that the premium tiers are baked;
@@ -165,7 +172,7 @@ const CLAW_NO_MACHINE = new Set<string>([]);
 
 // Bump CLAW_REV whenever the machine pixels change (rebrand passes) so browsers fetch the new
 // image instead of a cached older one (filenames stay the same across edits).
-const CLAW_REV = "16";
+const CLAW_REV = "17";
 
 export function clawMachine(pack: Pack): { webp: string; anim?: string } {
   const base = pack.image.replace("/images/claw/", "").replace("-icon.webp", "");

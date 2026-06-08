@@ -1,56 +1,55 @@
-# Pack-Opening Reveal — Spec (matched to LIVE phygitals)
+# Pack-Opening Reveal — Spec (FRAME-MEASURED vs LIVE phygitals, 2026-06-08)
 
-**Target file:** `src/app/claw/[slug]/PackOpenOverlay.tsx` (REBUILD — the current burst
-overlay is WRONG; the live flow is a tactile multi-tap sequence, captured below).
-**Reference frames:** `docs/design-references/phygitals-open/{demo,reveal,flip}/*.png`
-**Interaction model:** click/tap-driven, full-screen overlay (live uses `fixed inset-0 z-[80] bg-black`).
-**How to observe (live):** `/claw/<slug>` → **"Try a free demo spin"** (free, no login). Real
-"Open Pack" is login+credits-gated, but the demo runs the identical animation.
+**Target file:** `src/app/claw/[slug]/PackOpenOverlay.tsx`
+**Reference frames:** `docs/research/openpack-live/*.png` (recon-live-openpack{,2}.mjs + recon-live-reveal.mjs)
+**How to observe (live):** `/claw/<slug>` → **"Try a free demo spin"** (free, no login). The demo runs the
+identical animation to a real open. The visible demo link is NOT the first DOM match — click the visible one.
 
-## The live flow (frame-verified)
+## Interaction model — click/drag-driven full-screen overlay (`fixed inset-0 z-[80] bg-black`)
 
-1. **Open/demo → full-screen black overlay.** Top-left back arrow; top-right ⚡ + 🔊 icons.
-2. **Stage 1 — 3D pack carousel** (`pack-carousel-cylinder`): several identical booster
-   packs in a 3D coverflow (center pack forward + angled packs receding L/R, with floor
-   reflections). Bottom: a pill **"⇄ SHUFFLE"** + caption **"TAP TO SELECT A PACK TO OPEN"**.
-   (demo/spin-*.png)
-3. **Stage 2 — face-down slab.** Tapping a pack swaps it for a centered **face-down graded
-   slab** (black, "phygitals" wordmark + QR + embossed sport icons on the back). Top: **"1 of 1"**.
-   Bottom: **"● TAP TO REVEAL"**. (reveal/r-*.png)
-4. **Stage 3 — reveal** (tap the slab):
-   - Metadata animates in on black, stacked + centered: **YEAR** `2004`, **CATEGORY** `Pokemon`,
-     **GRADE** `BGS 8.5`, then a rounded **rarity pill** (`EPIC`, purple) — big bold white values,
-     tiny grey labels above each. (flip/f-04.png)
-   - Then the **graded card slab** scales in centered; below it: the card **name** (2 lines),
-     a **rarity pill** (`EPIC` purple) + **`Value: $6,956.63`**, and a green **"Continue"** button.
-     Top still shows **"1 of 1"**. (flip/f-10.png)
+Top-left back arrow; top-right ⚡ + 🔊 icons. Five stages:
 
-## Rarity pill colors (live)
-Legendary=amber/gold, Epic=purple `#7c3aed`-ish, Rare=blue, Uncommon=green, Common=grey.
-(Reuse the detail page RARITY rgb: Legendary 234,179,8 / Epic 217,70,239 / Rare 56,189,248 /
-Uncommon 52,211,153 / Common 163,163,163.)
+### 1. Carousel — a real 3D CYLINDER (measured)
+Classes: `pack-carousel-cylinder` (preserve-3d) / `pack-carousel-slot` / `pack-carousel-reflection` / `pack-carousel-inner`.
+- **6 identical packs, 60° apart**, on a cylinder of **radius 259.2px** (each slot = `rotateY(i*60deg) translateZ(259.2px)`), `--pc-local-angle: {0,60,120,180,240,300}deg`. Front pack slot ≈ **318×444**.
+- **Floor reflection**: a mirrored copy per pack (`matrix3d` with `-1` on Y), faded.
+- **DRAG/SWIPE ROTATES THE CYLINDER.** A 364px horizontal drag rotated the cylinder `rotateY(120°)` (2 slots) — i.e. ~`0.33°/px`. Release **snaps to the nearest 60°**.
+- Bottom: **"⇄ SHUFFLE"** pill (spins to a random slot) + caption **"TAP TO SELECT A PACK TO OPEN"**.
+- A click that isn't a drag → select the front pack → slab. (All packs are the same pack being opened, so selection is cosmetic.)
 
-## Data available in the clone
-`openPack()` returns a `PackCard` { id, name, image, value, rarity }. The backend RolledCard
-also has set/grader/grade. Year/category aren't on PackCard → derive: CATEGORY from the active
-pack's category name; GRADE from card grade if threaded through (else omit); YEAR not available
-(omit or parse from name). Keep the metadata block to what we truly have (rarity + value always;
-grade/category when available) — don't fabricate.
+### 2. Slab — face-down graded holder
+A realistic clear graded-card **holder** (PSA/BGS-style bezel) centered:
+- Top label bar: **brand wordmark** (`▰ phygitals` → clone `pokenic`) + a **QR code** (top-right).
+- Card back = black with **embossed category glyphs**: a large center **brand "P"** + sport/category emblems (one-piece skull, basketball, pokeball).
+- Footer micro-text: **"PHYGITAL CERTIFICATION"**.
+- Top label **"1 of 1"**; bottom **"● TAP TO REVEAL"** (pulse). Tap → reveal.
 
-## Build plan (clone, faithful but pragmatic)
-Full-screen overlay (`fixed inset-0 z-[70] bg-black`), reduced-motion → jump to reveal. Stages
-as a state machine driven by TAP (click anywhere / a button):
-- **packs**: the selected pack shown large center with a subtle 3D coverflow (center pack +
-  2 dimmed siblings angled behind via rotateY/translateZ) + floor reflection; "⇄ Shuffle"
-  (re-orders, cosmetic) + caption "Tap to open". Click → slab.
-- **slab**: a face-down POKENIC-branded slab (reuse a generic back: dark rounded slab + pokenic
-  mark + sport glyphs), "1 of 1" top, "Tap to reveal" bottom + pulse. Click → reveal.
-- **reveal**: metadata stagger-fades in (rarity always; value; grade/category if present), then
-  the won card slab scales in (rarity-glow border) + name + rarity pill + Value + green
-  **Continue** (closes) / and an "Open another" path. Rarity drives pill + glow.
-- Keep the existing free **demo** (random CARD_POOL card) + the real backend open both routing
-  through this overlay (nonce-keyed remount).
+### 3. Metadata (stacked, centered, staggered fade-in, soft white glow on values)
+Tiny grey uppercase labels over big bold white values:
+- **YEAR** `2003` · **CATEGORY** `Pokemon` · **GRADE** `PSA 10` · then the **rarity** (its tier word).
+- Holds ~1.8s → Pull. Clone data: CATEGORY = pack category; GRADE parsed from card name (`PSA/CGC/BGS/SGC \d+`);
+  YEAR omitted unless present (don't fabricate); rarity from the card.
+
+### 4. Pull celebration (~1s) — NEW STAGE the clone was missing
+A **diagonal rarity-COLORED ribbon** sweeps across screen with a repeating marquee **"`<RARITY> PULL •`"**, and a
+big white **"`<Rarity>!`"** shout centered over the (still-visible) slab. Ribbon color = rarity color
+(Mythic→gold/yellow on live; clone maps to its rarity rgb).
+
+### 5. Card reveal
+The card inside a **PSA-style graded holder** (white border + top grade label), centered + scale-in with a
+rarity glow. Below: **"1 of 1"**, the full **card name**, a **rarity chip** + **value** (`$2,606.69`), green
+**Continue** (closes) + an **Open another** path.
+
+## Rarity colors (clone RARITY_RGB) — reuse for pill + glow + ribbon
+Legendary 234,179,8 · Epic 217,70,239 · Rare 56,189,248 · Uncommon 52,211,153 · Common 163,163,163.
+(NB: live rarity tiers are Common/Uncommon/Rare/Epic/**Mythic**; the clone keeps its own Legendary→Common set.)
+
+## Build notes
+- Stage machine: `"packs" | "slab" | "metadata" | "pull" | "card"`; reduced-motion → jump to `card`.
+- Cylinder: React `rotation` state; `transform: rotateY(rotation)`; 6 slots; pointer drag updates rotation,
+  release snaps to nearest 60°; SHUFFLE animates to `round/60*60 + 60*rand`. Distinguish click (open) from drag.
+- Demo (random CARD_POOL card) and the real backend open both route through this overlay (nonce-keyed remount).
 
 ## Verify
-Prod `:4000`, `scripts/capture-pack-open-anim.mjs` (motion on) through all stages via the demo;
-read frames; reduced-motion path; compare side-by-side to the live `flip/`+`reveal/` frames.
+Prod `:4000`, `scripts/capture-pack-open-anim.mjs` (motion on) through all 5 stages via the demo; read frames;
+reduced-motion path; compare to live `openpack-live/` frames.

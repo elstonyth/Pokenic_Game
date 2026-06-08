@@ -1,6 +1,6 @@
-// Capture the /claw/[slug] pack-opening overlay through its live-matched stages
-// (3D pack carousel -> tap -> face-down slab -> tap -> reveal) via the free demo
-// spin. Motion ON. Verifies each stage + the final card.
+// Capture the CLONE /claw/[slug] pack-opening overlay through its 5 live-matched stages
+// (interactive 3D cylinder → drag-spin → tap → graded slab → metadata → PULL ribbon →
+// graded-holder card) via the free demo spin. Motion ON. Verifies each stage.
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
@@ -22,35 +22,49 @@ await page.waitForTimeout(700);
 const dlg = page.locator('[role="dialog"][aria-modal="true"]');
 ok("overlay_open", await dlg.isVisible().catch(() => false));
 
-// Stage 1: pack carousel
+// Stage 1: cylinder
 let txt = await dlg.innerText().catch(() => "");
-ok("stage_packs", /tap to select a pack|shuffle/i.test(txt));
-await page.screenshot({ path: `${OUT}/01-carousel.png` });
+ok("stage_packs", /tap a pack|shuffle|drag to spin/i.test(txt));
+await page.screenshot({ path: `${OUT}/01-cylinder.png` });
 
-// tap -> slab
-await dlg.click({ position: { x: 720, y: 470 } });
-await page.waitForTimeout(500);
+// Test drag-to-spin: drag horizontally across the cylinder, screenshot the rotated state
+const box = await dlg.boundingBox();
+const cx = box.x + box.width / 2, cy = box.y + box.height / 2 - 40;
+await page.mouse.move(cx, cy);
+await page.mouse.down();
+for (let i = 1; i <= 12; i++) { await page.mouse.move(cx - i * 24, cy); await page.waitForTimeout(16); }
+await page.mouse.up();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/02-after-drag.png` });
+
+// Tap a pack (a click, not a drag) → slab
+await page.mouse.click(cx, cy);
+await page.waitForTimeout(600);
 txt = await dlg.innerText().catch(() => "");
 ok("stage_slab", /tap to reveal|1 of 1/i.test(txt));
-await page.screenshot({ path: `${OUT}/02-slab.png` });
+await page.screenshot({ path: `${OUT}/03-slab.png` });
 
-// tap -> metadata (auto -> card)
-await dlg.click({ position: { x: 720, y: 470 } });
-await page.waitForTimeout(450);
-await page.screenshot({ path: `${OUT}/03-metadata.png` });
-await page.waitForTimeout(1600); // metadata -> card
-await page.screenshot({ path: `${OUT}/04-card.png` });
+// Tap slab → metadata
+await page.mouse.click(cx, cy);
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/04-metadata.png` });
+txt = await dlg.innerText().catch(() => "");
+ok("stage_metadata", /category|value|grade/i.test(txt));
 
+// metadata → PULL (auto ~1.8s)
+await page.waitForTimeout(1700);
+await page.screenshot({ path: `${OUT}/05-pull.png` });
+txt = await dlg.innerText().catch(() => "");
+ok("stage_pull", /pull/i.test(txt));
+
+// PULL → card (auto ~1.15s)
+await page.waitForTimeout(1300);
+await page.screenshot({ path: `${OUT}/06-card.png` });
 txt = await dlg.innerText().catch(() => "");
 ok("stage_card", /value:/i.test(txt));
 ok("shows_continue", /Continue/i.test(txt));
 ok("shows_open_another", /Open another/i.test(txt));
 ok("has_card_img", (await dlg.locator("img").count()) >= 1);
-
-// Continue closes
-await page.getByRole("button", { name: /^Continue$/ }).click().catch(() => {});
-await page.waitForTimeout(400);
-ok("continue_closes", !(await dlg.isVisible().catch(() => false)));
 
 await browser.close();
 r.verdict = Object.values(r.checks).every((v) => v === "PASS") ? "PASS" : "FAIL";

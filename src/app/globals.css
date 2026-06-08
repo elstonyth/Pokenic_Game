@@ -229,6 +229,29 @@
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* Pull-celebration diagonal ribbon sweeps in (scales from a thin line, settles). */
+@keyframes pullRibbonIn {
+  0% { transform: rotate(-11deg) scaleX(0); opacity: 0; }
+  30% { transform: rotate(-11deg) scaleX(1.04); opacity: 1; }
+  100% { transform: rotate(-11deg) scaleX(1); opacity: 1; }
+}
+/* Repeating marquee text scrolling across the ribbon (track is 2x, slide one half). */
+@keyframes pullMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+/* The big rarity word shouts in over the ribbon. */
+@keyframes pullShout {
+  0% { transform: scale(0.5) rotate(-11deg); opacity: 0; }
+  40% { transform: scale(1.14) rotate(-11deg); opacity: 1; }
+  70% { transform: scale(0.98) rotate(-11deg); }
+  100% { transform: scale(1) rotate(-11deg); opacity: 1; }
+}
+/* Metadata value fades up with a soft glow. */
+@keyframes metaUp {
+  from { opacity: 0; transform: translateY(16px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
 
 @layer base {
   * {

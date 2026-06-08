@@ -343,7 +343,7 @@ export default function MarketplaceClient({
               <p className="text-[13px] text-white/40">Check back shortly.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {cards.map((card, i) => (
                 <Reveal key={card.id} delay={Math.min(i, 11) * 45} className="h-full">
                   <MarketCard card={card} />

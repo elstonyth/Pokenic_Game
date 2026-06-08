@@ -418,7 +418,7 @@ export default function PackDetailClient({
 
       {/* ===== Pull Odds + Recent Pulls (below the fold) ===== */}
       <div className="mb-10 mt-8 grid gap-6 lg:grid-cols-2">
-        <Reveal as="section" className="h-full">
+        <Reveal as="section" className="h-full min-w-0">
           <div className="mb-3 flex items-center gap-2">
             <h2 className="font-heading text-lg font-bold tracking-tight text-white">Pull Odds (by rarity)</h2>
           </div>
@@ -436,7 +436,7 @@ export default function PackDetailClient({
           <p className="mt-2 px-1 text-[11px] text-white/35">Indicative odds — final rates are published by the backend.</p>
         </Reveal>
 
-        <Reveal as="section" delay={90} className="h-full">
+        <Reveal as="section" delay={90} className="h-full min-w-0">
           <div className="mb-3 flex items-center gap-2">
             <Clock className="h-4 w-4 text-white/50" aria-hidden />
             <h2 className="font-heading text-lg font-bold tracking-tight text-white">Recent Pulls</h2>

@@ -36,6 +36,21 @@ export default function AuthModal() {
     return () => window.removeEventListener("pokenic:auth", onOpen);
   }, []);
 
+  // Open automatically when redirected here with ?auth=login|signup (e.g. the
+  // account gate sends unauthenticated users to /?auth=login), then clean the URL.
+  // Reuses the event path above (avoids a synchronous setState in this effect).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("auth");
+    if (requested !== "login" && requested !== "signup") return;
+    window.dispatchEvent(
+      new CustomEvent("pokenic:auth", { detail: { mode: requested } }),
+    );
+    const url = new URL(window.location.href);
+    url.searchParams.delete("auth");
+    window.history.replaceState({}, "", url);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -106,7 +121,7 @@ export default function AuthModal() {
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
-        <AuthForm mode={mode} onSwitchMode={setMode} />
+        <AuthForm mode={mode} onSwitchMode={setMode} onSuccess={() => setOpen(false)} />
       </div>
     </div>,
     document.body,

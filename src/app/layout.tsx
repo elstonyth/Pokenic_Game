@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,9 +47,11 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-neutral-900 text-neutral-50"
       >
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <AuthProvider>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
+        </AuthProvider>
       </body>
     </html>
   );

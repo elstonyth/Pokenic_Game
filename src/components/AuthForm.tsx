@@ -1,33 +1,60 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Mail, Lock, User as UserIcon, Loader2 } from "lucide-react";
+import { login, signup } from "@/lib/actions/auth";
+import { useAuth } from "./auth/AuthProvider";
 
 // Inner content of the auth modal. The panel chrome (border/bg/padding) is provided
 // by AuthModal; this component renders the heading, social buttons, and the form.
 // `onSwitchMode` flips between login/signup in place (no navigation — the live site
-// uses a single modal, not separate pages).
+// uses a single modal, not separate pages). `onSuccess` closes the modal once the
+// auth server action returns a customer.
 
 export default function AuthForm({
   mode,
   onSwitchMode,
+  onSuccess,
 }: {
   mode: "login" | "signup";
   onSwitchMode: (m: "login" | "signup") => void;
+  onSuccess?: () => void;
 }) {
   const isSignup = mode === "signup";
+  const router = useRouter();
+  const { setCustomer } = useAuth();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
+    if (busy) return;
     setNote(null);
-    // Demo only — no backend. Simulate, then explain.
-    setTimeout(() => {
-      setBusy(false);
-      setNote("Accounts go live with the backend — this is a frontend demo.");
-    }, 700);
+
+    const form = new FormData(e.currentTarget);
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("password") ?? "");
+
+    if (isSignup && password !== String(form.get("confirmPassword") ?? "")) {
+      setNote("Passwords don't match.");
+      return;
+    }
+
+    setBusy(true);
+    const result = isSignup
+      ? await signup({ email, password, first_name: String(form.get("username") ?? "") })
+      : await login({ email, password });
+    setBusy(false);
+
+    if (result.ok) {
+      // The action returns the customer — update context directly (no refetch flash).
+      setCustomer(result.customer);
+      onSuccess?.();
+      router.refresh();
+      return;
+    }
+    setNote(result.error);
   }
 
   return (
@@ -57,10 +84,10 @@ export default function AuthForm({
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        {isSignup && <Field icon={UserIcon} type="text" placeholder="Username" autoComplete="username" />}
-        <Field icon={Mail} type="email" placeholder="Email" autoComplete="email" />
-        <Field icon={Lock} type="password" placeholder="Password" autoComplete={isSignup ? "new-password" : "current-password"} />
-        {isSignup && <Field icon={Lock} type="password" placeholder="Confirm password" autoComplete="new-password" />}
+        {isSignup && <Field icon={UserIcon} name="username" type="text" placeholder="Username" autoComplete="username" />}
+        <Field icon={Mail} name="email" type="email" placeholder="Email" autoComplete="email" required />
+        <Field icon={Lock} name="password" type="password" placeholder="Password" autoComplete={isSignup ? "new-password" : "current-password"} required minLength={isSignup ? 8 : undefined} />
+        {isSignup && <Field icon={Lock} name="confirmPassword" type="password" placeholder="Confirm password" autoComplete="new-password" required />}
 
         {!isSignup && (
           <button type="button" onClick={() => setNote("Password reset goes live with the backend.")} className="self-end text-[12px] text-white/45 hover:text-white/70">

@@ -24,6 +24,7 @@ import {
   type AdminCardWrite,
 } from "../../lib/packs-api";
 import { uploadImage, deleteCard } from "../../lib/admin-rest";
+import { resolveImageUrl } from "../../lib/image-url";
 
 export const config: RouteConfig = {
   label: "Gacha Cards",
@@ -234,7 +235,7 @@ const GachaCardsPage = () => {
                 <Table.Cell>
                   <div className="flex items-center gap-3">
                     <img
-                      src={c.image}
+                      src={resolveImageUrl(c.image)}
                       alt=""
                       className="h-10 w-8 shrink-0 rounded object-contain"
                     />
@@ -325,7 +326,7 @@ const GachaCardsPage = () => {
                 <div className="flex items-center gap-4">
                   {form.image ? (
                     <img
-                      src={form.image}
+                      src={resolveImageUrl(form.image)}
                       alt=""
                       className="border-ui-border-base h-28 w-20 shrink-0 rounded border object-contain"
                     />

@@ -24,6 +24,7 @@ import {
   type AdminPackWrite,
 } from "../../lib/packs-api";
 import { uploadImage, deletePack } from "../../lib/admin-rest";
+import { resolveImageUrl } from "../../lib/image-url";
 
 // Sidebar entry. The label is literal (internal single-operator tool); switch to
 // RouteConfig.translationNs if this dashboard is ever localized.
@@ -329,7 +330,7 @@ const PacksListPage = () => {
                 <div className="flex items-center gap-4">
                   {form.image ? (
                     <img
-                      src={form.image}
+                      src={resolveImageUrl(form.image)}
                       alt=""
                       className="border-ui-border-base h-24 w-24 shrink-0 rounded border object-contain"
                     />

@@ -19,6 +19,7 @@ import {
 import { ArrowLeft } from "@medusajs/icons";
 import { packsApi, type AdminCard } from "../../../lib/packs-api";
 import { computeOdds, type OddsInput } from "../../../lib/odds-math";
+import { resolveImageUrl } from "../../../lib/image-url";
 
 // One editable row: the immutable card facts + its current saved %, plus the
 // editable lock state and (when locked) the win-rate input as a string so the
@@ -284,7 +285,7 @@ const PackOddsEditorPage = () => {
                     <Table.Cell>
                       <div className="flex items-center gap-3">
                         <img
-                          src={r.image}
+                          src={resolveImageUrl(r.image)}
                           alt=""
                           className="h-10 w-8 shrink-0 rounded object-contain"
                         />
@@ -417,7 +418,7 @@ const PackOddsEditorPage = () => {
                         onCheckedChange={() => toggleCard(c.handle)}
                       />
                       <img
-                        src={c.image}
+                        src={resolveImageUrl(c.image)}
                         alt=""
                         className="h-9 w-7 shrink-0 rounded object-contain"
                       />

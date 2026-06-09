@@ -30,12 +30,12 @@ export default function ClawLoading() {
             <div className="ml-auto h-4 w-14 animate-pulse rounded bg-white/[0.06]" />
           </div>
 
-          {/* Card grid */}
-          <div className="grid grid-cols-3 gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {Array.from({ length: 5 }).map((_, i) => (
+          {/* Card row (horizontal scroll, matches the live layout) */}
+          <div className="flex gap-4 overflow-hidden pb-2">
+            {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-3"
+                className="flex h-full w-44 shrink-0 flex-col rounded-2xl border border-white/10 bg-white/5 p-3 lg:w-48"
               >
                 <div className="mx-auto mt-3 mb-2 h-40 w-28 animate-pulse rounded bg-white/[0.04]" />
                 <div className="mb-3 flex items-baseline justify-between gap-2">

@@ -12,8 +12,12 @@ export type Pack = {
   price: string;
   /** Path under /public — verified to exist in public/images/claw/. */
   image: string;
-  /** Shows the green "+90% Buyback Boost" badge. */
+  /** Shows the green buyback-boost badge on the card. */
   boost?: boolean;
+  /** Buyback % on the boost badge (default 90; premium Black/Diamond = 92). */
+  buybackPercent?: number;
+  /** false → render a greyed "Out of Stock" / "Sold out" tile. Default in-stock. */
+  inStock?: boolean;
 };
 
 export type PackCategory = {
@@ -37,6 +41,7 @@ export const CAT_ICON = {
   soccer: "/pack-index-icons/soccer.webp",
   yugioh: "/pack-index-icons/yugioh.webp",
   riftbound: "/pack-index-icons/riftbound.webp",
+  dragonball: "/pack-index-icons/dragonball.webp",
 } as const;
 
 // Real categories, packs, prices, and artwork extracted from the live /claw DOM.
@@ -47,8 +52,8 @@ export const CATEGORIES: PackCategory[] = [
     heading: "Pokémon Packs",
     icon: CAT_ICON.pokemon,
     packs: [
-      { id: "pokemon-black", name: "Black Pack", price: "$2,500", image: "/images/claw/black-pack-icon.webp", boost: true },
-      { id: "pokemon-diamond", name: "Diamond Pack", price: "$5,000", image: "/images/claw/diamond-pack-icon.webp", boost: true },
+      { id: "pokemon-black", name: "Black Pack", price: "$2,500", image: "/images/claw/black-pack-icon.webp", boost: true, buybackPercent: 92 },
+      { id: "pokemon-diamond", name: "Diamond Pack", price: "$5,000", image: "/images/claw/diamond-pack-icon.webp", boost: true, buybackPercent: 92 },
       { id: "pokemon-mythic", name: "Mythic Pack", price: "$1,000", image: "/images/claw/mythic-pack-icon.webp", boost: true },
       { id: "pokemon-legend", name: "Legend Pack", price: "$250", image: "/images/claw/legend-pack-icon.webp", boost: true },
       { id: "pokemon-elite", name: "Elite Pack", price: "$50", image: "/images/claw/elite-pack-icon.webp" },
@@ -121,6 +126,15 @@ export const CATEGORIES: PackCategory[] = [
     heading: "Riftbound Packs",
     icon: CAT_ICON.riftbound,
     packs: [{ id: "riftbound-starter", name: "Starter Pack", price: "$25", image: "/images/claw/starter-riftbound-pack-icon.webp" }],
+  },
+  {
+    // Live taxonomy includes Dragon Ball, but it currently has no in-stock packs
+    // — so it shows as a chip with an empty state (matches live), no section.
+    id: "dragonball",
+    tab: "Dragon Ball",
+    heading: "Dragon Ball Packs",
+    icon: CAT_ICON.dragonball,
+    packs: [],
   },
 ];
 

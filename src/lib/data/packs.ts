@@ -35,6 +35,8 @@ interface BackendPack {
   image: string;
   boost: boolean;
   rank: number;
+  buyback_percent?: number;
+  in_stock?: boolean;
 }
 
 // Pack prices are whole-dollar USD; render as "$1,000" to match the live site.
@@ -47,6 +49,8 @@ const toPack = (p: BackendPack): Pack => ({
   price: formatPrice(p.price),
   image: p.image,
   boost: p.boost || undefined,
+  buybackPercent: typeof p.buyback_percent === "number" ? p.buyback_percent : undefined,
+  inStock: p.in_stock === false ? false : undefined,
 });
 
 /**
@@ -81,9 +85,12 @@ export async function getPackCategories(): Promise<PackCategory[]> {
     const categories = MOCK_CATEGORIES.map((cat) => ({
       ...cat,
       packs: byCategory.get(cat.id) ?? [],
-    })).filter((cat) => cat.packs.length > 0);
+    }));
 
-    return categories.length ? categories : MOCK_CATEGORIES;
+    // Keep empty categories (e.g. Dragon Ball) so they still render a chip; the
+    // client hides empty sections on "All" and shows an empty state when one is
+    // selected directly. Fall back to the full mock only if NOTHING resolved.
+    return categories.some((c) => c.packs.length > 0) ? categories : MOCK_CATEGORIES;
   } catch (error) {
     logger.error("[packs] failed to load packs from backend:", error);
     return MOCK_CATEGORIES;

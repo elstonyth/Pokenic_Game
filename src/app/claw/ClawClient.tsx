@@ -4,18 +4,28 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/lib/use-reveal";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { openAuth } from "@/components/AuthButton";
 import Reveal from "@/components/Reveal";
-import type { Pack, PackCategory } from "./packs-data";
+import QtyStepper from "@/components/QtyStepper";
+import { openPack } from "@/lib/actions/packs";
+import type { Pack, PackCard as PackCardData, PackCategory } from "./packs-data";
+import PackOpenOverlay from "./[slug]/PackOpenOverlay";
 
 // Pack catalog comes from the backend via getPackCategories() (server page);
 // types + presentational category meta still live in ./packs-data.
 
+type OpenHandler = (pack: Pack, categoryName: string) => void;
+
 // ---------------------------------------------------------------------------
-// Pack card (DESKTOP) — art, name, price, Open pill, buyback badge.
-// No quantity stepper (live /claw has none — unlike /repacks).
+// Pack card (DESKTOP) — art + name → detail; quantity stepper; inline Open that
+// launches the pack-opening overlay (matches live /claw, which shows a − 1 + MAX
+// stepper and an Open button on every card).
 // ---------------------------------------------------------------------------
 
-function PackCard({ pack, icon }: { pack: Pack; icon: string }) {
+function PackCard({ pack, icon, categoryName, onOpen }: { pack: Pack; icon: string; categoryName: string; onOpen: OpenHandler }) {
+  const [qty, setQty] = useState(1);
   return (
     <div className="group relative flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-3 shadow-[0_4px_20px_rgba(0,0,0,0.25)] transition-colors duration-300 hover:border-white/20">
       {/* Green buyback-boost badge — only on boosted tiers */}
@@ -29,33 +39,37 @@ function PackCard({ pack, icon }: { pack: Pack; icon: string }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={icon} alt="" aria-hidden="true" width={24} height={24} className="absolute right-3 top-3 z-[2] h-6 w-6 object-contain opacity-80" />
 
-      {/* Pack image — the tall vertical pack art dominates the card, matching the
-          live /claw's tall, narrow cards (art is natively ~0.57 aspect). */}
-      <div className="flex items-center justify-center pb-2 pt-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={pack.image}
-          alt={pack.name}
-          width={205}
-          height={360}
-          loading="lazy"
-          className="h-52 w-auto object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out group-hover:-translate-y-1 sm:h-60"
-        />
-      </div>
+      {/* Art + name → detail page (the tall vertical pack art dominates the card,
+          matching the live /claw's tall, narrow cards; art is natively ~0.57 aspect). */}
+      <Link href={`/claw/${pack.id}`} className="flex flex-col">
+        <div className="flex items-center justify-center pb-2 pt-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pack.image}
+            alt={pack.name}
+            width={205}
+            height={360}
+            loading="lazy"
+            className="h-52 w-auto object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out group-hover:-translate-y-1 sm:h-60"
+          />
+        </div>
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <span className="truncate text-[13px] font-semibold text-white sm:text-sm">{pack.name}</span>
+          <span className="shrink-0 text-[13px] font-semibold text-white/90 sm:text-sm">{pack.price}</span>
+        </div>
+      </Link>
 
-      {/* Name + price */}
-      <div className="mb-3 flex items-baseline justify-between gap-2">
-        <span className="truncate text-[13px] font-semibold text-white sm:text-sm">{pack.name}</span>
-        <span className="shrink-0 text-[13px] font-semibold text-white/90 sm:text-sm">{pack.price}</span>
-      </div>
+      {/* Quantity stepper (cosmetic, matches live) */}
+      <QtyStepper qty={qty} onChange={setQty} className="mb-2" />
 
-      {/* Open button → pack detail / opening template */}
-      <Link
-        href={`/claw/${pack.id}`}
+      {/* Inline Open → pack-opening overlay (real auth-gated open) */}
+      <button
+        type="button"
+        onClick={() => onOpen(pack, categoryName)}
         className="mt-auto flex h-9 w-full items-center justify-center rounded-xl bg-neutral-200 text-[13px] font-semibold text-neutral-950 transition-colors duration-200 hover:bg-white"
       >
         Open
-      </Link>
+      </button>
     </div>
   );
 }
@@ -119,6 +133,43 @@ export default function ClawClient({
 }) {
   const [active, setActive] = useState<string>(initialCategory);
   const [creatorPacks, setCreatorPacks] = useState(false);
+
+  // Pack-opening overlay — lifted here so a single overlay serves every card.
+  // Live's list "Open" opens a buy/checkout modal (payment); payment is out of
+  // scope for this backend, so Open runs the real auth-gated open and reveals the
+  // won card through the same PackOpenOverlay the detail page uses.
+  const reduced = usePrefersReducedMotion();
+  const { customer } = useAuth();
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<{ card: PackCardData; isReal: boolean; nonce: number } | null>(null);
+  const [openTarget, setOpenTarget] = useState<{ pack: Pack; categoryName: string } | null>(null);
+
+  async function runOpen(target: { pack: Pack; categoryName: string }) {
+    if (opening) return;
+    if (!customer) {
+      openAuth("login");
+      return;
+    }
+    setOpenError(null);
+    setOpening(true);
+    try {
+      const res = await openPack(target.pack.id);
+      if (!res.ok) {
+        if (res.needsAuth) openAuth("login");
+        else setOpenError(res.error);
+        return;
+      }
+      setReveal({ card: res.card, isReal: true, nonce: Date.now() });
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  const handleOpen: OpenHandler = (pack, categoryName) => {
+    setOpenTarget({ pack, categoryName });
+    runOpen({ pack, categoryName });
+  };
 
   const tabs = [{ id: "all", tab: "All Packs", icon: "" }, ...categories.map((c) => ({ id: c.id, tab: c.tab, icon: c.icon }))];
   const visible = active === "all" ? categories : categories.filter((c) => c.id === active);
@@ -189,7 +240,7 @@ export default function ClawClient({
           <div className="hidden grid-cols-3 gap-4 sm:grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
             {cat.packs.map((p, i) => (
               <Reveal key={p.id} delay={Math.min(i, 6) * 50} className="h-full">
-                <PackCard pack={p} icon={cat.icon} />
+                <PackCard pack={p} icon={cat.icon} categoryName={cat.tab} onOpen={handleOpen} />
               </Reveal>
             ))}
           </div>
@@ -202,6 +253,29 @@ export default function ClawClient({
           </div>
         </section>
       ))}
+
+      {/* Open error toast (logged-out users get the auth modal instead) */}
+      {openError && (
+        <div role="alert" className="fixed bottom-4 left-1/2 z-[70] -translate-x-1/2 rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-2.5 text-[13px] text-red-200 shadow-lg backdrop-blur">
+          {openError}
+        </div>
+      )}
+
+      {/* Pack-opening reveal overlay (shared single instance) */}
+      {reveal && openTarget && (
+        <PackOpenOverlay
+          key={reveal.nonce}
+          card={reveal.card}
+          isReal={reveal.isReal}
+          packImage={openTarget.pack.image}
+          packName={openTarget.pack.name}
+          category={openTarget.categoryName}
+          opening={opening}
+          reduced={reduced}
+          onClose={() => setReveal(null)}
+          onOpenAnother={() => runOpen(openTarget)}
+        />
+      )}
     </div>
   );
 }

@@ -14,9 +14,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Minus, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { Plus, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Reveal from "@/components/Reveal";
+import QtyStepper from "@/components/QtyStepper";
 import { usd0 } from "@/lib/format";
 import { MOCK_USERS } from "@/lib/mock/users";
 import { CATEGORIES } from "../claw/packs-data";
@@ -124,35 +125,8 @@ function PackCard({ pack }: { pack: CommunityPack }) {
         <span className="truncate">by {creator.username}</span>
       </Link>
 
-      {/* Quantity stepper — − 1 + MAX (live /repacks has this; /claw does not) */}
-      <div className="mb-2 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
-        <button
-          type="button"
-          onClick={() => setQty((q) => Math.max(1, q - 1))}
-          disabled={qty <= 1}
-          aria-label="Decrease quantity"
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Minus className="h-3.5 w-3.5" aria-hidden />
-        </button>
-        <span className="min-w-[1.75rem] text-center text-[13px] font-semibold tabular-nums text-white">{qty}</span>
-        <button
-          type="button"
-          onClick={() => setQty((q) => Math.min(MAX_QTY, q + 1))}
-          disabled={qty >= MAX_QTY}
-          aria-label="Increase quantity"
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => setQty(MAX_QTY)}
-          className="ml-auto rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          Max
-        </button>
-      </div>
+      {/* Quantity stepper — − 1 + MAX (shared with /claw via QtyStepper) */}
+      <QtyStepper qty={qty} onChange={setQty} max={MAX_QTY} className="mb-2" />
 
       {/* Open button */}
       <Link

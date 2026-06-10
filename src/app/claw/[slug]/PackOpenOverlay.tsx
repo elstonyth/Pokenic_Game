@@ -21,11 +21,14 @@ import {
   DRAG_DEG_PER_PX,
   EASE_BACK,
   EASE_TW,
+  FLING_MAX_VEL,
+  FLING_PROJECT,
   META_AUTO_ADVANCE_MS,
   META_LABEL_DELAYS,
   META_PILL_DELAY,
   META_VALUE_OFFSET,
   PACK_EXIT,
+  SHUFFLE_SPIN,
   SLAB_RISE,
 } from "@/lib/motion";
 import type { PackCard } from "../packs-data";
@@ -103,14 +106,17 @@ export default function PackOpenOverlay({
   const cylRef = useRef<HTMLDivElement>(null);
   const rotRef = useRef(0);
   const springRef = useRef<AnimationPlaybackControls | null>(null);
-  const drag = useRef({ active: false, startX: 0, startRot: 0, moved: false });
+  // vel = smoothed drag velocity in deg/s — released as fling momentum
+  const drag = useRef({ active: false, startX: 0, startRot: 0, moved: false, lastX: 0, lastT: 0, vel: 0 });
 
-  const spinTo = (target: number) => {
+  const spinTo = (target: number, opts?: { velocity?: number; tween?: boolean }) => {
     springRef.current?.stop();
     const el = cylRef.current;
     if (!el) return;
     springRef.current = animate(rotRef.current, target, {
-      ...CYL_SPRING,
+      // shuffle = long roulette deceleration; release = spring seeded with the
+      // drag velocity so the cylinder carries through instead of braking dead
+      ...(opts?.tween ? SHUFFLE_SPIN : { ...CYL_SPRING, velocity: opts?.velocity ?? 0 }),
       onUpdate: (v) => {
         el.style.transform = `rotateY(${v}deg)`;
         rotRef.current = v;
@@ -134,29 +140,53 @@ export default function PackOpenOverlay({
     if (stage !== "packs") return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     springRef.current?.stop();
-    drag.current = { active: true, startX: e.clientX, startRot: rotRef.current, moved: false };
+    drag.current = {
+      active: true,
+      startX: e.clientX,
+      startRot: rotRef.current,
+      moved: false,
+      lastX: e.clientX,
+      lastT: e.timeStamp,
+      vel: 0,
+    };
   };
   const onPointerMove = (e: ReactPointerEvent) => {
     if (!drag.current.active || !cylRef.current) return;
-    const dx = e.clientX - drag.current.startX;
-    if (Math.abs(dx) > 6) drag.current.moved = true;
-    const deg = drag.current.startRot + dx * DRAG_DEG_PER_PX;
+    const d = drag.current;
+    const dx = e.clientX - d.startX;
+    if (Math.abs(dx) > 6) d.moved = true;
+    const deg = d.startRot + dx * DRAG_DEG_PER_PX;
     cylRef.current.style.transform = `rotateY(${deg}deg)`; // imperative — no re-render
     rotRef.current = deg;
+    // velocity in deg/s, exponentially smoothed — this is the fling momentum
+    const dt = e.timeStamp - d.lastT;
+    if (dt > 0) {
+      const inst = ((e.clientX - d.lastX) * DRAG_DEG_PER_PX * 1000) / dt;
+      d.vel = 0.8 * inst + 0.2 * d.vel;
+      d.lastX = e.clientX;
+      d.lastT = e.timeStamp;
+    }
   };
   const onPointerUp = () => {
     if (!drag.current.active) return;
-    const { moved } = drag.current;
+    const { moved, vel } = drag.current;
     drag.current.active = false;
-    if (!moved) setStage("slab"); // a tap (not a drag) → select → packs drop, slab rises
-    else spinTo(Math.round(rotRef.current / STEP) * STEP); // snap to slot (spring)
+    if (!moved) {
+      setStage("slab"); // a tap (not a drag) → select → packs drop, slab rises
+      return;
+    }
+    // fling: project the release velocity forward, snap THAT to a slot, and seed
+    // the spring with the same velocity so motion carries through smoothly
+    const v = Math.max(-FLING_MAX_VEL, Math.min(FLING_MAX_VEL, vel));
+    const projected = rotRef.current + v * FLING_PROJECT;
+    spinTo(Math.round(projected / STEP) * STEP, { velocity: v });
   };
 
   const shuffle = (e: ReactMouseEvent) => {
     e.stopPropagation();
     const target =
       Math.round(rotRef.current / STEP) * STEP + 360 * 2 + STEP * (1 + Math.floor(Math.random() * (SLOTS - 1)));
-    spinTo(target);
+    spinTo(target, { tween: true }); // roulette-style decelerating spin
   };
 
   return (
@@ -374,10 +404,14 @@ export default function PackOpenOverlay({
               initial={reduced ? false : { rotateY: 90, opacity: 0 }}
               animate={{ rotateY: 0, opacity: 1 }}
               transition={{ ...CARD_FLIP, opacity: { duration: 0.28, ease: EASE_TW } }}
-              style={{ transformPerspective: 1000, filter: `drop-shadow(0 0 60px rgba(${rgb},0.6))` }}
+              style={{ transformPerspective: 1000, filter: `drop-shadow(0 0 60px rgba(${rgb},0.55))` }}
               className="relative"
             >
-              <GradedHolder image={card.image} name={card.name} grade={gradeLabel} category={category} rgb={rgb} />
+              {/* The card asset IS the graded-slab product photo — live shows it raw
+                  (330×569 at 1440, no frame, no radius); wrapping it in extra holder
+                  chrome double-framed it. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={card.image} alt={card.name} className="h-[440px] w-auto object-contain sm:h-[560px]" />
             </motion.div>
             <motion.div
               initial={reduced ? false : { y: 24, opacity: 0 }}
@@ -385,16 +419,16 @@ export default function PackOpenOverlay({
               transition={{ duration: 0.3, ease: "easeOut", delay: 0.4 }}
               className="relative flex flex-col items-center gap-2 text-center"
             >
-              <p className="font-heading max-w-md px-4 text-sm font-bold text-white sm:text-base">{card.name}</p>
+              <p className="max-w-[300px] px-2 text-[13px] font-semibold leading-snug text-white">{card.name}</p>
               <div className="flex items-center gap-2">
                 <RarityPill rarity={card.rarity} rgb={rgb} small />
-                <span className="text-[13px] font-semibold text-white/70">Value: {card.value}{!isReal && " · demo"}</span>
+                <span className="text-[13px] text-white/70">Value: <span className="font-bold text-white">{card.value}</span>{!isReal && " · demo"}</span>
               </div>
-              <div className="mt-3 flex items-center gap-3">
-                <button type="button" onClick={onClose} className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 px-7 text-sm font-bold text-white shadow-lg shadow-emerald-900/30 transition-opacity hover:opacity-95">
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <button type="button" onClick={onClose} className="inline-flex h-12 w-[300px] items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 text-sm font-bold text-white shadow-lg shadow-emerald-900/30 transition-opacity hover:opacity-95">
                   Continue
                 </button>
-                <button type="button" onClick={onOpenAnother} disabled={opening} className="inline-flex h-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-60">
+                <button type="button" onClick={onOpenAnother} disabled={opening} className="inline-flex h-10 items-center justify-center rounded-xl px-5 text-[13px] font-semibold text-white/60 transition-colors hover:text-white disabled:opacity-60">
                   {opening ? "Opening…" : "Open another"}
                 </button>
               </div>
@@ -487,19 +521,3 @@ function SlabBack({ faded, shimmer }: { faded?: boolean; shimmer?: boolean }) {
   );
 }
 
-// The revealed card inside a PSA-style graded holder (white frame + top grade label).
-function GradedHolder({ image, name, grade, category, rgb }: { image: string; name: string; grade: string | null; category: string; rgb: string }) {
-  return (
-    <div className="rounded-2xl border-2 bg-neutral-100 p-2 shadow-2xl" style={{ borderColor: `rgba(${rgb},0.85)` }}>
-      <div className="rounded-lg bg-white p-1.5">
-        {/* slim top cert label */}
-        <div className="mb-1.5 flex items-center justify-between rounded-sm bg-neutral-900 px-2 py-1 text-white">
-          <span className="text-[8px] font-bold uppercase tracking-wide text-white/80">{category}</span>
-          {grade && <span className="rounded-sm bg-red-600 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide">{grade}</span>}
-        </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={name} className="h-[300px] w-[222px] rounded object-contain sm:h-[356px] sm:w-[264px]" />
-      </div>
-    </div>
-  );
-}

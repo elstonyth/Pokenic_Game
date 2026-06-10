@@ -60,6 +60,19 @@ with the `motion` package (Framer Motion v12, `motion/react`).
 - Caption/actions block: `y 24→0` + fade, `0.3s ease-out` at **+0.4s delay** (swipe-card-inner).
 - **Glow SPINS (CHANGE)**: rotating gradient behind the card, `3.5s linear infinite`
   (`revealv4-glow-spin`, element inset -50%), instead of a static pulsing aura.
+- **Presentation (measured 1440)**: the card image is the graded-slab PRODUCT PHOTO shown
+  **RAW — no holder/frame chrome, no border-radius** (IMG 330×569). Below: name 13px/600
+  capped ~300px → rarity pill (rarity-colored) + "Value: $…" (value bold) → **Continue
+  300×48 r12 green** → ghost "Open another". Wrapping the photo in a white PSA-style
+  holder double-frames it (the photo already shows a slab) — don't.
+
+### Cylinder drag/shuffle feel (release behavior)
+- **Release = FLING**: track drag velocity (deg/s, exponentially smoothed); project it
+  `FLING_PROJECT≈0.22s` forward, snap the PROJECTED angle to the nearest 60°, and seed the
+  release spring with the same velocity (FM `animate(..., { velocity })`). A snap to the
+  nearest slot from the raw release angle kills momentum and reads as "drags then stops".
+- **Shuffle = roulette deceleration**: a long tween (`1.2s EASE_RISE`), not a stiff spring —
+  the spring brakes too abruptly over multi-revolution travel.
 
 ### Reduced motion
 - Unchanged: jump straight to `card`, no timers, content visible instantly.

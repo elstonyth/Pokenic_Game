@@ -29,7 +29,13 @@ export const META_AUTO_ADVANCE_MS = 3600; // live flips to the card at ≈3.6s
 export const HERO_SLIDE = { duration: 0.65, ease: "easeOut" } as const;
 export const HERO_ROTATE_MS = 4500;
 
-/** cylinder snap/shuffle spring: ≈0.5–0.6s settle, no visible overshoot */
-export const CYL_SPRING = { type: "spring", stiffness: 240, damping: 32 } as const;
+/** cylinder release spring — soft enough to carry release velocity (fling) */
+export const CYL_SPRING = { type: "spring", stiffness: 170, damping: 26 } as const;
+/** seconds of release velocity projected into the fling target (inertia feel) */
+export const FLING_PROJECT = 0.22;
+/** velocity cap so a wild swipe can't spin absurdly (deg/s) */
+export const FLING_MAX_VEL = 2000;
+/** shuffle: a long roulette-style deceleration, not a stiff spring stop */
+export const SHUFFLE_SPIN = { duration: 1.2, ease: EASE_RISE } as const;
 /** live drag ratio: 364px ≈ 120° → 0.33°/px */
 export const DRAG_DEG_PER_PX = 0.33;

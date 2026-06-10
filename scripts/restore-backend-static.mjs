@@ -9,6 +9,8 @@
 // when the backend runs from packages/api). Idempotent — existing files skip.
 //
 // Run from the repo root: node scripts/restore-backend-static.mjs
+// FORCE=1 overwrites files that already exist (use after editing the public/
+// sources, e.g. the pedestal crop, so the backend serves the new bytes).
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -45,7 +47,7 @@ for (const url of urls) {
   const file = url.split("/static/")[1];
   if (!file) continue;
   const dest = path.join(STATIC_DIR, file);
-  if (fs.existsSync(dest)) { present++; continue; }
+  if (fs.existsSync(dest) && process.env.FORCE !== "1") { present++; continue; }
   const base = file.replace(/^\d{13}-/, "");
   const src = index.get(base);
   if (!src) { missing.push(file); continue; }

@@ -60,11 +60,16 @@ with the `motion` package (Framer Motion v12, `motion/react`).
 - Caption/actions block: `y 24→0` + fade, `0.3s ease-out` at **+0.4s delay** (swipe-card-inner).
 - **Glow SPINS (CHANGE)**: rotating gradient behind the card, `3.5s linear infinite`
   (`revealv4-glow-spin`, element inset -50%), instead of a static pulsing aura.
-- **Presentation (measured 1440)**: the card image is the graded-slab PRODUCT PHOTO shown
-  **RAW — no holder/frame chrome, no border-radius** (IMG 330×569). Below: name 13px/600
+- **Presentation (measured 1440)**: the card image is shown **RAW — no holder/frame
+  chrome, no border-radius** (IMG 330×569; clone renders 339×560). Below: name 13px/600
   capped ~300px → rarity pill (rarity-colored) + "Value: $…" (value bold) → **Continue
   300×48 r12 green** → ghost "Open another". Wrapping the photo in a white PSA-style
   holder double-frames it (the photo already shows a slab) — don't.
+- **Card assets are SLAB-ONLY** (content convention): the display-stand pedestal (and its
+  watermark) was cropped off all `public/cdn/cards/*` via `scripts/crop-card-pedestals.mjs`
+  (live's reveal uses `-cropped` slab-only variants too), and admins upload slab-only
+  images going forward. After editing public/ card sources, refresh the backend copies
+  with `FORCE=1 node scripts/restore-backend-static.mjs`.
 
 ### Cylinder drag/shuffle feel (release behavior)
 - **Release = FLING**: track drag velocity (deg/s, exponentially smoothed); project it

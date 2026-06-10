@@ -37,7 +37,8 @@
     "@mercurjs/cli": "2.1.6",
     "@mercurjs/core": "2.1.6",
     "@mercurjs/types": "2.1.6",
-    "http-proxy-middleware": "^3.0.3"
+    "http-proxy-middleware": "^3.0.3",
+    "ioredis": "^5.4.1"
   },
   "devDependencies": {
     "@medusajs/test-utils": "2.13.4",

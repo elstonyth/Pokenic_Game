@@ -39,6 +39,7 @@ __metadata:
     "@types/jest": "npm:^29.5.13"
     "@types/node": "npm:^20.12.11"
     http-proxy-middleware: "npm:^3.0.3"
+    ioredis: "npm:^5.4.1"
     jest: "npm:^29.7.0"
     prop-types: "npm:^15.8.1"
     yalc: "npm:^1.0.0-pre.53"

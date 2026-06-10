@@ -40,6 +40,8 @@ interface BackendWonCard {
 // Map known backend failures to friendly copy; never surface raw errors.
 function friendlyError(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
+  if (/too many|rate.?limit|429/i.test(text))
+    return "You're opening packs too fast — give it a moment and try again.";
   if (/unauthorized|not authenticated|401/i.test(text))
     return "Please log in to open a pack.";
   if (/not available|not found|404/i.test(text))

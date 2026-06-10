@@ -63,3 +63,17 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## PM2 services (Radmin-VPN preview stack — keep running until project finish)
+
+| Port | Name | What |
+|------|------|------|
+| 4000 | pokenic-store | `next start` (prod build — `pm2 restart pokenic-store` after `npm run build`) |
+| 9000 | pokenic-backend | `medusa develop` (MUST be dev mode: prod marks the admin session cookie Secure → dropped over http → admin login silently fails) |
+| 7000 | pokenic-admin | `vite preview --host` of the built dist (backendUrl 26.42.209.183:9000 baked at build) |
+
+`pm2 start ecosystem.config.cjs && pm2 save` (first time) · `pm2 status` / `pm2 logs <name>` /
+`pm2 restart all`. Boot persistence: pm2-windows-startup registry entry runs `pm2 resurrect` at
+logon; `pokenic-postgres`/`pokenic-redis` have `--restart unless-stopped`. **These PM2 processes
+own :4000/:9000/:7000 — don't start ad-hoc servers on those ports; restart the PM2 app instead.**
+DB card-image URLs are pinned to the Radmin IP (see the dashboard-vpn memory for the swap-back SQL).

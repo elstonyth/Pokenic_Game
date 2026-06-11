@@ -10,14 +10,17 @@ export async function creditBalance(
   packs: PacksModuleService,
   customerId: string
 ): Promise<number> {
-  let sum = 0;
+  // Sum in INTEGER CENTS: amounts are 2dp decimals, so per-row conversion is
+  // exact and the running total can never accumulate float drift the way a
+  // running decimal sum can over a long ledger.
+  let cents = 0;
   for (let skip = 0; ; skip += PAGE) {
     const page = await packs.listCreditTransactions(
       { customer_id: customerId },
       { skip, take: PAGE, order: { created_at: "ASC" } }
     );
-    for (const t of page) sum += Number(t.amount);
+    for (const t of page) cents += Math.round(Number(t.amount) * 100);
     if (page.length < PAGE) break;
   }
-  return Math.round(sum * 100) / 100;
+  return cents / 100;
 }

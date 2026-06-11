@@ -9,6 +9,7 @@ import type PacksModuleService from "../../modules/packs/service";
 import { findCardInventoryTarget } from "../../modules/packs/card-stock";
 import { creditBalance } from "../../modules/packs/credit-balance";
 import {
+  buybackAmount,
   resolveBuybackRate,
   type BuybackRateType,
 } from "../../modules/packs/buyback-rate";
@@ -37,8 +38,6 @@ type CompensateData =
       stockTarget: { inventoryItemId: string; locationId: string } | null;
     }
   | undefined;
-
-const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 // buyback-pull — the customer sells a vaulted pull back to the house: the pull
 // flips to bought_back, the credit ledger gains current-FMV × pack-% , and the
@@ -94,7 +93,7 @@ export const buybackPullStep = createStep(
         "This card has no valid market value and cannot be sold back."
       );
     }
-    const amount = round2((marketValue * percent) / 100);
+    const amount = buybackAmount(marketValue, percent);
 
     // 1. Credit row first — the unique pull_id kills concurrent duplicates here.
     let creditTransactionId: string;

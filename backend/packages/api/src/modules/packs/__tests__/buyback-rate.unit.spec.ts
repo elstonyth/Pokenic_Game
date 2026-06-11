@@ -1,5 +1,6 @@
 import {
   FLAT_PERCENT,
+  buybackAmount,
   instantBuybackWindowMs,
   resolveBuybackRate,
 } from "../buyback-rate";
@@ -50,6 +51,33 @@ describe("resolveBuybackRate", () => {
       percent: FLAT_PERCENT,
       rate_type: "vault",
     });
+  });
+});
+
+describe("buybackAmount", () => {
+  it("computes FMV × percent to whole cents", () => {
+    expect(buybackAmount(21.99, 92)).toBe(20.23); // 2199¢ × 92% = 2023.08¢
+    expect(buybackAmount(19.2, 100)).toBe(19.2);
+    expect(buybackAmount(0, 90)).toBe(0);
+  });
+
+  it("rounds an exact half-cent up, where naive float math rounds down", () => {
+    // 15¢ × 90% = 13.5¢ → 14¢. Float path: 0.15*90 = 13.499999999999998 → 13¢.
+    expect(buybackAmount(0.15, 90)).toBe(0.14);
+    expect(buybackAmount(2.45, 90)).toBe(2.21); // 220.5¢ → 221¢
+    expect(buybackAmount(0.05, 90)).toBe(0.05); // 4.5¢ → 5¢
+  });
+
+  it("matches the quote for every catalog-shaped FMV at every legal whole percent", () => {
+    // Quote (vault route) and credit (buyback workflow) share this helper, so
+    // determinism across the whole input space IS the contract: same in, same out.
+    for (let cents = 0; cents <= 5000; cents += 7) {
+      const fmv = cents / 100;
+      for (const pct of [90, 92, 95, 100]) {
+        const expected = Math.round((cents * pct) / 100) / 100;
+        expect(buybackAmount(fmv, pct)).toBe(expected);
+      }
+    }
   });
 });
 

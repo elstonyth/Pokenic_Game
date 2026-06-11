@@ -40,6 +40,18 @@ export function instantBuybackWindowMs(): number {
     : DEFAULT_WINDOW_MS;
 }
 
+// FMV × percent in INTEGER CENTS. Money here is USD decimals stored to 2dp
+// (Medusa stores prices as-is, never cents), and naive float math misrounds
+// exact half-cents (0.15 × 90 = 13.499999999999998 → 13¢ instead of 14¢).
+// cents × percent is exact integer arithmetic and a true half after /100 is
+// exactly representable in binary, so Math.round always breaks the tie up.
+// The vault quote and the buyback credit MUST both go through this helper —
+// they have to agree to the cent.
+export function buybackAmount(marketValue: number, percent: number): number {
+  const cents = Math.round(marketValue * 100);
+  return Math.round((cents * percent) / 100) / 100;
+}
+
 const sanePercent = (value: unknown): number | null => {
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;

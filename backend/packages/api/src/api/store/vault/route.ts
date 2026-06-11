@@ -4,7 +4,10 @@ import {
 } from "@medusajs/framework/http";
 import PacksModuleService from "../../../modules/packs/service";
 import { PACKS_MODULE } from "../../../modules/packs";
-import { resolveBuybackRate } from "../../../modules/packs/buyback-rate";
+import {
+  buybackAmount,
+  resolveBuybackRate,
+} from "../../../modules/packs/buyback-rate";
 
 // GET /store/vault — the authenticated customer's vault: every pull still held
 // (status "vaulted"), newest first, with a LIVE buyback offer per item: current
@@ -16,8 +19,6 @@ import { resolveBuybackRate } from "../../../modules/packs/buyback-rate";
 // customer id comes ONLY from the verified token, so a caller can never read
 // another customer's vault.
 const VAULT_LIMIT = 500;
-
-const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export async function GET(
   req: AuthenticatedMedusaRequest,
@@ -81,7 +82,7 @@ export async function GET(
         },
         buyback: {
           percent,
-          amount: round2((marketValue * percent) / 100),
+          amount: buybackAmount(marketValue, percent),
           rate_type,
         },
       };

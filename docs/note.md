@@ -31,9 +31,10 @@ out of scope for the account-data slice.
 ## 2026-06-08 — Other Phase 3 (Auth) deferrals to recheck for prod
 
 **Dev secrets (CRITICAL for prod):**
-- [ ] `backend/packages/api/.env` has `JWT_SECRET=supersecret` / `COOKIE_SECRET=supersecret`.
-      **Rotate to strong, secret values** before any non-local deploy (these sign the
-      customer JWT cookie).
+- [x] ~~`backend/packages/api/.env` has `JWT_SECRET=supersecret` / `COOKIE_SECRET=supersecret`~~
+      **Rotated to strong random values 2026-06-11** (cleanup wave). Prod deploys still
+      need their own values — generation one-liner documented in `.env.template`'s
+      PROD CHECKLIST block.
 
 **CORS config is local-only:**
 - [ ] `STORE_CORS` / `AUTH_CORS` were set to include `http://localhost:4000` in the local
@@ -44,7 +45,9 @@ out of scope for the account-data slice.
 - [ ] The session cookie (`_pokenic_jwt`, `src/lib/data/customer.ts`) sets
       `secure: process.env.NODE_ENV === "production"`. Confirm prod actually runs with
       `NODE_ENV=production` so `Secure` is set (cookie is already `httpOnly` + `SameSite=Lax`).
-- [ ] Consider rate-limiting the auth endpoints (currently none at the storefront layer).
+- [x] ~~Consider rate-limiting the auth endpoints~~ **Done 2026-06-11**: per-IP burst+
+      sustained limiter on `POST /auth/*/emailpass(/*)` (login/register/reset, all actor
+      types; token refresh excluded). `AUTH_RATE_*` envs; integration-tested.
 
 **Stubbed auth features (not wired):**
 - [ ] Social login (Google / Discord) buttons in `AuthForm` are placeholders.

@@ -34,13 +34,16 @@ const INPUT = {
 const EXISTING_CARD = { id: "card_1", handle: "test-card" };
 
 /** Container stub resolving just the modules the duplicate paths touch. */
-const buildContainer = (packs: Record<string, jest.Mock>) => {
+const buildContainer = (
+  packs: Record<string, jest.Mock>,
+  warn: jest.Mock = jest.fn()
+) => {
   const modules: Record<string, unknown> = {
     [PACKS_MODULE]: packs,
     [Modules.PRODUCT]: {
       listProducts: jest.fn().mockResolvedValue([PRODUCT]),
     },
-    [ContainerRegistrationKeys.LOGGER]: { warn: jest.fn() },
+    [ContainerRegistrationKeys.LOGGER]: { warn },
   };
   return {
     resolve: (key: string) => {
@@ -107,9 +110,12 @@ describe("registerCardInvoke duplicate handling", () => {
         .mockRejectedValueOnce(new Error("still down")),
       createCards: jest.fn().mockRejectedValue(dbDown),
     };
+    const warn = jest.fn();
     await expect(
-      registerCardInvoke(INPUT, { container: buildContainer(packs) })
+      registerCardInvoke(INPUT, { container: buildContainer(packs, warn) })
     ).rejects.toBe(dbDown);
+    // The discarded probe failure must leave a trail, not vanish.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("still down"));
   });
 
   it("rethrows the ORIGINAL error when the insert fails for any non-duplicate reason", async () => {

@@ -1,137 +1,172 @@
 import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError, ProductStatus, Modules } from "@medusajs/framework/utils";
 import {
-  createProductsWorkflow,
-  deleteProductsWorkflow,
-} from "@medusajs/medusa/core-flows";
+  ContainerRegistrationKeys,
+  MedusaError,
+  Modules,
+} from "@medusajs/framework/utils";
+import { MercurModules } from "@mercurjs/types";
+import { updateProductsWorkflow } from "@medusajs/medusa/core-flows";
 import { PACKS_MODULE } from "../../modules/packs";
 import type PacksModuleService from "../../modules/packs/service";
-import {
-  buildCardProductInput,
-  resolveCardProductContext,
-} from "../../modules/packs/card-product";
 
-export type Rarity = "Legendary" | "Epic" | "Rare" | "Uncommon" | "Common";
-
-export type CardWriteInput = {
-  handle: string;
-  name: string;
+// Inventory-first registration: the PRODUCT is the item, created in the product
+// catalog beforehand. Registering it as a gacha Card only records the gacha
+// facts (FMV, set, grader, grade) — name/image/handle are READ from the product,
+// never entered twice. Rarity is NOT set here: it is chosen per pack when the
+// card joins a prize pool (PackOdds.rarity).
+export type RegisterCardInput = {
+  product_id: string;
   set: string;
   grader: string;
   grade: string;
-  rarity: Rarity;
-  market_value: number;
-  image: string;
-  // Standalone sale price. Falls back to market_value (FMV) when omitted.
-  price?: number;
-  // Listed on the marketplace (mirrored Product PUBLISHED) vs pack-only (DRAFT).
-  for_sale: boolean;
+  market_value: number; // USD FMV — a decimal, never cents
 };
 
-type CompensateData = { cardId: string; productId: string } | undefined;
+type CompensateData =
+  | {
+      cardId: string;
+      productId: string;
+      prevMetadata: Record<string, unknown>;
+    }
+  | undefined;
 
-// create-card — create the gacha Card row AND its mirrored marketplace Product
-// (handle === Card.handle) in one compensated step. The Product is ALWAYS created
-// (PUBLISHED when for_sale, else DRAFT) so the later edit/toggle flow only ever
-// flips status — never create/delete churn. Compensation removes both.
+// create-card — register an existing catalog Product as a gacha Card. Creates
+// ONLY the Card row (handle === Product.handle, the shared business key) and
+// mirrors the gacha facts onto the product's metadata so the marketplace detail
+// page can show FMV/grade. The product itself is never created or deleted here.
 export const createCardStep = createStep(
   "create-card",
-  async (input: CardWriteInput, { container }) => {
+  async (input: RegisterCardInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
     const productModule = container.resolve(Modules.PRODUCT);
 
+    const [product] = await productModule.listProducts(
+      { id: input.product_id },
+      { take: 1, relations: ["images"] }
+    );
+    if (!product) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Product '${input.product_id}' not found — add the item to the inventory first.`
+      );
+    }
+    if (!product.handle) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Product '${input.product_id}' has no handle.`
+      );
+    }
+
+    const image = product.thumbnail ?? product.images?.[0]?.url ?? "";
+    if (!image) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Product '${product.title}' has no image — upload one on the product before registering it as a card.`
+      );
+    }
+
     // Handle is the unique business key shared by Card + Product + PackOdds.
     const [existingCard] = await packs.listCards(
-      { handle: input.handle },
+      { handle: product.handle },
       { take: 1 }
     );
     if (existingCard) {
       throw new MedusaError(
         MedusaError.Types.DUPLICATE_ERROR,
-        `A card with handle '${input.handle}' already exists.`
+        `'${product.title}' is already registered as a gacha card.`
       );
     }
-    const existingProducts = await productModule.listProducts(
-      { handle: input.handle },
-      { take: 1 }
-    );
-    if (existingProducts.length) {
-      throw new MedusaError(
-        MedusaError.Types.DUPLICATE_ERROR,
-        `A product with handle '${input.handle}' already exists.`
-      );
-    }
-
-    const salePrice = input.price ?? input.market_value;
 
     const [card] = await packs.createCards([
       {
-        handle: input.handle,
-        name: input.name,
+        handle: product.handle,
+        name: product.title,
         set: input.set,
         grader: input.grader,
         grade: input.grade,
-        rarity: input.rarity,
         market_value: input.market_value,
-        image: input.image,
-        // Store the operator's price verbatim — NULL means "use FMV" and must be
-        // preserved (the Product mirror below still gets a concrete `salePrice`).
-        price: input.price ?? null,
-        for_sale: input.for_sale,
+        image,
+        // NULL price = "use FMV"; the product's own variant price stays the
+        // marketplace source of truth and is not touched by registration.
+        price: null,
+        for_sale: product.status === "published",
       },
     ]);
 
-    // Mirror the Product. If this fails, undo the Card we just created so the step
-    // is atomic (StepResponse compensation only covers later-step failures).
-    let productId: string;
+    // Mirror the gacha facts onto the product metadata (the marketplace card
+    // page reads fmv/grade/grader/set from there) and make sure the product is
+    // LINKED to the house seller — Mercur's storefront product middleware hides
+    // seller-less products, so a hand-created catalog product would otherwise
+    // never show on /marketplace even when published. If any of this fails,
+    // undo the Card so the step is atomic (StepResponse compensation only
+    // covers later steps). The seller link is intentionally NOT compensated:
+    // every catalog product belongs to the house seller in this single-vendor
+    // store, so a kept link is the desired end state regardless.
+    const prevMetadata = (product.metadata ?? {}) as Record<string, unknown>;
     try {
-      const ctx = await resolveCardProductContext(container);
-      const productInput = buildCardProductInput(
-        {
-          handle: input.handle,
-          title: input.name,
-          image: input.image,
-          price: salePrice,
-          metadata: {
-            fmv: input.market_value,
-            points: 0,
-            grade: input.grade,
-            grader: input.grader,
-            set: input.set,
-            rarity: input.rarity,
-            year: new Date().getFullYear(),
-          },
-        },
-        {
-          shippingProfileId: ctx.shippingProfileId,
-          salesChannelId: ctx.salesChannelId,
-          status: input.for_sale ? ProductStatus.PUBLISHED : ProductStatus.DRAFT,
-          manageInventory: false,
+      const query = container.resolve(ContainerRegistrationKeys.QUERY);
+      const { data: withSeller } = await query.graph({
+        entity: "product",
+        fields: ["id", "seller.id"],
+        filters: { id: product.id },
+      });
+      if (!withSeller[0]?.seller?.id) {
+        const sellerService = container.resolve(MercurModules.SELLER);
+        const [houseSeller] = await sellerService.listSellers({
+          handle: "house",
+        });
+        if (!houseSeller) {
+          throw new MedusaError(
+            MedusaError.Types.NOT_FOUND,
+            "House seller not found — run the seed before managing the catalog."
+          );
         }
-      );
-
-      const { result } = await createProductsWorkflow(container).run({
+        const link = container.resolve(ContainerRegistrationKeys.LINK);
+        await link.create({
+          [Modules.PRODUCT]: { product_id: product.id },
+          [MercurModules.SELLER]: { seller_id: houseSeller.id },
+        });
+      }
+      await updateProductsWorkflow(container).run({
         input: {
-          products: [productInput],
-          additional_data: { seller_id: ctx.sellerId },
+          products: [
+            {
+              id: product.id,
+              metadata: {
+                ...prevMetadata,
+                fmv: input.market_value,
+                points: typeof prevMetadata.points === "number" ? prevMetadata.points : 0,
+                grade: input.grade,
+                grader: input.grader,
+                set: input.set,
+                year:
+                  typeof prevMetadata.year === "number"
+                    ? prevMetadata.year
+                    : new Date().getFullYear(),
+              },
+            },
+          ],
         },
       });
-      productId = result[0].id;
     } catch (error) {
       await packs.deleteCards([card.id]);
       throw error;
     }
 
     return new StepResponse(
-      { handle: card.handle, productId },
-      { cardId: card.id, productId } satisfies CompensateData
+      { handle: card.handle, productId: product.id },
+      { cardId: card.id, productId: product.id, prevMetadata } satisfies CompensateData
     );
   },
   async (data: CompensateData, { container }) => {
     if (!data) return;
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
-    await deleteProductsWorkflow(container).run({ input: { ids: [data.productId] } });
     await packs.deleteCards([data.cardId]);
+    await updateProductsWorkflow(container).run({
+      input: {
+        products: [{ id: data.productId, metadata: data.prevMetadata }],
+      },
+    });
   }
 );
 

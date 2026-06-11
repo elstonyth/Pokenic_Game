@@ -1,13 +1,6 @@
 import { MedusaError } from "@medusajs/framework/utils";
-import type { CardWriteInput, Rarity } from "../../../workflows/steps/create-card";
-
-const RARITIES: Rarity[] = [
-  "Legendary",
-  "Epic",
-  "Rare",
-  "Uncommon",
-  "Common",
-];
+import type { RegisterCardInput } from "../../../workflows/steps/create-card";
+import type { UpdateCardInput } from "../../../workflows/steps/update-card";
 
 const HANDLE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_TEXT = 512;
@@ -52,24 +45,38 @@ const reqNum = (b: Record<string, unknown>, key: string): number => {
   return v as number;
 };
 
-// Coerce + validate the card form body into a CardWriteInput. `handle` comes from
-// the route params on update (immutable) and from the body on create.
-export function coerceCardBody(
-  raw: unknown,
-  handle: string
-): CardWriteInput {
+const asObject = (raw: unknown): Record<string, unknown> => {
   if (!raw || typeof raw !== "object") {
     bad("Body must be an object.");
   }
-  const b = raw as Record<string, unknown>;
+  return raw as Record<string, unknown>;
+};
+
+// Coerce + validate the registration body (inventory-first create): the product
+// is referenced by id; only the gacha facts are entered. Rarity is per-pack and
+// is NOT part of a card.
+export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
+  const b = asObject(raw);
+
+  return {
+    product_id: reqStr(b, "product_id"),
+    set: optStr(b, "set"),
+    grader: optStr(b, "grader"),
+    grade: optStr(b, "grade"),
+    market_value: reqNum(b, "market_value"),
+  };
+}
+
+// Coerce + validate the card edit body. `handle` comes from the route params
+// (immutable — it keys PackOdds/Pull/Product).
+export function coerceUpdateCardBody(
+  raw: unknown,
+  handle: string
+): UpdateCardInput {
+  const b = asObject(raw);
 
   if (!HANDLE_RE.test(handle)) {
     bad("'handle' must be lowercase kebab-case (letters, digits, hyphens).");
-  }
-
-  const rarity = reqStr(b, "rarity") as Rarity;
-  if (!RARITIES.includes(rarity)) {
-    bad(`'rarity' must be one of: ${RARITIES.join(", ")}.`);
   }
 
   const priceRaw = b.price;
@@ -84,7 +91,6 @@ export function coerceCardBody(
     set: optStr(b, "set"),
     grader: optStr(b, "grader"),
     grade: optStr(b, "grade"),
-    rarity,
     market_value: reqNum(b, "market_value"),
     image: imageStr(b, "image"),
     price,

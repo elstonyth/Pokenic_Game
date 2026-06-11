@@ -25,7 +25,15 @@ export type WonCard = {
 };
 
 export type OpenPackResult =
-  | { ok: true; card: WonCard }
+  | {
+      ok: true;
+      card: WonCard;
+      /** Ledger id of this pull — keys the instant sell-back; null only if the
+       *  backend response shape regresses. */
+      pullId: string | null;
+      /** Raw USD FMV (decimal) — the client computes the buyback offer from it. */
+      marketValue: number;
+    }
   | { ok: false; error: string; needsAuth?: boolean };
 
 // Shape of the `card` returned by the open route (normalized server-side).
@@ -61,14 +69,14 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
   }
 
   try {
-    const { card } = await sdk.client.fetch<{ card: BackendWonCard }>(
-      `/store/packs/${encodeURIComponent(slug)}/open`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: {},
-      }
-    );
+    const { pull, card } = await sdk.client.fetch<{
+      pull?: { id?: unknown };
+      card: BackendWonCard;
+    }>(`/store/packs/${encodeURIComponent(slug)}/open`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: {},
+    });
 
     // The fetch generic is a type assertion, not a runtime guard — validate the
     // shape so a renamed field can't render "$NaN" / an undefined rarity ring.
@@ -91,6 +99,8 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
         value: formatValue(card.market_value),
         rarity: card.rarity,
       },
+      pullId: typeof pull?.id === "string" ? pull.id : null,
+      marketValue: card.market_value,
     };
   } catch (error) {
     logger.error(`[packs] open-pack failed for '${slug}':`, error);

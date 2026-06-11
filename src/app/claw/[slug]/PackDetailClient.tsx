@@ -20,6 +20,7 @@ import { openAuth } from "@/components/AuthButton";
 import Reveal from "@/components/Reveal";
 import type { PackDetail, RecentPull } from "@/lib/data/packs";
 import { openPack } from "@/lib/actions/packs";
+import { sellBackPull } from "@/lib/actions/vault";
 import {
   type Pack,
   type ResolvedPack,
@@ -112,7 +113,14 @@ export default function PackDetailClient({
   const [recent, setRecent] = useState<RecentPull[]>(recentPulls);
   // The pack-opening reveal overlay — non-null while showing the won/demo card.
   // `nonce` keys the overlay so "Open another" remounts it and re-runs the burst.
-  const [reveal, setReveal] = useState<{ card: PackCard; isReal: boolean; nonce: number } | null>(null);
+  // pullId/marketValue drive the instant sell-back offer (null for demo spins).
+  const [reveal, setReveal] = useState<{
+    card: PackCard;
+    isReal: boolean;
+    nonce: number;
+    pullId: string | null;
+    marketValue: number | null;
+  } | null>(null);
 
   const claw = clawMachine(active);
   const priceNum = priceNumber(active.price);
@@ -139,7 +147,7 @@ export default function PackDetailClient({
     if (opening) return;
     setOpenError(null);
     const mock = CARD_POOL[Math.floor(Math.random() * CARD_POOL.length)];
-    setReveal({ card: mock, isReal: false, nonce: Date.now() });
+    setReveal({ card: mock, isReal: false, nonce: Date.now(), pullId: null, marketValue: null });
   }
 
   // Real open — auth-gated. Awaits the server action (the customer id is derived
@@ -160,7 +168,13 @@ export default function PackDetailClient({
         else setOpenError(res.error);
         return;
       }
-      setReveal({ card: res.card, isReal: true, nonce: Date.now() });
+      setReveal({
+        card: res.card,
+        isReal: true,
+        nonce: Date.now(),
+        pullId: res.pullId,
+        marketValue: res.marketValue,
+      });
       const justPulled: RecentPull = {
         id: `${res.card.id}-${Date.now()}`,
         name: res.card.name,
@@ -243,7 +257,7 @@ export default function PackDetailClient({
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
               <h1 className="font-heading text-xl font-bold tracking-tight text-white sm:text-2xl">{active.name}</h1>
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/90 px-2.5 py-1 text-[11px] font-bold text-white">
-                90% Buyback
+                {active.buybackPercent ?? 90}% Buyback
                 <Info className="h-3 w-3 opacity-80" aria-hidden />
               </span>
             </div>
@@ -471,6 +485,19 @@ export default function PackDetailClient({
           category={pack.categoryName}
           opening={opening}
           reduced={reduced}
+          buyback={
+            reveal.pullId !== null && reveal.marketValue !== null
+              ? {
+                  pullId: reveal.pullId,
+                  percent: active.buybackPercent ?? 90,
+                  amount:
+                    Math.round(reveal.marketValue * (active.buybackPercent ?? 90)) / 100,
+                  vaultPercent:
+                    active.vaultBuybackPercent ?? active.buybackPercent ?? 90,
+                }
+              : null
+          }
+          onSellBack={sellBackPull}
           onClose={() => setReveal(null)}
           onOpenAnother={handleOpenPack}
         />

@@ -10,11 +10,24 @@ import {
   buildCardProductInput,
   resolveCardProductContext,
 } from "../../modules/packs/card-product";
-import type { CardWriteInput, Rarity } from "./create-card";
 
 // Everything about a card is editable EXCEPT its handle (the immutable key that
 // PackOdds / Pull / the Product reference). `handle` selects the row to patch.
-export type UpdateCardInput = CardWriteInput;
+// Rarity is NOT here — it is a per-pack property (PackOdds.rarity), edited in
+// the pack's win-rate editor.
+export type UpdateCardInput = {
+  handle: string;
+  name: string;
+  set: string;
+  grader: string;
+  grade: string;
+  market_value: number;
+  image: string;
+  // Standalone sale price. Falls back to market_value (FMV) when omitted.
+  price?: number;
+  // Listed on the marketplace (mirrored Product PUBLISHED) vs pack-only (DRAFT).
+  for_sale: boolean;
+};
 
 type CardSnapshot = {
   id: string;
@@ -22,7 +35,6 @@ type CardSnapshot = {
   set: string;
   grader: string;
   grade: string;
-  rarity: Rarity;
   market_value: number;
   image: string;
   price: number | null;
@@ -67,7 +79,6 @@ export const updateCardStep = createStep(
       set: card.set,
       grader: card.grader,
       grade: card.grade,
-      rarity: card.rarity,
       market_value: Number(card.market_value),
       image: card.image,
       price: card.price === null ? null : Number(card.price),
@@ -83,7 +94,6 @@ export const updateCardStep = createStep(
         set: input.set,
         grader: input.grader,
         grade: input.grade,
-        rarity: input.rarity,
         market_value: input.market_value,
         image: input.image,
         // Store the operator's price verbatim — NULL means "use FMV" and must be
@@ -132,7 +142,6 @@ export const updateCardStep = createStep(
                 grade: input.grade,
                 grader: input.grader,
                 set: input.set,
-                rarity: input.rarity,
               },
               ...(variantId
                 ? {
@@ -168,7 +177,6 @@ export const updateCardStep = createStep(
           grade: input.grade,
           grader: input.grader,
           set: input.set,
-          rarity: input.rarity,
           year: new Date().getFullYear(),
         },
       },
@@ -201,7 +209,6 @@ export const updateCardStep = createStep(
         set: data.card.set,
         grader: data.card.grader,
         grade: data.card.grade,
-        rarity: data.card.rarity,
         market_value: data.card.market_value,
         image: data.card.image,
         price: data.card.price,

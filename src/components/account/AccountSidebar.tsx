@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Settings, Package, MessageSquare, TrendingUp, Gift, Award, Ticket,
-  Landmark, HandCoins, Coins, Zap, type LucideIcon,
+  Landmark, HandCoins, Coins, Zap, Vault, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const ACCOUNT_NAV: { label: string; href: string; icon: LucideIcon }[] = [
+  { label: "Vault", href: "/vault", icon: Vault },
   { label: "Settings", href: "/settings", icon: Settings },
   { label: "Orders", href: "/orders", icon: Package },
   { label: "Messages", href: "/messages", icon: MessageSquare },

@@ -9,8 +9,8 @@ import {
   Button,
   Switch,
   Input,
+  Select,
   StatusBadge,
-  Badge,
   FocusModal,
   Checkbox,
   toast,
@@ -18,18 +18,20 @@ import {
 } from "@medusajs/ui";
 import { ArrowLeft } from "@medusajs/icons";
 import { packsApi, type AdminCard } from "../../../lib/packs-api";
-import { computeOdds, type OddsInput } from "../../../lib/odds-math";
+import { computeOdds, RARITIES, type OddsInput } from "../../../lib/odds-math";
 import { resolveImageUrl } from "../../../lib/image-url";
 
 // One editable row: the immutable card facts + its current saved %, plus the
-// editable lock state and (when locked) the win-rate input as a string so the
-// operator can type freely (e.g. "12.").
+// editable PER-PACK rarity (drives the unlocked share), the lock state, and
+// (when locked) the win-rate input as a string so the operator can type freely
+// (e.g. "12.").
 type EditRow = {
   card_id: string;
   name: string;
   image: string;
   rarity: string;
   market_value: number;
+  stock: number | null;
   currentPct: number;
   locked: boolean;
   pctInput: string;
@@ -64,6 +66,7 @@ const PackOddsEditorPage = () => {
             image: o.image,
             rarity: o.rarity,
             market_value: o.market_value,
+            stock: o.stock,
             currentPct: o.pct,
             locked: o.locked,
             pctInput: String(o.pct),
@@ -89,6 +92,7 @@ const PackOddsEditorPage = () => {
           image: o.image,
           rarity: o.rarity,
           market_value: o.market_value,
+          stock: o.stock,
           currentPct: o.pct,
           locked: o.locked,
           pctInput: String(o.pct),
@@ -145,13 +149,15 @@ const PackOddsEditorPage = () => {
     }
   };
 
-  // Live preview — the SAME even-split math the save workflow runs, so what the
-  // operator sees in "After save" is exactly what gets persisted.
+  // Live preview — the SAME rarity-weighted math the save workflow runs, so what
+  // the operator sees in "After save" is exactly what gets persisted. Changing a
+  // row's rarity re-splits the unlocked share immediately.
   const { result, previewByCard } = useMemo(() => {
     const inputs: OddsInput[] = (rows ?? []).map((r) => ({
       card_id: r.card_id,
       locked: r.locked,
       pct: Number(r.pctInput),
+      rarity: r.rarity,
     }));
     const result = computeOdds(inputs);
     const previewByCard = new Map(result.computed.map((c) => [c.card_id, c.pct]));
@@ -177,7 +183,6 @@ const PackOddsEditorPage = () => {
     [result],
   );
   const noneLocked = !!rows && rows.length > 0 && rows.every((r) => !r.locked);
-  const evenPct = rows && rows.length ? 100 / rows.length : 0;
 
   async function save() {
     if (!rows || result.error || saving) return;
@@ -187,6 +192,7 @@ const PackOddsEditorPage = () => {
         card_id: r.card_id,
         locked: r.locked,
         pct: Number(r.pctInput),
+        rarity: r.rarity,
       }));
       const res = await packsApi.admin.packs.$slug.odds.mutate({ $slug: slug, entries });
       const byId = new Map(res.odds.map((c) => [c.card_id, c]));
@@ -289,11 +295,33 @@ const PackOddsEditorPage = () => {
                           alt=""
                           className="h-10 w-8 shrink-0 rounded object-contain"
                         />
-                        <span className="max-w-[18rem] truncate">{r.name}</span>
+                        <div className="flex flex-col">
+                          <span className="max-w-[18rem] truncate">{r.name}</span>
+                          {r.stock === 0 && (
+                            <span className="text-ui-tag-orange-text text-xs">
+                              {t("packs.editor.buybackOnly")}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </Table.Cell>
                     <Table.Cell>
-                      <Badge size="2xsmall">{r.rarity}</Badge>
+                      <Select
+                        size="small"
+                        value={r.rarity}
+                        onValueChange={(v) => setRow(r.card_id, { rarity: v })}
+                      >
+                        <Select.Trigger className="w-32">
+                          <Select.Value />
+                        </Select.Trigger>
+                        <Select.Content>
+                          {RARITIES.map((rarity) => (
+                            <Select.Item key={rarity} value={rarity}>
+                              {rarity}
+                            </Select.Item>
+                          ))}
+                        </Select.Content>
+                      </Select>
                     </Table.Cell>
                     <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
                       ${r.market_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -337,7 +365,7 @@ const PackOddsEditorPage = () => {
           <div className="flex flex-col gap-3 px-6 py-4">
             {noneLocked && (
               <Text size="small" className="text-ui-tag-orange-text">
-                {t("packs.editor.flattenWarning", { pct: evenPct.toFixed(2) })}
+                {t("packs.editor.flattenWarning")}
               </Text>
             )}
             {result.error && (
@@ -425,7 +453,7 @@ const PackOddsEditorPage = () => {
                       <div className="flex flex-1 flex-col">
                         <span className="truncate text-sm font-medium">{c.name}</span>
                         <span className="text-ui-fg-subtle text-xs">
-                          {c.rarity} · $
+                          {[c.grader, c.grade].filter(Boolean).join(" ") || "—"} · $
                           {c.market_value.toLocaleString("en-US")}
                         </span>
                       </div>

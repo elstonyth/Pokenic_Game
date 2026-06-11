@@ -60,22 +60,6 @@
           "nullable": false,
           "mappedType": "text"
         },
-        "rarity": {
-          "name": "rarity",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "enumItems": [
-            "Legendary",
-            "Epic",
-            "Rare",
-            "Uncommon",
-            "Common"
-          ],
-          "mappedType": "enum"
-        },
         "market_value": {
           "name": "market_value",
           "type": "numeric",
@@ -211,6 +195,134 @@
           "nullable": false,
           "mappedType": "text"
         },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "decimal"
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "enumItems": [
+            "buyback"
+          ],
+          "mappedType": "enum"
+        },
+        "pull_id": {
+          "name": "pull_id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "raw_amount": {
+          "name": "raw_amount",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "json"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "default": "now()",
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "default": "now()",
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 6,
+          "mappedType": "datetime"
+        }
+      },
+      "name": "credit_transaction",
+      "schema": "public",
+      "indexes": [
+        {
+          "keyName": "IDX_credit_transaction_pull_id_unique",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE UNIQUE INDEX IF NOT EXISTS \"IDX_credit_transaction_pull_id_unique\" ON \"credit_transaction\" (\"pull_id\") WHERE deleted_at IS NULL"
+        },
+        {
+          "keyName": "IDX_credit_transaction_deleted_at",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_credit_transaction_deleted_at\" ON \"credit_transaction\" (\"deleted_at\") WHERE deleted_at IS NULL"
+        },
+        {
+          "keyName": "credit_transaction_pkey",
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {}
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
         "slug": {
           "name": "slug",
           "type": "text",
@@ -268,6 +380,16 @@
         },
         "buyback_percent": {
           "name": "buyback_percent",
+          "type": "integer",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "90",
+          "mappedType": "integer"
+        },
+        "vault_buyback_percent": {
+          "name": "vault_buyback_percent",
           "type": "integer",
           "unsigned": false,
           "autoincrement": false,
@@ -408,6 +530,23 @@
           "nullable": false,
           "mappedType": "text"
         },
+        "rarity": {
+          "name": "rarity",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "'Common'",
+          "enumItems": [
+            "Legendary",
+            "Epic",
+            "Rare",
+            "Uncommon",
+            "Common"
+          ],
+          "mappedType": "enum"
+        },
         "weight": {
           "name": "weight",
           "type": "integer",
@@ -543,6 +682,48 @@
           "nullable": false,
           "length": 6,
           "mappedType": "datetime"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "'vaulted'",
+          "enumItems": [
+            "vaulted",
+            "bought_back"
+          ],
+          "mappedType": "enum"
+        },
+        "buyback_amount": {
+          "name": "buyback_amount",
+          "type": "numeric",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "decimal"
+        },
+        "buyback_at": {
+          "name": "buyback_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 6,
+          "mappedType": "datetime"
+        },
+        "raw_buyback_amount": {
+          "name": "raw_buyback_amount",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
         },
         "created_at": {
           "name": "created_at",

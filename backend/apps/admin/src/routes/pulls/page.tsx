@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Container, Heading, Text, Table, Badge } from "@medusajs/ui";
+import { Container, Heading, Text, Table, Badge, StatusBadge } from "@medusajs/ui";
 import { ChartBar } from "@medusajs/icons";
 import type { RouteConfig } from "@mercurjs/dashboard-sdk";
 import { packsApi, type PullsResponse } from "../../lib/packs-api";
@@ -118,6 +118,7 @@ const PullLedgerPage = () => {
                 <Table.HeaderCell className="text-right">{t("pulls.value")}</Table.HeaderCell>
                 <Table.HeaderCell>{t("pulls.customer")}</Table.HeaderCell>
                 <Table.HeaderCell>{t("pulls.pack")}</Table.HeaderCell>
+                <Table.HeaderCell>{t("pulls.status")}</Table.HeaderCell>
                 <Table.HeaderCell className="text-right">{t("pulls.when")}</Table.HeaderCell>
               </Table.Row>
             </Table.Header>
@@ -138,6 +139,15 @@ const PullLedgerPage = () => {
                   </Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle">{p.customer_email ?? t("pulls.anon")}</Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle">{p.pack_id}</Table.Cell>
+                  <Table.Cell>
+                    {p.status === "bought_back" ? (
+                      <StatusBadge color="orange">
+                        {t("pulls.boughtBack", { amount: usd(p.buyback_amount) })}
+                      </StatusBadge>
+                    ) : (
+                      <StatusBadge color="green">{t("pulls.vaulted")}</StatusBadge>
+                    )}
+                  </Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle text-right">{timeAgo(p.rolled_at)}</Table.Cell>
                 </Table.Row>
               ))}

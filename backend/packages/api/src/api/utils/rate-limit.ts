@@ -221,6 +221,8 @@ export interface RateLimitMiddlewareOptions {
   rules: RateLimitRule[];
   /** Namespaces the store key, e.g. "rl:pack-open:". */
   prefix: string;
+  /** First sentence of the 429 body; default "Too many pack opens.". */
+  message?: string;
   onError?: (err: unknown) => void;
 }
 
@@ -281,7 +283,7 @@ export function createRateLimitMiddleware(
       .set("Retry-After", String(retryAfterSec))
       .json({
         type: "rate_limit_exceeded",
-        message: `Too many pack opens. Try again in ${retryAfterSec}s.`,
+        message: `${opts.message ?? "Too many pack opens."} Try again in ${retryAfterSec}s.`,
       });
   };
 }
@@ -322,6 +324,42 @@ function throttledWarn(intervalMs: number): (msg: string, err?: unknown) => void
   };
 }
 
+// Redis-backed store with in-memory failover — shared by every limiter so each
+// endpoint gets its own connection name but identical fail-fast semantics.
+function buildFailoverStore(
+  connectionName: string,
+  warn: ReturnType<typeof throttledWarn>
+): RateLimitStore {
+  const memory = new InMemorySlidingWindowStore();
+
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    console.warn(
+      `[rate-limit] REDIS_URL not set — ${connectionName} limiter is per-process (in-memory) only`
+    );
+    return memory;
+  }
+
+  const client = new Redis(redisUrl, {
+    // Fail fast when Redis is down (failover handles it) instead of
+    // queueing commands and hanging requests.
+    lazyConnect: true,
+    enableOfflineQueue: false,
+    maxRetriesPerRequest: 1,
+    commandTimeout: 500,
+    connectionName,
+  });
+  // Without an 'error' listener ioredis connection failures become uncaught
+  // exceptions; reconnection is automatic, so just log (throttled).
+  client.on("error", (err) => warn("redis connection error", err));
+  client.connect().catch((err) => warn("initial redis connect failed", err));
+  return new FailoverRateLimitStore(
+    new RedisSlidingWindowStore(client),
+    memory,
+    (err) => warn("redis consume failed; using in-memory fallback", err)
+  );
+}
+
 /**
  * The pack-open limiter: burst + sustained sliding windows per customer,
  * Redis-backed (REDIS_URL) with in-memory failover. Limits are env-tunable:
@@ -344,39 +382,39 @@ export function createPackOpenRateLimit(): MiddlewareHandler {
   ];
 
   const warn = throttledWarn(60_000);
-  const memory = new InMemorySlidingWindowStore();
-  let store: RateLimitStore = memory;
-
-  const redisUrl = process.env.REDIS_URL;
-  if (redisUrl) {
-    const client = new Redis(redisUrl, {
-      // Fail fast when Redis is down (failover handles it) instead of
-      // queueing commands and hanging requests.
-      lazyConnect: true,
-      enableOfflineQueue: false,
-      maxRetriesPerRequest: 1,
-      commandTimeout: 500,
-      connectionName: "pack-open-rate-limit",
-    });
-    // Without an 'error' listener ioredis connection failures become uncaught
-    // exceptions; reconnection is automatic, so just log (throttled).
-    client.on("error", (err) => warn("redis connection error", err));
-    client.connect().catch((err) => warn("initial redis connect failed", err));
-    store = new FailoverRateLimitStore(
-      new RedisSlidingWindowStore(client),
-      memory,
-      (err) => warn("redis consume failed; using in-memory fallback", err)
-    );
-  } else {
-    console.warn(
-      "[rate-limit] REDIS_URL not set — pack-open limiter is per-process (in-memory) only"
-    );
-  }
-
   return createRateLimitMiddleware({
-    store,
+    store: buildFailoverStore("pack-open-rate-limit", warn),
     rules,
     prefix: "rl:pack-open:",
+    onError: (err) => warn("limiter error; request allowed through", err),
+  });
+}
+
+/**
+ * The vault-buyback limiter — same construction as pack-open, scoped per
+ * customer. A buyback can happen at most once per pull (DB-enforced), so this
+ * only throttles hammering. Env-tunable:
+ * VAULT_BUYBACK_RATE_BURST_LIMIT / VAULT_BUYBACK_RATE_BURST_WINDOW_MS (10/10s)
+ * VAULT_BUYBACK_RATE_LIMIT / VAULT_BUYBACK_RATE_WINDOW_MS (30/60s)
+ */
+export function createVaultBuybackRateLimit(): MiddlewareHandler {
+  const rules: RateLimitRule[] = [
+    {
+      limit: positiveIntFromEnv("VAULT_BUYBACK_RATE_BURST_LIMIT", 10),
+      windowMs: positiveIntFromEnv("VAULT_BUYBACK_RATE_BURST_WINDOW_MS", 10_000),
+    },
+    {
+      limit: positiveIntFromEnv("VAULT_BUYBACK_RATE_LIMIT", 30),
+      windowMs: positiveIntFromEnv("VAULT_BUYBACK_RATE_WINDOW_MS", 60_000),
+    },
+  ];
+
+  const warn = throttledWarn(60_000);
+  return createRateLimitMiddleware({
+    store: buildFailoverStore("vault-buyback-rate-limit", warn),
+    rules,
+    prefix: "rl:vault-buyback:",
+    message: "Too many buyback requests.",
     onError: (err) => warn("limiter error; request allowed through", err),
   });
 }

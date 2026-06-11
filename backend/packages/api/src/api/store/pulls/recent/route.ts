@@ -26,6 +26,16 @@ export async function GET(
     : [];
   const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
 
+  // Rarity is PER-PACK (PackOdds) — join each pull to its (pack, card) odds row.
+  // Pulls whose odds row was since removed fall back to Common rather than
+  // vanishing from the feed (the storefront drops unknown-rarity rows).
+  const oddsRows = handles.length
+    ? await packs.listPackOdds({ card_id: handles }, { take: 1000 })
+    : [];
+  const rarityByPair = new Map(
+    oddsRows.map((o) => [`${o.pack_id} ${o.card_id}`, o.rarity])
+  );
+
   const recent = pulls
     .map((p) => {
       const card = cardByHandle.get(p.card_id);
@@ -33,7 +43,7 @@ export async function GET(
       return {
         handle: card.handle,
         name: card.name,
-        rarity: card.rarity,
+        rarity: rarityByPair.get(`${p.pack_id} ${p.card_id}`) ?? "Common",
         // market_value is a BigNumber — normalize to a JSON number (USD decimal).
         market_value: Number(card.market_value),
         image: card.image,

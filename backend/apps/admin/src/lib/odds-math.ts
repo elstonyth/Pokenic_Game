@@ -1,4 +1,4 @@
-// Even-split odds math — MIRROR of the backend's authoritative copy at
+// Rarity-weighted odds math — MIRROR of the backend's authoritative copy at
 // packages/api/src/modules/packs/odds-math.ts. The admin form's live preview
 // MUST compute byte-identically to the save workflow, or the preview would lie
 // about what gets persisted. Everything below this header is kept verbatim in
@@ -6,11 +6,40 @@
 
 export const TOTAL_BPS = 10000;
 
+// Per-pack rarity tiers, rarest first. Rarity belongs to the pack↔card link
+// (PackOdds), not the card — the same card can be a different tier per pack.
+export const RARITIES = [
+  "Legendary",
+  "Epic",
+  "Rare",
+  "Uncommon",
+  "Common",
+] as const;
+
+export type OddsRarity = (typeof RARITIES)[number];
+
+// Relative pull weight per tier (rarest = smallest). Choosing a rarity directly
+// sets the unlocked card's default win chance; locking a % still overrides it.
+export const RARITY_WEIGHT: Record<OddsRarity, number> = {
+  Legendary: 5,
+  Epic: 45,
+  Rare: 150,
+  Uncommon: 300,
+  Common: 500,
+};
+
+// Tolerant lookup (never throws): unknown strings fall back to Common so a
+// stale form or legacy row degrades gracefully instead of breaking the preview.
+const rarityWeight = (rarity: string): number =>
+  RARITY_WEIGHT[rarity as OddsRarity] ?? RARITY_WEIGHT.Common;
+
 export interface OddsInput {
   card_id: string;
   locked: boolean;
   /** Win % (0–100) for locked cards. Ignored (recomputed) for unlocked cards. */
   pct: number;
+  /** Per-pack tier; sets the unlocked card's share of the leftover bps. */
+  rarity: string;
 }
 
 export interface ComputedOdd {
@@ -65,24 +94,41 @@ export function computeOdds(entries: OddsInput[]): OddsResult {
     error ??= "With every card locked, win rates must total exactly 100%.";
   }
 
-  // Even-split the remainder across the unlocked cards. Distribute the rounding
-  // leftover to the lowest card_ids so the result is order-independent (the
-  // preview and the save compute byte-identically).
+  // Split the remainder across the unlocked cards proportionally to their
+  // rarity weight. Largest-remainder rounding; fraction ties broken by lowest
+  // card_id so the result is order-independent (the preview and the save
+  // compute byte-identically).
   const remainder = Math.max(0, TOTAL_BPS - lockedBpsTotal);
-  const n = unlocked.length;
-  const base = n > 0 ? Math.floor(remainder / n) : 0;
-  const leftoverCount = n > 0 ? remainder - base * n : 0;
-  const leftoverIds = new Set(
-    unlocked
-      .map((e) => e.card_id)
-      .sort()
-      .slice(0, leftoverCount),
+  const totalRarityWeight = unlocked.reduce(
+    (sum, e) => sum + rarityWeight(e.rarity),
+    0,
   );
+
+  const shareById = new Map<string, number>();
+  if (unlocked.length > 0 && totalRarityWeight > 0) {
+    const shares = unlocked.map((e) => {
+      const raw = (remainder * rarityWeight(e.rarity)) / totalRarityWeight;
+      const base = Math.floor(raw);
+      return { card_id: e.card_id, base, frac: raw - base };
+    });
+    let leftover = remainder - shares.reduce((sum, s) => sum + s.base, 0);
+    const byFrac = [...shares].sort(
+      (a, b) =>
+        b.frac - a.frac ||
+        (a.card_id < b.card_id ? -1 : a.card_id > b.card_id ? 1 : 0),
+    );
+    for (const s of byFrac) {
+      if (leftover <= 0) break;
+      s.base += 1;
+      leftover -= 1;
+    }
+    for (const s of shares) shareById.set(s.card_id, s.base);
+  }
 
   const computed: ComputedOdd[] = safe.map((e) => {
     const weight = e.locked
       ? lockedBpsById.get(e.card_id) ?? 0
-      : base + (leftoverIds.has(e.card_id) ? 1 : 0);
+      : shareById.get(e.card_id) ?? 0;
     return { card_id: e.card_id, weight, locked: e.locked, pct: weight / 100 };
   });
 
@@ -90,6 +136,6 @@ export function computeOdds(entries: OddsInput[]): OddsResult {
     computed,
     error,
     lockedTotalPct: lockedBpsTotal / 100,
-    unlockedCount: n,
+    unlockedCount: unlocked.length,
   };
 }

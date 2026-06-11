@@ -2,19 +2,36 @@ import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
 import { MedusaError } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../modules/packs";
 import type PacksModuleService from "../../modules/packs/service";
-import { computeOdds, type OddsInput } from "../../modules/packs/odds-math";
+import {
+  computeOdds,
+  RARITIES,
+  type OddsInput,
+  type OddsRarity,
+} from "../../modules/packs/odds-math";
 
 export type SavePackOddsInput = {
   pack_id: string; // = Pack.slug
-  entries: OddsInput[]; // one per card in the pack ({ card_id, locked, pct })
+  entries: OddsInput[]; // one per card in the pack ({ card_id, locked, pct, rarity })
 };
 
+// OddsInput carries rarity as a plain string (the route validates it); narrow it
+// back to the enum for the persistence layer, falling back to Common.
+const toRarity = (s: string | undefined): OddsRarity =>
+  (RARITIES as readonly string[]).includes(s ?? "")
+    ? (s as OddsRarity)
+    : "Common";
+
 // Snapshot used to restore the prior odds if a later step ever fails.
-type OddsSnapshot = { id: string; weight: number; locked: boolean };
+type OddsSnapshot = {
+  id: string;
+  rarity: OddsRarity;
+  weight: number;
+  locked: boolean;
+};
 
 // save-pack-odds — the one mutation in the win-rate editor: normalize a pack's
-// per-card weights to basis points (Σ = 10000) per the even-split rules and
-// persist weight + locked. Compensated by restoring the pre-save snapshot.
+// per-card weights to basis points (Σ = 10000) per the rarity-weighted rules and
+// persist rarity + weight + locked. Compensated by restoring the pre-save snapshot.
 //
 // Validation (reject → 400/404 via MedusaError, BEFORE any write):
 //   - pack must exist and be active
@@ -69,14 +86,19 @@ export const savePackOddsStep = createStep(
     }
 
     const idByCard = new Map(existing.map((o) => [o.card_id, o.id]));
+    // Rarity rides along with the save: the editor chooses the per-pack tier and
+    // the weights computed FROM it in one submit.
+    const rarityByCard = new Map(input.entries.map((e) => [e.card_id, e.rarity]));
     const updates = computed.map((c) => ({
       id: idByCard.get(c.card_id)!,
+      rarity: toRarity(rarityByCard.get(c.card_id)),
       weight: c.weight,
       locked: c.locked,
     }));
 
     const snapshot: OddsSnapshot[] = existing.map((o) => ({
       id: o.id,
+      rarity: o.rarity,
       weight: o.weight,
       locked: o.locked,
     }));

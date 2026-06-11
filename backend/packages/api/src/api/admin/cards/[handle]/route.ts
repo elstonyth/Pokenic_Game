@@ -3,7 +3,7 @@ import PacksModuleService from "../../../../modules/packs/service";
 import { PACKS_MODULE } from "../../../../modules/packs";
 import { updateCardWorkflow } from "../../../../workflows/update-card";
 import { deleteCardWorkflow } from "../../../../workflows/delete-card";
-import { coerceCardBody } from "../validate";
+import { coerceUpdateCardBody } from "../validate";
 
 // GET /admin/cards/:handle — load one card for the edit form.
 export async function GET(
@@ -26,7 +26,6 @@ export async function GET(
       set: card.set,
       grader: card.grader,
       grade: card.grade,
-      rarity: card.rarity,
       market_value: Number(card.market_value),
       image: card.image,
       // Raw stored price: null means "use FMV" — the form preserves that sentinel.
@@ -43,14 +42,17 @@ export async function POST(
   res: MedusaResponse
 ): Promise<void> {
   const { handle } = req.params;
-  const input = coerceCardBody((req.body ?? {}) as Record<string, unknown>, handle);
+  const input = coerceUpdateCardBody(
+    (req.body ?? {}) as Record<string, unknown>,
+    handle
+  );
 
   const { result } = await updateCardWorkflow(req.scope).run({ input });
   res.json({ card: result });
 }
 
-// DELETE /admin/cards/:handle — delete a card, its PackOdds membership, and its
-// mirrored Product (Pull history kept).
+// DELETE /admin/cards/:handle — unregister a card from the gacha system (card +
+// PackOdds membership). The inventory Product and Pull history are KEPT.
 export async function DELETE(
   req: MedusaRequest,
   res: MedusaResponse

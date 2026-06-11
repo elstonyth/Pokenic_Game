@@ -9,6 +9,10 @@ export type PackWriteInput = {
   category: string;
   price: number;
   image: string;
+  // Sell-back rates (0–100, % of FMV): instant = at the reveal (within the
+  // post-pull window), vault = later sells from the vault.
+  buyback_percent: number;
+  vault_buyback_percent: number;
   boost: boolean;
   rank: number;
   status: "active" | "draft";
@@ -39,6 +43,8 @@ export const createPackStep = createStep(
         category: input.category,
         price: input.price,
         image: input.image,
+        buyback_percent: input.buyback_percent,
+        vault_buyback_percent: input.vault_buyback_percent,
         boost: input.boost,
         rank: input.rank,
         status: input.status,

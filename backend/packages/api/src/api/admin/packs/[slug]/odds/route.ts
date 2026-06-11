@@ -2,21 +2,29 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import PacksModuleService from "../../../../../modules/packs/service";
 import { PACKS_MODULE } from "../../../../../modules/packs";
 import { savePackOddsWorkflow } from "../../../../../workflows/save-pack-odds";
-import type { OddsInput } from "../../../../../modules/packs/odds-math";
+import {
+  RARITIES,
+  type OddsInput,
+} from "../../../../../modules/packs/odds-math";
+import { getCardStockByHandle } from "../../../../../modules/packs/card-stock";
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
-// One per-card row for the editor form: card display fields + the card's CURRENT
-// win % and lock state. `pct` is weight / Σweight × 100 (NOT weight/100): the
-// seed ships rarity-relative weights that are only normalized to basis points on
-// the first save, so deriving from the running total reads correctly in BOTH
-// states (pre- and post-normalization).
+// One per-card row for the editor form: card display fields + the row's CURRENT
+// per-pack rarity, win % and lock state. `pct` is weight / Σweight × 100 (NOT
+// weight/100): the seed ships rarity-relative weights that are only normalized
+// to basis points on the first save, so deriving from the running total reads
+// correctly in BOTH states (pre- and post-normalization). `rarity` comes from
+// the PackOdds row — it is this pack's tier for the card, not a card property.
 type OddsRow = {
   card_id: string;
   name: string;
   image: string;
   rarity: string;
   market_value: number;
+  // Available physical units (null = untracked/infinite). Display-only — 0 is
+  // NOT excluded from anything (buyback fulfills 0-stock pulls).
+  stock: number | null;
   weight: number;
   locked: boolean;
   pct: number;
@@ -49,6 +57,7 @@ export async function GET(
       )
     : [];
   const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
+  const stockByHandle = await getCardStockByHandle(req.scope, handles);
 
   const total = odds.reduce((sum, o) => sum + o.weight, 0) || 1;
 
@@ -60,8 +69,9 @@ export async function GET(
       card_id: card.handle,
       name: card.name,
       image: card.image,
-      rarity: card.rarity,
+      rarity: o.rarity,
       market_value: Number(card.market_value),
+      stock: stockByHandle.get(card.handle) ?? null,
       weight: o.weight,
       locked: o.locked,
       pct: round2((o.weight / total) * 100),
@@ -112,10 +122,20 @@ export async function POST(
         .json({ message: "Each entry needs a string card_id and boolean locked." });
       return;
     }
+    if (
+      typeof e.rarity !== "string" ||
+      !(RARITIES as readonly string[]).includes(e.rarity)
+    ) {
+      res.status(400).json({
+        message: `Each entry needs a rarity (one of: ${RARITIES.join(", ")}).`,
+      });
+      return;
+    }
     entries.push({
       card_id: e.card_id,
       locked: e.locked,
       pct: Number(e.pct ?? 0),
+      rarity: e.rarity,
     });
   }
 

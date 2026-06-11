@@ -21,10 +21,16 @@ export const Pack = model.define("pack", {
   price: model.number(),
   image: model.text(),
   boost: model.boolean().default(false),
-  // Buyback percentage shown on the storefront boost badge (default 90; premium
-  // Black/Diamond tiers are 92). in_stock=false renders a greyed "Out of Stock"
-  // tile on /claw (e.g. the Trainer tier).
+  // TWO buyback rates, both % of current FMV credited on sell-back:
+  //   buyback_percent       — the INSTANT rate, applied when the customer sells
+  //                           on the spot at the reveal (within the instant
+  //                           window — see modules/packs/buyback-rate.ts). Also
+  //                           the storefront badge (default 90; premium
+  //                           Black/Diamond tiers are 92).
+  //   vault_buyback_percent — applied to later sells from the vault.
+  // in_stock=false renders a greyed "Out of Stock" tile on /claw.
   buyback_percent: model.number().default(90),
+  vault_buyback_percent: model.number().default(90),
   in_stock: model.boolean().default(true),
   rank: model.number().default(0),
   status: model.enum(["active", "draft"]).default("active"),

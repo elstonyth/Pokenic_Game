@@ -6,6 +6,7 @@ import {
 import { emitEventStep } from "@medusajs/medusa/core-flows";
 import { rollPackStep } from "./steps/roll-pack";
 import { recordPullStep } from "./steps/record-pull";
+import { decrementCardStockStep } from "./steps/decrement-card-stock";
 
 export type OpenPackInput = {
   pack_id: string; // = Pack.slug
@@ -14,10 +15,12 @@ export type OpenPackInput = {
 
 // open-pack — the gacha "open a pack" business process.
 //
-//   roll (validate + weighted draw)  →  [payment seam]  →  record pull  →  emit
+//   roll (validate + weighted draw) → [payment seam] → record pull
+//     → decrement stock (best-effort) → emit
 //
-// recordPull is the only side-effecting step and is compensated by delete, so a
-// failure after it rolls the ledger row back (proven by the commit-gate test).
+// Both mutating steps are compensated (recordPull by delete, the stock
+// decrement by +1), so a failure later in the chain rolls everything back
+// (recordPull's rollback is proven by the commit-gate test).
 // The composition body stays pure: every derived value goes through transform()
 // (no literals/conditionals/Date here — that all lives inside the steps).
 export const openPackWorkflow = createWorkflow(
@@ -34,13 +37,19 @@ export const openPackWorkflow = createWorkflow(
     // it. Keeping the seam here makes that a single-step insertion.
     // ─────────────────────────────────────────────────────────────────────────
 
-    // 2. Record the pull (the only mutation; compensated by delete on failure).
+    // 2. Record the pull (compensated by delete on failure).
     const recordInput = transform({ input, card }, (d) => ({
       customer_id: d.input.customer_id,
       pack_id: d.input.pack_id,
       card_id: d.card.handle,
     }));
     const pull = recordPullStep(recordInput);
+
+    // 2b. Earmark one physical unit for the win (stock is a fulfillment
+    //     COUNTER, never a gate — the step is best-effort and a 0-stock card
+    //     still wins fine: buyback fulfills it). Compensated by +1.
+    const stockInput = transform({ card }, (d) => ({ card_id: d.card.handle }));
+    decrementCardStockStep(stockInput);
 
     // 3. Emit pack.opened for the live-pulls feed / leaderboard subscribers. The
     //    event only fires if the whole workflow succeeds (Medusa defers emission

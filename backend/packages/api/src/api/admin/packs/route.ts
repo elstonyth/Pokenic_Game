@@ -30,6 +30,8 @@ export async function GET(
       rank: p.rank,
       price: p.price,
       image: p.image,
+      buyback_percent: p.buyback_percent,
+      vault_buyback_percent: p.vault_buyback_percent,
       boost: p.boost,
     })),
   });

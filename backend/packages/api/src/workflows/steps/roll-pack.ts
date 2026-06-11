@@ -13,6 +13,8 @@ type RollPackInput = {
 // Plain, JSON-safe winner shape. market_value is a BigNumber on the Card model;
 // it is normalized to a number HERE so no ORM instance / BigNumber crosses the
 // workflow boundary (StepResponse → transform → WorkflowResponse all serialize).
+// rarity comes from the WINNING PackOdds row — it is the tier the card has in
+// THIS pack, not a card property.
 export type RolledCard = {
   handle: string;
   name: string;
@@ -67,20 +69,20 @@ export const rollPackStep = createStep(
     // row so a float-rounding edge (roll lands exactly on totalWeight) still
     // resolves to a real card instead of falling through.
     let roll = Math.random() * totalWeight;
-    let wonHandle = odds[odds.length - 1].card_id;
+    let won = odds[odds.length - 1];
     for (const o of odds) {
       roll -= o.weight;
       if (roll < 0) {
-        wonHandle = o.card_id;
+        won = o;
         break;
       }
     }
 
-    const [card] = await packs.listCards({ handle: wonHandle }, { take: 1 });
+    const [card] = await packs.listCards({ handle: won.card_id }, { take: 1 });
     if (!card) {
       throw new MedusaError(
         MedusaError.Types.NOT_FOUND,
-        `Card '${wonHandle}' not found.`
+        `Card '${won.card_id}' not found.`
       );
     }
 
@@ -90,7 +92,7 @@ export const rollPackStep = createStep(
       set: card.set,
       grader: card.grader,
       grade: card.grade,
-      rarity: card.rarity,
+      rarity: won.rarity,
       market_value: Number(card.market_value),
       image: card.image,
     };

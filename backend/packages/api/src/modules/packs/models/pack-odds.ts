@@ -11,6 +11,12 @@ export const PackOdds = model.define("pack_odds", {
   id: model.id().primaryKey(),
   pack_id: model.text(), // = Pack.slug
   card_id: model.text(), // = Card.handle
+  // PER-PACK rarity: the same card may be a different tier in different packs.
+  // Drives the default weight split for unlocked rows (see odds-math) and the
+  // storefront tier badge. Default keeps legacy/diff-created rows valid.
+  rarity: model
+    .enum(["Legendary", "Epic", "Rare", "Uncommon", "Common"])
+    .default("Common"),
   // Relative pull weight: roll chance = weight / Σ(weights in the pack), so the
   // roll is scale-invariant (the seed ships rarity-relative weights that need
   // not sum to anything in particular). The admin win-rate editor (Phase 6b)

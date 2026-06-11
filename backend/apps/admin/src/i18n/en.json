@@ -37,6 +37,10 @@
       "draft": "Draft",
       "price": "Price (USD)",
       "rank": "Rank (sort order)",
+      "buybackPercent": "Instant buyback %",
+      "buybackHint": "\"Sell on the spot\" rate at the reveal (first 10 minutes after a pull): this % of the card's market value as site credit.",
+      "vaultBuybackPercent": "Vault buyback %",
+      "vaultBuybackHint": "Rate for later sells from the vault (after the instant window).",
       "boost": "Boost",
       "boostHint": "Flags the pack as boosted/featured on the storefront.",
       "poolHint": "After creating, open the pack to add cards to its prize pool.",
@@ -56,16 +60,16 @@
     "pool": {
       "manage": "Manage cards",
       "title": "Prize pool",
-      "subtitle": "Pick the cards in this pack. {{count}} selected. New cards start at an even weight — tune the win rates below after saving.",
+      "subtitle": "Pick the cards in this pack. {{count}} selected. New cards join as Common — set their rarity and win rates below after saving.",
       "save": "Save pool",
       "cancel": "Cancel",
       "saved": "Pool updated ({{added}} added, {{removed}} removed).",
       "loadError": "Could not load the card catalog.",
-      "noCards": "No cards exist yet. Create cards first."
+      "noCards": "No cards registered yet. Register inventory products as gacha cards first."
     },
     "editor": {
       "title": "Win rates",
-      "subtitle": "Lock a card to pin its win rate; unlocked cards split the remainder evenly. These weights are secret — customers never see them.",
+      "subtitle": "Pick each card's rarity for THIS pack — the same card can be a different tier in other packs. Unlocked cards split the remainder by rarity (Legendary rarest); lock a card to pin an exact win rate instead. These weights are secret — customers never see them.",
       "card": "Card",
       "rarity": "Rarity",
       "value": "Value",
@@ -80,40 +84,57 @@
       "saved": "Win rates saved.",
       "back": "All packs",
       "loadError": "Could not load pack odds.",
-      "flattenWarning": "No cards are locked — saving will reset every card to an even {{pct}}%. Lock the cards you want to preserve first."
+      "flattenWarning": "No cards are locked — saving will reset every card to its rarity-based share. Lock the cards whose exact win rate you want to preserve first.",
+      "buybackOnly": "0 in stock · buyback-only"
     }
   },
   "cards": {
     "title": "Gacha Cards",
-    "subtitle": "The card catalog — gacha prizes and standalone marketplace listings. Editing a card updates its marketplace listing automatically.",
-    "new": "New card",
+    "subtitle": "Inventory products registered as gacha prizes. Add the item to the product catalog first, then register it here; rarity is chosen per pack in each pack's win-rate editor.",
+    "new": "Add from inventory",
     "list": {
       "card": "Card",
-      "rarity": "Rarity",
+      "grade": "Grade",
       "value": "FMV",
       "price": "Price",
+      "stock": "Stock",
       "status": "Marketplace",
       "actions": "Actions",
       "edit": "Edit",
-      "delete": "Delete",
+      "delete": "Remove",
       "listed": "Listed",
       "hidden": "Hidden",
-      "empty": "No cards yet. Create one to get started.",
+      "empty": "No cards registered yet. Add one from the inventory to get started.",
       "loadError": "Could not load cards."
     },
+    "register": {
+      "title": "Add card from inventory",
+      "subtitle": "Pick an existing inventory product and add the gacha facts. Name, image, and handle come from the product — create the product first if it is not listed.",
+      "save": "Register card",
+      "product": "Inventory product",
+      "searchPlaceholder": "Filter products…",
+      "loadError": "Could not load inventory products.",
+      "noEligible": "Every inventory product is already registered. Create a new product in the catalog first.",
+      "noMatch": "No products match the filter.",
+      "selectedHint": "Selected: {{title}}",
+      "pcTitle": "Market value lookup (PriceCharting)",
+      "pcPlaceholder": "e.g. charizard #4 psa 10",
+      "pcSearch": "Search",
+      "pcNoMatches": "No PriceCharting matches — refine the search or enter the value manually.",
+      "pcNoPrices": "No prices recorded for this product — enter the value manually.",
+      "pcHint": "Pick a match, then click a grade price to fill the market value. Needs PRICECHARTING_API_TOKEN on the backend; manual entry always works.",
+      "rarityHint": "Rarity is NOT set here — the same card can be a different tier per pack. Choose it when you add the card to a pack (Gacha Packs → pool & odds)."
+    },
     "form": {
-      "createTitle": "New card",
       "editTitle": "Edit card",
-      "subtitle": "Sets the gacha prize details and the standalone marketplace listing (same card, one record).",
+      "subtitle": "Edits the gacha facts and the marketplace listing mirror (price + visibility).",
       "image": "Image",
       "uploadImage": "Upload image",
       "imageUrlPlaceholder": "Image URL or /storefront/path.webp",
       "uploadHint": "Upload a file, or paste a storefront-relative path (e.g. /cdn/cards/x.webp).",
       "handle": "Handle",
-      "handleHint": "Unique, lowercase, kebab-case. Permanent — it keys the card everywhere.",
       "name": "Name",
       "set": "Set",
-      "rarity": "Rarity",
       "grader": "Grader",
       "grade": "Grade",
       "marketValue": "Fair-market value (USD)",
@@ -125,14 +146,14 @@
       "cancel": "Cancel"
     },
     "toast": {
-      "created": "Card created.",
+      "created": "Card registered.",
       "updated": "Card updated.",
-      "deleted": "Card deleted."
+      "deleted": "Card removed from the gacha system."
     },
     "delete": {
-      "title": "Delete card?",
-      "description": "This permanently removes \"{{name}}\", its marketplace listing, and its membership in every pack. Past pulls are kept. This cannot be undone.",
-      "confirm": "Delete card"
+      "title": "Remove card?",
+      "description": "This removes \"{{name}}\" from the gacha system and from every pack's prize pool. The inventory product and past pulls are kept. This cannot be undone.",
+      "confirm": "Remove card"
     }
   },
   "pulls": {
@@ -147,6 +168,9 @@
     "value": "Value",
     "customer": "Customer",
     "pack": "Pack",
+    "status": "Status",
+    "vaulted": "In vault",
+    "boughtBack": "Bought back · {{amount}}",
     "when": "When",
     "count": "Pulls",
     "empty": "No pulls yet.",

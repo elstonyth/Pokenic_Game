@@ -2,6 +2,7 @@ import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
 import { MedusaError } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../modules/packs";
 import type PacksModuleService from "../../modules/packs/service";
+import type { OddsRarity } from "../../modules/packs/odds-math";
 
 export type SetPackMembersInput = {
   pack_id: string; // = Pack.slug
@@ -16,6 +17,7 @@ const NEW_MEMBER_WEIGHT = 100;
 type RemovedRow = {
   pack_id: string;
   card_id: string;
+  rarity: OddsRarity;
   weight: number;
   locked: boolean;
 };
@@ -72,6 +74,9 @@ export const setPackMembersStep = createStep(
         toAdd.map((card_id) => ({
           pack_id: input.pack_id,
           card_id,
+          // New members join as Common; the operator picks the real per-pack
+          // tier in the win-rate editor, which recomputes the weights from it.
+          rarity: "Common" as const,
           weight: NEW_MEMBER_WEIGHT,
           locked: false,
         }))
@@ -85,6 +90,7 @@ export const setPackMembersStep = createStep(
     const removed: RemovedRow[] = toRemove.map((o) => ({
       pack_id: o.pack_id,
       card_id: o.card_id,
+      rarity: o.rarity,
       weight: o.weight,
       locked: o.locked,
     }));

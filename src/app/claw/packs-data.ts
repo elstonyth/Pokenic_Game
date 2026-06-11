@@ -14,8 +14,11 @@ export type Pack = {
   image: string;
   /** Shows the green buyback-boost badge on the card. */
   boost?: boolean;
-  /** Buyback % on the boost badge (default 90; premium Black/Diamond = 92). */
+  /** INSTANT ("sell on the spot") buyback % — also the boost-badge number
+   *  (default 90; premium Black/Diamond = 92). */
   buybackPercent?: number;
+  /** Buyback % for later sells from the vault (defaults to buybackPercent). */
+  vaultBuybackPercent?: number;
   /** false → render a greyed "Out of Stock" / "Sold out" tile. Default in-stock. */
   inStock?: boolean;
 };

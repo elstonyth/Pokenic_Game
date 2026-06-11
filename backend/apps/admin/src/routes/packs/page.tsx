@@ -53,6 +53,8 @@ type FormState = {
   category: string;
   price: string;
   image: string;
+  buybackPercent: string;
+  vaultBuybackPercent: string;
   boost: boolean;
   rank: string;
   status: "active" | "draft";
@@ -64,6 +66,8 @@ const EMPTY_FORM: FormState = {
   category: "pokemon",
   price: "",
   image: "",
+  buybackPercent: "90",
+  vaultBuybackPercent: "90",
   boost: false,
   rank: "0",
   // New packs start as draft: a pack has an empty prize pool until cards are
@@ -78,6 +82,8 @@ const formFromPack = (p: AdminPack): FormState => ({
   category: p.category,
   price: String(p.price),
   image: p.image,
+  buybackPercent: String(p.buyback_percent),
+  vaultBuybackPercent: String(p.vault_buyback_percent),
   boost: p.boost,
   rank: String(p.rank),
   status: p.status,
@@ -146,6 +152,12 @@ const PacksListPage = () => {
     form.image.trim() !== "" &&
     form.price.trim() !== "" &&
     Number(form.price) >= 0 &&
+    form.buybackPercent.trim() !== "" &&
+    Number(form.buybackPercent) >= 0 &&
+    Number(form.buybackPercent) <= 100 &&
+    form.vaultBuybackPercent.trim() !== "" &&
+    Number(form.vaultBuybackPercent) >= 0 &&
+    Number(form.vaultBuybackPercent) <= 100 &&
     (form.rank.trim() === "" || !Number.isNaN(Number(form.rank))) &&
     (mode === "edit" || SLUG_RE.test(form.slug.trim()));
   const canSave = handleOk && !saving && !uploading;
@@ -158,6 +170,8 @@ const PacksListPage = () => {
       category: form.category,
       price: Number(form.price),
       image: form.image.trim(),
+      buyback_percent: Math.trunc(Number(form.buybackPercent)),
+      vault_buyback_percent: Math.trunc(Number(form.vaultBuybackPercent)),
       boost: form.boost,
       rank: form.rank.trim() === "" ? 0 : Math.trunc(Number(form.rank)),
       status: form.status,
@@ -458,6 +472,38 @@ const PacksListPage = () => {
                     value={form.rank}
                     onChange={(e) => patch({ rank: e.target.value })}
                   />
+                </div>
+                <div className="flex flex-col gap-y-2">
+                  <Label size="small" weight="plus">
+                    {t("packs.form.buybackPercent")}
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={form.buybackPercent}
+                    onChange={(e) => patch({ buybackPercent: e.target.value })}
+                  />
+                  <Text className="text-ui-fg-subtle text-xs">
+                    {t("packs.form.buybackHint")}
+                  </Text>
+                </div>
+                <div className="flex flex-col gap-y-2">
+                  <Label size="small" weight="plus">
+                    {t("packs.form.vaultBuybackPercent")}
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={form.vaultBuybackPercent}
+                    onChange={(e) => patch({ vaultBuybackPercent: e.target.value })}
+                  />
+                  <Text className="text-ui-fg-subtle text-xs">
+                    {t("packs.form.vaultBuybackHint")}
+                  </Text>
                 </div>
               </div>
 

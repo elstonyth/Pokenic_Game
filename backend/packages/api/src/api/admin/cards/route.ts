@@ -2,10 +2,13 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import PacksModuleService from "../../../modules/packs/service";
 import { PACKS_MODULE } from "../../../modules/packs";
 import { createCardWorkflow } from "../../../workflows/create-card";
-import { coerceCardBody } from "./validate";
+import { getCardStockByHandle } from "../../../modules/packs/card-stock";
+import { coerceRegisterCardBody } from "./validate";
 
 // GET /admin/cards — the catalog list for the admin Gacha Cards page (auto-
 // protected by Medusa admin auth). Returns every card, alphabetical by name.
+// `stock` = available physical units (null = untracked/infinite); display-only,
+// 0-stock cards stay everywhere (buyback fulfills them).
 export async function GET(
   req: MedusaRequest,
   res: MedusaResponse
@@ -13,6 +16,10 @@ export async function GET(
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const cards = await packs.listCards({}, { take: 1000 });
   const sorted = [...cards].sort((a, b) => a.name.localeCompare(b.name));
+  const stockByHandle = await getCardStockByHandle(
+    req.scope,
+    sorted.map((c) => c.handle)
+  );
 
   res.json({
     cards: sorted.map((c) => ({
@@ -21,26 +28,24 @@ export async function GET(
       set: c.set,
       grader: c.grader,
       grade: c.grade,
-      rarity: c.rarity,
       market_value: Number(c.market_value),
       image: c.image,
       // Raw stored price: null means "use FMV" — the form preserves that sentinel.
       price: c.price === null ? null : Number(c.price),
       for_sale: c.for_sale,
+      stock: stockByHandle.get(c.handle) ?? null,
     })),
   });
 }
 
-// POST /admin/cards — create a card (+ mirrored marketplace Product). Validation
-// (handle format, rarity enum, numeric fields) throws MedusaError, which Medusa
-// maps to the right HTTP status; handle/uniqueness is enforced in the workflow.
+// POST /admin/cards — register an EXISTING inventory product as a gacha card
+// (inventory-first: the item must be in the catalog already; body carries only
+// product_id + the gacha facts). Uniqueness is enforced in the workflow.
 export async function POST(
   req: MedusaRequest,
   res: MedusaResponse
 ): Promise<void> {
-  const body = (req.body ?? {}) as Record<string, unknown>;
-  const handle = typeof body.handle === "string" ? body.handle.trim() : "";
-  const input = coerceCardBody(body, handle);
+  const input = coerceRegisterCardBody((req.body ?? {}) as Record<string, unknown>);
 
   const { result } = await createCardWorkflow(req.scope).run({ input });
   res.status(201).json({ card: result });

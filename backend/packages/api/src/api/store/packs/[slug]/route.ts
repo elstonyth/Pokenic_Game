@@ -46,6 +46,7 @@ export async function GET(
   const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
 
   // Join each odds row to its card; drop orphaned odds whose card is missing.
+  // rarity comes from the odds row — the card's tier IN THIS PACK.
   const entries = odds
     .map((o) => {
       const card = cardByHandle.get(o.card_id);
@@ -56,7 +57,7 @@ export async function GET(
         set: card.set,
         grader: card.grader,
         grade: card.grade,
-        rarity: card.rarity,
+        rarity: o.rarity,
         // market_value is a BigNumber (numeric column) — normalize to a JSON
         // number; it's a USD decimal, never cents.
         market_value: Number(card.market_value),

@@ -108,6 +108,8 @@ type CardSeed = {
   grade: string;
   grader: string;
   set: string;
+  // Seeds PackOdds.rarity (the per-pack tier) + the rarity-relative weight for
+  // every pack this card joins — it is NOT a Card-model field anymore.
   rarity: Rarity;
   year: number;
   image: string;
@@ -1054,7 +1056,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
                 grade: card.grade,
                 grader: card.grader,
                 set: card.set,
-                rarity: card.rarity,
                 year: card.year,
               },
             },
@@ -1161,7 +1162,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
     set: c.set,
     grader: c.grader,
     grade: c.grade,
-    rarity: c.rarity,
+    // No rarity here — it is a per-pack property, seeded on the PackOdds rows.
     market_value: c.fmv, // USD decimal — stored as-is, never cents.
     image: c.image,
   }));
@@ -1212,6 +1213,9 @@ export default async function seedDemoData({ container }: ExecArgs) {
     return pool.map((card) => ({
       pack_id: pack.slug,
       card_id: card.handle,
+      // The card's tier IN THIS PACK (PackOdds.rarity). The seed gives a card
+      // the same tier in every pack it joins; the admin editor can diverge them.
+      rarity: card.rarity,
       weight: RARITY_WEIGHT[card.rarity] ?? 100,
     }));
   });

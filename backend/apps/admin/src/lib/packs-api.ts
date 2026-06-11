@@ -20,6 +20,10 @@ export interface AdminPack {
   rank: number;
   price: number;
   image: string;
+  /** Instant ("sell on the spot") rate — 0–100, % of FMV. */
+  buyback_percent: number;
+  /** Rate for later sells from the vault — 0–100, % of FMV. */
+  vault_buyback_percent: number;
   boost: boolean;
 }
 
@@ -31,34 +35,47 @@ export interface AdminPackWrite {
   category: string;
   price: number;
   image: string;
+  buyback_percent: number;
+  vault_buyback_percent: number;
   boost: boolean;
   rank: number;
   status: "active" | "draft";
 }
 
+// No rarity here — rarity is a per-pack property (PackOdds), edited in each
+// pack's win-rate editor, not on the card.
 export interface AdminCard {
   handle: string;
   name: string;
   set: string;
   grader: string;
   grade: string;
-  rarity: string;
   market_value: number;
   image: string;
   /** Stored sale price; `null` means "use FMV (market_value)". */
   price: number | null;
   for_sale: boolean;
+  /** Available physical units; `null` = untracked (infinite). Display-only —
+   *  0-stock cards stay pullable/listed (buyback fulfills them). */
+  stock: number | null;
 }
 
-// Create/update payload. `handle` is sent on create only (immutable thereafter —
-// on update it travels as the `$handle` path param, not the body).
-export interface AdminCardWrite {
-  handle?: string;
+// Registration payload (create): the item must already exist as an inventory
+// product; only the gacha facts travel. Name/image/handle come from the product.
+export interface AdminCardRegister {
+  product_id: string;
+  set: string;
+  grader: string;
+  grade: string;
+  market_value: number;
+}
+
+// Edit payload. `handle` travels as the `$handle` path param, not the body.
+export interface AdminCardUpdate {
   name: string;
   set: string;
   grader: string;
   grade: string;
-  rarity: string;
   market_value: number;
   image: string;
   price?: number;
@@ -69,8 +86,11 @@ export interface OddsRow {
   card_id: string;
   name: string;
   image: string;
+  /** The card's tier IN THIS PACK (PackOdds.rarity) — editable per pack. */
   rarity: string;
   market_value: number;
+  /** Available physical units; `null` = untracked (infinite). */
+  stock: number | null;
   weight: number;
   locked: boolean;
   /** Current win % = weight / Σweight × 100. */
@@ -88,10 +108,15 @@ export interface PullRow {
   customer_id: string | null;
   customer_email: string | null;
   pack_id: string;
+  /** Vault lifecycle: still held vs instantly sold back. */
+  status: "vaulted" | "bought_back";
+  /** USD credited at buyback time; null while vaulted. */
+  buyback_amount: number | null;
   card: {
     handle: string;
     name: string;
-    rarity: string;
+    /** Per-pack tier of the pull; null when the odds row no longer exists. */
+    rarity: string | null;
     market_value: number;
     image: string;
   } | null;
@@ -154,13 +179,13 @@ type PacksApi = {
     };
     cards: {
       query: () => Promise<{ cards: AdminCard[] }>;
-      mutate: (input: AdminCardWrite) => Promise<{
+      mutate: (input: AdminCardRegister) => Promise<{
         card: { handle: string; productId: string };
       }>;
       $handle: {
         query: (input: { $handle: string }) => Promise<{ card: AdminCard }>;
         mutate: (
-          input: { $handle: string } & AdminCardWrite
+          input: { $handle: string } & AdminCardUpdate
         ) => Promise<{ card: { handle: string; productId: string } }>;
       };
     };

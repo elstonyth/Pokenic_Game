@@ -68,6 +68,8 @@ export default function PackOpenOverlay({
   category,
   reduced,
   opening,
+  buyback,
+  onSellBack,
   onClose,
   onOpenAnother,
 }: {
@@ -78,10 +80,42 @@ export default function PackOpenOverlay({
   category: string;
   reduced: boolean;
   opening: boolean;
+  /** Instant sell-back offer for THIS pull; null for demo spins. vaultPercent
+   *  is the (usually lower) rate that applies to later sells from the vault. */
+  buyback?: {
+    pullId: string;
+    percent: number;
+    amount: number;
+    vaultPercent: number;
+  } | null;
+  onSellBack?: (
+    pullId: string
+  ) => Promise<
+    | { ok: true; amount: number; percent: number; balance: number }
+    | { ok: false; error: string; needsAuth?: boolean }
+  >;
   onClose: () => void;
   onOpenAnother: () => void;
 }) {
   const [stage, setStage] = useState<Stage>(reduced ? "card" : "packs");
+  // Instant sell-back state for the card stage: idle → selling → sold.
+  const [sell, setSell] = useState<
+    | { phase: "idle" }
+    | { phase: "selling" }
+    | { phase: "sold"; amount: number; balance: number }
+    | { phase: "error"; message: string }
+  >({ phase: "idle" });
+
+  async function handleSellBack() {
+    if (!buyback || !onSellBack || sell.phase === "selling" || sell.phase === "sold") return;
+    setSell({ phase: "selling" });
+    const res = await onSellBack(buyback.pullId);
+    if (res.ok) {
+      setSell({ phase: "sold", amount: res.amount, balance: res.balance });
+    } else {
+      setSell({ phase: "error", message: res.error });
+    }
+  }
   const rgb = RARITY_RGB[card.rarity];
   // Live gates the ribbon celebration by rarity (an Uncommon pull skips straight from
   // metadata to the card; an Epic pull got the ribbon) — celebrate the top two tiers.
@@ -425,9 +459,41 @@ export default function PackOpenOverlay({
                 <span className="text-[13px] text-white/70">Value: <span className="font-bold text-white">{card.value}</span>{!isReal && " · demo"}</span>
               </div>
               <div className="mt-3 flex flex-col items-center gap-2">
+                {/* Instant sell-back: pull → site credit at the pack's buyback %.
+                    Sold state replaces the button with the credited confirmation;
+                    "Continue" then keeps/sends the card to the vault implicitly
+                    (every pull is vaulted until sold). Demo spins have no offer. */}
+                {buyback && sell.phase !== "sold" && (
+                  <button
+                    type="button"
+                    onClick={handleSellBack}
+                    disabled={sell.phase === "selling"}
+                    className="inline-flex h-12 w-[300px] items-center justify-center rounded-xl border border-amber-400/60 bg-amber-400/10 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-400/20 disabled:opacity-60"
+                  >
+                    {sell.phase === "selling"
+                      ? "Selling…"
+                      : `Sell back for $${buyback.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${buyback.percent}%)`}
+                  </button>
+                )}
+                {sell.phase === "sold" && (
+                  <p className="flex h-12 w-[300px] items-center justify-center rounded-xl border border-emerald-400/50 bg-emerald-400/10 text-sm font-bold text-emerald-300">
+                    +${sell.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} credited · balance $
+                    {sell.balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
+                {sell.phase === "error" && (
+                  <p className="max-w-[300px] text-center text-[12px] font-medium text-red-400">{sell.message}</p>
+                )}
                 <button type="button" onClick={onClose} className="inline-flex h-12 w-[300px] items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 text-sm font-bold text-white shadow-lg shadow-emerald-900/30 transition-opacity hover:opacity-95">
-                  Continue
+                  {buyback && sell.phase !== "sold" ? "Keep in vault" : "Continue"}
                 </button>
+                {/* The spot rate is only good NOW — vaulted cards sell at the
+                    pack's vault rate. Shown only when the rates differ. */}
+                {buyback && sell.phase !== "sold" && buyback.vaultPercent !== buyback.percent && (
+                  <p className="max-w-[300px] text-center text-[11px] text-white/45">
+                    Vaulted cards sell back later at {buyback.vaultPercent}%.
+                  </p>
+                )}
                 <button type="button" onClick={onOpenAnother} disabled={opening} className="inline-flex h-10 items-center justify-center rounded-xl px-5 text-[13px] font-semibold text-white/60 transition-colors hover:text-white disabled:opacity-60">
                   {opening ? "Opening…" : "Open another"}
                 </button>

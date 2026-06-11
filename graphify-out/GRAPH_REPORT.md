@@ -1,16 +1,16 @@
-# Graph Report - Pokenic_Game  (2026-06-10)
+# Graph Report - Pokenic_Game  (2026-06-11)
 
 ## Corpus Check
-- 661 files · ~18,787,758 words
+- 698 files · ~18,829,261 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4275 nodes · 4555 edges · 594 communities (427 shown, 167 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 24 edges (avg confidence: 0.8)
+- 4492 nodes · 4840 edges · 623 communities (438 shown, 185 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 26 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1754afbf`
+- Built from commit: `0ef96ded`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -207,21 +207,33 @@
 - [[_COMMUNITY_Community 291|Community 291]]
 - [[_COMMUNITY_Community 292|Community 292]]
 - [[_COMMUNITY_Community 293|Community 293]]
+- [[_COMMUNITY_Community 297|Community 297]]
 - [[_COMMUNITY_Community 298|Community 298]]
+- [[_COMMUNITY_Community 301|Community 301]]
+- [[_COMMUNITY_Community 302|Community 302]]
+- [[_COMMUNITY_Community 303|Community 303]]
 - [[_COMMUNITY_Community 304|Community 304]]
 - [[_COMMUNITY_Community 305|Community 305]]
+- [[_COMMUNITY_Community 306|Community 306]]
+- [[_COMMUNITY_Community 307|Community 307]]
+- [[_COMMUNITY_Community 308|Community 308]]
 - [[_COMMUNITY_Community 309|Community 309]]
 - [[_COMMUNITY_Community 310|Community 310]]
+- [[_COMMUNITY_Community 311|Community 311]]
 - [[_COMMUNITY_Community 312|Community 312]]
 - [[_COMMUNITY_Community 313|Community 313]]
 - [[_COMMUNITY_Community 314|Community 314]]
 - [[_COMMUNITY_Community 315|Community 315]]
 - [[_COMMUNITY_Community 316|Community 316]]
 - [[_COMMUNITY_Community 317|Community 317]]
+- [[_COMMUNITY_Community 318|Community 318]]
+- [[_COMMUNITY_Community 319|Community 319]]
+- [[_COMMUNITY_Community 320|Community 320]]
 - [[_COMMUNITY_Community 321|Community 321]]
 - [[_COMMUNITY_Community 322|Community 322]]
 - [[_COMMUNITY_Community 323|Community 323]]
 - [[_COMMUNITY_Community 324|Community 324]]
+- [[_COMMUNITY_Community 325|Community 325]]
 - [[_COMMUNITY_Community 326|Community 326]]
 - [[_COMMUNITY_Community 327|Community 327]]
 - [[_COMMUNITY_Community 328|Community 328]]
@@ -230,28 +242,42 @@
 - [[_COMMUNITY_Community 331|Community 331]]
 - [[_COMMUNITY_Community 332|Community 332]]
 - [[_COMMUNITY_Community 333|Community 333]]
+- [[_COMMUNITY_Community 334|Community 334]]
+- [[_COMMUNITY_Community 335|Community 335]]
 - [[_COMMUNITY_Community 336|Community 336]]
 - [[_COMMUNITY_Community 337|Community 337]]
 - [[_COMMUNITY_Community 338|Community 338]]
 - [[_COMMUNITY_Community 339|Community 339]]
+- [[_COMMUNITY_Community 340|Community 340]]
+- [[_COMMUNITY_Community 341|Community 341]]
 - [[_COMMUNITY_Community 342|Community 342]]
 - [[_COMMUNITY_Community 343|Community 343]]
 - [[_COMMUNITY_Community 344|Community 344]]
 - [[_COMMUNITY_Community 345|Community 345]]
+- [[_COMMUNITY_Community 346|Community 346]]
+- [[_COMMUNITY_Community 347|Community 347]]
+- [[_COMMUNITY_Community 349|Community 349]]
 - [[_COMMUNITY_Community 350|Community 350]]
 - [[_COMMUNITY_Community 351|Community 351]]
 - [[_COMMUNITY_Community 352|Community 352]]
 - [[_COMMUNITY_Community 353|Community 353]]
 - [[_COMMUNITY_Community 354|Community 354]]
 - [[_COMMUNITY_Community 355|Community 355]]
+- [[_COMMUNITY_Community 356|Community 356]]
+- [[_COMMUNITY_Community 357|Community 357]]
 - [[_COMMUNITY_Community 358|Community 358]]
 - [[_COMMUNITY_Community 359|Community 359]]
 - [[_COMMUNITY_Community 360|Community 360]]
+- [[_COMMUNITY_Community 361|Community 361]]
 - [[_COMMUNITY_Community 362|Community 362]]
 - [[_COMMUNITY_Community 363|Community 363]]
 - [[_COMMUNITY_Community 364|Community 364]]
 - [[_COMMUNITY_Community 365|Community 365]]
 - [[_COMMUNITY_Community 366|Community 366]]
+- [[_COMMUNITY_Community 367|Community 367]]
+- [[_COMMUNITY_Community 368|Community 368]]
+- [[_COMMUNITY_Community 369|Community 369]]
+- [[_COMMUNITY_Community 370|Community 370]]
 - [[_COMMUNITY_Community 371|Community 371]]
 - [[_COMMUNITY_Community 372|Community 372]]
 - [[_COMMUNITY_Community 373|Community 373]]
@@ -277,7 +303,6 @@
 - [[_COMMUNITY_Community 406|Community 406]]
 - [[_COMMUNITY_Community 407|Community 407]]
 - [[_COMMUNITY_Community 408|Community 408]]
-- [[_COMMUNITY_Community 409|Community 409]]
 - [[_COMMUNITY_Community 410|Community 410]]
 - [[_COMMUNITY_Community 411|Community 411]]
 - [[_COMMUNITY_Community 412|Community 412]]
@@ -463,17 +488,19 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 60 edges
-2. `form` - 22 edges
-3. `form` - 21 edges
-4. `compilerOptions` - 21 edges
+2. `form` - 25 edges
+3. `form` - 22 edges
+4. `usd()` - 22 edges
 5. `compilerOptions` - 21 edges
-6. `usd()` - 21 edges
-7. `compilerOptions` - 19 edges
-8. `compilerOptions` - 19 edges
+6. `compilerOptions` - 21 edges
+7. `pulls` - 20 edges
+8. `editor` - 19 edges
 9. `compilerOptions` - 19 edges
-10. `editor` - 18 edges
+10. `compilerOptions` - 19 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `RegisterCardModal()` --calls--> `T`  [INFERRED]
+  backend/apps/admin/src/routes/cards/RegisterCardModal.tsx → scripts/detect-lines.mjs
 - `PullLedgerPage()` --calls--> `T`  [INFERRED]
   backend/apps/admin/src/routes/pulls/page.tsx → scripts/detect-lines.mjs
 - `Reveal()` --calls--> `cn()`  [EXTRACTED]
@@ -482,17 +509,15 @@
   backend/apps/admin/src/routes/cards/page.tsx → scripts/detect-lines.mjs
 - `PackOddsEditorPage()` --calls--> `T`  [INFERRED]
   backend/apps/admin/src/routes/packs/[slug]/page.tsx → scripts/detect-lines.mjs
-- `PacksListPage()` --calls--> `T`  [INFERRED]
-  backend/apps/admin/src/routes/packs/page.tsx → scripts/detect-lines.mjs
 
 ## Import Cycles
 - None detected.
 
-## Communities (594 total, 167 thin omitted)
+## Communities (623 total, 185 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.01
-Nodes (207): AccountHolder, Address, ApiKey, ApiKeyTypeEnum, ApplicationMethod, ApplicationMethodAllocationEnum, ApplicationMethodTargetTypeEnum, ApplicationMethodTypeEnum (+199 more)
+Nodes (211): AccountHolder, Address, ApiKey, ApiKeyTypeEnum, ApplicationMethod, ApplicationMethodAllocationEnum, ApplicationMethodTargetTypeEnum, ApplicationMethodTypeEnum (+203 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.04
@@ -503,24 +528,24 @@ Cohesion: 0.05
 Nodes (41): author, dependencies, http-proxy-middleware, ioredis, @medusajs/admin-sdk, @medusajs/admin-shared, @medusajs/cli, @medusajs/dashboard (+33 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.15
-Nodes (17): AccountHeader(), Badge(), DemoNote(), MockTable(), Panel(), StatCards(), TONES, metadata (+9 more)
+Cohesion: 0.10
+Nodes (31): AccountHeader(), Badge(), DemoNote(), MockTable(), Panel(), StatCards(), TONES, BankWithdrawalPage() (+23 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.13
-Nodes (18): ALL_PACKS, CARD_POOL, CAT_ICON, CLAW_HAS_ANIM, CLAW_NO_MACHINE, clawMachine(), ODDS, PackCard (+10 more)
+Cohesion: 0.08
+Nodes (28): ClawClient(), PackCard(), PackRow(), ALL_PACKS, CARD_POOL, CAT_ICON, CATEGORIES, CLAW_HAS_ANIM (+20 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.12
-Nodes (14): Actor(), FEED, metadata, STATS, TxType, TYPE_TONE, metadata, PREVIEWS (+6 more)
+Cohesion: 0.09
+Nodes (20): Actor(), FEED, metadata, STATS, TxType, TYPE_TONE, compact(), metadata (+12 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.15
 Nodes (23): CATEGORIES, getCardById(), getCardHandles(), getMarketplaceCards(), getMarketplaceCategories(), getUsdRegionId(), imageOf(), priceOf() (+15 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.13
-Nodes (14): RevealProps, HowItWorksSteps(), Step, STEPS, ENTRIES, LeaderboardEntry, LeaderboardSection(), Reveal() (+6 more)
+Cohesion: 0.14
+Nodes (15): NotFound(), pixel, SUGGESTIONS, LaunchpadPage(), PokemonGenerationPage(), LANGS, PokeSprite(), GENS (+7 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.08
@@ -555,20 +580,20 @@ Cohesion: 0.10
 Nodes (20): compilerOptions, allowImportingTsExtensions, erasableSyntaxOnly, jsx, lib, module, moduleDetection, moduleResolution (+12 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.14
-Nodes (15): NotFound(), pixel, SUGGESTIONS, LaunchpadPage(), PokemonGenerationPage(), LANGS, PokeSprite(), GENS (+7 more)
+Cohesion: 0.12
+Nodes (17): register, loadError, noEligible, noMatch, pcHint, pcNoMatches, pcNoPrices, pcPlaceholder (+9 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.08
-Nodes (24): ACCOUNT_NAV, Reveal(), ClawClient(), PackCard(), PackRow(), CATEGORIES, Pack, PackCategory (+16 more)
+Cohesion: 0.07
+Nodes (25): ACCOUNT_NAV, Reveal(), CommunityCard(), CommunityPost, POSTS, CtaSection(), FAN_IMAGES, FanImage (+17 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.12
-Nodes (18): ClawMakerPage(), metadata, POOL, CardDetailClient(), build(), Grader, GRADERS, GRADES (+10 more)
+Cohesion: 0.10
+Nodes (20): metadata, ClawMakerPage(), metadata, POOL, CardDetailClient(), build(), Grader, GRADERS (+12 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.08
-Nodes (18): createPackOpenRateLimit(), createRateLimitMiddleware(), DEFAULTS, evaluateSlidingWindow(), FailoverRateLimitStore, InMemorySlidingWindowStore, nextMemberSuffix(), positiveIntFromEnv() (+10 more)
+Cohesion: 0.09
+Nodes (20): buildFailoverStore(), createPackOpenRateLimit(), createRateLimitMiddleware(), createVaultBuybackRateLimit(), DEFAULTS, evaluateSlidingWindow(), FailoverRateLimitStore, InMemorySlidingWindowStore (+12 more)
 
 ### Community 20 - "Community 20"
 Cohesion: 0.11
@@ -579,8 +604,8 @@ Cohesion: 0.13
 Nodes (14): dependsOn, inputs, outputs, dependsOn, cache, persistent, dependsOn, $schema (+6 more)
 
 ### Community 22 - "Community 22"
-Cohesion: 0.26
-Nodes (10): BackendWonCard, friendlyError(), openPack(), OpenPackResult, WonCard, Rarity, formatValue(), isRarity() (+2 more)
+Cohesion: 0.17
+Nodes (11): RevealProps, HowItWorksSteps(), Step, STEPS, ENTRIES, LeaderboardEntry, LeaderboardSection(), Reveal() (+3 more)
 
 ### Community 23 - "Community 23"
 Cohesion: 0.13
@@ -591,8 +616,8 @@ Cohesion: 0.13
 Nodes (14): dependencies, @acme/api, @mercurjs/vendor, devDependencies, @types/node, name, private, scripts (+6 more)
 
 ### Community 25 - "Community 25"
-Cohesion: 0.08
-Nodes (14): AVATARS, metadata, geistSans, metadata, nekst, AuthProvider(), openAuth(), MORE_ITEMS (+6 more)
+Cohesion: 0.17
+Nodes (6): AVATARS, metadata, openAuth(), metadata, PACKS, STEPS
 
 ### Community 26 - "Community 26"
 Cohesion: 0.17
@@ -615,8 +640,8 @@ Cohesion: 0.24
 Nodes (9): bad, COMP, jpgStatus(), pngStatus(), PUB, refs, ROOT, statusFor() (+1 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.14
-Nodes (11): createPackOpenRateLimit(), createRateLimitMiddleware(), DEFAULTS, evaluateSlidingWindow(), FailoverRateLimitStore, InMemorySlidingWindowStore, nextMemberSuffix(), positiveIntFromEnv() (+3 more)
+Cohesion: 0.15
+Nodes (13): buildFailoverStore(), createPackOpenRateLimit(), createRateLimitMiddleware(), createVaultBuybackRateLimit(), DEFAULTS, evaluateSlidingWindow(), FailoverRateLimitStore, InMemorySlidingWindowStore (+5 more)
 
 ### Community 32 - "Community 32"
 Cohesion: 0.22
@@ -653,14 +678,6 @@ Nodes (5): lines, ORIGIN, report, ROUTES, rows
 ### Community 40 - "Community 40"
 Cohesion: 0.29
 Nodes (4): geminiBody, match, ROOT, SOURCE
-
-### Community 41 - "Community 41"
-Cohesion: 0.10
-Nodes (12): CtaSection(), FAN_IMAGES, FanImage, CATEGORIES, OpenPacksSection(), PackCategory, MOCK_PULLS, Pull (+4 more)
-
-### Community 42 - "Community 42"
-Cohesion: 0.17
-Nodes (18): AuthCustomer, AuthResult, exchangeToken(), friendlyError(), login(), logout(), signup(), toAuthCustomer() (+10 more)
 
 ### Community 43 - "Community 43"
 Cohesion: 0.33
@@ -718,10 +735,6 @@ Nodes (3): log, manifest, ROUTES
 Cohesion: 0.40
 Nodes (4): EXTRACT(), out, SITES, Exact
 
-### Community 64 - "Community 64"
-Cohesion: 0.21
-Nodes (11): compact(), num(), MockUser, metadata, NBACoinPage(), TX, PokeCoinPage(), BADGES (+3 more)
-
 ### Community 67 - "Community 67"
 Cohesion: 0.50
 Nodes (3): all, changes, samples
@@ -742,14 +755,6 @@ Nodes (3): frames, intoView, parkAt
 Cohesion: 0.50
 Nodes (3): log, ORIGIN, ROUTES
 
-### Community 77 - "Community 77"
-Cohesion: 0.18
-Nodes (7): Countdown(), PodiumColumn(), PodiumPlayer, PRIZE_TIERS, Tab, TABS, useCountdown()
-
-### Community 78 - "Community 78"
-Cohesion: 0.18
-Nodes (14): findCategory(), findPack(), ClawPage(), BackendOddsEntry, BackendPack, BackendRecentPull, formatPrice(), getPackCategories() (+6 more)
-
 ### Community 81 - "Community 81"
 Cohesion: 0.50
 Nodes (3): movers, n, series
@@ -767,8 +772,8 @@ Cohesion: 0.50
 Nodes (3): BASES, cells, dims
 
 ### Community 92 - "Community 92"
-Cohesion: 0.20
-Nodes (4): FULFILLMENT, metadata, STATUS, Tone
+Cohesion: 0.14
+Nodes (18): BackendWonCard, friendlyError(), openPack(), OpenPackResult, WonCard, Rarity, BackendOddsEntry, BackendPack (+10 more)
 
 ### Community 125 - "Community 125"
 Cohesion: 0.11
@@ -782,17 +787,17 @@ Nodes (3): FAQS, metadata, VAULTS
 Cohesion: 0.14
 Nodes (12): MarketplaceCard, MarketplaceCategory, CARDS, CATEGORIES, FILTER_GROUPS, FilterGroup, FilterSidebar(), fmt() (+4 more)
 
+### Community 254 - "Community 254"
+Cohesion: 0.35
+Nodes (7): findCategory(), findPack(), getPackDetail(), getRecentPulls(), GET(), generateMetadata(), PackDetailPage()
+
 ### Community 256 - "Community 256"
-Cohesion: 0.07
-Nodes (38): config, EMPTY_FORM, FormState, GachaCardsPage(), RARITIES, deleteCard(), deletePack(), errorMessage() (+30 more)
+Cohesion: 0.05
+Nodes (54): config, EMPTY_FORM, FormState, GachaCardsPage(), RARITIES, EMPTY_FIELDS, Fields, Props (+46 more)
 
 ### Community 257 - "Community 257"
-Cohesion: 0.16
-Nodes (11): metadata, BankWithdrawalPage(), BorrowLendPage(), DURATIONS, EXPIRES, Mode, OFFERS, EarningsPage() (+3 more)
-
-### Community 258 - "Community 258"
-Cohesion: 0.19
-Nodes (8): BackendEntry, getLeaderboard(), LeaderboardEntry, LeaderboardPeriod, MOCK_LEADERBOARD, LeaderboardPage(), sdk, GET()
+Cohesion: 0.10
+Nodes (26): AuthCustomer, AuthResult, exchangeToken(), friendlyError(), login(), logout(), signup(), toAuthCustomer() (+18 more)
 
 ### Community 259 - "Community 259"
 Cohesion: 0.04
@@ -806,12 +811,8 @@ Nodes (9): jobs, manifest, q, ROUTES, run(), scrollAndMeasure(), slug(), WIDTHS 
 Cohesion: 0.16
 Nodes (45): black-pack-jjnfuk, placard, url, elite-pack, placard, url, legend-pack, legend-pack-1dpaec (+37 more)
 
-### Community 262 - "Community 262"
-Cohesion: 0.25
-Nodes (7): HeroSection(), SlotConfig, SlotKey, SLOTS, Theme, THEMES, HERO_SLIDE
-
 ### Community 263 - "Community 263"
-Cohesion: 0.33
+Cohesion: 0.40
 Nodes (5): /orders, gaps, notes, route, verdict
 
 ### Community 264 - "Community 264"
@@ -839,12 +840,12 @@ Cohesion: 0.40
 Nodes (5): /contact, gaps, notes, route, verdict
 
 ### Community 270 - "Community 270"
-Cohesion: 0.40
+Cohesion: 0.33
 Nodes (5): /earnings, gaps, notes, route, verdict
 
 ### Community 271 - "Community 271"
-Cohesion: 0.08
-Nodes (26): DELETE(), POST(), POST(), bad(), coerceCardBody(), imageStr(), optStr(), RARITIES (+18 more)
+Cohesion: 0.09
+Nodes (30): DELETE(), POST(), POST(), asObject(), bad(), coerceCardBody(), coerceRegisterCardBody(), coerceUpdateCardBody() (+22 more)
 
 ### Community 272 - "Community 272"
 Cohesion: 0.40
@@ -863,8 +864,8 @@ Cohesion: 0.40
 Nodes (5): /messages, gaps, notes, route, verdict
 
 ### Community 276 - "Community 276"
-Cohesion: 0.07
-Nodes (34): form, active, boost, boostHint, cancel, category, createTitle, draft (+26 more)
+Cohesion: 0.06
+Nodes (38): form, active, boost, boostHint, buybackHint, buybackPercent, cancel, category (+30 more)
 
 ### Community 277 - "Community 277"
 Cohesion: 0.06
@@ -938,13 +939,37 @@ Nodes (3): PolicyOperationType, PolicyResourceType, PolicyType
 Cohesion: 0.08
 Nodes (23): Browser Automation with playwright-cli, Browser Sessions, Commands, Core, DevTools, Example: Debugging with DevTools, Example: Form submission, Example: Interactive session (+15 more)
 
+### Community 301 - "Community 301"
+Cohesion: 0.16
+Nodes (11): POST(), instantBuybackWindowMs(), resolveBuybackRate(), sanePercent(), BuybackRate, BuybackRateType, BuybackPullInput, buybackPullStep (+3 more)
+
+### Community 302 - "Community 302"
+Cohesion: 0.15
+Nodes (17): AccountLayout(), BackendVaultItem, friendlyError(), getVault(), needsAuthFrom(), sellBackPull(), SellBackResult, VaultItem (+9 more)
+
+### Community 303 - "Community 303"
+Cohesion: 0.39
+Nodes (7): findCardInventoryTarget(), getCardStockByHandle(), num(), queryStockRows(), STOCK_FIELDS, CardInventoryTarget, ProductStockRow
+
 ### Community 304 - "Community 304"
-Cohesion: 0.11
-Nodes (14): GET(), POST(), round2(), clampBps(), computeOdds(), OddsRow, SaveBody, ComputedOdd (+6 more)
+Cohesion: 0.07
+Nodes (24): POST(), GET(), POST(), round2(), clampBps(), computeOdds(), Body, OddsRow (+16 more)
 
 ### Community 305 - "Community 305"
 Cohesion: 0.09
 Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
+
+### Community 306 - "Community 306"
+Cohesion: 0.48
+Nodes (6): findCardInventoryTarget(), getCardStockByHandle(), num(), queryStockRows(), STOCK_FIELDS, utils_1
+
+### Community 307 - "Community 307"
+Cohesion: 0.50
+Nodes (3): card_stock_1, utils_1, workflows_sdk_1
+
+### Community 308 - "Community 308"
+Cohesion: 0.20
+Nodes (4): FULFILLMENT, metadata, STATUS, Tone
 
 ### Community 309 - "Community 309"
 Cohesion: 0.10
@@ -953,6 +978,10 @@ Nodes (20): 1. Name Browser Sessions Semantically, 2. Always Clean Up, 3. Delete
 ### Community 310 - "Community 310"
 Cohesion: 0.10
 Nodes (19): Code Style, Commands, Common Components to Look For, Design Principles, Design Tokens to Extract, How to Reverse-Engineer Any Website, MOST IMPORTANT NOTES, Phase 1: Visual Audit (+11 more)
+
+### Community 311 - "Community 311"
+Cohesion: 0.25
+Nodes (7): HeroSection(), SlotConfig, SlotKey, SLOTS, Theme, THEMES, HERO_SLIDE
 
 ### Community 312 - "Community 312"
 Cohesion: 0.11
@@ -978,17 +1007,25 @@ Nodes (18): CLAW CARD HOVER, CLAW CATALOG ROWS, CSS animations seen:, CSS animat
 Cohesion: 0.11
 Nodes (18): 1.1 Prerequisite: workspace, 1.2 Prerequisite: seed test, 1.3 Explore the app, 1.4 Write the spec file, 1. Planning, 2.1 Inputs, 2.2 Generate one scenario, 2.3 Generate multiple scenarios (+10 more)
 
+### Community 318 - "Community 318"
+Cohesion: 0.29
+Nodes (5): buyback_rate_1, card_stock_1, packs_1, utils_1, workflows_sdk_1
+
+### Community 320 - "Community 320"
+Cohesion: 0.40
+Nodes (3): CATS, Merchant, MERCHANTS
+
 ### Community 321 - "Community 321"
 Cohesion: 0.11
 Nodes (17): [0.1.0] - 2026-03-28, [0.1.1] - 2026-03-28, [0.2.0] - 2026-03-28, [0.3.0] - 2026-03-29, [0.3.1] - 2026-03-29, Added, Added, Added (+9 more)
 
 ### Community 322 - "Community 322"
-Cohesion: 0.15
-Nodes (18): list, action, actions, card, category, delete, edit, empty (+10 more)
+Cohesion: 0.13
+Nodes (20): list, action, actions, card, category, delete, edit, empty (+12 more)
 
 ### Community 323 - "Community 323"
 Cohesion: 0.11
-Nodes (18): back, card, current, flattenWarning, loadError, lock, lockedTotal, newTotal (+10 more)
+Nodes (19): back, buybackOnly, card, current, flattenWarning, loadError, lock, lockedTotal (+11 more)
 
 ### Community 324 - "Community 324"
 Cohesion: 0.16
@@ -1003,8 +1040,8 @@ Cohesion: 0.12
 Nodes (16): Adding Blocks, API Routes, Apps and Packages, Build, Clone, Development, How It Works, Links (+8 more)
 
 ### Community 328 - "Community 328"
-Cohesion: 0.12
-Nodes (17): pulls, anon, card, count, customer, empty, loadError, pack (+9 more)
+Cohesion: 0.10
+Nodes (20): pulls, anon, boughtBack, card, count, customer, empty, loadError (+12 more)
 
 ### Community 329 - "Community 329"
 Cohesion: 0.19
@@ -1025,6 +1062,10 @@ Nodes (16): 1. Start Tracing Before the Problem, 2. Clean Up Old Traces, Analyzi
 ### Community 333 - "Community 333"
 Cohesion: 0.12
 Nodes (16): 1. Per-route table, 2.1 `/marketplace` — wiring-sdk-file — confidence: normal — panel 2-1 (code ✓, docs ✓, **render ✗ REFUTED**), 2.2 `/claw/[slug]` — uncovered-interaction — confidence: normal — panel 2-1 (code ✓, render ✓, **docs ✗ REFUTED**), 2.3 `/card/[id]` — uncovered-interaction — confidence: normal — panel 3-0 (code ✓, render ✓, docs ✓), 2.4 `/login` — uncovered-interaction — confidence: normal — panel 3-0 (code ✓, render ✓, docs ✓), 2.5 `/leaderboard` — uncovered-interaction — confidence: normal — panel 3-0 (code ✓, render ✓, docs ✓), 2.6 `/free` — bucket — confidence: normal — panel 3-0 (code ✓, render ✓, docs ✓), 2.7 `/pack-party` — bucket — confidence: normal — panel 3-0 (code ✓, render ✓, docs ✓) (+8 more)
+
+### Community 334 - "Community 334"
+Cohesion: 0.67
+Nodes (3): GET(), round2(), packs_1
 
 ### Community 336 - "Community 336"
 Cohesion: 0.12
@@ -1059,8 +1100,8 @@ Cohesion: 0.17
 Nodes (11): BEZ, cat, dec2d(), dec3d(), entry, fitEase(), hero, md (+3 more)
 
 ### Community 350 - "Community 350"
-Cohesion: 0.16
-Nodes (9): POST(), verifyPools(), RecordPullInput, recordPullStep, RolledCard, RollPackInput, rollPackStep, OpenPackInput (+1 more)
+Cohesion: 0.12
+Nodes (12): POST(), verifyPools(), CompensateData, DecrementCardStockInput, decrementCardStockStep, RecordPullInput, recordPullStep, RolledCard (+4 more)
 
 ### Community 351 - "Community 351"
 Cohesion: 0.14
@@ -1082,6 +1123,10 @@ Nodes (13): CLONE, bodyW, hero, viewport, h, radius, right, w (+5 more)
 Cohesion: 0.15
 Nodes (10): Achievement, ACHIEVEMENTS, CATEGORY_ICON, Rarity, RARITY_ORDER, RARITY_STYLE, SortDir, SortKey (+2 more)
 
+### Community 357 - "Community 357"
+Cohesion: 0.18
+Nodes (7): Countdown(), PodiumColumn(), PodiumPlayer, PRIZE_TIERS, Tab, TABS, useCountdown()
+
 ### Community 358 - "Community 358"
 Cohesion: 0.15
 Nodes (12): Core rule, Dashboard Form UI, Hard rules, Key components, Preferred patterns, Required imports, RouteDrawer — for edit flows, RouteFocusModal — for create flows (+4 more)
@@ -1093,6 +1138,10 @@ Nodes (12): Create page pattern, Dashboard Page UI, Detail page conventions, Det
 ### Community 360 - "Community 360"
 Cohesion: 0.17
 Nodes (11): cardCount, imgsInCard, animation, animationDuration, transformOrigin, transition, tree, children (+3 more)
+
+### Community 361 - "Community 361"
+Cohesion: 0.22
+Nodes (7): BackendEntry, getLeaderboard(), LeaderboardEntry, LeaderboardPeriod, MOCK_LEADERBOARD, LeaderboardPage(), GET()
 
 ### Community 362 - "Community 362"
 Cohesion: 0.17
@@ -1114,13 +1163,21 @@ Nodes (11): autoScroll(), clonePaths, jobs, livePaths, manifest, queue, runJob()
 Cohesion: 0.17
 Nodes (11): CSS Lint, Final Build Verification, Format on Save, Guard File Size, Lint Check, Ordering, PreToolUse Hooks, Recommended PostToolUse Hooks (+3 more)
 
+### Community 367 - "Community 367"
+Cohesion: 0.29
+Nodes (3): metadata, RouletteClient(), TIERS
+
+### Community 369 - "Community 369"
+Cohesion: 0.60
+Nodes (5): toast, toast, created, deleted, updated
+
+### Community 370 - "Community 370"
+Cohesion: 0.83
+Nodes (3): instantBuybackWindowMs(), resolveBuybackRate(), sanePercent()
+
 ### Community 371 - "Community 371"
 Cohesion: 0.18
 Nodes (10): Adding Features — Check the Registry First, AI Resources, Lessons Learned, Mercur Basic Starter Agent Guide, Shared Skills, Starter Contract Surfaces, Starter Notes, Task Router (+2 more)
-
-### Community 372 - "Community 372"
-Cohesion: 0.22
-Nodes (7): POST(), Body, CompensateData, RemovedRow, SetPackMembersInput, setPackMembersStep, setPackMembersWorkflow
 
 ### Community 373 - "Community 373"
 Cohesion: 0.18
@@ -1187,8 +1244,8 @@ Cohesion: 0.20
 Nodes (8): before, critical, form, H, HJ, list, results, sample
 
 ### Community 393 - "Community 393"
-Cohesion: 0.13
-Nodes (18): AccountLayout(), Props, SettingsForm(), clean(), friendlyError(), ProfileCustomer, ProfileResult, toProfileCustomer() (+10 more)
+Cohesion: 0.26
+Nodes (9): Props, SettingsForm(), clean(), friendlyError(), ProfileCustomer, ProfileResult, toProfileCustomer(), updateProfile() (+1 more)
 
 ### Community 394 - "Community 394"
 Cohesion: 0.22
@@ -1203,8 +1260,8 @@ Cohesion: 0.22
 Nodes (8): 1. Create a Page File, 2. File-Based Routing, 3. Add a Sidebar Menu Item, 4. Add Data Loading, 5. Add Route Metadata, Config Options, Custom Pages, Summary
 
 ### Community 406 - "Community 406"
-Cohesion: 0.44
-Nodes (8): bad(), coerceCardBody(), imageStr(), optStr(), RARITIES, reqNum(), reqStr(), utils_1
+Cohesion: 0.45
+Nodes (11): asObject(), bad(), coerceCardBody(), coerceRegisterCardBody(), coerceUpdateCardBody(), imageStr(), optStr(), RARITIES (+3 more)
 
 ### Community 407 - "Community 407"
 Cohesion: 0.22
@@ -1213,10 +1270,6 @@ Nodes (8): Environment facts (verified 2026-06-07), Handoff — Medusa/Mercur ba
 ### Community 408 - "Community 408"
 Cohesion: 0.22
 Nodes (8): /how-it-works page sections, Known-good run discipline, Per-section review loop (do for EACH section below), Sections to review (homepage, topâ†’bottom), Setup each session, Shared primitives already in place (reuse, keep in sync), Why this approach (root cause of prior mismatches), â–¶ MODE CHOSEN BY USER: "All sections, auto-fix"
-
-### Community 409 - "Community 409"
-Cohesion: 0.28
-Nodes (9): toast, packs, new, subtitle, title, toast, created, deleted (+1 more)
 
 ### Community 410 - "Community 410"
 Cohesion: 0.22
@@ -1247,7 +1300,7 @@ Cohesion: 0.22
 Nodes (8): Architecture, Color tokens (from computed styles), Favicons / meta, Fonts, Header / Nav (sticky, static — does NOT transform on scroll), Interaction model summary, Phygitals Homepage — Page Topology, Sections (top → bottom), inside the content container
 
 ### Community 417 - "Community 417"
-Cohesion: 0.25
+Cohesion: 0.22
 Nodes (8): /roulette, buttons, h1, h2, paragraphs, prices, redirected, sampleImgs
 
 ### Community 418 - "Community 418"
@@ -1291,7 +1344,7 @@ Cohesion: 0.25
 Nodes (7): Already done — DO NOT redo (committed on `clone/phygitals-v2`), Command, Environment / gotchas, Goal, Key decisions to carry into the rebuild, Re-clone Kickoff — phygitals.com  ·  branch `clone/phygitals-v2`, Research artifacts (`docs/research/`)
 
 ### Community 433 - "Community 433"
-Cohesion: 0.22
+Cohesion: 0.25
 Nodes (8): /clawmaker, buttons, h1, h2, paragraphs, prices, redirected, sampleImgs
 
 ### Community 434 - "Community 434"
@@ -1359,16 +1412,16 @@ Cohesion: 0.62
 Nodes (6): bad(), coercePackBody(), imageStr(), num(), reqStr(), utils_1
 
 ### Community 453 - "Community 453"
-Cohesion: 0.29
-Nodes (6): PacksModuleService, card_1, pack_1, pack_odds_1, pull_1, utils_1
+Cohesion: 0.25
+Nodes (7): PacksModuleService, card_1, credit_transaction_1, pack_1, pack_odds_1, pull_1, utils_1
 
 ### Community 454 - "Community 454"
 Cohesion: 0.29
 Nodes (4): BuildOptions, CardProductContext, CardProductMetadata, CardProductSeed
 
 ### Community 455 - "Community 455"
-Cohesion: 0.29
-Nodes (5): Architecture, graphify, Running & verifying (read before starting a server), The clone workflow, What this repo actually is
+Cohesion: 0.25
+Nodes (6): Architecture, graphify, PM2 services (Radmin-VPN preview stack — keep running until project finish), Running & verifying (read before starting a server), The clone workflow, What this repo actually is
 
 ### Community 456 - "Community 456"
 Cohesion: 0.29
@@ -1403,20 +1456,20 @@ Cohesion: 0.33
 Nodes (5): rows, summary, clone-broken, diffable, needs-param-or-missing
 
 ### Community 467 - "Community 467"
-Cohesion: 0.33
-Nodes (3): create_card_1, packs_1, validate_1
+Cohesion: 0.29
+Nodes (4): card_stock_1, create_card_1, packs_1, validate_1
 
 ### Community 468 - "Community 468"
 Cohesion: 0.33
 Nodes (3): packs_1, create_pack_1, validate_1
 
 ### Community 469 - "Community 469"
-Cohesion: 0.40
-Nodes (4): GET(), round2(), packs_1, save_pack_odds_1
+Cohesion: 0.29
+Nodes (6): GET(), round2(), card_stock_1, odds_math_1, packs_1, save_pack_odds_1
 
 ### Community 470 - "Community 470"
-Cohesion: 0.33
-Nodes (5): card_product_1, core_flows_1, packs_1, utils_1, workflows_sdk_1
+Cohesion: 0.29
+Nodes (6): card_product_1, core_flows_1, packs_1, types_1, utils_1, workflows_sdk_1
 
 ### Community 471 - "Community 471"
 Cohesion: 0.33
@@ -1463,11 +1516,11 @@ Cohesion: 0.33
 Nodes (5): dialog, openBtn, r, recentSection, wonPanel
 
 ### Community 499 - "Community 499"
-Cohesion: 0.40
-Nodes (4): core_flows_1, record_pull_1, roll_pack_1, workflows_sdk_1
+Cohesion: 0.33
+Nodes (5): core_flows_1, decrement_card_stock_1, record_pull_1, roll_pack_1, workflows_sdk_1
 
 ### Community 500 - "Community 500"
-Cohesion: 0.40
+Cohesion: 0.33
 Nodes (4): odds_math_1, packs_1, utils_1, workflows_sdk_1
 
 ### Community 501 - "Community 501"
@@ -1495,8 +1548,8 @@ Cohesion: 0.40
 Nodes (4): Checklist, Related Issue, Summary, Type of Change
 
 ### Community 507 - "Community 507"
-Cohesion: 0.60
-Nodes (5): delete, confirm, description, title, delete
+Cohesion: 0.28
+Nodes (9): delete, confirm, description, title, packs, delete, new, subtitle (+1 more)
 
 ### Community 508 - "Community 508"
 Cohesion: 0.40
@@ -1603,24 +1656,24 @@ Cohesion: 0.50
 Nodes (3): Agent Support, E2E Testing, TypeScript/JavaScript Testing
 
 ## Knowledge Gaps
-- **2563 isolated node(s):** `name`, `description`, `prompt`, `fileContext`, `{ spawnSync }` (+2558 more)
+- **2646 isolated node(s):** `name`, `description`, `prompt`, `fileContext`, `{ spawnSync }` (+2641 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **167 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **185 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `Community 17` to `Community 64`, `Community 257`, `Community 355`, `Community 4`, `Community 37`, `Community 262`, `Community 7`, `Community 41`, `Community 42`, `Community 9`, `Community 12`, `Community 77`, `Community 16`, `Community 18`, `Community 25`, `Community 26`, `Community 187`, `Community 28`?**
-  _High betweenness centrality (0.004) - this node is a cross-community bridge._
-- **Why does `logger` connect `Community 393` to `Community 258`, `Community 6`, `Community 42`, `Community 78`, `Community 22`?**
-  _High betweenness centrality (0.001) - this node is a cross-community bridge._
-- **Why does `usd()` connect `Community 257` to `Community 64`, `Community 3`, `Community 5`, `Community 7`, `Community 12`, `Community 18`, `Community 92`?**
+- **Why does `cn()` connect `Community 17` to `Community 320`, `Community 257`, `Community 3`, `Community 355`, `Community 4`, `Community 37`, `Community 7`, `Community 357`, `Community 9`, `Community 5`, `Community 12`, `Community 367`, `Community 18`, `Community 22`, `Community 311`, `Community 26`, `Community 187`, `Community 28`?**
+  _High betweenness centrality (0.006) - this node is a cross-community bridge._
+- **Why does `OddsRarity` connect `Community 304` to `Community 271`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
 - **What connects `name`, `description`, `prompt` to the rest of the system?**
-  _2563 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _2646 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.009615384615384616 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.009433962264150943 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.041666666666666664 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.047619047619047616 - nodes in this community are weakly interconnected._
+- **Should `Community 3` be split into smaller, more focused modules?**
+  _Cohesion score 0.09898989898989899 - nodes in this community are weakly interconnected._

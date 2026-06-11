@@ -12,6 +12,7 @@ import {
   RedisSlidingWindowStore,
   InMemorySlidingWindowStore,
   type RateLimitRule,
+  type RateLimitDecision,
 } from "../../src/api/utils/rate-limit";
 
 jest.setTimeout(30 * 1000);
@@ -66,7 +67,7 @@ const runParity = async (
 ) => {
   const redisStore = new RedisSlidingWindowStore(client);
   const memStore = new InMemorySlidingWindowStore();
-  const decisions = [];
+  const decisions: RateLimitDecision[] = [];
   for (const at of offsetsMs) {
     const fromRedis = await redisStore.consume(k, rules, T0 + at);
     const fromMemory = await memStore.consume(k, rules, T0 + at);

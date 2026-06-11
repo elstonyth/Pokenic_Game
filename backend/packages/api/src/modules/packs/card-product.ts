@@ -14,13 +14,14 @@ import type {
 // shape — variant/sku/options/currency/images — lives here once. Only the
 // metadata *content* and a couple of flags vary per caller and are passed in.
 
+// NOTE: rarity is deliberately absent — it is a per-pack property (PackOdds),
+// not a card/product fact, so it never belongs in product metadata.
 export type CardProductMetadata = {
   fmv: number;
   points: number;
   grade: string;
   grader: string;
   set: string;
-  rarity: string;
   year: number;
 };
 
@@ -79,7 +80,6 @@ export function buildCardProductInput(
       grade: card.metadata.grade,
       grader: card.metadata.grader,
       set: card.metadata.set,
-      rarity: card.metadata.rarity,
       year: card.metadata.year,
     },
   };

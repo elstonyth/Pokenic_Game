@@ -1,15 +1,32 @@
-import { computeOdds, TOTAL_BPS, type OddsInput } from "../odds-math";
+import {
+  computeOdds,
+  RARITY_WEIGHT,
+  TOTAL_BPS,
+  type OddsInput,
+} from "../odds-math";
 
 const sumWeight = (computed: { weight: number }[]) =>
   computed.reduce((s, c) => s + c.weight, 0);
 
-// Helpers to build entries.
-const unlocked = (card_id: string): OddsInput => ({ card_id, locked: false, pct: 0 });
-const locked = (card_id: string, pct: number): OddsInput => ({ card_id, locked: true, pct });
+// Helpers to build entries. Same-rarity pools split evenly (the proportional
+// split degenerates to even), so the legacy even-split invariants below use the
+// default Common.
+const unlocked = (card_id: string, rarity = "Common"): OddsInput => ({
+  card_id,
+  locked: false,
+  pct: 0,
+  rarity,
+});
+const locked = (card_id: string, pct: number, rarity = "Common"): OddsInput => ({
+  card_id,
+  locked: true,
+  pct,
+  rarity,
+});
 
-describe("computeOdds — even-split invariants", () => {
-  it("splits evenly across all-unlocked cards and sums to exactly 10000 bps", () => {
-    const entries = ["a", "b", "c", "d"].map(unlocked);
+describe("computeOdds — same-rarity (even-split) invariants", () => {
+  it("splits evenly across all-unlocked same-rarity cards and sums to exactly 10000 bps", () => {
+    const entries = ["a", "b", "c", "d"].map((id) => unlocked(id));
     const { computed, error } = computeOdds(entries);
     expect(error).toBeNull();
     expect(sumWeight(computed)).toBe(TOTAL_BPS);
@@ -19,7 +36,7 @@ describe("computeOdds — even-split invariants", () => {
 
   it("distributes the rounding remainder so the total is still exactly 10000", () => {
     // 10000 / 7 = 1428 r4 → four cards get 1429, three get 1428.
-    const entries = ["a", "b", "c", "d", "e", "f", "g"].map(unlocked);
+    const entries = ["a", "b", "c", "d", "e", "f", "g"].map((id) => unlocked(id));
     const { computed, error } = computeOdds(entries);
     expect(error).toBeNull();
     expect(sumWeight(computed)).toBe(TOTAL_BPS);
@@ -40,18 +57,6 @@ describe("computeOdds — even-split invariants", () => {
     expect(byId.d).toBe(2000);
   });
 
-  it("locks two cards and splits the remainder among the rest", () => {
-    // Lock A=40%, B=20% → others split 40% evenly.
-    const entries = [locked("a", 40), locked("b", 20), unlocked("c"), unlocked("d")];
-    const { computed } = computeOdds(entries);
-    const byId = Object.fromEntries(computed.map((c) => [c.card_id, c.weight]));
-    expect(byId.a).toBe(4000);
-    expect(byId.b).toBe(2000);
-    expect(byId.c).toBe(2000);
-    expect(byId.d).toBe(2000);
-    expect(sumWeight(computed)).toBe(TOTAL_BPS);
-  });
-
   it("supports fractional locked percentages (2 dp → bps)", () => {
     const entries = [locked("a", 12.5), unlocked("b"), unlocked("c")];
     const { computed, error } = computeOdds(entries);
@@ -63,10 +68,68 @@ describe("computeOdds — even-split invariants", () => {
     expect(byId.c).toBe(4375);
     expect(sumWeight(computed)).toBe(TOTAL_BPS);
   });
+});
+
+describe("computeOdds — rarity-weighted split", () => {
+  it("orders the tiers rarest-first (Legendary least likely)", () => {
+    expect(RARITY_WEIGHT.Legendary).toBeLessThan(RARITY_WEIGHT.Epic);
+    expect(RARITY_WEIGHT.Epic).toBeLessThan(RARITY_WEIGHT.Rare);
+    expect(RARITY_WEIGHT.Rare).toBeLessThan(RARITY_WEIGHT.Uncommon);
+    expect(RARITY_WEIGHT.Uncommon).toBeLessThan(RARITY_WEIGHT.Common);
+  });
+
+  it("splits unlocked cards proportionally to their rarity weight", () => {
+    // Legendary 5 vs Common 500 over 10000 bps: 10000·5/505 = 99.0099…,
+    // 10000·500/505 = 9900.99… → floors 99 + 9900, leftover 1 goes to the
+    // larger fraction (the Common card).
+    const entries = [unlocked("leg", "Legendary"), unlocked("com", "Common")];
+    const { computed, error } = computeOdds(entries);
+    expect(error).toBeNull();
+    const byId = Object.fromEntries(computed.map((c) => [c.card_id, c.weight]));
+    expect(byId.leg).toBe(99);
+    expect(byId.com).toBe(9901);
+    expect(sumWeight(computed)).toBe(TOTAL_BPS);
+  });
+
+  it("combines a locked % with a rarity-weighted remainder", () => {
+    // a locked at 40% → 6000 bps remain. Legendary b: 6000·5/505 = 59.40…,
+    // Common c: 6000·500/505 = 5940.59… → floors 59 + 5940, leftover 1 → c.
+    const entries = [
+      locked("a", 40),
+      unlocked("b", "Legendary"),
+      unlocked("c", "Common"),
+    ];
+    const { computed, error } = computeOdds(entries);
+    expect(error).toBeNull();
+    const byId = Object.fromEntries(computed.map((c) => [c.card_id, c.weight]));
+    expect(byId.a).toBe(4000);
+    expect(byId.b).toBe(59);
+    expect(byId.c).toBe(5941);
+    expect(sumWeight(computed)).toBe(TOTAL_BPS);
+  });
+
+  it("treats an unknown rarity string as Common instead of throwing", () => {
+    const entries = [unlocked("a", "Mythic"), unlocked("b", "Common")];
+    const { computed, error } = computeOdds(entries);
+    expect(error).toBeNull();
+    const byId = Object.fromEntries(computed.map((c) => [c.card_id, c.weight]));
+    expect(byId.a).toBe(5000);
+    expect(byId.b).toBe(5000);
+  });
 
   it("is order-independent: the same set in any order yields the same per-card weights", () => {
-    const a = [locked("x", 33.33), unlocked("a"), unlocked("b"), unlocked("c")];
-    const b = [unlocked("c"), unlocked("a"), locked("x", 33.33), unlocked("b")];
+    const a = [
+      locked("x", 33.33),
+      unlocked("a", "Legendary"),
+      unlocked("b", "Rare"),
+      unlocked("c", "Common"),
+    ];
+    const b = [
+      unlocked("c", "Common"),
+      unlocked("a", "Legendary"),
+      locked("x", 33.33),
+      unlocked("b", "Rare"),
+    ];
     const wa = Object.fromEntries(computeOdds(a).computed.map((c) => [c.card_id, c.weight]));
     const wb = Object.fromEntries(computeOdds(b).computed.map((c) => [c.card_id, c.weight]));
     expect(wa).toEqual(wb);

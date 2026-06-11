@@ -8,9 +8,7 @@ import {
   Button,
   Switch,
   Input,
-  Select,
   Label,
-  Badge,
   StatusBadge,
   FocusModal,
   Prompt,
@@ -21,45 +19,31 @@ import type { RouteConfig } from "@mercurjs/dashboard-sdk";
 import {
   packsApi,
   type AdminCard,
-  type AdminCardWrite,
+  type AdminCardUpdate,
 } from "../../lib/packs-api";
 import { uploadImage, deleteCard } from "../../lib/admin-rest";
 import { resolveImageUrl } from "../../lib/image-url";
+import RegisterCardModal from "./RegisterCardModal";
 
 export const config: RouteConfig = {
   label: "Gacha Cards",
   icon: Sparkles,
 };
 
-const RARITIES = ["Legendary", "Epic", "Rare", "Uncommon", "Common"] as const;
-const HANDLE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-// The form mirrors AdminCardWrite but keeps numbers as strings so the operator
-// can type freely (empty price = "use FMV").
+// Edit-only form state (inventory-first: NEW cards are registered from an
+// existing inventory product via RegisterCardModal, never typed from scratch).
+// No rarity — that is a per-pack property, edited in each pack's odds editor.
+// Numbers stay strings so the operator can type freely (empty price = "use FMV").
 type FormState = {
   handle: string;
   name: string;
   set: string;
   grader: string;
   grade: string;
-  rarity: string;
   market_value: string;
   image: string;
   price: string;
   for_sale: boolean;
-};
-
-const EMPTY_FORM: FormState = {
-  handle: "",
-  name: "",
-  set: "",
-  grader: "",
-  grade: "",
-  rarity: "Rare",
-  market_value: "",
-  image: "",
-  price: "",
-  for_sale: true,
 };
 
 const formFromCard = (c: AdminCard): FormState => ({
@@ -68,7 +52,6 @@ const formFromCard = (c: AdminCard): FormState => ({
   set: c.set,
   grader: c.grader,
   grade: c.grade,
-  rarity: c.rarity,
   market_value: String(c.market_value),
   image: c.image,
   // null price = "use FMV" → empty field (preserved on save as undefined).
@@ -76,12 +59,15 @@ const formFromCard = (c: AdminCard): FormState => ({
   for_sale: c.for_sale,
 });
 
+const gradeLabel = (c: AdminCard): string =>
+  [c.grader, c.grade].filter(Boolean).join(" ");
+
 const GachaCardsPage = () => {
   const { t } = useTranslation();
   const [cards, setCards] = useState<AdminCard[] | null>(null);
   const [error, setError] = useState(false);
-  const [mode, setMode] = useState<"create" | "edit" | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminCard | null>(null);
@@ -107,16 +93,8 @@ const GachaCardsPage = () => {
     }
   };
 
-  const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
-
-  const openCreate = () => {
-    setForm(EMPTY_FORM);
-    setMode("create");
-  };
-  const openEdit = (card: AdminCard) => {
-    setForm(formFromCard(card));
-    setMode("edit");
-  };
+  const patch = (p: Partial<FormState>) =>
+    setForm((f) => (f ? { ...f, ...p } : f));
 
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,37 +111,32 @@ const GachaCardsPage = () => {
     }
   };
 
-  const handleOk =
+  const canSave =
+    !!form &&
     form.name.trim() !== "" &&
     form.image.trim() !== "" &&
     form.market_value.trim() !== "" &&
     Number(form.market_value) >= 0 &&
-    (mode === "edit" || HANDLE_RE.test(form.handle.trim()));
-  const canSave = handleOk && !saving && !uploading;
+    !saving &&
+    !uploading;
 
   const save = async () => {
-    if (!canSave) return;
+    if (!form || !canSave) return;
     setSaving(true);
-    const payload: AdminCardWrite = {
+    const payload: AdminCardUpdate = {
       name: form.name.trim(),
       set: form.set.trim(),
       grader: form.grader.trim(),
       grade: form.grade.trim(),
-      rarity: form.rarity,
       market_value: Number(form.market_value),
       image: form.image.trim(),
       price: form.price.trim() === "" ? undefined : Number(form.price),
       for_sale: form.for_sale,
     };
     try {
-      if (mode === "create") {
-        await packsApi.admin.cards.mutate({ ...payload, handle: form.handle.trim() });
-        toast.success(t("cards.toast.created"));
-      } else {
-        await packsApi.admin.cards.$handle.mutate({ $handle: form.handle, ...payload });
-        toast.success(t("cards.toast.updated"));
-      }
-      setMode(null);
+      await packsApi.admin.cards.$handle.mutate({ $handle: form.handle, ...payload });
+      toast.success(t("cards.toast.updated"));
+      setForm(null);
       await reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -194,7 +167,7 @@ const GachaCardsPage = () => {
             {t("cards.subtitle")}
           </Text>
         </div>
-        <Button size="small" variant="primary" onClick={openCreate}>
+        <Button size="small" variant="primary" onClick={() => setRegisterOpen(true)}>
           {t("cards.new")}
         </Button>
       </div>
@@ -216,12 +189,15 @@ const GachaCardsPage = () => {
           <Table.Header>
             <Table.Row>
               <Table.HeaderCell>{t("cards.list.card")}</Table.HeaderCell>
-              <Table.HeaderCell>{t("cards.list.rarity")}</Table.HeaderCell>
+              <Table.HeaderCell>{t("cards.list.grade")}</Table.HeaderCell>
               <Table.HeaderCell className="text-right">
                 {t("cards.list.value")}
               </Table.HeaderCell>
               <Table.HeaderCell className="text-right">
                 {t("cards.list.price")}
+              </Table.HeaderCell>
+              <Table.HeaderCell className="text-right">
+                {t("cards.list.stock")}
               </Table.HeaderCell>
               <Table.HeaderCell>{t("cards.list.status")}</Table.HeaderCell>
               <Table.HeaderCell className="text-right">
@@ -247,8 +223,8 @@ const GachaCardsPage = () => {
                     </div>
                   </div>
                 </Table.Cell>
-                <Table.Cell>
-                  <Badge size="2xsmall">{c.rarity}</Badge>
+                <Table.Cell className="text-ui-fg-subtle">
+                  {gradeLabel(c) || "—"}
                 </Table.Cell>
                 <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
                   ${c.market_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -259,6 +235,15 @@ const GachaCardsPage = () => {
                     <span className="text-ui-fg-muted ml-1 text-xs">FMV</span>
                   )}
                 </Table.Cell>
+                <Table.Cell
+                  className={
+                    c.stock === 0
+                      ? "text-ui-tag-orange-text text-right tabular-nums"
+                      : "text-ui-fg-subtle text-right tabular-nums"
+                  }
+                >
+                  {c.stock === null ? "∞" : c.stock.toLocaleString("en-US")}
+                </Table.Cell>
                 <Table.Cell>
                   <StatusBadge color={c.for_sale ? "green" : "grey"}>
                     {c.for_sale ? t("cards.list.listed") : t("cards.list.hidden")}
@@ -266,7 +251,11 @@ const GachaCardsPage = () => {
                 </Table.Cell>
                 <Table.Cell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button size="small" variant="secondary" onClick={() => openEdit(c)}>
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      onClick={() => setForm(formFromCard(c))}
+                    >
                       {t("cards.list.edit")}
                     </Button>
                     <Button
@@ -284,16 +273,22 @@ const GachaCardsPage = () => {
         </Table>
       )}
 
+      <RegisterCardModal
+        open={registerOpen}
+        onClose={() => setRegisterOpen(false)}
+        onRegistered={reload}
+      />
+
       <FocusModal
-        open={mode !== null}
+        open={form !== null}
         onOpenChange={(open) => {
-          if (!open) setMode(null);
+          if (!open) setForm(null);
         }}
       >
         <FocusModal.Content>
           <FocusModal.Header>
             <div className="flex items-center justify-end gap-x-2">
-              <Button size="small" variant="secondary" onClick={() => setMode(null)}>
+              <Button size="small" variant="secondary" onClick={() => setForm(null)}>
                 {t("cards.form.cancel")}
               </Button>
               <Button size="small" onClick={save} isLoading={saving} disabled={!canSave}>
@@ -302,191 +297,154 @@ const GachaCardsPage = () => {
             </div>
           </FocusModal.Header>
           <FocusModal.Body className="flex flex-col items-center overflow-auto p-10">
-            <div className="flex w-full max-w-[640px] flex-col gap-y-6">
-              <div>
-                <FocusModal.Title asChild>
-                  <Heading level="h2">
-                    {mode === "create"
-                      ? t("cards.form.createTitle")
-                      : t("cards.form.editTitle")}
-                  </Heading>
-                </FocusModal.Title>
-                <FocusModal.Description asChild>
-                  <Text className="text-ui-fg-subtle mt-1" size="small">
-                    {t("cards.form.subtitle")}
-                  </Text>
-                </FocusModal.Description>
-              </div>
-
-              {/* Image */}
-              <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
-                  {t("cards.form.image")}
-                </Label>
-                <div className="flex items-center gap-4">
-                  {form.image ? (
-                    <img
-                      src={resolveImageUrl(form.image)}
-                      alt=""
-                      className="border-ui-border-base h-28 w-20 shrink-0 rounded border object-contain"
-                    />
-                  ) : (
-                    <div className="border-ui-border-base bg-ui-bg-subtle text-ui-fg-muted flex h-28 w-20 shrink-0 items-center justify-center rounded border text-xs">
-                      —
-                    </div>
-                  )}
-                  <div className="flex flex-1 flex-col gap-y-2">
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFile}
-                    />
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      type="button"
-                      onClick={() => fileRef.current?.click()}
-                      isLoading={uploading}
-                    >
-                      {t("cards.form.uploadImage")}
-                    </Button>
-                    <Input
-                      placeholder={t("cards.form.imageUrlPlaceholder")}
-                      value={form.image}
-                      onChange={(e) => patch({ image: e.target.value })}
-                    />
-                    <Text className="text-ui-fg-subtle text-xs">
-                      {t("cards.form.uploadHint")}
+            {form && (
+              <div className="flex w-full max-w-[640px] flex-col gap-y-6">
+                <div>
+                  <FocusModal.Title asChild>
+                    <Heading level="h2">{t("cards.form.editTitle")}</Heading>
+                  </FocusModal.Title>
+                  <FocusModal.Description asChild>
+                    <Text className="text-ui-fg-subtle mt-1" size="small">
+                      {t("cards.form.subtitle")}
                     </Text>
-                  </div>
+                  </FocusModal.Description>
                 </div>
-              </div>
 
-              {/* Handle (create only — immutable key) */}
-              {mode === "create" ? (
+                {/* Image */}
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("cards.form.handle")}
+                    {t("cards.form.image")}
                   </Label>
-                  <Input
-                    placeholder="black-lotus-alpha"
-                    value={form.handle}
-                    onChange={(e) =>
-                      patch({ handle: e.target.value.toLowerCase() })
-                    }
-                  />
-                  <Text className="text-ui-fg-subtle text-xs">
-                    {t("cards.form.handleHint")}
-                  </Text>
+                  <div className="flex items-center gap-4">
+                    {form.image ? (
+                      <img
+                        src={resolveImageUrl(form.image)}
+                        alt=""
+                        className="border-ui-border-base h-28 w-20 shrink-0 rounded border object-contain"
+                      />
+                    ) : (
+                      <div className="border-ui-border-base bg-ui-bg-subtle text-ui-fg-muted flex h-28 w-20 shrink-0 items-center justify-center rounded border text-xs">
+                        —
+                      </div>
+                    )}
+                    <div className="flex flex-1 flex-col gap-y-2">
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFile}
+                      />
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        isLoading={uploading}
+                      >
+                        {t("cards.form.uploadImage")}
+                      </Button>
+                      <Input
+                        placeholder={t("cards.form.imageUrlPlaceholder")}
+                        value={form.image}
+                        onChange={(e) => patch({ image: e.target.value })}
+                      />
+                      <Text className="text-ui-fg-subtle text-xs">
+                        {t("cards.form.uploadHint")}
+                      </Text>
+                    </div>
+                  </div>
                 </div>
-              ) : (
+
+                {/* Handle (immutable key) */}
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
                     {t("cards.form.handle")}
                   </Label>
                   <Input value={form.handle} disabled />
                 </div>
-              )}
 
-              <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
-                  {t("cards.form.name")}
-                </Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => patch({ name: e.target.value })}
-                />
-              </div>
+                <div className="flex flex-col gap-y-2">
+                  <Label size="small" weight="plus">
+                    {t("cards.form.name")}
+                  </Label>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => patch({ name: e.target.value })}
+                  />
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
-                    {t("cards.form.set")}
-                  </Label>
-                  <Input
-                    value={form.set}
-                    onChange={(e) => patch({ set: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-y-2">
+                    <Label size="small" weight="plus">
+                      {t("cards.form.set")}
+                    </Label>
+                    <Input
+                      value={form.set}
+                      onChange={(e) => patch({ set: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-y-2">
+                    <Label size="small" weight="plus">
+                      {t("cards.form.grader")}
+                    </Label>
+                    <Input
+                      value={form.grader}
+                      onChange={(e) => patch({ grader: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-y-2">
+                    <Label size="small" weight="plus">
+                      {t("cards.form.grade")}
+                    </Label>
+                    <Input
+                      value={form.grade}
+                      onChange={(e) => patch({ grade: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-y-2">
+                    <Label size="small" weight="plus">
+                      {t("cards.form.marketValue")}
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={form.market_value}
+                      onChange={(e) => patch({ market_value: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-y-2">
+                    <Label size="small" weight="plus">
+                      {t("cards.form.price")}
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder={t("cards.form.pricePlaceholder")}
+                      value={form.price}
+                      onChange={(e) => patch({ price: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
-                    {t("cards.form.rarity")}
-                  </Label>
-                  <Select value={form.rarity} onValueChange={(v) => patch({ rarity: v })}>
-                    <Select.Trigger>
-                      <Select.Value />
-                    </Select.Trigger>
-                    <Select.Content>
-                      {RARITIES.map((r) => (
-                        <Select.Item key={r} value={r}>
-                          {r}
-                        </Select.Item>
-                      ))}
-                    </Select.Content>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
-                    {t("cards.form.grader")}
-                  </Label>
-                  <Input
-                    value={form.grader}
-                    onChange={(e) => patch({ grader: e.target.value })}
-                  />
-                </div>
-                <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
-                    {t("cards.form.grade")}
-                  </Label>
-                  <Input
-                    value={form.grade}
-                    onChange={(e) => patch({ grade: e.target.value })}
-                  />
-                </div>
-                <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
-                    {t("cards.form.marketValue")}
-                  </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={form.market_value}
-                    onChange={(e) => patch({ market_value: e.target.value })}
-                  />
-                </div>
-                <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
-                    {t("cards.form.price")}
-                  </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    placeholder={t("cards.form.pricePlaceholder")}
-                    value={form.price}
-                    onChange={(e) => patch({ price: e.target.value })}
+
+                <div className="bg-ui-bg-subtle flex items-center justify-between rounded-lg px-4 py-3">
+                  <div className="flex flex-col">
+                    <Label size="small" weight="plus">
+                      {t("cards.form.forSale")}
+                    </Label>
+                    <Text className="text-ui-fg-subtle text-xs">
+                      {t("cards.form.forSaleHint")}
+                    </Text>
+                  </div>
+                  <Switch
+                    checked={form.for_sale}
+                    onCheckedChange={(v) => patch({ for_sale: v })}
                   />
                 </div>
               </div>
-
-              <div className="bg-ui-bg-subtle flex items-center justify-between rounded-lg px-4 py-3">
-                <div className="flex flex-col">
-                  <Label size="small" weight="plus">
-                    {t("cards.form.forSale")}
-                  </Label>
-                  <Text className="text-ui-fg-subtle text-xs">
-                    {t("cards.form.forSaleHint")}
-                  </Text>
-                </div>
-                <Switch
-                  checked={form.for_sale}
-                  onCheckedChange={(v) => patch({ for_sale: v })}
-                />
-              </div>
-            </div>
+            )}
           </FocusModal.Body>
         </FocusModal.Content>
       </FocusModal>

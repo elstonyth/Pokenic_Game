@@ -1,13 +1,13 @@
 import { model } from "@medusajs/framework/utils";
 
 // Pull — the ledger: one row per opened pack (the rolled result). Written by the
-// open-pack workflow in Phase 5b; it is the source of truth for the live-pulls
-// feed (Phase 7) and the leaderboard. Empty until 5b ships the workflow — the
-// model lands now so 5a and 5b share a single migration.
+// open-pack workflow; it is the source of truth for the live-pulls feed, the
+// leaderboard, AND the customer's vault (a vault item = a pull with status
+// "vaulted" — no separate vault table).
 //
 // References use the same stable business keys as PackOdds (Pack.slug,
 // Card.handle). `order_id` ties the pull to the Medusa order that paid for it
-// (nullable until checkout is wired in 5b).
+// (nullable until checkout is wired).
 export const Pull = model.define("pull", {
   id: model.id().primaryKey(),
   customer_id: model.text(),
@@ -15,6 +15,13 @@ export const Pull = model.define("pull", {
   card_id: model.text(), // = Card.handle (the won card)
   order_id: model.text().nullable(),
   rolled_at: model.dateTime(),
+  // Vault lifecycle: every pull starts vaulted; instant buyback (at reveal or
+  // later from the vault page) flips it to bought_back and credits the customer.
+  status: model.enum(["vaulted", "bought_back"]).default("vaulted"),
+  // USD actually credited (decimal, never cents) — a SNAPSHOT taken at buyback
+  // time (current FMV × the pack's buyback_percent), kept since FMV moves.
+  buyback_amount: model.bigNumber().nullable(),
+  buyback_at: model.dateTime().nullable(),
 });
 
 export default Pull;

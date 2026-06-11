@@ -79,7 +79,7 @@ export const buybackPullStep = createStep(
     }
 
     // Instant rate inside the post-pull window (the reveal's "sell on the
-    // spot"), vault rate after — decided HERE from rolled_at, never by the
+    // spot"), the flat rate after — decided HERE from rolled_at, never by the
     // caller, so the better rate can't be claimed late via the raw API.
     const [pack] = await packs.listPacks({ slug: pull.pack_id }, { take: 1 });
     const { percent, rate_type } = resolveBuybackRate(pack, pull.rolled_at);

@@ -26,6 +26,7 @@ import {
   type ResolvedPack,
   type PackCard,
   CARD_POOL,
+  FLAT_BUYBACK_PERCENT,
   ODDS,
   clawMachine,
   priceNumber,
@@ -113,13 +114,17 @@ export default function PackDetailClient({
   const [recent, setRecent] = useState<RecentPull[]>(recentPulls);
   // The pack-opening reveal overlay — non-null while showing the won/demo card.
   // `nonce` keys the overlay so "Open another" remounts it and re-runs the burst.
-  // pullId/marketValue drive the instant sell-back offer (null for demo spins).
+  // pullId/marketValue drive the instant sell-back offer (null for demo spins);
+  // openedAt (ms epoch, when the open call resolved) caps the offer so a user
+  // who lingers on the pre-card stages can't see a quote the server window no
+  // longer honors.
   const [reveal, setReveal] = useState<{
     card: PackCard;
     isReal: boolean;
     nonce: number;
     pullId: string | null;
     marketValue: number | null;
+    openedAt: number | null;
   } | null>(null);
 
   const claw = clawMachine(active);
@@ -147,7 +152,7 @@ export default function PackDetailClient({
     if (opening) return;
     setOpenError(null);
     const mock = CARD_POOL[Math.floor(Math.random() * CARD_POOL.length)];
-    setReveal({ card: mock, isReal: false, nonce: Date.now(), pullId: null, marketValue: null });
+    setReveal({ card: mock, isReal: false, nonce: Date.now(), pullId: null, marketValue: null, openedAt: null });
   }
 
   // Real open — auth-gated. Awaits the server action (the customer id is derived
@@ -174,6 +179,7 @@ export default function PackDetailClient({
         nonce: Date.now(),
         pullId: res.pullId,
         marketValue: res.marketValue,
+        openedAt: Date.now(),
       });
       const justPulled: RecentPull = {
         id: `${res.card.id}-${Date.now()}`,
@@ -489,12 +495,15 @@ export default function PackDetailClient({
             reveal.pullId !== null && reveal.marketValue !== null
               ? {
                   pullId: reveal.pullId,
-                  percent: active.buybackPercent ?? 90,
+                  percent: active.buybackPercent ?? FLAT_BUYBACK_PERCENT,
                   amount:
-                    Math.round(reveal.marketValue * (active.buybackPercent ?? 90)) / 100,
+                    Math.round(
+                      reveal.marketValue * (active.buybackPercent ?? FLAT_BUYBACK_PERCENT),
+                    ) / 100,
                   // Sells from the vault always pay the site-wide flat rate,
                   // never a per-pack one (matches the server's FLAT_PERCENT).
-                  vaultPercent: 90,
+                  vaultPercent: FLAT_BUYBACK_PERCENT,
+                  openedAtMs: reveal.openedAt ?? Date.now(),
                 }
               : null
           }

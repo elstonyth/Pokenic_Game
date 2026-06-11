@@ -58,6 +58,11 @@ const RADIUS = 188;
 // instant rate. Mirrors (with grace) the server window in
 // backend/packages/api/src/modules/packs/buyback-rate.ts.
 const SELL_COUNTDOWN_SECS = 30;
+// Hard cap from the moment the open call resolved: the pre-card stages are
+// tap-gated (unbounded), so without this a lingering user would still see the
+// instant quote after the server's 90s window lapsed — and be credited the
+// flat rate instead. 75s leaves a safety margin under the server window.
+const SELL_HARD_CAP_MS = 75_000;
 
 type Stage = "packs" | "slab" | "metadata" | "pull" | "card";
 
@@ -94,6 +99,8 @@ export default function PackOpenOverlay({
     percent: number;
     amount: number;
     vaultPercent: number;
+    /** Epoch ms when the open call resolved — anchors the offer's hard cap. */
+    openedAtMs: number;
   } | null;
   onSellBack?: (
     pullId: string
@@ -115,14 +122,30 @@ export default function PackOpenOverlay({
 
   // The keep/sell offer expires 30s after the card is revealed — expiry keeps
   // the card (every pull is vaulted until sold), where the flat vault rate
-  // applies. The server enforces its own window with grace on top, so this
-  // countdown is UX, not the security gate.
+  // applies. Wall-clock (deadline) based, not tick based, so background-tab
+  // interval throttling can't stretch it; hard-capped from the open call so a
+  // user lingering on the tap-gated stages never sees a quote the server
+  // window no longer honors. The server enforces its own window with grace on
+  // top, so this countdown is UX, not the security gate.
+  const sellDeadline = useRef<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(SELL_COUNTDOWN_SECS);
   const sellExpired = secondsLeft <= 0;
   useEffect(() => {
     if (stage !== "card" || !buyback) return;
+    if (sellDeadline.current === null) {
+      sellDeadline.current = Math.min(
+        Date.now() + SELL_COUNTDOWN_SECS * 1000,
+        buyback.openedAtMs + SELL_HARD_CAP_MS,
+      );
+    }
     if (sell.phase === "sold" || sellExpired) return;
-    const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    const tick = () => {
+      const deadline = sellDeadline.current;
+      if (deadline === null) return;
+      setSecondsLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    };
+    tick();
+    const id = setInterval(tick, 250);
     return () => clearInterval(id);
   }, [stage, buyback, sell.phase, sellExpired]);
 
@@ -489,7 +512,9 @@ export default function PackOpenOverlay({
                     the button with the credited confirmation; expiry (or
                     "Continue") keeps the card in the vault implicitly (every pull
                     is vaulted until sold). Demo spins have no offer. */}
-                {buyback && sell.phase !== "sold" && !sellExpired && (
+                {/* Keep an in-flight "Selling…" visible past expiry — the server
+                    (with grace) decides; hiding it would orphan the request. */}
+                {buyback && sell.phase !== "sold" && (!sellExpired || sell.phase === "selling") && (
                   <button
                     type="button"
                     onClick={handleSellBack}
@@ -507,7 +532,7 @@ export default function PackOpenOverlay({
                     {sell.balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 )}
-                {sell.phase === "error" && !sellExpired && (
+                {sell.phase === "error" && (
                   <p className="max-w-[300px] text-center text-[12px] font-medium text-red-400">{sell.message}</p>
                 )}
                 <button type="button" onClick={onClose} className="inline-flex h-12 w-[300px] items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 text-sm font-bold text-white shadow-lg shadow-emerald-900/30 transition-opacity hover:opacity-95">

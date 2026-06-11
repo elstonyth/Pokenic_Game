@@ -6,6 +6,10 @@
 // the real weighted odds + pull results come from the backend Packs module + open-pack
 // workflow (BUILD_PLAN Phase 5). Do not treat these odds as authoritative.
 
+/** Site-wide flat buyback % — what every sell from the vault/inventory pays.
+ *  Mirrors FLAT_PERCENT in backend/packages/api/src/modules/packs/buyback-rate.ts. */
+export const FLAT_BUYBACK_PERCENT = 90;
+
 export type Pack = {
   id: string;
   name: string;
@@ -16,7 +20,7 @@ export type Pack = {
   boost?: boolean;
   /** INSTANT ("sell on the spot") buyback % — also the boost-badge number
    *  (default 90 = the flat rate; premium Black/Diamond = 92). Later sells
-   *  from the vault always pay the flat 90%. */
+   *  from the vault always pay FLAT_BUYBACK_PERCENT. */
   buybackPercent?: number;
   /** false → render a greyed "Out of Stock" / "Sold out" tile. Default in-stock. */
   inStock?: boolean;

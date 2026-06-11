@@ -56,8 +56,11 @@ export function resolveBuybackRate(
   const isInstant =
     Number.isFinite(rolledMs) && nowMs - rolledMs <= instantBuybackWindowMs();
 
+  // Floor the instant rate at flat: admin validation enforces >= flat on
+  // writes, but legacy rows predating that rule must never make selling now
+  // pay less than vaulting would.
   const percent = isInstant
-    ? sanePercent(pack?.buyback_percent) ?? FLAT_PERCENT
+    ? Math.max(sanePercent(pack?.buyback_percent) ?? FLAT_PERCENT, FLAT_PERCENT)
     : FLAT_PERCENT;
 
   return { percent, rate_type: isInstant ? "instant" : "vault" };

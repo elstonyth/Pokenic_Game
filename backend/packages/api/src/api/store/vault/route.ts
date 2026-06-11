@@ -9,7 +9,7 @@ import { resolveBuybackRate } from "../../../modules/packs/buyback-rate";
 // GET /store/vault — the authenticated customer's vault: every pull still held
 // (status "vaulted"), newest first, with a LIVE buyback offer per item: current
 // FMV × the rate that would apply RIGHT NOW (instant inside the post-pull
-// window, the pack's vault rate after — resolveBuybackRate, the same logic the
+// window, the flat rate after — resolveBuybackRate, the same logic the
 // buyback workflow runs, so the quote always matches the credit).
 //
 // AUTH: matcher registered in src/api/middlewares.ts with authenticate(); the

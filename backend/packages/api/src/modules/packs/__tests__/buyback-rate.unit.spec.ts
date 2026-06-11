@@ -31,6 +31,12 @@ describe("resolveBuybackRate", () => {
     ).toBe(FLAT_PERCENT);
   });
 
+  it("floors a legacy below-flat pack rate at the flat rate inside the window", () => {
+    expect(
+      resolveBuybackRate({ buyback_percent: 80 }, rolledAt(1_000), NOW)
+    ).toEqual({ percent: FLAT_PERCENT, rate_type: "instant" });
+  });
+
   it("credits the FLAT rate after the window, ignoring the pack rate entirely", () => {
     const afterWindow = rolledAt(instantBuybackWindowMs() + 1);
     expect(resolveBuybackRate(pack, afterWindow, NOW)).toEqual({

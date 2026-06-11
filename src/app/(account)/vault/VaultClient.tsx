@@ -5,10 +5,11 @@ import Link from "next/link";
 import { AccountHeader, StatCards } from "@/components/account/ui";
 import { usd } from "@/lib/format";
 import { sellBackPull, type VaultItem, type VaultResult } from "@/lib/actions/vault";
+import { FLAT_BUYBACK_PERCENT } from "@/app/claw/packs-data";
 
-// The customer's vault: every pulled card still held, each with an instant
-// sell-back offer (current FMV × the source pack's buyback %). Selling removes
-// the card here and credits the site balance shown at the top.
+// The customer's vault: every pulled card still held, each with a sell-back
+// offer (current FMV × the flat buyback rate — the server quotes the percent).
+// Selling removes the card here and credits the site balance shown at the top.
 export default function VaultClient({ initial }: { initial: VaultResult }) {
   const [items, setItems] = useState<VaultItem[]>(initial.ok ? initial.items : []);
   const [balance, setBalance] = useState<number>(initial.ok ? initial.balance : 0);
@@ -115,7 +116,7 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
       )}
 
       <p className="mt-5 text-[12px] text-white/35">
-        Sell-back credits your site balance instantly at the flat 90% buyback rate.
+        Sell-back credits your site balance instantly at the flat {FLAT_BUYBACK_PERCENT}% buyback rate.
         Physical shipping of vaulted cards arrives with checkout.
       </p>
     </>

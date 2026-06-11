@@ -432,7 +432,6 @@ export type Routes = {
         cards: typeof import("../../src/api/admin/cards/route") & {
             $handle: typeof import("../../src/api/admin/cards/[handle]/route");
         };
-        custom: typeof import("../../src/api/admin/custom/route");
         gacha: {
             eligibleProducts: typeof import("../../src/api/admin/gacha/eligible-products/route");
         };
@@ -539,7 +538,6 @@ export type Routes = {
             $id: typeof import("@mercurjs/core/api/store/sellers/[id]/route");
         };
         credits: typeof import("../../src/api/store/credits/route");
-        custom: typeof import("../../src/api/store/custom/route");
         leaderboard: typeof import("../../src/api/store/leaderboard/route");
         packs: typeof import("../../src/api/store/packs/route") & {
             $slug: typeof import("../../src/api/store/packs/[slug]/route") & {

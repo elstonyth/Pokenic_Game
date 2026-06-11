@@ -46,3 +46,21 @@ under the storefront's `public/`, and copies it into `backend/packages/api/stati
 - The pack seed (`src/scripts/seed.ts`) is **idempotent by slug** — a re-run only
   CREATES new slugs; it never updates existing rows. New model fields with
   defaults cover existing rows; only NEW packs pick up non-default seed values.
+
+### Integration suites: run via the package scripts, never raw jest
+Raw `TEST_TYPE=integration:http ... jest <spec>` HANGS after the tests pass —
+the rate limiters' ioredis connections hold the process open ("Jest did not
+exit one second after the test run"). The `package.json` scripts carry
+`--forceExit --runInBand` for exactly this; use
+`corepack yarn test:integration:http <spec>` from `packages/api`. Piping the
+run through `tail` also buffers ALL output until exit, so a finished-but-hung
+run looks identical to a stuck run (0 bytes of output) — check for the jest
+process + its CPU before assuming the tests are slow.
+
+### New rate limiter ⇒ park it in .env.test
+Every `createEnvRateLimit`-style limiter added to `src/api/middlewares.ts`
+needs an effectively-unlimited `<NAME>_RATE_*` block in `.env.test` (existing
+pattern: AUTH / STORE_READ / CREDIT_TOPUP). Otherwise production-default
+budgets 429 unrelated integration tests — rapid same-customer/same-IP calls
+are normal inside a suite, and Redis `rl:*` state persists across the
+per-test DB resets.

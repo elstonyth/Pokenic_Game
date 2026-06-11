@@ -29,7 +29,7 @@
 
 ---
 
-## ☐ Task A1 — Mock top-up: buy site credit through a fake gateway
+## ☑ Task A1 — Mock top-up: buy site credit through a fake gateway (DONE 2026-06-12)
 
 **Goal:** a logged-in customer can add credit to their balance through a
 fake-but-realistic payment flow. Real money never moves; the credit ledger is

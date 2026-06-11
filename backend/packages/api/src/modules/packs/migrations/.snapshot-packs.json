@@ -221,7 +221,8 @@
           "primary": false,
           "nullable": false,
           "enumItems": [
-            "buyback"
+            "buyback",
+            "topup"
           ],
           "mappedType": "enum"
         },
@@ -231,7 +232,16 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
           "mappedType": "text"
         },
         "raw_amount": {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AccountHeader, StatCards } from "@/components/account/ui";
+import { AddCreditsPanel } from "@/components/account/AddCreditsPanel";
 import { usd } from "@/lib/format";
 import { sellBackPull, type VaultItem, type VaultResult } from "@/lib/actions/vault";
 import { FLAT_BUYBACK_PERCENT } from "@/app/claw/packs-data";
@@ -51,6 +52,8 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
           { label: "Vault value (FMV)", value: usd(vaultValue) },
         ]}
       />
+
+      <AddCreditsPanel onToppedUp={(newBalance) => setBalance(newBalance)} />
 
       {error && (
         <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] font-medium text-red-300">

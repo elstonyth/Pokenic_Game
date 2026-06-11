@@ -10,6 +10,7 @@
  *   GET  /store/vault              — vaulted pulls + live buyback offers
  *   POST /store/vault/:id/buyback  — instant sell-back (credits FMV × pack %)
  *   GET  /store/credits            — balance (Σ ledger) + recent transactions
+ *   POST /store/credits/topup      — buy credit via the mock gateway (demo)
  */
 import { sdk } from "@/lib/medusa";
 import { logger } from "@/lib/logger";
@@ -62,6 +63,9 @@ function friendlyError(error: unknown): string {
     return "Too many requests — give it a moment and try again.";
   if (/unauthorized|not authenticated|401/i.test(text))
     return "Please log in to view your vault.";
+  if (/declined/i.test(text))
+    return "Payment declined by the demo gateway — amounts ending in .13 always decline.";
+  if (/amount/i.test(text)) return "Enter a valid amount (up to $10,000, whole cents).";
   if (/already sold/i.test(text)) return "This card was already sold back.";
   if (/not found|404/i.test(text)) return "This card is no longer in your vault.";
   return "Something went wrong. Please try again.";
@@ -122,6 +126,44 @@ export async function getVault(): Promise<VaultResult> {
     };
   } catch (error) {
     logger.error("[vault] load failed:", error);
+    return { ok: false, error: friendlyError(error), needsAuth: needsAuthFrom(error) };
+  }
+}
+
+export type TopUpActionResult =
+  | { ok: true; amount: number; balance: number }
+  | { ok: false; error: string; needsAuth?: boolean };
+
+// Buy site credit through the mock gateway (demo — no real payment). The fake
+// card fields never leave the browser; only the amount is posted, and the
+// backend re-validates it (the gateway declines amounts ending in .13).
+export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
+  // Validate at the boundary — a server action is a public endpoint.
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, error: "Enter a valid amount." };
+  }
+
+  const token = await getAuthToken();
+  if (!token) {
+    return { ok: false, error: "Please log in first.", needsAuth: true };
+  }
+
+  try {
+    const res = await sdk.client.fetch<{ amount: number; balance: number }>(
+      "/store/credits/topup",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: { amount },
+      }
+    );
+
+    if (!Number.isFinite(res.amount) || !Number.isFinite(res.balance)) {
+      return { ok: false, error: "Got an unexpected response. Please try again." };
+    }
+    return { ok: true, amount: res.amount, balance: res.balance };
+  } catch (error) {
+    logger.error("[vault] top-up failed:", error);
     return { ok: false, error: friendlyError(error), needsAuth: needsAuthFrom(error) };
   }
 }

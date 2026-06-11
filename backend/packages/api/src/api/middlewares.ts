@@ -1,6 +1,7 @@
 import { defineMiddlewares, authenticate } from "@medusajs/framework/http";
 import {
   createAuthRateLimit,
+  createCreditTopupRateLimit,
   createPackOpenRateLimit,
   createStoreReadRateLimit,
   createVaultBuybackRateLimit,
@@ -72,6 +73,17 @@ export default defineMiddlewares({
       // Credit balance + ledger (GET /store/credits).
       matcher: "/store/credits",
       middlewares: [authenticate("customer", ["bearer"]), storeReadRateLimit],
+    },
+    {
+      // Credit top-up through the (mock) payment gateway
+      // (POST /store/credits/topup) — a write, so it gets its own limiter,
+      // not the shared read budget.
+      matcher: "/store/credits/topup",
+      method: "POST",
+      middlewares: [
+        authenticate("customer", ["bearer"]),
+        createCreditTopupRateLimit(),
+      ],
     },
   ],
 });

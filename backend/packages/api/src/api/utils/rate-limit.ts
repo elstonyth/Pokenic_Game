@@ -426,6 +426,21 @@ export function createVaultBuybackRateLimit(): MiddlewareHandler {
 }
 
 /**
+ * The credit-topup limiter — same construction as vault-buyback, scoped per
+ * customer. Top-ups are gateway-backed writes (mock today), so the budget is
+ * tighter than the read limiter but roomy for honest retries. Env-tunable:
+ * CREDIT_TOPUP_RATE_BURST_LIMIT / CREDIT_TOPUP_RATE_BURST_WINDOW_MS (5/10s)
+ * CREDIT_TOPUP_RATE_LIMIT / CREDIT_TOPUP_RATE_WINDOW_MS (15/60s)
+ */
+export function createCreditTopupRateLimit(): MiddlewareHandler {
+  return createEnvRateLimit({
+    name: "credit-topup",
+    message: "Too many top-up requests.",
+    defaults: { burstLimit: 5, burstWindowMs: 10_000, limit: 15, windowMs: 60_000 },
+  });
+}
+
+/**
  * The auth-endpoint limiter (login / register / password reset). These routes
  * are PUBLIC — there is no auth_context yet — so the middleware keys on the
  * request IP (its designed fallback): this is brute-force/credential-stuffing

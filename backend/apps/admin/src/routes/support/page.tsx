@@ -7,6 +7,7 @@ import {
   Heading,
   Input,
   Label,
+  Prompt,
   StatusBadge,
   Table,
   Text,
@@ -45,6 +46,9 @@ const SupportPage = () => {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [adjusting, setAdjusting] = useState(false);
+  // Money mutation behind an explicit confirm — a mistyped sign on a support
+  // ticket must not apply on a single click.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const search = async () => {
     const q = query.trim();
@@ -75,13 +79,22 @@ const SupportPage = () => {
     }
   };
 
-  const adjust = async () => {
+  // Validate, then ask for confirmation — the actual mutation runs in
+  // applyAdjust once the Prompt is accepted.
+  const requestAdjust = () => {
     if (!view || adjusting) return;
     const value = Number(amount);
     if (!Number.isFinite(value)) {
       toast.error(t("support.adjustInvalid"));
       return;
     }
+    setConfirmOpen(true);
+  };
+
+  const applyAdjust = async () => {
+    if (!view || adjusting) return;
+    const value = Number(amount);
+    setConfirmOpen(false);
     setAdjusting(true);
     try {
       const res = await adjustCustomerCredits(view.customer.id, value, note);
@@ -224,7 +237,7 @@ const SupportPage = () => {
                   />
                   <Button
                     size="small"
-                    onClick={adjust}
+                    onClick={requestAdjust}
                     isLoading={adjusting}
                     disabled={!amount.trim() || !note.trim()}
                   >
@@ -234,6 +247,31 @@ const SupportPage = () => {
               </div>
             </div>
           </Container>
+
+          <Prompt
+            open={confirmOpen}
+            onOpenChange={(open) => {
+              if (!open) setConfirmOpen(false);
+            }}
+          >
+            <Prompt.Content>
+              <Prompt.Header>
+                <Prompt.Title>{t("support.adjustConfirmTitle")}</Prompt.Title>
+                <Prompt.Description>
+                  {t("support.adjustConfirmDescription", {
+                    amount: usd(Number(amount)),
+                    email: view.customer.email,
+                  })}
+                </Prompt.Description>
+              </Prompt.Header>
+              <Prompt.Footer>
+                <Prompt.Cancel>{t("support.adjustCancel")}</Prompt.Cancel>
+                <Prompt.Action onClick={applyAdjust}>
+                  {t("support.adjustConfirm")}
+                </Prompt.Action>
+              </Prompt.Footer>
+            </Prompt.Content>
+          </Prompt>
 
           <Container className="p-0">
             <div className="px-6 py-4">

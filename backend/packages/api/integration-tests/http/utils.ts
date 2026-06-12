@@ -44,6 +44,11 @@ export async function mintSuperAdmin(
   const superAdminRoles = await rbacService.listRbacRoles({
     id: "role_super_admin",
   });
+  if (superAdminRoles.length === 0) {
+    // A role-less user authenticates fine but 403s on every /admin/* call —
+    // fail loudly here instead of producing confusing downstream failures.
+    throw new Error("role_super_admin not found — RBAC seed missing?");
+  }
   const workflowService = container.resolve(Modules.WORKFLOW_ENGINE);
   const { result: users } = await workflowService.run("create-users-workflow", {
     input: {

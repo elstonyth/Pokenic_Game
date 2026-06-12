@@ -6,21 +6,7 @@ import {
   packTheoreticalRtp,
   type LedgerRow,
 } from "../../../modules/packs/economy";
-
-const PAGE = 1000;
-
-// Exhausts a paged list call — every number on this report is money, so no
-// listing may silently truncate at one page.
-async function pageAll<T>(
-  list: (opts: { skip: number; take: number }) => Promise<T[]>,
-): Promise<T[]> {
-  const all: T[] = [];
-  for (let skip = 0; ; skip += PAGE) {
-    const page = await list({ skip, take: PAGE });
-    all.push(...page);
-    if (page.length < PAGE) return all;
-  }
-}
+import { pageAll } from "../../utils/page-all";
 
 // GET /admin/economy — the operator's money report: lifetime ledger totals
 // (revenue / payouts / top-ups / adjustments / net), the outstanding vault
@@ -34,9 +20,10 @@ export async function GET(
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
 
   // Lifetime ledger totals — paged like creditBalance so the report stays
-  // exact at any ledger size.
-  const ledger = await pageAll((opts) =>
-    packs.listCreditTransactions({}, { ...opts, order: { created_at: "ASC" } }),
+  // exact at any ledger size (id tiebreaker: batch inserts share created_at).
+  const ledger = await pageAll(
+    (opts) => packs.listCreditTransactions({}, opts),
+    { created_at: "ASC", id: "ASC" },
   );
   const rows: LedgerRow[] = ledger.map((t) => ({
     reason: t.reason,

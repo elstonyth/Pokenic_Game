@@ -4,6 +4,7 @@ import type { ICustomerModuleService } from "@medusajs/framework/types";
 import { PACKS_MODULE } from "../../../../../modules/packs";
 import type PacksModuleService from "../../../../../modules/packs/service";
 import { creditBalance } from "../../../../../modules/packs/credit-balance";
+import { pageAll } from "../../../../utils/page-all";
 
 const RECENT = 50;
 
@@ -39,8 +40,10 @@ export async function GET(
       { order: { rolled_at: "DESC" }, take: RECENT },
     ),
     // Vault summary scans ALL vaulted pulls (not just the recent slice) so
-    // the liability number is exact; 1000 ≫ any one customer's vault.
-    packs.listPulls({ customer_id: id, status: "vaulted" }, { take: 1000 }),
+    // the FMV-owed number is exact at any vault size.
+    pageAll((opts) =>
+      packs.listPulls({ customer_id: id, status: "vaulted" }, opts),
+    ),
   ]);
 
   // Card join over both lists (handles are the stable key, like /store/vault).

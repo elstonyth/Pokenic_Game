@@ -100,10 +100,15 @@ try {
   const balBefore = Number(balText.replace(/[$,]/g, ""));
   ok(`support view: detail loaded (balance $${balBefore})`);
 
-  // Adjust +$5 and expect the balance stat to rise by exactly 5.
+  // Adjust +$5 (through the confirm dialog) and expect the balance stat to
+  // rise by exactly 5.
   await page.getByLabel(/amount/i).fill("5");
   await page.getByLabel(/note/i).fill("QA adjustment probe");
   await page.getByRole("button", { name: /apply adjustment/i }).click();
+  const confirm = page.getByRole("button", { name: /^apply$/i });
+  await confirm.waitFor({ timeout: 10000 });
+  ok("support view: confirm dialog gates the adjustment");
+  await confirm.click();
   await page.waitForTimeout(2500);
   const balAfterText = await page
     .locator("h1.tabular-nums")

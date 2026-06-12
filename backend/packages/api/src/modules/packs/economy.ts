@@ -86,13 +86,16 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
     else if (row.reason === "adjustment") adjustmentCents += cents;
   }
 
-  const revenue = Math.abs(openCents) / 100;
+  // Negation, not abs: if the pack_open bucket ever nets positive (a
+  // refund-heavy future), revenue should honestly report negative. The
+  // `|| 0` collapses IEEE -0 (from negating an empty bucket) to plain 0.
+  const revenue = -openCents / 100 || 0;
   const payouts = buybackCents / 100;
   return {
     revenue,
     payouts,
     topups: topupCents / 100,
     adjustments: adjustmentCents / 100,
-    net: Math.round(Math.abs(openCents) - buybackCents) / 100,
+    net: (-openCents - buybackCents) / 100 || 0,
   };
 }

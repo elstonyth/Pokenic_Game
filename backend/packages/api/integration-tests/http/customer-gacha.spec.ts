@@ -145,6 +145,7 @@ medusaIntegrationTestRunner({
         const vaulted = res.data.pulls.find(
           (p: { status: string }) => p.status === "vaulted",
         );
+        expect(vaulted).toBeDefined();
         expect(vaulted.card).toMatchObject({
           handle: "gacha-view-card",
           name: "Gacha View Card",

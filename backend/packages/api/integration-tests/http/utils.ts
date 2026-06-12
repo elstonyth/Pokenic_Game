@@ -54,8 +54,13 @@ export async function mintSuperAdmin(
   const { authIdentity } = await authService.register("emailpass", {
     body: { email, password },
   } as Parameters<typeof authService.register>[1]);
+  if (!authIdentity) {
+    throw new Error(
+      `authService.register returned no authIdentity for ${email}`,
+    );
+  }
   await authService.updateAuthIdentities({
-    id: authIdentity!.id,
+    id: authIdentity.id,
     app_metadata: { user_id: (users as { id: string }[])[0].id },
   });
   const login = await api.post("/auth/user/emailpass", { email, password });

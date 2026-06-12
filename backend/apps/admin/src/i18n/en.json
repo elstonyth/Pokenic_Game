@@ -191,6 +191,7 @@
     "adjustAmount": "Amount (e.g. 5 or -5)",
     "adjustNote": "Note (required, audit trail)",
     "adjustApply": "Apply adjustment",
+    "adjustInvalid": "Amount must be a number (e.g. 5 or -5).",
     "adjusted": "Adjusted {{amount}} — new balance {{balance}}",
     "ledger": "Credit ledger",
     "reason": "Reason",

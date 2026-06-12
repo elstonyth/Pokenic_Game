@@ -9,6 +9,19 @@ import {
 
 const PAGE = 1000;
 
+// Exhausts a paged list call — every number on this report is money, so no
+// listing may silently truncate at one page.
+async function pageAll<T>(
+  list: (opts: { skip: number; take: number }) => Promise<T[]>,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let skip = 0; ; skip += PAGE) {
+    const page = await list({ skip, take: PAGE });
+    all.push(...page);
+    if (page.length < PAGE) return all;
+  }
+}
+
 // GET /admin/economy — the operator's money report: lifetime ledger totals
 // (revenue / payouts / top-ups / adjustments / net), the outstanding vault
 // liability (FMV of every vaulted pull), and a per-active-pack theoretical
@@ -22,32 +35,25 @@ export async function GET(
 
   // Lifetime ledger totals — paged like creditBalance so the report stays
   // exact at any ledger size.
-  const rows: LedgerRow[] = [];
-  for (let skip = 0; ; skip += PAGE) {
-    const page = await packs.listCreditTransactions(
-      {},
-      { skip, take: PAGE, order: { created_at: "ASC" } },
-    );
-    rows.push(
-      ...page.map((t) => ({ reason: t.reason, amount: Number(t.amount) })),
-    );
-    if (page.length < PAGE) break;
-  }
+  const ledger = await pageAll((opts) =>
+    packs.listCreditTransactions({}, { ...opts, order: { created_at: "ASC" } }),
+  );
+  const rows: LedgerRow[] = ledger.map((t) => ({
+    reason: t.reason,
+    amount: Number(t.amount),
+  }));
   const totals = ledgerTotals(rows);
 
-  // Vault liability: FMV of every card customers still hold (paged).
+  // Vault liability: FMV of every card customers still hold. Pull.card_id IS
+  // Card.handle (the stable join key, same as the vault route).
+  const vaultedPulls = await pageAll((opts) =>
+    packs.listPulls({ status: "vaulted" }, opts),
+  );
   const vaultedByCard = new Map<string, number>();
-  for (let skip = 0; ; skip += PAGE) {
-    const page = await packs.listPulls(
-      { status: "vaulted" },
-      { skip, take: PAGE },
-    );
-    for (const p of page) {
-      vaultedByCard.set(p.card_id, (vaultedByCard.get(p.card_id) ?? 0) + 1);
-    }
-    if (page.length < PAGE) break;
+  for (const p of vaultedPulls) {
+    vaultedByCard.set(p.card_id, (vaultedByCard.get(p.card_id) ?? 0) + 1);
   }
-  const allCards = await packs.listCards({}, { take: PAGE });
+  const allCards = await pageAll((opts) => packs.listCards({}, opts));
   const valueByHandle = new Map(
     allCards.map((c) => [c.handle, Number(c.market_value)]),
   );
@@ -62,8 +68,10 @@ export async function GET(
 
   // Per-pack theoretical RTP from current odds (active packs only — drafts
   // aren't sellable, so their RTP is operator-noise).
-  const allPacks = await packs.listPacks({ status: "active" }, { take: PAGE });
-  const allOdds = await packs.listPackOdds({}, { take: 10_000 });
+  const allPacks = await pageAll((opts) =>
+    packs.listPacks({ status: "active" }, opts),
+  );
+  const allOdds = await pageAll((opts) => packs.listPackOdds({}, opts));
   const oddsByPack = new Map<
     string,
     { weight: number; market_value: number }[]

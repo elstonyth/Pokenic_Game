@@ -78,6 +78,10 @@ const SupportPage = () => {
   const adjust = async () => {
     if (!view || adjusting) return;
     const value = Number(amount);
+    if (!Number.isFinite(value)) {
+      toast.error(t("support.adjustInvalid"));
+      return;
+    }
     setAdjusting(true);
     try {
       const res = await adjustCustomerCredits(view.customer.id, value, note);

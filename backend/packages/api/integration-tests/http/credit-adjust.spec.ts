@@ -1,0 +1,216 @@
+import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
+import { Modules } from "@medusajs/framework/utils";
+import { PACKS_MODULE } from "../../src/modules/packs";
+import type PacksModuleService from "../../src/modules/packs/service";
+import { unwrapResponse } from "./utils";
+
+jest.setTimeout(240 * 1000);
+
+const PASSWORD = "adjust-test-password-1";
+const ADMIN_EMAIL = "adjust-admin@test.dev";
+
+// Manual credit adjustment: an operator applies a signed ledger row (reason
+// "adjustment", note in "reference") with a $0 balance floor. Grants raise
+// the balance, deductions past zero are refused with NO row written, and the
+// row is customer-visible through GET /store/credits.
+
+medusaIntegrationTestRunner({
+  inApp: true,
+  testSuite: ({ api, getContainer }) => {
+    describe("admin credit adjustment", () => {
+      let storeHeaders: Record<string, string>;
+      let adminToken: string;
+
+      // The runner resets the database between `it` blocks, so the publishable
+      // key, the admin user, and any customers are recreated per test.
+      beforeEach(async () => {
+        const container = getContainer();
+        const apiKeyModule = container.resolve(Modules.API_KEY);
+        const key = await apiKeyModule.createApiKeys({
+          title: "credit-adjust-test",
+          type: "publishable",
+          created_by: "credit-adjust-test",
+        });
+        storeHeaders = { "x-publishable-api-key": key.token };
+
+        // Mint a SUPER-ADMIN the way `medusa user` does (RBAC is on, so a
+        // role-less user 403s on /admin/*): create the user carrying the
+        // super-admin role via the workflow engine (untyped, mirroring the
+        // CLI — `roles` is an RBAC extension of the user DTO), register the
+        // emailpass identity, link the two, then log in for the JWT.
+        const rbacService = container.resolve(Modules.RBAC);
+        const superAdminRoles = await rbacService.listRbacRoles({
+          id: "role_super_admin",
+        });
+        const workflowService = container.resolve(Modules.WORKFLOW_ENGINE);
+        const { result: users } = await workflowService.run(
+          "create-users-workflow",
+          {
+            input: {
+              users: [
+                {
+                  email: ADMIN_EMAIL,
+                  roles: superAdminRoles.map((r: { id: string }) => r.id),
+                },
+              ],
+            },
+          },
+        );
+        const authService = container.resolve(Modules.AUTH);
+        const { authIdentity } = await authService.register("emailpass", {
+          body: { email: ADMIN_EMAIL, password: PASSWORD },
+        } as Parameters<typeof authService.register>[1]);
+        await authService.updateAuthIdentities({
+          id: authIdentity!.id,
+          app_metadata: { user_id: (users as { id: string }[])[0].id },
+        });
+        const login = await api.post("/auth/user/emailpass", {
+          email: ADMIN_EMAIL,
+          password: PASSWORD,
+        });
+        adminToken = login.data.token;
+      });
+
+      const adminHeaders = (): Record<string, string> => ({
+        authorization: `Bearer ${adminToken}`,
+      });
+
+      const registerCustomer = async (
+        email: string,
+      ): Promise<{ token: string; id: string }> => {
+        const reg = await api.post("/auth/customer/emailpass/register", {
+          email,
+          password: PASSWORD,
+        });
+        const created = await api.post(
+          "/store/customers",
+          { email },
+          {
+            headers: {
+              ...storeHeaders,
+              authorization: `Bearer ${reg.data.token}`,
+            },
+          },
+        );
+        const login = await api.post("/auth/customer/emailpass", {
+          email,
+          password: PASSWORD,
+        });
+        return { token: login.data.token, id: created.data.customer.id };
+      };
+
+      const adjust = (
+        customerId: string,
+        body: Record<string, unknown>,
+        headers: Record<string, string>,
+      ) =>
+        unwrapResponse(
+          api.post(`/admin/customers/${customerId}/credits`, body, { headers }),
+        );
+
+      const ledgerRows = async () => {
+        const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+        return packs.listCreditTransactions(
+          { reason: "adjustment" },
+          { take: 100 },
+        );
+      };
+
+      it("rejects an unauthenticated adjustment with 401", async () => {
+        const { id } = await registerCustomer("adjust-customer-a@test.dev");
+        const res = await adjust(id, { amount: 5, note: "grant" }, {});
+        expect(res.status).toBe(401);
+        expect(await ledgerRows()).toHaveLength(0);
+      });
+
+      it("grants credit, records the note, and is customer-visible", async () => {
+        const { id, token } = await registerCustomer(
+          "adjust-customer-b@test.dev",
+        );
+
+        const granted = await adjust(
+          id,
+          { amount: 12.5, note: "Goodwill for failed open" },
+          adminHeaders(),
+        );
+        expect(granted.status).toBe(200);
+        expect(granted.data).toMatchObject({ amount: 12.5, balance: 12.5 });
+
+        const [row] = await ledgerRows();
+        expect(row).toMatchObject({
+          customer_id: id,
+          reason: "adjustment",
+          pull_id: null,
+          reference: "Goodwill for failed open",
+        });
+        expect(Number(row.amount)).toBe(12.5);
+
+        // Customer sees the adjustment in their own ledger.
+        const credits = await unwrapResponse(
+          api.get("/store/credits", {
+            headers: { ...storeHeaders, authorization: `Bearer ${token}` },
+          }),
+        );
+        expect(credits.data.balance).toBe(12.5);
+        expect(credits.data.transactions[0]).toMatchObject({
+          amount: 12.5,
+          reason: "adjustment",
+        });
+      });
+
+      it("deducts within the balance but refuses to go below $0 (no row written)", async () => {
+        const { id } = await registerCustomer("adjust-customer-c@test.dev");
+
+        const grant = await adjust(
+          id,
+          { amount: 10, note: "seed balance" },
+          adminHeaders(),
+        );
+        expect(grant.status).toBe(200);
+
+        const deduct = await adjust(
+          id,
+          { amount: -4, note: "partial clawback" },
+          adminHeaders(),
+        );
+        expect(deduct.status).toBe(200);
+        expect(deduct.data.balance).toBe(6);
+
+        const tooFar = await adjust(
+          id,
+          { amount: -6.01, note: "overdraw attempt" },
+          adminHeaders(),
+        );
+        expect(tooFar.status).toBe(400);
+        expect(tooFar.data.message).toMatch(/below \$0/i);
+        expect(await ledgerRows()).toHaveLength(2); // grant + partial only
+      });
+
+      it("rejects invalid amounts and missing notes with 400 and writes nothing", async () => {
+        const { id } = await registerCustomer("adjust-customer-d@test.dev");
+
+        for (const body of [
+          { amount: 0, note: "zero" },
+          { amount: 10_000.01, note: "too big" },
+          { amount: 1.234, note: "sub-cent" },
+          { amount: "5", note: "string" },
+          { amount: 5 }, // missing note
+          { amount: 5, note: "   " }, // blank note
+        ]) {
+          const res = await adjust(id, body, adminHeaders());
+          expect(res.status).toBe(400);
+        }
+        expect(await ledgerRows()).toHaveLength(0);
+      });
+
+      it("404s an unknown customer id", async () => {
+        const res = await adjust(
+          "cus_does_not_exist",
+          { amount: 5, note: "ghost" },
+          adminHeaders(),
+        );
+        expect(res.status).toBe(404);
+      });
+    });
+  },
+});

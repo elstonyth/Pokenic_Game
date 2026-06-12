@@ -33,8 +33,11 @@ export type OpenPackResult =
       pullId: string | null;
       /** Raw USD FMV (decimal) — the client computes the buyback offer from it. */
       marketValue: number;
+      /** Credit balance AFTER the charge (opens debit the pack price — A2);
+       *  null only if the backend response shape regresses. */
+      balance: number | null;
     }
-  | { ok: false; error: string; needsAuth?: boolean };
+  | { ok: false; error: string; needsAuth?: boolean; needsTopUp?: boolean };
 
 // Shape of the `card` returned by the open route (normalized server-side).
 interface BackendWonCard {
@@ -52,6 +55,8 @@ function friendlyError(error: unknown): string {
     return "You're opening packs too fast — give it a moment and try again.";
   if (/unauthorized|not authenticated|401/i.test(text))
     return "Please log in to open a pack.";
+  if (/not enough credits/i.test(text))
+    return "Not enough credits to open this pack.";
   if (/not available|not found|404/i.test(text))
     return "This pack isn't available right now.";
   return "Could not open the pack. Please try again.";
@@ -65,13 +70,18 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
 
   const token = await getAuthToken();
   if (!token) {
-    return { ok: false, error: "Please log in to open a pack.", needsAuth: true };
+    return {
+      ok: false,
+      error: "Please log in to open a pack.",
+      needsAuth: true,
+    };
   }
 
   try {
-    const { pull, card } = await sdk.client.fetch<{
+    const { pull, card, balance } = await sdk.client.fetch<{
       pull?: { id?: unknown };
       card: BackendWonCard;
+      balance?: unknown;
     }>(`/store/packs/${encodeURIComponent(slug)}/open`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -87,7 +97,10 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
       !isRarity(card.rarity) ||
       !Number.isFinite(card.market_value)
     ) {
-      return { ok: false, error: "Got an unexpected response. Please try again." };
+      return {
+        ok: false,
+        error: "Got an unexpected response. Please try again.",
+      };
     }
 
     return {
@@ -101,11 +114,16 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
       },
       pullId: typeof pull?.id === "string" ? pull.id : null,
       marketValue: card.market_value,
+      balance:
+        typeof balance === "number" && Number.isFinite(balance)
+          ? balance
+          : null,
     };
   } catch (error) {
     logger.error(`[packs] open-pack failed for '${slug}':`, error);
     const text = error instanceof Error ? error.message : String(error);
     const needsAuth = /unauthorized|401/i.test(text);
-    return { ok: false, error: friendlyError(error), needsAuth };
+    const needsTopUp = /not enough credits/i.test(text);
+    return { ok: false, error: friendlyError(error), needsAuth, needsTopUp };
   }
 }

@@ -65,22 +65,28 @@ function friendlyError(error: unknown): string {
     return "Please log in to view your vault.";
   if (/declined/i.test(text))
     return "Payment declined by the demo gateway — amounts ending in .13 always decline.";
-  if (/amount/i.test(text)) return "Enter a valid amount (up to $10,000, whole cents).";
+  if (/amount/i.test(text))
+    return "Enter a valid amount (up to $10,000, whole cents).";
   if (/already sold/i.test(text)) return "This card was already sold back.";
-  if (/not found|404/i.test(text)) return "This card is no longer in your vault.";
+  if (/not found|404/i.test(text))
+    return "This card is no longer in your vault.";
   return "Something went wrong. Please try again.";
 }
 
 const needsAuthFrom = (error: unknown): boolean =>
   /unauthorized|not authenticated|401/i.test(
-    error instanceof Error ? error.message : String(error)
+    error instanceof Error ? error.message : String(error),
   );
 
 // The vault list + the credit balance in one call (the page shows both).
 export async function getVault(): Promise<VaultResult> {
   const token = await getAuthToken();
   if (!token) {
-    return { ok: false, error: "Please log in to view your vault.", needsAuth: true };
+    return {
+      ok: false,
+      error: "Please log in to view your vault.",
+      needsAuth: true,
+    };
   }
 
   try {
@@ -102,7 +108,7 @@ export async function getVault(): Promise<VaultResult> {
           typeof i.pull_id === "string" &&
           i.card &&
           typeof i.card.name === "string" &&
-          Number.isFinite(i.buyback?.amount)
+          Number.isFinite(i.buyback?.amount),
       )
       .map((i) => ({
         pullId: i.pull_id,
@@ -126,7 +132,29 @@ export async function getVault(): Promise<VaultResult> {
     };
   } catch (error) {
     logger.error("[vault] load failed:", error);
-    return { ok: false, error: friendlyError(error), needsAuth: needsAuthFrom(error) };
+    return {
+      ok: false,
+      error: friendlyError(error),
+      needsAuth: needsAuthFrom(error),
+    };
+  }
+}
+
+// The bare credit balance — for surfaces that show affordability (the pack
+// detail page) without paying for the full vault read. Null = not logged in
+// or the read failed; callers render nothing rather than a wrong $0.
+export async function getCreditBalance(): Promise<number | null> {
+  const token = await getAuthToken();
+  if (!token) return null;
+  try {
+    const { balance } = await sdk.client.fetch<{ balance: number }>(
+      "/store/credits",
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    );
+    return Number.isFinite(balance) ? balance : null;
+  } catch (error) {
+    logger.error("[vault] balance read failed:", error);
+    return null;
   }
 }
 
@@ -155,16 +183,23 @@ export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: { amount },
-      }
+      },
     );
 
     if (!Number.isFinite(res.amount) || !Number.isFinite(res.balance)) {
-      return { ok: false, error: "Got an unexpected response. Please try again." };
+      return {
+        ok: false,
+        error: "Got an unexpected response. Please try again.",
+      };
     }
     return { ok: true, amount: res.amount, balance: res.balance };
   } catch (error) {
     logger.error("[vault] top-up failed:", error);
-    return { ok: false, error: friendlyError(error), needsAuth: needsAuthFrom(error) };
+    return {
+      ok: false,
+      error: friendlyError(error),
+      needsAuth: needsAuthFrom(error),
+    };
   }
 }
 
@@ -193,7 +228,10 @@ export async function sellBackPull(pullId: string): Promise<SellBackResult> {
     });
 
     if (!Number.isFinite(res.amount) || !Number.isFinite(res.balance)) {
-      return { ok: false, error: "Got an unexpected response. Please try again." };
+      return {
+        ok: false,
+        error: "Got an unexpected response. Please try again.",
+      };
     }
     return {
       ok: true,
@@ -203,6 +241,10 @@ export async function sellBackPull(pullId: string): Promise<SellBackResult> {
     };
   } catch (error) {
     logger.error(`[vault] buyback failed for '${pullId}':`, error);
-    return { ok: false, error: friendlyError(error), needsAuth: needsAuthFrom(error) };
+    return {
+      ok: false,
+      error: friendlyError(error),
+      needsAuth: needsAuthFrom(error),
+    };
   }
 }

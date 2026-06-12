@@ -1,8 +1,5 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
-import {
-  ContainerRegistrationKeys,
-  Modules,
-} from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../src/modules/packs";
 import type PacksModuleService from "../../src/modules/packs/service";
 import { unwrapResponse } from "./utils";
@@ -23,6 +20,9 @@ const INSTANT_AMOUNT = 48;
 const FLAT_PERCENT = 90;
 const FLAT_AMOUNT = 45;
 const STOCKED = 5;
+const PACK_PRICE = 10;
+// Opens charge the ledger since Task A2 — fund enough for the 3 opens below.
+const TOPUP = 3 * PACK_PRICE;
 
 medusaIntegrationTestRunner({
   inApp: true,
@@ -139,12 +139,12 @@ medusaIntegrationTestRunner({
       const request = (
         method: "get" | "post",
         path: string,
-        headers: Record<string, string>
+        headers: Record<string, string>,
       ) =>
         unwrapResponse(
           method === "get"
             ? api.get(path, { headers })
-            : api.post(path, {}, { headers })
+            : api.post(path, {}, { headers }),
         );
 
       const authed = (token: string): Record<string, string> => ({
@@ -160,7 +160,12 @@ medusaIntegrationTestRunner({
         await api.post(
           "/store/customers",
           { email },
-          { headers: { ...storeHeaders, authorization: `Bearer ${reg.data.token}` } }
+          {
+            headers: {
+              ...storeHeaders,
+              authorization: `Bearer ${reg.data.token}`,
+            },
+          },
         );
         const login = await api.post("/auth/customer/emailpass", {
           email,
@@ -170,10 +175,15 @@ medusaIntegrationTestRunner({
       };
 
       it("rejects unauthenticated vault access with 401", async () => {
-        expect((await request("get", "/store/vault", storeHeaders)).status).toBe(401);
-        expect((await request("get", "/store/credits", storeHeaders)).status).toBe(401);
         expect(
-          (await request("post", "/store/vault/pull-x/buyback", storeHeaders)).status
+          (await request("get", "/store/vault", storeHeaders)).status,
+        ).toBe(401);
+        expect(
+          (await request("get", "/store/credits", storeHeaders)).status,
+        ).toBe(401);
+        expect(
+          (await request("post", "/store/vault/pull-x/buyback", storeHeaders))
+            .status,
         ).toBe(401);
       });
 
@@ -181,12 +191,21 @@ medusaIntegrationTestRunner({
         const tokenA = await registerCustomer("vb-customer-a@test.dev");
         const tokenB = await registerCustomer("vb-customer-b@test.dev");
 
+        // 0. Fund the opens (Task A2: each open debits the pack price; an
+        //    unfunded open is the pack-open-charge suite's subject, not ours).
+        const fund = await api.post(
+          "/store/credits/topup",
+          { amount: TOPUP },
+          { headers: authed(tokenA) },
+        );
+        expect(fund.status).toBe(200);
+
         // 1. Open the pack — the single-card pool guarantees the winner, and
         //    the response's rarity is the PER-PACK tier from the odds row.
         const open = await request(
           "post",
           `/store/packs/${PACK_SLUG}/open`,
-          authed(tokenA)
+          authed(tokenA),
         );
         expect(open.status).toBe(200);
         expect(open.data.card).toMatchObject({
@@ -196,6 +215,8 @@ medusaIntegrationTestRunner({
         });
         const pullId: string = open.data.pull.id;
         expect(typeof pullId).toBe("string");
+        // The open debited exactly the pack price (A2).
+        expect(open.data.balance).toBe(TOPUP - PACK_PRICE);
 
         // 2. The pull earmarked one physical unit.
         expect(await stockedQuantity()).toBe(STOCKED - 1);
@@ -221,7 +242,7 @@ medusaIntegrationTestRunner({
         const foreign = await request(
           "post",
           `/store/vault/${pullId}/buyback`,
-          authed(tokenB)
+          authed(tokenB),
         );
         expect(foreign.status).toBe(404);
 
@@ -230,7 +251,7 @@ medusaIntegrationTestRunner({
         const buyback = await request(
           "post",
           `/store/vault/${pullId}/buyback`,
-          authed(tokenA)
+          authed(tokenA),
         );
         expect(buyback.status).toBe(200);
         expect(buyback.data).toMatchObject({
@@ -238,21 +259,26 @@ medusaIntegrationTestRunner({
           amount: INSTANT_AMOUNT,
           percent: INSTANT_PERCENT,
           rate_type: "instant",
-          balance: INSTANT_AMOUNT,
+          balance: TOPUP - PACK_PRICE + INSTANT_AMOUNT,
         });
 
         // 6. The physical unit returned to stock.
         expect(await stockedQuantity()).toBe(STOCKED);
 
-        // 7. The credit ledger shows the balance and exactly one transaction.
+        // 7. The credit ledger shows the balance and the full row trail:
+        //    topup (+30), pack_open (-10), buyback (+48) — newest first.
         const credits = await request("get", "/store/credits", authed(tokenA));
         expect(credits.status).toBe(200);
-        expect(credits.data.balance).toBe(INSTANT_AMOUNT);
-        expect(credits.data.transactions).toHaveLength(1);
+        expect(credits.data.balance).toBe(TOPUP - PACK_PRICE + INSTANT_AMOUNT);
+        expect(credits.data.transactions).toHaveLength(3);
         expect(credits.data.transactions[0]).toMatchObject({
           amount: INSTANT_AMOUNT,
           reason: "buyback",
           pull_id: pullId,
+        });
+        expect(credits.data.transactions[1]).toMatchObject({
+          amount: -PACK_PRICE,
+          reason: "pack_open",
         });
 
         // 8. The card left the vault…
@@ -264,7 +290,7 @@ medusaIntegrationTestRunner({
         const repeat = await request(
           "post",
           `/store/vault/${pullId}/buyback`,
-          authed(tokenA)
+          authed(tokenA),
         );
         expect(repeat.status).toBe(400);
         expect(repeat.data.message).toMatch(/already sold back/i);
@@ -276,7 +302,7 @@ medusaIntegrationTestRunner({
         const open2 = await request(
           "post",
           `/store/packs/${PACK_SLUG}/open`,
-          authed(tokenA)
+          authed(tokenA),
         );
         expect(open2.status).toBe(200);
         const pull2Id: string = open2.data.pull.id;
@@ -300,7 +326,7 @@ medusaIntegrationTestRunner({
         const buyback2 = await request(
           "post",
           `/store/vault/${pull2Id}/buyback`,
-          authed(tokenA)
+          authed(tokenA),
         );
         expect(buyback2.status).toBe(200);
         expect(buyback2.data).toMatchObject({
@@ -308,7 +334,7 @@ medusaIntegrationTestRunner({
           amount: FLAT_AMOUNT,
           percent: FLAT_PERCENT,
           rate_type: "vault",
-          balance: INSTANT_AMOUNT + FLAT_AMOUNT,
+          balance: TOPUP - 2 * PACK_PRICE + INSTANT_AMOUNT + FLAT_AMOUNT,
         });
         expect(await stockedQuantity()).toBe(STOCKED);
 
@@ -319,14 +345,14 @@ medusaIntegrationTestRunner({
         await inventoryModule.adjustInventory(
           inventoryItemId,
           stockLocationId,
-          -STOCKED
+          -STOCKED,
         );
         expect(await stockedQuantity()).toBe(0);
 
         const open3 = await request(
           "post",
           `/store/packs/${PACK_SLUG}/open`,
-          authed(tokenA)
+          authed(tokenA),
         );
         expect(open3.status).toBe(200);
         expect(await stockedQuantity()).toBe(0); // nothing to earmark
@@ -334,7 +360,7 @@ medusaIntegrationTestRunner({
         const buyback3 = await request(
           "post",
           `/store/vault/${open3.data.pull.id}/buyback`,
-          authed(tokenA)
+          authed(tokenA),
         );
         expect(buyback3.status).toBe(200);
         expect(buyback3.data.amount).toBe(INSTANT_AMOUNT); // credit unaffected

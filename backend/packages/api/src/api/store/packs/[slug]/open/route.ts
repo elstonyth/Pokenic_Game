@@ -20,7 +20,7 @@ import { openPackWorkflow } from "../../../../../workflows/open-pack";
 // unknown/inactive slug → 404) by Medusa's error handler.
 export async function POST(
   req: AuthenticatedMedusaRequest,
-  res: MedusaResponse
+  res: MedusaResponse,
 ): Promise<void> {
   const customerId = req.auth_context.actor_id;
   const { slug } = req.params;
@@ -30,6 +30,12 @@ export async function POST(
   });
 
   // result.card is already a plain, JSON-safe object (normalized in roll-pack);
-  // market_value is a USD decimal, never cents.
-  res.json({ pull: result.pull, card: result.card });
+  // market_value is a USD decimal, never cents. balance is the post-charge
+  // credit balance (Task A2 — opens debit the pack price from the ledger).
+  res.json({
+    pull: result.pull,
+    card: result.card,
+    balance: result.balance,
+    price: result.price,
+  });
 }

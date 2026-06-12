@@ -5,17 +5,27 @@ import Link from "next/link";
 import { AccountHeader, StatCards } from "@/components/account/ui";
 import { AddCreditsPanel } from "@/components/account/AddCreditsPanel";
 import { usd } from "@/lib/format";
-import { sellBackPull, type VaultItem, type VaultResult } from "@/lib/actions/vault";
+import {
+  sellBackPull,
+  type VaultItem,
+  type VaultResult,
+} from "@/lib/actions/vault";
 import { FLAT_BUYBACK_PERCENT } from "@/app/claw/packs-data";
 
 // The customer's vault: every pulled card still held, each with a sell-back
 // offer (current FMV × the flat buyback rate — the server quotes the percent).
 // Selling removes the card here and credits the site balance shown at the top.
 export default function VaultClient({ initial }: { initial: VaultResult }) {
-  const [items, setItems] = useState<VaultItem[]>(initial.ok ? initial.items : []);
-  const [balance, setBalance] = useState<number>(initial.ok ? initial.balance : 0);
+  const [items, setItems] = useState<VaultItem[]>(
+    initial.ok ? initial.items : [],
+  );
+  const [balance, setBalance] = useState<number>(
+    initial.ok ? initial.balance : 0,
+  );
   const [sellingId, setSellingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(initial.ok ? null : initial.error);
+  const [error, setError] = useState<string | null>(
+    initial.ok ? null : initial.error,
+  );
 
   const vaultValue = items.reduce((sum, i) => sum + i.card.marketValue, 0);
 
@@ -63,7 +73,9 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
 
       {items.length === 0 ? (
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-10 text-center">
-          <p className="text-sm font-medium text-white/70">Your vault is empty.</p>
+          <p className="text-sm font-medium text-white/70">
+            Your vault is empty.
+          </p>
           <p className="mt-1 text-[13px] text-white/45">
             Open a pack and the card you pull lands here.
           </p>
@@ -98,9 +110,14 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
                 <span className="font-bold uppercase tracking-wider text-white/50">
                   {item.card.rarity}
                 </span>
-                <span className="font-bold text-white">{usd(item.card.marketValue)}</span>
+                <span className="font-bold text-white">
+                  {usd(item.card.marketValue)}
+                </span>
               </div>
-              <p className="mt-0.5 truncate text-[11px] text-white/40" title={item.packTitle}>
+              <p
+                className="mt-0.5 truncate text-[11px] text-white/40"
+                title={item.packTitle}
+              >
                 from {item.packTitle}
               </p>
               <button
@@ -119,8 +136,9 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
       )}
 
       <p className="mt-5 text-[12px] text-white/35">
-        Sell-back credits your site balance instantly at the flat {FLAT_BUYBACK_PERCENT}% buyback rate.
-        Physical shipping of vaulted cards arrives with checkout.
+        Sell-back credits your site balance instantly at the flat{" "}
+        {FLAT_BUYBACK_PERCENT}% buyback rate. Physical shipping of vaulted cards
+        arrives with checkout.
       </p>
     </>
   );

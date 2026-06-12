@@ -2,15 +2,14 @@ import { model } from "@medusajs/framework/utils";
 
 // CreditTransaction — the customer's site-credit ledger. Balance = Σ(amount)
 // per customer (append-only; no mutable balance column to drift). Writers:
-// the buyback workflow (+credit, pull-backed) and the top-up workflow
-// (+credit, gateway-backed); the future payment phase adds negative rows when
-// credit is spent on packs.
+// the buyback workflow (+credit, pull-backed), the top-up workflow (+credit,
+// gateway-backed), and the open-pack charge step (-price, reason "pack_open").
 export const CreditTransaction = model.define("credit_transaction", {
   id: model.id().primaryKey(),
   customer_id: model.text(),
   // USD decimal (never cents). Positive = credit, negative = spend.
   amount: model.bigNumber(),
-  reason: model.enum(["buyback", "topup"]),
+  reason: model.enum(["buyback", "topup", "pack_open"]),
   // The pull this credit came from (buyback rows only; null for top-ups).
   // UNIQUE — the DB itself guarantees a pull can never be credited twice,
   // whatever races the API layer loses (Postgres ignores NULLs in unique

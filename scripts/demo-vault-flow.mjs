@@ -19,17 +19,41 @@ const page = await (
 
 try {
   step("Opening the Pokemon Black pack page…");
-  await page.goto(`${BASE}/claw/pokemon-black`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/claw/pokemon-black`, {
+    waitUntil: "domcontentloaded",
+  });
   await pause(page, 1500);
 
   step(`Logging in as ${EMAIL}…`);
-  await page.getByRole("button", { name: /^login$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^login$/i })
+    .first()
+    .click();
   await page.fill('input[name="email"]', EMAIL);
   await page.fill('input[name="password"]', PASSWORD);
   await page.press('input[name="password"]', "Enter");
   // Logged-in state = the footer CTA flips from "Log in to open" to "Open Pack".
-  await page.getByRole("button", { name: /open pack/i }).waitFor({ timeout: 20000 });
+  await page
+    .getByRole("button", { name: /open pack/i })
+    .waitFor({ timeout: 20000 });
   await pause(page, 1200);
+
+  // Opens charge the credit balance since Task A2 — fund the two $2,500 opens
+  // below through the vault's demo top-up panel (mock gateway, no real money).
+  step("Adding $5,000 of demo credits (opens are paid now)…");
+  await page.goto(`${BASE}/vault`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /add credits/i }).click();
+  await page.getByLabel("Top-up amount in USD").fill("5000");
+  await page.getByRole("button", { name: /^Add \$5,000\.00$/ }).click();
+  await page.getByText(/added to your balance/i).waitFor({ timeout: 15000 });
+  await pause(page, 1500);
+  await page.goto(`${BASE}/claw/pokemon-black`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page
+    .getByRole("button", { name: /open pack/i })
+    .waitFor({ timeout: 20000 });
+  await pause(page, 800);
 
   // Click through the reveal: tap the pack cylinder (select), tap the slab
   // (start the metadata sequence), then the card stage arrives on its own.
@@ -57,18 +81,26 @@ try {
   await page.getByRole("button", { name: /open another/i }).click();
   await playReveal();
 
-  step('This time: "Keep in vault" (note the 82% vault-rate hint under the buttons)…');
+  step(
+    'This time: "Keep in vault" (note the 82% vault-rate hint under the buttons)…',
+  );
   await pause(page, 2500); // give the viewer time to read the hint line
   await page.getByRole("button", { name: /keep in vault/i }).click();
   await pause(page, 1200);
 
   step("Visiting the Vault page — balance + the kept card…");
   await page.goto(`${BASE}/vault`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: /sell for/i }).first().waitFor({ timeout: 20000 });
+  await page
+    .getByRole("button", { name: /sell for/i })
+    .first()
+    .waitFor({ timeout: 20000 });
   await pause(page, 3000); // show the stat cards + the vaulted card
 
   step("Selling the vaulted card from the Vault…");
-  await page.getByRole("button", { name: /sell for/i }).first().click();
+  await page
+    .getByRole("button", { name: /sell for/i })
+    .first()
+    .click();
   // The card disappears and the balance stat updates in place.
   await page.getByText(/your vault is empty/i).waitFor({ timeout: 15000 });
   await pause(page, 4000);

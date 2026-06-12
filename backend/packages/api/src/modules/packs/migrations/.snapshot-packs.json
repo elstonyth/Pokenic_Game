@@ -222,7 +222,8 @@
           "nullable": false,
           "enumItems": [
             "buyback",
-            "topup"
+            "topup",
+            "pack_open"
           ],
           "mappedType": "enum"
         },

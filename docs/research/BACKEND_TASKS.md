@@ -7,6 +7,7 @@
 > session, point it at this file, run the task, commit, check the box.
 >
 > **Product decisions already made (do not re-litigate):**
+>
 > - Pack opens COST CREDITS once the payment seam is wired — no more free opens
 >   for logged-in customers. Guests get a DEMO SPIN only (nothing recorded,
 >   nothing claimable).
@@ -45,6 +46,7 @@ need a migration (nullable `pull_id` or a discriminated `reason`/`reference`
 column pair; `reason` exists already — extend its values with `"topup"`).
 
 **Build (backend):**
+
 - `POST /store/credits/topup` (authed customer, bearer — register matcher in
   `src/api/middlewares.ts` AFTER `authenticate("customer", ["bearer"])`, reuse
   the vault-buyback rate limiter construction). Body: `{ amount }` (validate:
@@ -70,7 +72,7 @@ Storefront: top up on :4000, balance updates.
 
 ---
 
-## ☐ Task A2 — Charge pack opens from the credit balance (PAYMENT SEAM)
+## ☑ Task A2 — Charge pack opens from the credit balance (PAYMENT SEAM) (DONE 2026-06-12)
 
 **Goal:** opening a pack deducts its price from the customer's credit balance;
 insufficient credit blocks the open with a friendly error. Free opens end.
@@ -83,6 +85,7 @@ everything back and never leaves an unpaid Pull. Pack price lives on the Pack
 row (`modules/packs/models/pack.ts`, USD decimal). The credit ledger is from A1.
 
 **Build:**
+
 - `chargePackOpenStep`: reads the pack price, computes balance
   (`creditBalance()`), throws `MedusaError` NOT_ALLOWED "Not enough credits"
   when balance < price, else writes a NEGATIVE `CreditTransaction`
@@ -125,6 +128,7 @@ generated unique handle in customer `metadata` at registration/first-profile
 view, look up by that.
 
 **Build:**
+
 - `GET /store/profiles/:handle` (PUBLIC route — publishable-key scoped like
   `/store/packs`; no auth): returns display name, avatar (if any), join date,
   public pull stats (counts by rarity from `Pull` rows joined to PackOdds —
@@ -157,6 +161,7 @@ sell-countdown work — `src/components`/pack detail tree, plus
 client-side.
 
 **Build:**
+
 - Pack detail for a logged-out user: "Try a demo spin" button instead of (or
   beside) the real open CTA. Demo mode runs the SAME overlay animation with a
   client-side weighted sample over the public odds (`Math.random` is fine — it
@@ -169,7 +174,7 @@ client-side.
   route to login when anonymous.
 
 **Verify:** Playwright script (`scripts/*.mjs` pattern) on :4000: anonymous →
-demo spin plays, result labeled, no network POST to /store/packs/*/open fired
+demo spin plays, result labeled, no network POST to /store/packs/\*/open fired
 (assert via page network log); logged-in → real flow unchanged.
 
 ---

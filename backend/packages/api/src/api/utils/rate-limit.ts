@@ -35,7 +35,7 @@ export interface RateLimitStore {
   consume(
     key: string,
     rules: RateLimitRule[],
-    nowMs: number
+    nowMs: number,
   ): Promise<RateLimitDecision>;
 }
 
@@ -49,7 +49,7 @@ export interface RateLimitStore {
 export function evaluateSlidingWindow(
   timestampsMs: readonly number[],
   nowMs: number,
-  rules: readonly RateLimitRule[]
+  rules: readonly RateLimitRule[],
 ): RateLimitDecision {
   const sorted = [...timestampsMs].sort((a, b) => a - b);
   let retryAfterMs = 0;
@@ -89,11 +89,11 @@ export class InMemorySlidingWindowStore implements RateLimitStore {
   async consume(
     key: string,
     rules: RateLimitRule[],
-    nowMs: number
+    nowMs: number,
   ): Promise<RateLimitDecision> {
     const maxWindow = Math.max(...rules.map((r) => r.windowMs));
     const history = (this.events.get(key) ?? []).filter(
-      (t) => t > nowMs - maxWindow
+      (t) => t > nowMs - maxWindow,
     );
     const decision = evaluateSlidingWindow(history, nowMs, rules);
     if (decision.allowed) {
@@ -179,7 +179,7 @@ export class RedisSlidingWindowStore implements RateLimitStore {
   async consume(
     key: string,
     rules: RateLimitRule[],
-    nowMs: number
+    nowMs: number,
   ): Promise<RateLimitDecision> {
     const pairs: number[] = [];
     for (const r of rules) pairs.push(r.limit, r.windowMs);
@@ -188,7 +188,7 @@ export class RedisSlidingWindowStore implements RateLimitStore {
       nowMs,
       nextMemberSuffix(),
       rules.length,
-      ...pairs
+      ...pairs,
     );
     return { allowed: allowed === 1, retryAfterMs };
   }
@@ -199,13 +199,13 @@ export class FailoverRateLimitStore implements RateLimitStore {
   constructor(
     private readonly primary: RateLimitStore,
     private readonly fallback: RateLimitStore,
-    private readonly onError?: (err: unknown) => void
+    private readonly onError?: (err: unknown) => void,
   ) {}
 
   async consume(
     key: string,
     rules: RateLimitRule[],
-    nowMs: number
+    nowMs: number,
   ): Promise<RateLimitDecision> {
     try {
       return await this.primary.consume(key, rules, nowMs);
@@ -229,7 +229,7 @@ export interface RateLimitMiddlewareOptions {
 type MiddlewareHandler = (
   req: MedusaRequest,
   res: MedusaResponse,
-  next: MedusaNextFunction
+  next: MedusaNextFunction,
 ) => Promise<void>;
 
 /**
@@ -239,7 +239,7 @@ type MiddlewareHandler = (
  * request IP rather than silently skipping the limit.
  */
 export function createRateLimitMiddleware(
-  opts: RateLimitMiddlewareOptions
+  opts: RateLimitMiddlewareOptions,
 ): MiddlewareHandler {
   const { store, rules, prefix, onError } = opts;
   // Misconfigured rules must fail at boot, loudly — limit 0 would 429 every
@@ -254,7 +254,7 @@ export function createRateLimitMiddleware(
       r.windowMs <= 0
     ) {
       throw new Error(
-        `[rate-limit] invalid rule ${JSON.stringify(r)} for prefix "${prefix}" — limit and windowMs must be positive integers`
+        `[rate-limit] invalid rule ${JSON.stringify(r)} for prefix "${prefix}" — limit and windowMs must be positive integers`,
       );
     }
   }
@@ -304,7 +304,7 @@ export function positiveIntFromEnv(name: string, fallback: number): number {
   const floored = Math.floor(Number(raw));
   if (!Number.isSafeInteger(floored) || floored <= 0) {
     console.warn(
-      `[rate-limit] ignoring invalid ${name}=${JSON.stringify(raw)}; using ${fallback}`
+      `[rate-limit] ignoring invalid ${name}=${JSON.stringify(raw)}; using ${fallback}`,
     );
     return fallback;
   }
@@ -313,7 +313,9 @@ export function positiveIntFromEnv(name: string, fallback: number): number {
 
 // Logs at most once per interval so a dead Redis doesn't flood the logs at
 // request rate (ioredis also emits 'error' on every reconnect attempt).
-function throttledWarn(intervalMs: number): (msg: string, err?: unknown) => void {
+function throttledWarn(
+  intervalMs: number,
+): (msg: string, err?: unknown) => void {
   let last = 0;
   return (msg, err) => {
     const now = Date.now();
@@ -328,14 +330,14 @@ function throttledWarn(intervalMs: number): (msg: string, err?: unknown) => void
 // endpoint gets its own connection name but identical fail-fast semantics.
 function buildFailoverStore(
   connectionName: string,
-  warn: ReturnType<typeof throttledWarn>
+  warn: ReturnType<typeof throttledWarn>,
 ): RateLimitStore {
   const memory = new InMemorySlidingWindowStore();
 
   const redisUrl = process.env.REDIS_URL;
   if (!redisUrl) {
     console.warn(
-      `[rate-limit] REDIS_URL not set — ${connectionName} limiter is per-process (in-memory) only`
+      `[rate-limit] REDIS_URL not set — ${connectionName} limiter is per-process (in-memory) only`,
     );
     return memory;
   }
@@ -356,7 +358,7 @@ function buildFailoverStore(
   return new FailoverRateLimitStore(
     new RedisSlidingWindowStore(client),
     memory,
-    (err) => warn("redis consume failed; using in-memory fallback", err)
+    (err) => warn("redis consume failed; using in-memory fallback", err),
   );
 }
 
@@ -378,10 +380,13 @@ function createEnvRateLimit(opts: {
   const envPrefix = `${name.toUpperCase().replace(/-/g, "_")}_RATE`;
   const rules: RateLimitRule[] = [
     {
-      limit: positiveIntFromEnv(`${envPrefix}_BURST_LIMIT`, defaults.burstLimit),
+      limit: positiveIntFromEnv(
+        `${envPrefix}_BURST_LIMIT`,
+        defaults.burstLimit,
+      ),
       windowMs: positiveIntFromEnv(
         `${envPrefix}_BURST_WINDOW_MS`,
-        defaults.burstWindowMs
+        defaults.burstWindowMs,
       ),
     },
     {
@@ -421,7 +426,12 @@ export function createVaultBuybackRateLimit(): MiddlewareHandler {
   return createEnvRateLimit({
     name: "vault-buyback",
     message: "Too many buyback requests.",
-    defaults: { burstLimit: 10, burstWindowMs: 10_000, limit: 30, windowMs: 60_000 },
+    defaults: {
+      burstLimit: 10,
+      burstWindowMs: 10_000,
+      limit: 30,
+      windowMs: 60_000,
+    },
   });
 }
 
@@ -436,7 +446,12 @@ export function createCreditTopupRateLimit(): MiddlewareHandler {
   return createEnvRateLimit({
     name: "credit-topup",
     message: "Too many top-up requests.",
-    defaults: { burstLimit: 5, burstWindowMs: 10_000, limit: 15, windowMs: 60_000 },
+    defaults: {
+      burstLimit: 5,
+      burstWindowMs: 10_000,
+      limit: 15,
+      windowMs: 60_000,
+    },
   });
 }
 
@@ -469,6 +484,11 @@ export function createStoreReadRateLimit(): MiddlewareHandler {
   return createEnvRateLimit({
     name: "store-read",
     message: "Too many requests.",
-    defaults: { burstLimit: 30, burstWindowMs: 10_000, limit: 120, windowMs: 60_000 },
+    defaults: {
+      burstLimit: 30,
+      burstWindowMs: 10_000,
+      limit: 120,
+      windowMs: 60_000,
+    },
   });
 }

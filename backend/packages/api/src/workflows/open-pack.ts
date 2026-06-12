@@ -5,6 +5,7 @@ import {
 } from "@medusajs/framework/workflows-sdk";
 import { emitEventStep } from "@medusajs/medusa/core-flows";
 import { rollPackStep } from "./steps/roll-pack";
+import { chargePackOpenStep } from "./steps/charge-pack-open";
 import { recordPullStep } from "./steps/record-pull";
 import { decrementCardStockStep } from "./steps/decrement-card-stock";
 
@@ -29,13 +30,14 @@ export const openPackWorkflow = createWorkflow(
     // 1. Validate the pack is active and roll a winner over its weighted odds.
     const card = rollPackStep(input);
 
-    // ── PAYMENT SEAM ─────────────────────────────────────────────────────────
-    // A future charge step slots in HERE, before the pull is recorded, so a
-    // failed charge rolls back via recordPull's compensation and never leaves an
-    // unpaid Pull row. Payment was dropped from this slice (2026-06-08 product
-    // decision) and will land as a custom endpoint; inventory reserve lands with
-    // it. Keeping the seam here makes that a single-step insertion.
+    // ── PAYMENT SEAM (filled, Task A2) ───────────────────────────────────────
+    // Debit the pack price from the credit ledger BEFORE the pull is recorded:
+    // insufficient credit aborts here (nothing recorded), and a failure later
+    // in the chain deletes the charge row via compensation — no unpaid Pull,
+    // no paid non-Pull. The mock top-up (A1) is how customers fund this; the
+    // real gateway later swaps the top-up seam, not this step.
     // ─────────────────────────────────────────────────────────────────────────
+    const charge = chargePackOpenStep(input);
 
     // 2. Record the pull (compensated by delete on failure).
     const recordInput = transform({ input, card }, (d) => ({
@@ -67,12 +69,15 @@ export const openPackWorkflow = createWorkflow(
     }));
     emitEventStep({ eventName: "pack.opened", data: eventData });
 
-    const result = transform({ card, pull }, (d) => ({
+    const result = transform({ card, pull, charge }, (d) => ({
       pull: d.pull,
       card: d.card,
+      // Post-charge balance so the storefront can update in place.
+      balance: d.charge.balance,
+      price: d.charge.price,
     }));
     return new WorkflowResponse(result);
-  }
+  },
 );
 
 export default openPackWorkflow;

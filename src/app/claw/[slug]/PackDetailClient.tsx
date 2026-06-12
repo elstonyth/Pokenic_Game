@@ -43,38 +43,6 @@ const RARITY_RING: Record<PackCard["rarity"], string> = {
   Common: "163, 163, 163",
 };
 
-// Spice level changes the live-odds distribution (Mild = safe, Hot = high variance).
-const SPICE_LEVELS = ["Mild", "Medium", "Hot"] as const;
-type Spice = (typeof SPICE_LEVELS)[number];
-const SPICE_ICON: Record<Spice, string> = {
-  Mild: "🌶️",
-  Medium: "🌶️🌶️",
-  Hot: "🌶️🌶️🌶️",
-};
-const SPICE_MULT: Record<Spice, number> = { Mild: 0.98, Medium: 1, Hot: 1.04 };
-
-// Live odds = value-range → probability, matching the live site's panel (mock).
-const LIVE_ODDS: Record<Spice, { range: string; pct: string }[]> = {
-  Mild: [
-    { range: "$0 – $50", pct: "68%" },
-    { range: "$50 – $250", pct: "26%" },
-    { range: "$250 – $1,000", pct: "5%" },
-    { range: "$1,000 – $5,000", pct: "1%" },
-  ],
-  Medium: [
-    { range: "$0 – $100", pct: "52%" },
-    { range: "$100 – $500", pct: "32%" },
-    { range: "$500 – $2,000", pct: "12%" },
-    { range: "$2,000 – $8,000", pct: "4%" },
-  ],
-  Hot: [
-    { range: "$0 – $250", pct: "34%" },
-    { range: "$250 – $1,000", pct: "36%" },
-    { range: "$1,000 – $10,000", pct: "22%" },
-    { range: "$10,000+", pct: "8%" },
-  ],
-};
-
 function CardThumb({ card, w }: { card: PackCard; w?: number }) {
   return (
     <div className="shrink-0 px-1" style={w ? { width: w } : undefined}>
@@ -114,7 +82,6 @@ export default function PackDetailClient({
   const { customer } = useAuth();
   const [active, setActive] = useState<Pack>(pack);
   const [qty, setQty] = useState(1);
-  const [spice, setSpice] = useState<Spice>("Medium");
   // `opening` guards the async server round-trip; `openError` surfaces a friendly
   // failure inline (`needsTopUp` adds the top-up link for credit shortfalls).
   const [opening, setOpening] = useState(false);
@@ -159,10 +126,8 @@ export default function PackDetailClient({
 
   const claw = clawMachine(active);
   const priceNum = priceNumber(active.price);
-  // Expected value ≈ price, lifted slightly for boosted tiers / hotter spice (mock).
-  const ev = Math.round(
-    priceNum * (active.boost ? 1.02 : 0.96) * SPICE_MULT[spice],
-  );
+  // Expected value ≈ price, lifted slightly for boosted tiers (mock).
+  const ev = Math.round(priceNum * (active.boost ? 1.02 : 0.96));
   const points = priceNum * 100 * qty;
 
   // Top Hits come from the backend prize pool (highest market_value). In 5a the
@@ -406,61 +371,6 @@ export default function PackDetailClient({
                     per pack
                   </span>
                 </span>
-              </div>
-
-              {/* Spice level */}
-              <div>
-                <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                  Select Spice Level
-                  <Info className="h-3 w-3 text-white/25" aria-hidden />
-                </p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {SPICE_LEVELS.map((s) => {
-                    const selected = s === spice;
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setSpice(s)}
-                        aria-pressed={selected}
-                        className={cn(
-                          "flex flex-col items-center gap-0.5 rounded-xl border py-2 transition-colors",
-                          selected
-                            ? "border-orange-400/50 bg-orange-500/15 text-white"
-                            : "border-white/10 bg-white/[0.03] text-white/55 hover:bg-white/[0.06]",
-                        )}
-                      >
-                        <span className="text-[13px] leading-none">
-                          {SPICE_ICON[s]}
-                        </span>
-                        <span className="text-[12px] font-medium">{s}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Live odds */}
-              <div>
-                <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                  Live Odds
-                  <Info className="h-3 w-3 text-white/25" aria-hidden />
-                </p>
-                <ul className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
-                  {LIVE_ODDS[spice].map((o) => (
-                    <li
-                      key={o.range}
-                      className="flex items-center justify-between border-b border-white/5 px-3.5 py-2.5 last:border-b-0"
-                    >
-                      <span className="text-[13px] tabular-nums text-white/75">
-                        {o.range}
-                      </span>
-                      <span className="text-[13px] font-semibold tabular-nums text-white">
-                        {o.pct}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
               </div>
 
               {/* Demo spin */}

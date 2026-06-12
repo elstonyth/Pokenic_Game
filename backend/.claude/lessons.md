@@ -108,3 +108,12 @@ pattern: AUTH / STORE_READ / CREDIT_TOPUP). Otherwise production-default
 budgets 429 unrelated integration tests — rapid same-customer/same-IP calls
 are normal inside a suite, and Redis `rl:*` state persists across the
 per-test DB resets.
+
+### `medusa start` breaks the admin SPA login (no session cookie)
+The admin dashboard (:7000 vite, or :9000/dashboard) authenticates via
+POST /auth/session and expects a `connect.sid` cookie. Under `medusa start`
+(production mode) that endpoint returns 200 but sets NO cookie, so every
+subsequent /admin/* request 401s and the dashboard renders empty lists.
+Under `corepack yarn dev` (`medusa develop`) the cookie is issued and the
+dashboard works. Always run the backend with `yarn dev` for local admin work
+(bearer-token API clients are unaffected either way).

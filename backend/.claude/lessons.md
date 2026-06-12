@@ -72,6 +72,34 @@ repeated `ERROR: The process "<pid>" not found.` in logs, `curl :9000/health`
 → 000. Fix: `pm2 restart pokenic-backend` (fresh parent), then re-probe
 health AND a real route — "online" in pm2 status proves nothing here.
 
+### `medusa develop` restart flashes a terminal window on every save (PATCHED locally)
+
+Root cause of both the window-popping and the boot loop above:
+`@medusajs/medusa/dist/commands/develop.js` `restart()` runs
+`execSync("taskkill /PID <pid> /F /T")` on win32 with no `windowsHide` and no
+try/catch. Each file-change restart therefore (a) opens a visible Windows
+Terminal window for the taskkill child (proven 2026-06-12: window class
+`CASCADIA_HOSTING_WINDOW_CLASS` appeared the same second as the taskkill child
+pid from the pm2 error object), and (b) throws into chokidar when the PID is
+stale → the listener-less wedge.
+
+**Local patch applied 2026-06-12** in
+`packages/api/node_modules/@medusajs/medusa/dist/commands/develop.js` —
+the win32 branch of `restart()` is now:
+
+```js
+try {
+  (0, child_process_1.execSync)(
+    `taskkill /PID ${this.childProcess.pid} /F /T`,
+    { windowsHide: true, stdio: "ignore" },
+  );
+} catch {}
+```
+
+node_modules edits are wiped by any `yarn install` — RE-APPLY this patch after
+reinstalling, or every backend save pops a terminal again. (Upstream fix would
+belong in medusa core's `develop.ts`.)
+
 ### New rate limiter ⇒ park it in .env.test
 
 Every `createEnvRateLimit`-style limiter added to `src/api/middlewares.ts`

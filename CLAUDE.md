@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > `AGENTS.md` (imported above) is the source-of-truth for tech stack, code style, design
 > principles, and the generic clone-website template structure. **Don't repeat it here.**
-> Everything below is what's specific to *this* repo and not derivable from the code alone.
+> Everything below is what's specific to _this_ repo and not derivable from the code alone.
 
 ## What this repo actually is
 
@@ -16,14 +16,14 @@ Despite the name `Pokenic_Game`, this is a **pixel-perfect clone of [phygitals.c
 
 These are hard-won constraints from `docs/HANDOFF.md`, not preferences:
 
-- **Verify against the production server, not `next dev`.** `next dev` serves images slowly on this machine and makes a correct build *look* broken. Use:
+- **Verify against the production server, not `next dev`.** `next dev` serves images slowly on this machine and makes a correct build _look_ broken. Use:
   ```
   npm run build
   npx next start -p 4000   # run in background
   ```
 - **Verify with the Playwright scripts in `scripts/*.mjs`, NOT Chrome MCP.** Chrome MCP caused hours of false "still broken" from port/cache confusion. Scripts screenshot to `docs/research/*.png`; read those PNGs back with the Read tool.
 - **Watch for runaway node processes** (this has hit thousands of processes / 90+ GB). Check `@(Get-Process node).Count`; kill all with `Get-Process node | Stop-Process -Force`.
-- **Worktrees are OK and preferred for isolated feature work** (user adopted the superpowers `using-git-worktrees` skill 2026-06-11 — consent pre-granted): native `EnterWorktree` tool first, else `git worktree add .worktrees/<branch> -b <branch>` (gitignored; verified working). Run `npm install` in fresh worktrees. The old "worktree isolation fails" note applied only to *background-agent* isolation (`worktree.bgIsolation: none` in settings.local.json — leave that as is).
+- **Worktrees are OK and preferred for isolated feature work** (user adopted the superpowers `using-git-worktrees` skill 2026-06-11 — consent pre-granted): native `EnterWorktree` tool first, else `git worktree add .worktrees/<branch> -b <branch>` (gitignored; verified working). Run `npm install` in fresh worktrees. The old "worktree isolation fails" note applied only to _background-agent_ isolation (`worktree.bgIsolation: none` in settings.local.json — leave that as is).
 
 Standard scripts: `npm run dev | build | start | lint | typecheck`, and `npm run check` (lint + typecheck + build). Docker: `docker compose up app --build` (prod) / `dev --build` (port 3001).
 
@@ -32,6 +32,7 @@ Standard scripts: `npm run dev | build | start | lint | typecheck`, and `npm run
 **Routes** (`src/app/`, App Router): `/` (home), `/claw`, `/how-it-works`, `/leaderboard`, `/marketplace`, `/pack-party`. The home page (`src/app/page.tsx`) is a thin composition of section components.
 
 **Section composition + scroll-in animation is the core pattern.** `src/app/page.tsx` stacks section components, wrapping most in `<Reveal>` (fade-up on scroll-into-view). The animation engine is:
+
 - `src/lib/use-reveal.ts` — `useInView` (fire-once IntersectionObserver, unobserves after first reveal) + `usePrefersReducedMotion` (SSR-safe).
 - `src/components/Reveal.tsx` — wrapper that applies the fade-up and **renders content visible immediately under `prefers-reduced-motion`**.
 
@@ -40,6 +41,7 @@ Sections with their **own** internal scroll animation — `HowItWorksSection` (v
 **Server/client split.** Route `page.tsx` files stay server components and export `metadata`; interactivity moves to a sibling `'use client'` component. Canonical example: `marketplace/page.tsx` (server, metadata) → `marketplace/MarketplaceClient.tsx` (client). Follow this when a route needs state.
 
 **Global shell & styling.**
+
 - `src/app/layout.tsx` forces dark mode (`<html className="dark">`) and wraps every page in `SiteHeader` + `SiteFooter`. The palette is hardcoded Tailwind neutrals to match phygitals (`bg-neutral-900`, `text-neutral-50`), **not** the shadcn oklch tokens in `globals.css` (those exist but the clone mostly bypasses them).
 - Fonts: **Nekst Black** (self-hosted, `public/fonts/Nekst-Black.woff2`, via `--font-nekst` → `font-heading`) for headings; **Geist** for body.
 - **`.px-fluid`** (defined in `globals.css`) is the site-wide horizontal gutter: `clamp(1rem, 1.6vw, 4.5rem)`. The clone is **full-bleed by design — no `max-w-*` caps anywhere** (page, header, footer). Use `px-fluid` on new page/section wrappers instead of breakpoint-stepped padding so layout scales continuously from mobile to 4K.
@@ -57,22 +59,27 @@ Reverse-engineering is measurement-driven, not eyeballed: `scripts/*.mjs` are on
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
 Rules:
+
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - Graph freshness: git `post-commit`/`post-checkout` hooks (installed 2026-06-11 via `graphify hook install`) auto-rebuild the graph on every commit/checkout. Run `graphify update .` manually only when you need uncommitted changes reflected (AST-only, no API cost).
 
-## PM2 services (Radmin-VPN preview stack — keep running until project finish)
+## Running services (default local setup)
 
-| Port | Name | What |
-|------|------|------|
-| 4000 | pokenic-store | `next start` (prod build — `pm2 restart pokenic-store` after `npm run build`) |
-| 4100 | pokenic-store-dev | `next dev` — LIVE-EDIT preview (hot reload on every save; images slow on this machine — never verify against it, :4000 stays the reference) |
-| 9000 | pokenic-backend | `medusa develop` (MUST be dev mode: prod marks the admin session cookie Secure → dropped over http → admin login silently fails) |
-| 7000 | pokenic-admin | `vite preview --host` of the built dist (backendUrl 26.42.209.183:9000 baked at build) |
+The Radmin-VPN PM2 preview stack was torn down 2026-06-12 (apps deleted, logon
+`pm2 resurrect` entry uninstalled, `ecosystem.config.cjs` removed; admin/vendor
+`backendUrl` and the DB card-image URLs reverted to localhost). Start servers
+manually when needed:
 
-`pm2 start ecosystem.config.cjs && pm2 save` (first time) · `pm2 status` / `pm2 logs <name>` /
-`pm2 restart all`. Boot persistence: pm2-windows-startup registry entry runs `pm2 resurrect` at
-logon; `pokenic-postgres`/`pokenic-redis` have `--restart unless-stopped`. **These PM2 processes
-own :4000/:9000/:7000 — don't start ad-hoc servers on those ports; restart the PM2 app instead.**
-DB card-image URLs are pinned to the Radmin IP (see the dashboard-vpn memory for the swap-back SQL).
+- **Storefront (verify):** `npm run build` then `npx next start -p 4000` — never verify on `next dev`.
+- **Backend:** `corepack yarn dev` from `backend/packages/api` (`medusa develop`; health check `:9000/health`).
+- **Admin dashboard:** vite in `backend/apps/admin` (`:7000`, backendUrl `http://localhost:9000`).
+- **Infra:** `pokenic-postgres` / `pokenic-redis` Docker containers stay up (`--restart unless-stopped`).
+
+`medusa develop`'s Windows watcher restart is **locally patched** in
+`backend/packages/api/node_modules/@medusajs/medusa/dist/commands/develop.js`
+(`windowsHide` + try/catch around the `taskkill`) — without it, every backend
+file save flashes a terminal window and a stale-PID taskkill wedges the watcher
+into a listener-less boot loop. node_modules patches don't survive a reinstall;
+re-apply per `backend/.claude/lessons.md`.

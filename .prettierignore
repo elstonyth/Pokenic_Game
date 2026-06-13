@@ -1,0 +1,14 @@
+# Build output & dependencies
+.next/
+node_modules/
+out/
+coverage/
+
+# Separate package with its own toolchain
+backend/
+
+# Generated / vendored / research artifacts
+graphify-out/
+public/
+docs/
+*.min.js

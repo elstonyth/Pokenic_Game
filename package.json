@@ -32,6 +32,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
+    "format": "prettier --write src scripts",
+    "format:check": "prettier --check src scripts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -58,6 +60,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "playwright": "^1.60.0",
+    "prettier": "^3.8.4",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.6"

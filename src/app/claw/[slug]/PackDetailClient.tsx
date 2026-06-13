@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   ArrowRight,
@@ -53,13 +54,15 @@ function CardThumb({ card, w }: { card: PackCard; w?: number }) {
           boxShadow: `0 0 16px -8px rgba(${RARITY_RING[card.rarity]},0.6)`,
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={card.image}
-          alt={card.name}
-          loading="lazy"
-          className="aspect-[3/4] w-full rounded-md object-contain"
-        />
+        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md">
+          <Image
+            src={card.image}
+            alt={card.name}
+            fill
+            sizes="(max-width: 768px) 30vw, 160px"
+            className="object-contain"
+          />
+        </div>
       </div>
     </div>
   );
@@ -242,16 +245,20 @@ export default function PackDetailClient({
               </span>
             )}
             {/* Claw-machine render. Like the live site this is an ANIMATED AVIF (the claw slides
-                left↔right INSIDE the file) rendered in a FIXED <img> — no whole-image float. The full
+                left↔right INSIDE the file) rendered in a FIXED Image (unoptimized, to keep the
+                animation) — no whole-image float. The full
                 Pokenic rebrand is baked frame-by-frame into the asset: the banner wordmark, the
                 placard ("pokenic claw.") and the base url ("pokenic.com"). Packs without an animated
                 source fall back to the static rebranded webp. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               key={active.id}
               src={claw.anim ?? claw.webp}
               alt={`${active.name} claw machine`}
-              className="relative z-10 h-full w-full object-contain"
+              fill
+              priority
+              unoptimized
+              sizes="(max-width: 1024px) 100vw, 60vw"
+              className="z-10 object-contain"
             />
           </div>
 
@@ -304,11 +311,12 @@ export default function PackDetailClient({
                 </p>
                 <div className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white">
                   <span className="flex items-center gap-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={pack.icon}
                       alt=""
                       aria-hidden
+                      width={20}
+                      height={20}
                       className="h-5 w-5 object-contain"
                     />
                     {pack.categoryName}
@@ -340,11 +348,12 @@ export default function PackDetailClient({
                             : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]',
                         )}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <Image
                           src={p.image}
                           alt=""
                           aria-hidden
+                          width={205}
+                          height={360}
                           className="h-10 w-auto object-contain"
                         />
                         <span className="text-[11px] font-medium leading-tight text-white">
@@ -535,10 +544,11 @@ export default function PackDetailClient({
             ) : (
               recent.map((c) => (
                 <li key={c.id} className="flex items-center gap-3 px-4 py-2.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={c.image}
                     alt=""
+                    width={32}
+                    height={40}
                     className="h-10 w-8 shrink-0 rounded object-contain"
                   />
                   <span className="min-w-0 flex-1 truncate text-[13px] text-white/80">

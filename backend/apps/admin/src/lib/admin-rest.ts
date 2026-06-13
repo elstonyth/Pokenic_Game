@@ -14,24 +14,30 @@ async function errorMessage(res: Response): Promise<string> {
   }
 }
 
-// Upload one image to Medusa's native file route; returns the served URL
-// (e.g. http://localhost:9000/static/<file>) to store on the card/pack.
-export async function uploadImage(file: File): Promise<string> {
+// Upload one image to the validated POST /admin/media route (type/resolution/
+// aspect/size gated server-side; stores the original untouched). Returns the
+// served URL to persist on the card/pack. `kind` selects the validation
+// profile (pack ≈ square, card ≈ 5:7).
+export async function uploadImage(
+  file: File,
+  kind: 'pack' | 'card',
+): Promise<string> {
   const body = new FormData();
-  body.append("files", file);
+  body.append('files', file);
+  body.append('kind', kind);
 
-  const res = await fetch(`${__BACKEND_URL__}/admin/uploads`, {
-    method: "POST",
+  const res = await fetch(`${__BACKEND_URL__}/admin/media`, {
+    method: 'POST',
     body,
-    credentials: "include",
+    credentials: 'include',
   });
   if (!res.ok) {
     throw new Error(await errorMessage(res));
   }
-  const data = (await res.json()) as { files?: { url?: string }[] };
-  const url = data.files?.[0]?.url;
+  const data = (await res.json()) as { url?: string };
+  const url = data.url;
   if (!url) {
-    throw new Error("Upload returned no file URL.");
+    throw new Error('Upload returned no file URL.');
   }
   return url;
 }
@@ -39,7 +45,7 @@ export async function uploadImage(file: File): Promise<string> {
 export async function deleteCard(handle: string): Promise<void> {
   const res = await fetch(
     `${__BACKEND_URL__}/admin/cards/${encodeURIComponent(handle)}`,
-    { method: "DELETE", credentials: "include" },
+    { method: 'DELETE', credentials: 'include' },
   );
   if (!res.ok) {
     throw new Error(await errorMessage(res));
@@ -49,7 +55,7 @@ export async function deleteCard(handle: string): Promise<void> {
 export async function deletePack(slug: string): Promise<void> {
   const res = await fetch(
     `${__BACKEND_URL__}/admin/packs/${encodeURIComponent(slug)}`,
-    { method: "DELETE", credentials: "include" },
+    { method: 'DELETE', credentials: 'include' },
   );
   if (!res.ok) {
     throw new Error(await errorMessage(res));
@@ -58,7 +64,7 @@ export async function deletePack(slug: string): Promise<void> {
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${__BACKEND_URL__}${path}`, {
-    credentials: "include",
+    credentials: 'include',
   });
   if (!res.ok) {
     throw new Error(await errorMessage(res));
@@ -78,7 +84,7 @@ export interface EligibleProduct {
 
 export async function listEligibleProducts(): Promise<EligibleProduct[]> {
   const data = await getJson<{ products: EligibleProduct[] }>(
-    "/admin/gacha/eligible-products",
+    '/admin/gacha/eligible-products',
   );
   return data.products;
 }
@@ -104,7 +110,7 @@ export interface SupportPull {
   id: string;
   pack_id: string;
   rolled_at: string;
-  status: "vaulted" | "bought_back";
+  status: 'vaulted' | 'bought_back';
   buyback_amount: number | null;
   card: {
     handle: string;
@@ -146,9 +152,9 @@ export async function adjustCustomerCredits(
   const res = await fetch(
     `${__BACKEND_URL__}/admin/customers/${encodeURIComponent(id)}/credits`,
     {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount, note }),
     },
   );
@@ -182,7 +188,7 @@ export interface EconomyReport {
 }
 
 export async function getEconomyReport(): Promise<EconomyReport> {
-  return getJson<EconomyReport>("/admin/economy");
+  return getJson<EconomyReport>('/admin/economy');
 }
 
 // PriceCharting proxies (the API token lives server-side only). A 503 from the

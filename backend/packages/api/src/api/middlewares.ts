@@ -1,4 +1,12 @@
-import { defineMiddlewares, authenticate } from "@medusajs/framework/http";
+import {
+  defineMiddlewares,
+  authenticate,
+  type MedusaRequest,
+  type MedusaResponse,
+  type MedusaNextFunction,
+} from '@medusajs/framework/http';
+import { MedusaError } from '@medusajs/framework/utils';
+import multer from 'multer';
 import {
   createAuthRateLimit,
   createCreditTopupRateLimit,
@@ -6,8 +14,8 @@ import {
   createProfileReadRateLimit,
   createStoreReadRateLimit,
   createVaultBuybackRateLimit,
-} from "./utils/rate-limit";
-import { createResetTokenSingleUseGuard } from "./utils/reset-token-guard";
+} from './utils/rate-limit';
+import { createResetTokenSingleUseGuard } from './utils/reset-token-guard';
 
 // Custom-route middleware. /store/* is NOT a default customer-protected prefix
 // (only /store/customers/me/* is), so every customer-owned route here must opt
@@ -34,21 +42,71 @@ import { createResetTokenSingleUseGuard } from "./utils/reset-token-guard";
 const storeReadRateLimit = createStoreReadRateLimit();
 const authRateLimit = createAuthRateLimit();
 
+// In-memory multipart parsing for the custom image-upload route. memoryStorage
+// hands the route a Buffer (no temp files); the 20 MB cap is the hard edge gate
+// (the validateImage gate re-checks it, plus type/resolution/aspect). Field
+// name "files" matches the FormData the admin client sends.
+const mediaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+
+// multer returns an Express RequestHandler whose generics don't line up with
+// Medusa's middleware signature, though the (req, res, next) shape is identical
+// at runtime. Cast through unknown so it can be invoked with Medusa's req/res.
+const mediaUploadRaw = mediaUpload.array('files') as unknown as (
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: (err?: unknown) => void,
+) => void;
+
+// Translate multer's own errors into MedusaError so they surface as a clean 400
+// instead of the framework's default 500 "An unknown error occurred." (which
+// also logs them as server errors). LIMIT_FILE_SIZE is the common one — the
+// 20 MB cap aborts the stream before the route's validateImage gate runs.
+const mediaUploadMiddleware = (
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction,
+) => {
+  mediaUploadRaw(req, res, (err?: unknown) => {
+    if (err instanceof multer.MulterError) {
+      next(
+        new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          err.code === 'LIMIT_FILE_SIZE'
+            ? 'File exceeds the 20 MB limit.'
+            : `Upload failed: ${err.message}`,
+        ),
+      );
+      return;
+    }
+    next(err as Error | undefined);
+  });
+};
+
 export default defineMiddlewares({
   routes: [
+    {
+      // Validated admin image upload (POST /admin/media). /admin/* is already
+      // auth-protected; multer parses the multipart body into req.files.
+      matcher: '/admin/media',
+      method: 'POST',
+      middlewares: [mediaUploadMiddleware],
+    },
     // Brute-force/credential-stuffing protection on the public credential
     // endpoints (login, register, reset/update password) for every actor type
     // (/auth/customer/*, /auth/user/*, ...). Token refresh is NOT matched —
     // it is high-frequency, already requires a valid token, and throttling it
     // would log users out under normal use.
     {
-      matcher: "/auth/*/emailpass",
-      method: "POST",
+      matcher: '/auth/*/emailpass',
+      method: 'POST',
       middlewares: [authRateLimit],
     },
     {
-      matcher: "/auth/*/emailpass/*",
-      method: "POST",
+      matcher: '/auth/*/emailpass/*',
+      method: 'POST',
       middlewares: [authRateLimit],
     },
     // Password-reset tokens are single-use: core validates the 15m JWT but
@@ -57,60 +115,60 @@ export default defineMiddlewares({
     // (same "Invalid token" body as core — no oracle) and only ever rejects;
     // a token it passes still goes through core's full validateToken.
     {
-      matcher: "/auth/*/emailpass/update",
-      method: "POST",
+      matcher: '/auth/*/emailpass/update',
+      method: 'POST',
       middlewares: [createResetTokenSingleUseGuard()],
     },
     {
-      matcher: "/store/packs/*/open",
+      matcher: '/store/packs/*/open',
       middlewares: [
-        authenticate("customer", ["bearer"]),
+        authenticate('customer', ['bearer']),
         createPackOpenRateLimit(),
       ],
     },
     {
       // The customer's vault list (GET /store/vault).
-      matcher: "/store/vault",
-      middlewares: [authenticate("customer", ["bearer"]), storeReadRateLimit],
+      matcher: '/store/vault',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
     },
     {
       // Instant sell-back (POST /store/vault/:id/buyback).
-      matcher: "/store/vault/*/buyback",
+      matcher: '/store/vault/*/buyback',
       middlewares: [
-        authenticate("customer", ["bearer"]),
+        authenticate('customer', ['bearer']),
         createVaultBuybackRateLimit(),
       ],
     },
     {
       // Credit balance + ledger (GET /store/credits).
-      matcher: "/store/credits",
-      middlewares: [authenticate("customer", ["bearer"]), storeReadRateLimit],
+      matcher: '/store/credits',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
     },
     {
       // The customer's own profile handle (GET /store/profiles/me) — lazily
       // assigns metadata.handle, so it must be authed. Shares the vault/
       // credits read budget (the account UI fetches them together).
-      matcher: "/store/profiles/me",
-      method: "GET",
-      middlewares: [authenticate("customer", ["bearer"]), storeReadRateLimit],
+      matcher: '/store/profiles/me',
+      method: 'GET',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
     },
     {
       // PUBLIC profile read (GET /store/profiles/:handle) — no auth, so the
       // limiter keys on the request IP. This glob also matches /profiles/me,
       // which therefore consumes from both budgets — harmless, and globs
       // can't express an exclusion.
-      matcher: "/store/profiles/*",
-      method: "GET",
+      matcher: '/store/profiles/*',
+      method: 'GET',
       middlewares: [createProfileReadRateLimit()],
     },
     {
       // Credit top-up through the (mock) payment gateway
       // (POST /store/credits/topup) — a write, so it gets its own limiter,
       // not the shared read budget.
-      matcher: "/store/credits/topup",
-      method: "POST",
+      matcher: '/store/credits/topup',
+      method: 'POST',
       middlewares: [
-        authenticate("customer", ["bearer"]),
+        authenticate('customer', ['bearer']),
         createCreditTopupRateLimit(),
       ],
     },

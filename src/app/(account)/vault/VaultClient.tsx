@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { AccountHeader, StatCards } from '@/components/account/ui';
 import { AddCreditsPanel } from '@/components/account/AddCreditsPanel';
 import { usd } from '@/lib/format';
@@ -93,13 +94,15 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
               key={item.pullId}
               className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-3"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.card.image}
-                alt={item.card.name}
-                loading="lazy"
-                className="aspect-[3/4] w-full rounded-md object-contain"
-              />
+              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md">
+                <Image
+                  src={item.card.image}
+                  alt={item.card.name}
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  className="object-contain"
+                />
+              </div>
               <p
                 className="mt-2 line-clamp-2 min-h-[2.1rem] text-[12px] font-semibold leading-snug text-white"
                 title={item.card.name}

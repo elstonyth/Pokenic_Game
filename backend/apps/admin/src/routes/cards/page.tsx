@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Container,
   Heading,
@@ -13,20 +13,21 @@ import {
   FocusModal,
   Prompt,
   toast,
-} from "@medusajs/ui";
-import { Sparkles } from "@medusajs/icons";
-import type { RouteConfig } from "@mercurjs/dashboard-sdk";
+} from '@medusajs/ui';
+import { Sparkles } from '@medusajs/icons';
+import type { RouteConfig } from '@mercurjs/dashboard-sdk';
 import {
   packsApi,
   type AdminCard,
   type AdminCardUpdate,
-} from "../../lib/packs-api";
-import { uploadImage, deleteCard } from "../../lib/admin-rest";
-import { resolveImageUrl } from "../../lib/image-url";
-import RegisterCardModal from "./RegisterCardModal";
+} from '../../lib/packs-api';
+import { uploadImage, deleteCard } from '../../lib/admin-rest';
+import { resolveImageUrl } from '../../lib/image-url';
+import { validateImageFile } from '../../lib/image-validation';
+import RegisterCardModal from './RegisterCardModal';
 
 export const config: RouteConfig = {
-  label: "Gacha Cards",
+  label: 'Gacha Cards',
   icon: Sparkles,
 };
 
@@ -55,12 +56,12 @@ const formFromCard = (c: AdminCard): FormState => ({
   market_value: String(c.market_value),
   image: c.image,
   // null price = "use FMV" → empty field (preserved on save as undefined).
-  price: c.price === null ? "" : String(c.price),
+  price: c.price === null ? '' : String(c.price),
   for_sale: c.for_sale,
 });
 
 const gradeLabel = (c: AdminCard): string =>
-  [c.grader, c.grade].filter(Boolean).join(" ");
+  [c.grader, c.grade].filter(Boolean).join(' ');
 
 const GachaCardsPage = () => {
   const { t } = useTranslation();
@@ -89,7 +90,7 @@ const GachaCardsPage = () => {
       const res = await packsApi.admin.cards.query();
       setCards(res.cards);
     } catch {
-      toast.error(t("cards.list.loadError"));
+      toast.error(t('cards.list.loadError'));
     }
   };
 
@@ -99,23 +100,31 @@ const GachaCardsPage = () => {
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Client-side gate: instant reject before the upload round-trip. The
+    // server re-validates (and is authoritative).
+    const problem = await validateImageFile(file, 'card');
+    if (problem) {
+      toast.error(problem);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
     setUploading(true);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, 'card');
       patch({ image: url });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
   const canSave =
     !!form &&
-    form.name.trim() !== "" &&
-    form.image.trim() !== "" &&
-    form.market_value.trim() !== "" &&
+    form.name.trim() !== '' &&
+    form.image.trim() !== '' &&
+    form.market_value.trim() !== '' &&
     Number(form.market_value) >= 0 &&
     !saving &&
     !uploading;
@@ -130,12 +139,15 @@ const GachaCardsPage = () => {
       grade: form.grade.trim(),
       market_value: Number(form.market_value),
       image: form.image.trim(),
-      price: form.price.trim() === "" ? undefined : Number(form.price),
+      price: form.price.trim() === '' ? undefined : Number(form.price),
       for_sale: form.for_sale,
     };
     try {
-      await packsApi.admin.cards.$handle.mutate({ $handle: form.handle, ...payload });
-      toast.success(t("cards.toast.updated"));
+      await packsApi.admin.cards.$handle.mutate({
+        $handle: form.handle,
+        ...payload,
+      });
+      toast.success(t('cards.toast.updated'));
       setForm(null);
       await reload();
     } catch (err) {
@@ -151,7 +163,7 @@ const GachaCardsPage = () => {
     setDeleteTarget(null);
     try {
       await deleteCard(handle);
-      toast.success(t("cards.toast.deleted"));
+      toast.success(t('cards.toast.deleted'));
       await reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -162,19 +174,23 @@ const GachaCardsPage = () => {
     <Container className="divide-y p-0">
       <div className="flex items-start justify-between gap-4 px-6 py-4">
         <div>
-          <Heading level="h2">{t("cards.title")}</Heading>
+          <Heading level="h2">{t('cards.title')}</Heading>
           <Text className="text-ui-fg-subtle mt-1" size="small">
-            {t("cards.subtitle")}
+            {t('cards.subtitle')}
           </Text>
         </div>
-        <Button size="small" variant="primary" onClick={() => setRegisterOpen(true)}>
-          {t("cards.new")}
+        <Button
+          size="small"
+          variant="primary"
+          onClick={() => setRegisterOpen(true)}
+        >
+          {t('cards.new')}
         </Button>
       </div>
 
       {error ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">{t("cards.list.loadError")}</Text>
+          <Text className="text-ui-fg-subtle">{t('cards.list.loadError')}</Text>
         </div>
       ) : cards === null ? (
         <div className="px-6 py-8">
@@ -182,26 +198,26 @@ const GachaCardsPage = () => {
         </div>
       ) : cards.length === 0 ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">{t("cards.list.empty")}</Text>
+          <Text className="text-ui-fg-subtle">{t('cards.list.empty')}</Text>
         </div>
       ) : (
         <Table>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell>{t("cards.list.card")}</Table.HeaderCell>
-              <Table.HeaderCell>{t("cards.list.grade")}</Table.HeaderCell>
+              <Table.HeaderCell>{t('cards.list.card')}</Table.HeaderCell>
+              <Table.HeaderCell>{t('cards.list.grade')}</Table.HeaderCell>
               <Table.HeaderCell className="text-right">
-                {t("cards.list.value")}
+                {t('cards.list.value')}
               </Table.HeaderCell>
               <Table.HeaderCell className="text-right">
-                {t("cards.list.price")}
+                {t('cards.list.price')}
               </Table.HeaderCell>
               <Table.HeaderCell className="text-right">
-                {t("cards.list.stock")}
+                {t('cards.list.stock')}
               </Table.HeaderCell>
-              <Table.HeaderCell>{t("cards.list.status")}</Table.HeaderCell>
+              <Table.HeaderCell>{t('cards.list.status')}</Table.HeaderCell>
               <Table.HeaderCell className="text-right">
-                {t("cards.list.actions")}
+                {t('cards.list.actions')}
               </Table.HeaderCell>
             </Table.Row>
           </Table.Header>
@@ -224,13 +240,21 @@ const GachaCardsPage = () => {
                   </div>
                 </Table.Cell>
                 <Table.Cell className="text-ui-fg-subtle">
-                  {gradeLabel(c) || "—"}
+                  {gradeLabel(c) || '—'}
                 </Table.Cell>
                 <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                  ${c.market_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  $
+                  {c.market_value.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </Table.Cell>
                 <Table.Cell className="text-right tabular-nums">
-                  ${(c.price ?? c.market_value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  $
+                  {(c.price ?? c.market_value).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                   {c.price === null && (
                     <span className="text-ui-fg-muted ml-1 text-xs">FMV</span>
                   )}
@@ -238,15 +262,17 @@ const GachaCardsPage = () => {
                 <Table.Cell
                   className={
                     c.stock === 0
-                      ? "text-ui-tag-orange-text text-right tabular-nums"
-                      : "text-ui-fg-subtle text-right tabular-nums"
+                      ? 'text-ui-tag-orange-text text-right tabular-nums'
+                      : 'text-ui-fg-subtle text-right tabular-nums'
                   }
                 >
-                  {c.stock === null ? "∞" : c.stock.toLocaleString("en-US")}
+                  {c.stock === null ? '∞' : c.stock.toLocaleString('en-US')}
                 </Table.Cell>
                 <Table.Cell>
-                  <StatusBadge color={c.for_sale ? "green" : "grey"}>
-                    {c.for_sale ? t("cards.list.listed") : t("cards.list.hidden")}
+                  <StatusBadge color={c.for_sale ? 'green' : 'grey'}>
+                    {c.for_sale
+                      ? t('cards.list.listed')
+                      : t('cards.list.hidden')}
                   </StatusBadge>
                 </Table.Cell>
                 <Table.Cell className="text-right">
@@ -256,14 +282,14 @@ const GachaCardsPage = () => {
                       variant="secondary"
                       onClick={() => setForm(formFromCard(c))}
                     >
-                      {t("cards.list.edit")}
+                      {t('cards.list.edit')}
                     </Button>
                     <Button
                       size="small"
                       variant="transparent"
                       onClick={() => setDeleteTarget(c)}
                     >
-                      {t("cards.list.delete")}
+                      {t('cards.list.delete')}
                     </Button>
                   </div>
                 </Table.Cell>
@@ -288,11 +314,20 @@ const GachaCardsPage = () => {
         <FocusModal.Content>
           <FocusModal.Header>
             <div className="flex items-center justify-end gap-x-2">
-              <Button size="small" variant="secondary" onClick={() => setForm(null)}>
-                {t("cards.form.cancel")}
+              <Button
+                size="small"
+                variant="secondary"
+                onClick={() => setForm(null)}
+              >
+                {t('cards.form.cancel')}
               </Button>
-              <Button size="small" onClick={save} isLoading={saving} disabled={!canSave}>
-                {t("cards.form.save")}
+              <Button
+                size="small"
+                onClick={save}
+                isLoading={saving}
+                disabled={!canSave}
+              >
+                {t('cards.form.save')}
               </Button>
             </div>
           </FocusModal.Header>
@@ -301,11 +336,11 @@ const GachaCardsPage = () => {
               <div className="flex w-full max-w-[640px] flex-col gap-y-6">
                 <div>
                   <FocusModal.Title asChild>
-                    <Heading level="h2">{t("cards.form.editTitle")}</Heading>
+                    <Heading level="h2">{t('cards.form.editTitle')}</Heading>
                   </FocusModal.Title>
                   <FocusModal.Description asChild>
                     <Text className="text-ui-fg-subtle mt-1" size="small">
-                      {t("cards.form.subtitle")}
+                      {t('cards.form.subtitle')}
                     </Text>
                   </FocusModal.Description>
                 </div>
@@ -313,7 +348,7 @@ const GachaCardsPage = () => {
                 {/* Image */}
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("cards.form.image")}
+                    {t('cards.form.image')}
                   </Label>
                   <div className="flex items-center gap-4">
                     {form.image ? (
@@ -342,15 +377,15 @@ const GachaCardsPage = () => {
                         onClick={() => fileRef.current?.click()}
                         isLoading={uploading}
                       >
-                        {t("cards.form.uploadImage")}
+                        {t('cards.form.uploadImage')}
                       </Button>
                       <Input
-                        placeholder={t("cards.form.imageUrlPlaceholder")}
+                        placeholder={t('cards.form.imageUrlPlaceholder')}
                         value={form.image}
                         onChange={(e) => patch({ image: e.target.value })}
                       />
                       <Text className="text-ui-fg-subtle text-xs">
-                        {t("cards.form.uploadHint")}
+                        {t('cards.form.uploadHint')}
                       </Text>
                     </div>
                   </div>
@@ -359,14 +394,14 @@ const GachaCardsPage = () => {
                 {/* Handle (immutable key) */}
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("cards.form.handle")}
+                    {t('cards.form.handle')}
                   </Label>
                   <Input value={form.handle} disabled />
                 </div>
 
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("cards.form.name")}
+                    {t('cards.form.name')}
                   </Label>
                   <Input
                     value={form.name}
@@ -377,7 +412,7 @@ const GachaCardsPage = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-y-2">
                     <Label size="small" weight="plus">
-                      {t("cards.form.set")}
+                      {t('cards.form.set')}
                     </Label>
                     <Input
                       value={form.set}
@@ -386,7 +421,7 @@ const GachaCardsPage = () => {
                   </div>
                   <div className="flex flex-col gap-y-2">
                     <Label size="small" weight="plus">
-                      {t("cards.form.grader")}
+                      {t('cards.form.grader')}
                     </Label>
                     <Input
                       value={form.grader}
@@ -395,7 +430,7 @@ const GachaCardsPage = () => {
                   </div>
                   <div className="flex flex-col gap-y-2">
                     <Label size="small" weight="plus">
-                      {t("cards.form.grade")}
+                      {t('cards.form.grade')}
                     </Label>
                     <Input
                       value={form.grade}
@@ -404,7 +439,7 @@ const GachaCardsPage = () => {
                   </div>
                   <div className="flex flex-col gap-y-2">
                     <Label size="small" weight="plus">
-                      {t("cards.form.marketValue")}
+                      {t('cards.form.marketValue')}
                     </Label>
                     <Input
                       type="number"
@@ -416,13 +451,13 @@ const GachaCardsPage = () => {
                   </div>
                   <div className="flex flex-col gap-y-2">
                     <Label size="small" weight="plus">
-                      {t("cards.form.price")}
+                      {t('cards.form.price')}
                     </Label>
                     <Input
                       type="number"
                       min={0}
                       step={0.01}
-                      placeholder={t("cards.form.pricePlaceholder")}
+                      placeholder={t('cards.form.pricePlaceholder')}
                       value={form.price}
                       onChange={(e) => patch({ price: e.target.value })}
                     />
@@ -432,10 +467,10 @@ const GachaCardsPage = () => {
                 <div className="bg-ui-bg-subtle flex items-center justify-between rounded-lg px-4 py-3">
                   <div className="flex flex-col">
                     <Label size="small" weight="plus">
-                      {t("cards.form.forSale")}
+                      {t('cards.form.forSale')}
                     </Label>
                     <Text className="text-ui-fg-subtle text-xs">
-                      {t("cards.form.forSaleHint")}
+                      {t('cards.form.forSaleHint')}
                     </Text>
                   </div>
                   <Switch
@@ -457,15 +492,17 @@ const GachaCardsPage = () => {
       >
         <Prompt.Content>
           <Prompt.Header>
-            <Prompt.Title>{t("cards.delete.title")}</Prompt.Title>
+            <Prompt.Title>{t('cards.delete.title')}</Prompt.Title>
             <Prompt.Description>
-              {t("cards.delete.description", { name: deleteTarget?.name ?? "" })}
+              {t('cards.delete.description', {
+                name: deleteTarget?.name ?? '',
+              })}
             </Prompt.Description>
           </Prompt.Header>
           <Prompt.Footer>
-            <Prompt.Cancel>{t("cards.form.cancel")}</Prompt.Cancel>
+            <Prompt.Cancel>{t('cards.form.cancel')}</Prompt.Cancel>
             <Prompt.Action onClick={confirmDelete}>
-              {t("cards.delete.confirm")}
+              {t('cards.delete.confirm')}
             </Prompt.Action>
           </Prompt.Footer>
         </Prompt.Content>

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 type PackCategory = {
@@ -67,24 +68,20 @@ export default function OpenPacksSection() {
                 flanks the card — the card "emerges" out of the open pack. */}
             <div className="relative flex aspect-[3/4] items-center justify-center overflow-hidden bg-gradient-to-b from-white/[0.04] to-transparent">
               {/* Graded slab — centered, behind */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={cat.slab}
                 alt={cat.label}
                 width={400}
                 height={670}
-                loading="lazy"
                 className="absolute h-[95%] w-auto max-w-full object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out group-hover:-translate-y-2"
               />
               {/* Ripped pack — in front (z-1), pushed down so the card emerges */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={cat.pack}
                 alt=""
                 aria-hidden="true"
                 width={400}
                 height={670}
-                loading="lazy"
                 className="absolute bottom-[-45%] left-1/2 z-[1] h-full w-auto -translate-x-1/2 object-contain transition-transform duration-300 ease-out group-hover:-translate-y-2"
               />
             </div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   ShoppingCart,
@@ -80,12 +81,14 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
               boxShadow: `0 0 60px -20px rgba(${ring},0.6)`,
             }}
           >
-            <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl bg-[radial-gradient(120%_80%_at_50%_12%,#2e2e2e_0%,#1c1c1c_55%,#121212_100%)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-[radial-gradient(120%_80%_at_50%_12%,#2e2e2e_0%,#1c1c1c_55%,#121212_100%)]">
+              <Image
                 src={card.image}
                 alt={card.name}
-                className="h-full w-full object-contain p-4"
+                fill
+                priority
+                sizes="(max-width: 1024px) 90vw, 480px"
+                className="object-contain p-4"
               />
             </div>
           </div>
@@ -179,10 +182,11 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
               href={`/profile/${owner.username}`}
               className="group flex items-center gap-2 text-white/70 hover:text-white"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={owner.pfp}
                 alt=""
+                width={28}
+                height={28}
                 className="h-7 w-7 rounded-full object-cover ring-1 ring-white/10"
               />
               Owned by{' '}
@@ -236,13 +240,13 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
                   href={`/card/${c.id}`}
                   className="group block h-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-800 transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
                 >
-                  <div className="aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
+                    <Image
                       src={c.image}
                       alt={c.name}
-                      loading="lazy"
-                      className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                      className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
                     />
                   </div>
                   <div className="p-2.5">

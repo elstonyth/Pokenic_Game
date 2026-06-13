@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Trophy,
   Layers,
@@ -62,10 +63,11 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.06] to-transparent" />
         <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:items-end">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={user.pfp}
             alt={user.username}
+            width={112}
+            height={112}
             className="h-24 w-24 shrink-0 rounded-full object-cover ring-4 ring-white/10 sm:h-28 sm:w-28"
           />
           <div className="min-w-0 flex-1 text-center sm:text-left">
@@ -148,13 +150,13 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                 href={`/card/${c.id}`}
                 className="group block h-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-800 transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
               >
-                <div className="aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                <div className="relative aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
+                  <Image
                     src={c.image}
                     alt={c.name}
-                    loading="lazy"
-                    className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                    className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
                   />
                 </div>
                 <div className="p-2.5">
@@ -176,10 +178,11 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
               key={i}
               className="flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={a.card.image}
                 alt=""
+                width={32}
+                height={44}
                 className="h-11 w-8 shrink-0 rounded object-contain"
               />
               <p className="min-w-0 flex-1 truncate text-[13px] text-white/80">

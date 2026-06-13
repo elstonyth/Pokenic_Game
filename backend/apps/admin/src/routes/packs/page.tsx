@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Container,
   Heading,
@@ -15,35 +15,36 @@ import {
   FocusModal,
   Prompt,
   toast,
-} from "@medusajs/ui";
-import { Gift } from "@medusajs/icons";
-import type { RouteConfig } from "@mercurjs/dashboard-sdk";
+} from '@medusajs/ui';
+import { Gift } from '@medusajs/icons';
+import type { RouteConfig } from '@mercurjs/dashboard-sdk';
 import {
   packsApi,
   type AdminPack,
   type AdminPackWrite,
-} from "../../lib/packs-api";
-import { uploadImage, deletePack } from "../../lib/admin-rest";
-import { resolveImageUrl } from "../../lib/image-url";
+} from '../../lib/packs-api';
+import { uploadImage, deletePack } from '../../lib/admin-rest';
+import { resolveImageUrl } from '../../lib/image-url';
+import { validateImageFile } from '../../lib/image-validation';
 
 // Sidebar entry. The label is literal (internal single-operator tool); switch to
 // RouteConfig.translationNs if this dashboard is ever localized.
 export const config: RouteConfig = {
-  label: "Gacha Packs",
+  label: 'Gacha Packs',
   icon: Gift,
 };
 
 // Known pack categories — the storefront maps these to labels + icons, so the
 // editor offers them as a closed set (a new category would also need front-end art).
 const CATEGORIES = [
-  "pokemon",
-  "one-piece",
-  "basketball",
-  "baseball",
-  "football",
-  "soccer",
-  "yugioh",
-  "riftbound",
+  'pokemon',
+  'one-piece',
+  'basketball',
+  'baseball',
+  'football',
+  'soccer',
+  'yugioh',
+  'riftbound',
 ] as const;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -56,22 +57,22 @@ type FormState = {
   buybackPercent: string;
   boost: boolean;
   rank: string;
-  status: "active" | "draft";
+  status: 'active' | 'draft';
 };
 
 const EMPTY_FORM: FormState = {
-  slug: "",
-  title: "",
-  category: "pokemon",
-  price: "",
-  image: "",
-  buybackPercent: "90",
+  slug: '',
+  title: '',
+  category: 'pokemon',
+  price: '',
+  image: '',
+  buybackPercent: '90',
   boost: false,
-  rank: "0",
+  rank: '0',
   // New packs start as draft: a pack has an empty prize pool until cards are
   // added, and an empty active pack would surface on /claw yet fail to open.
   // Add members, then flip to active.
-  status: "draft",
+  status: 'draft',
 };
 
 const formFromPack = (p: AdminPack): FormState => ({
@@ -91,7 +92,7 @@ const PacksListPage = () => {
   const navigate = useNavigate();
   const [packs, setPacks] = useState<AdminPack[] | null>(null);
   const [error, setError] = useState(false);
-  const [mode, setMode] = useState<"create" | "edit" | null>(null);
+  const [mode, setMode] = useState<'create' | 'edit' | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -114,7 +115,7 @@ const PacksListPage = () => {
       const res = await packsApi.admin.packs.query();
       setPacks(res.packs);
     } catch {
-      toast.error(t("packs.list.loadError"));
+      toast.error(t('packs.list.loadError'));
     }
   };
 
@@ -122,38 +123,46 @@ const PacksListPage = () => {
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
-    setMode("create");
+    setMode('create');
   };
   const openEdit = (pack: AdminPack) => {
     setForm(formFromPack(pack));
-    setMode("edit");
+    setMode('edit');
   };
 
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Client-side gate: instant reject before the upload round-trip. The
+    // server re-validates (and is authoritative).
+    const problem = await validateImageFile(file, 'pack');
+    if (problem) {
+      toast.error(problem);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
     setUploading(true);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, 'pack');
       patch({ image: url });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
   const handleOk =
-    form.title.trim() !== "" &&
-    form.image.trim() !== "" &&
-    form.price.trim() !== "" &&
+    form.title.trim() !== '' &&
+    form.image.trim() !== '' &&
+    form.price.trim() !== '' &&
     Number(form.price) >= 0 &&
-    form.buybackPercent.trim() !== "" &&
+    form.buybackPercent.trim() !== '' &&
     Number(form.buybackPercent) >= 90 &&
     Number(form.buybackPercent) <= 100 &&
-    (form.rank.trim() === "" || !Number.isNaN(Number(form.rank))) &&
-    (mode === "edit" || SLUG_RE.test(form.slug.trim()));
+    (form.rank.trim() === '' || !Number.isNaN(Number(form.rank))) &&
+    (mode === 'edit' || SLUG_RE.test(form.slug.trim()));
   const canSave = handleOk && !saving && !uploading;
 
   const save = async () => {
@@ -166,16 +175,22 @@ const PacksListPage = () => {
       image: form.image.trim(),
       buyback_percent: Math.trunc(Number(form.buybackPercent)),
       boost: form.boost,
-      rank: form.rank.trim() === "" ? 0 : Math.trunc(Number(form.rank)),
+      rank: form.rank.trim() === '' ? 0 : Math.trunc(Number(form.rank)),
       status: form.status,
     };
     try {
-      if (mode === "create") {
-        await packsApi.admin.packs.mutate({ ...payload, slug: form.slug.trim() });
-        toast.success(t("packs.toast.created"));
+      if (mode === 'create') {
+        await packsApi.admin.packs.mutate({
+          ...payload,
+          slug: form.slug.trim(),
+        });
+        toast.success(t('packs.toast.created'));
       } else {
-        await packsApi.admin.packs.$slug.mutate({ $slug: form.slug, ...payload });
-        toast.success(t("packs.toast.updated"));
+        await packsApi.admin.packs.$slug.mutate({
+          $slug: form.slug,
+          ...payload,
+        });
+        toast.success(t('packs.toast.updated'));
       }
       setMode(null);
       await reload();
@@ -192,7 +207,7 @@ const PacksListPage = () => {
     setDeleteTarget(null);
     try {
       await deletePack(slug);
-      toast.success(t("packs.toast.deleted"));
+      toast.success(t('packs.toast.deleted'));
       await reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -203,19 +218,19 @@ const PacksListPage = () => {
     <Container className="divide-y p-0">
       <div className="flex items-start justify-between gap-4 px-6 py-4">
         <div>
-          <Heading level="h2">{t("packs.title")}</Heading>
+          <Heading level="h2">{t('packs.title')}</Heading>
           <Text className="text-ui-fg-subtle mt-1" size="small">
-            {t("packs.subtitle")}
+            {t('packs.subtitle')}
           </Text>
         </div>
         <Button size="small" variant="primary" onClick={openCreate}>
-          {t("packs.new")}
+          {t('packs.new')}
         </Button>
       </div>
 
       {error ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">{t("packs.list.loadError")}</Text>
+          <Text className="text-ui-fg-subtle">{t('packs.list.loadError')}</Text>
         </div>
       ) : packs === null ? (
         <div className="px-6 py-8">
@@ -223,18 +238,18 @@ const PacksListPage = () => {
         </div>
       ) : packs.length === 0 ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">{t("packs.list.empty")}</Text>
+          <Text className="text-ui-fg-subtle">{t('packs.list.empty')}</Text>
         </div>
       ) : (
         <Table>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell>{t("packs.list.pack")}</Table.HeaderCell>
-              <Table.HeaderCell>{t("packs.list.category")}</Table.HeaderCell>
-              <Table.HeaderCell>{t("packs.list.status")}</Table.HeaderCell>
-              <Table.HeaderCell>{t("packs.list.price")}</Table.HeaderCell>
+              <Table.HeaderCell>{t('packs.list.pack')}</Table.HeaderCell>
+              <Table.HeaderCell>{t('packs.list.category')}</Table.HeaderCell>
+              <Table.HeaderCell>{t('packs.list.status')}</Table.HeaderCell>
+              <Table.HeaderCell>{t('packs.list.price')}</Table.HeaderCell>
               <Table.HeaderCell className="text-right">
-                {t("packs.list.actions")}
+                {t('packs.list.actions')}
               </Table.HeaderCell>
             </Table.Row>
           </Table.Header>
@@ -246,14 +261,16 @@ const PacksListPage = () => {
                 onClick={() => navigate(`/packs/${p.slug}`)}
               >
                 <Table.Cell className="font-medium">{p.title}</Table.Cell>
-                <Table.Cell className="text-ui-fg-subtle">{p.category}</Table.Cell>
+                <Table.Cell className="text-ui-fg-subtle">
+                  {p.category}
+                </Table.Cell>
                 <Table.Cell>
-                  <StatusBadge color={p.status === "active" ? "green" : "grey"}>
+                  <StatusBadge color={p.status === 'active' ? 'green' : 'grey'}>
                     {p.status}
                   </StatusBadge>
                 </Table.Cell>
                 <Table.Cell className="tabular-nums">
-                  ${p.price.toLocaleString("en-US")}
+                  ${p.price.toLocaleString('en-US')}
                 </Table.Cell>
                 <Table.Cell className="text-right">
                   <div className="flex justify-end gap-2">
@@ -265,7 +282,7 @@ const PacksListPage = () => {
                         navigate(`/packs/${p.slug}`);
                       }}
                     >
-                      {t("packs.list.winRates")}
+                      {t('packs.list.winRates')}
                     </Button>
                     <Button
                       size="small"
@@ -275,7 +292,7 @@ const PacksListPage = () => {
                         openEdit(p);
                       }}
                     >
-                      {t("packs.list.edit")}
+                      {t('packs.list.edit')}
                     </Button>
                     <Button
                       size="small"
@@ -285,7 +302,7 @@ const PacksListPage = () => {
                         setDeleteTarget(p);
                       }}
                     >
-                      {t("packs.list.delete")}
+                      {t('packs.list.delete')}
                     </Button>
                   </div>
                 </Table.Cell>
@@ -304,11 +321,20 @@ const PacksListPage = () => {
         <FocusModal.Content>
           <FocusModal.Header>
             <div className="flex items-center justify-end gap-x-2">
-              <Button size="small" variant="secondary" onClick={() => setMode(null)}>
-                {t("packs.form.cancel")}
+              <Button
+                size="small"
+                variant="secondary"
+                onClick={() => setMode(null)}
+              >
+                {t('packs.form.cancel')}
               </Button>
-              <Button size="small" onClick={save} isLoading={saving} disabled={!canSave}>
-                {t("packs.form.save")}
+              <Button
+                size="small"
+                onClick={save}
+                isLoading={saving}
+                disabled={!canSave}
+              >
+                {t('packs.form.save')}
               </Button>
             </div>
           </FocusModal.Header>
@@ -317,14 +343,14 @@ const PacksListPage = () => {
               <div>
                 <FocusModal.Title asChild>
                   <Heading level="h2">
-                    {mode === "create"
-                      ? t("packs.form.createTitle")
-                      : t("packs.form.editTitle")}
+                    {mode === 'create'
+                      ? t('packs.form.createTitle')
+                      : t('packs.form.editTitle')}
                   </Heading>
                 </FocusModal.Title>
                 <FocusModal.Description asChild>
                   <Text className="text-ui-fg-subtle mt-1" size="small">
-                    {t("packs.form.subtitle")}
+                    {t('packs.form.subtitle')}
                   </Text>
                 </FocusModal.Description>
               </div>
@@ -332,7 +358,7 @@ const PacksListPage = () => {
               {/* Image */}
               <div className="flex flex-col gap-y-2">
                 <Label size="small" weight="plus">
-                  {t("packs.form.image")}
+                  {t('packs.form.image')}
                 </Label>
                 <div className="flex items-center gap-4">
                   {form.image ? (
@@ -361,10 +387,10 @@ const PacksListPage = () => {
                       onClick={() => fileRef.current?.click()}
                       isLoading={uploading}
                     >
-                      {t("packs.form.uploadImage")}
+                      {t('packs.form.uploadImage')}
                     </Button>
                     <Input
-                      placeholder={t("packs.form.imageUrlPlaceholder")}
+                      placeholder={t('packs.form.imageUrlPlaceholder')}
                       value={form.image}
                       onChange={(e) => patch({ image: e.target.value })}
                     />
@@ -375,17 +401,19 @@ const PacksListPage = () => {
               {/* Slug (create only — immutable key) */}
               <div className="flex flex-col gap-y-2">
                 <Label size="small" weight="plus">
-                  {t("packs.form.slug")}
+                  {t('packs.form.slug')}
                 </Label>
-                {mode === "create" ? (
+                {mode === 'create' ? (
                   <>
                     <Input
                       placeholder="legend-pack"
                       value={form.slug}
-                      onChange={(e) => patch({ slug: e.target.value.toLowerCase() })}
+                      onChange={(e) =>
+                        patch({ slug: e.target.value.toLowerCase() })
+                      }
                     />
                     <Text className="text-ui-fg-subtle text-xs">
-                      {t("packs.form.slugHint")}
+                      {t('packs.form.slugHint')}
                     </Text>
                   </>
                 ) : (
@@ -395,7 +423,7 @@ const PacksListPage = () => {
 
               <div className="flex flex-col gap-y-2">
                 <Label size="small" weight="plus">
-                  {t("packs.form.titleField")}
+                  {t('packs.form.titleField')}
                 </Label>
                 <Input
                   value={form.title}
@@ -406,7 +434,7 @@ const PacksListPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("packs.form.category")}
+                    {t('packs.form.category')}
                   </Label>
                   <Select
                     value={form.category}
@@ -426,26 +454,30 @@ const PacksListPage = () => {
                 </div>
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("packs.form.statusField")}
+                    {t('packs.form.statusField')}
                   </Label>
                   <Select
                     value={form.status}
                     onValueChange={(v) =>
-                      patch({ status: v === "draft" ? "draft" : "active" })
+                      patch({ status: v === 'draft' ? 'draft' : 'active' })
                     }
                   >
                     <Select.Trigger>
                       <Select.Value />
                     </Select.Trigger>
                     <Select.Content>
-                      <Select.Item value="active">{t("packs.form.active")}</Select.Item>
-                      <Select.Item value="draft">{t("packs.form.draft")}</Select.Item>
+                      <Select.Item value="active">
+                        {t('packs.form.active')}
+                      </Select.Item>
+                      <Select.Item value="draft">
+                        {t('packs.form.draft')}
+                      </Select.Item>
                     </Select.Content>
                   </Select>
                 </div>
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("packs.form.price")}
+                    {t('packs.form.price')}
                   </Label>
                   <Input
                     type="number"
@@ -457,7 +489,7 @@ const PacksListPage = () => {
                 </div>
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("packs.form.rank")}
+                    {t('packs.form.rank')}
                   </Label>
                   <Input
                     type="number"
@@ -468,7 +500,7 @@ const PacksListPage = () => {
                 </div>
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">
-                    {t("packs.form.buybackPercent")}
+                    {t('packs.form.buybackPercent')}
                   </Label>
                   <Input
                     type="number"
@@ -479,7 +511,7 @@ const PacksListPage = () => {
                     onChange={(e) => patch({ buybackPercent: e.target.value })}
                   />
                   <Text className="text-ui-fg-subtle text-xs">
-                    {t("packs.form.buybackHint")}
+                    {t('packs.form.buybackHint')}
                   </Text>
                 </div>
               </div>
@@ -487,10 +519,10 @@ const PacksListPage = () => {
               <div className="bg-ui-bg-subtle flex items-center justify-between rounded-lg px-4 py-3">
                 <div className="flex flex-col">
                   <Label size="small" weight="plus">
-                    {t("packs.form.boost")}
+                    {t('packs.form.boost')}
                   </Label>
                   <Text className="text-ui-fg-subtle text-xs">
-                    {t("packs.form.boostHint")}
+                    {t('packs.form.boostHint')}
                   </Text>
                 </div>
                 <Switch
@@ -499,9 +531,9 @@ const PacksListPage = () => {
                 />
               </div>
 
-              {mode === "create" && (
+              {mode === 'create' && (
                 <Text className="text-ui-fg-subtle text-xs">
-                  {t("packs.form.poolHint")}
+                  {t('packs.form.poolHint')}
                 </Text>
               )}
             </div>
@@ -517,15 +549,17 @@ const PacksListPage = () => {
       >
         <Prompt.Content>
           <Prompt.Header>
-            <Prompt.Title>{t("packs.delete.title")}</Prompt.Title>
+            <Prompt.Title>{t('packs.delete.title')}</Prompt.Title>
             <Prompt.Description>
-              {t("packs.delete.description", { title: deleteTarget?.title ?? "" })}
+              {t('packs.delete.description', {
+                title: deleteTarget?.title ?? '',
+              })}
             </Prompt.Description>
           </Prompt.Header>
           <Prompt.Footer>
-            <Prompt.Cancel>{t("packs.form.cancel")}</Prompt.Cancel>
+            <Prompt.Cancel>{t('packs.form.cancel')}</Prompt.Cancel>
             <Prompt.Action onClick={confirmDelete}>
-              {t("packs.delete.confirm")}
+              {t('packs.delete.confirm')}
             </Prompt.Action>
           </Prompt.Footer>
         </Prompt.Content>

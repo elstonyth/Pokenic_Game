@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import Image from 'next/image';
 import {
   AnimatePresence,
   animate,
@@ -404,12 +405,13 @@ export default function PackOpenOverlay({
                         repeat: Infinity,
                       }}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={packImage}
                         alt={i === 0 ? packName : ''}
                         aria-hidden={i !== 0}
-                        className="h-full w-full object-contain drop-shadow-[0_20px_36px_rgba(0,0,0,0.6)]"
+                        fill
+                        sizes="(max-width: 640px) 60vw, 360px"
+                        className="object-contain drop-shadow-[0_20px_36px_rgba(0,0,0,0.6)]"
                         draggable={false}
                       />
                       {/* floor reflection — pointer-events-none so the strip below the
@@ -425,11 +427,12 @@ export default function PackOpenOverlay({
                         }}
                         aria-hidden
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <Image
                           src={packImage}
                           alt=""
-                          className="h-full w-full object-contain"
+                          fill
+                          sizes="(max-width: 640px) 60vw, 360px"
+                          className="object-contain"
                           draggable={false}
                         />
                       </div>
@@ -601,10 +604,11 @@ export default function PackOpenOverlay({
               {/* The card asset IS the graded-slab product photo — live shows it raw
                   (330×569 at 1440, no frame, no radius); wrapping it in extra holder
                   chrome double-framed it. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={card.image}
                 alt={card.name}
+                width={330}
+                height={569}
                 className="h-[440px] w-auto object-contain sm:h-[560px]"
               />
               {/* Demo spins watermark the result — the card is theater, not a pull */}

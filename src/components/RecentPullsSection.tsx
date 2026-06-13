@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { RecentPull } from '@/lib/data/packs';
 
@@ -105,14 +106,12 @@ function PullCard({ pull }: { pull: RecentPull }) {
           <span className="absolute right-2 top-2 z-10 rounded-full border border-white/10 bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
             {pull.agoLabel}
           </span>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={pull.image}
             alt={pull.name}
-            width={238}
-            height={238}
-            loading="lazy"
-            className="h-full w-full object-contain p-4 transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"
+            fill
+            sizes="(max-width: 640px) 60vw, (max-width: 1024px) 30vw, 238px"
+            className="object-contain p-4 transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"
           />
         </div>
 
@@ -122,13 +121,11 @@ function PullCard({ pull }: { pull: RecentPull }) {
             {pull.name}
           </p>
           <div className="flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={pull.packIcon}
               alt={pull.packName}
               width={28}
               height={28}
-              loading="lazy"
               className="h-7 w-7 shrink-0 object-contain"
             />
             <div className="flex flex-col leading-tight">

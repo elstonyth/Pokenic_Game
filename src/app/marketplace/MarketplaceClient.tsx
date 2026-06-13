@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
 import {
@@ -217,15 +218,15 @@ function MarketCard({ card }: { card: MarketplaceCard }) {
         </button>
         <Link
           href={`/card/${card.id}`}
-          className="block h-full w-full"
+          className="relative block h-full w-full"
           aria-label={card.title}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={card.image}
             alt={card.title}
-            loading="lazy"
-            className="h-full w-full object-contain p-3 transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+            className="object-contain p-3 transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"
           />
         </Link>
       </div>
@@ -296,8 +297,7 @@ export default function MarketplaceClient({
                       : 'border-transparent text-neutral-400 hover:text-white',
                   )}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={cat.icon}
                     alt=""
                     aria-hidden

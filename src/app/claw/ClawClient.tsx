@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
@@ -44,8 +45,7 @@ function PackCard({ pack, icon }: { pack: Pack; icon: string }) {
       )}
 
       {/* Category badge (top-right) — real per-category icon from the live site */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={icon}
         alt=""
         aria-hidden="true"
@@ -57,13 +57,11 @@ function PackCard({ pack, icon }: { pack: Pack; icon: string }) {
       {/* Pack image — the tall vertical pack art dominates the card, matching the
           live /claw's tall, narrow cards (art is natively ~0.57 aspect). */}
       <div className="flex items-center justify-center pb-2 pt-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={pack.image}
           alt={pack.name}
           width={205}
           height={360}
-          loading="lazy"
           className={cn(
             // hover zoom measured on live /claw: art scales to 1.092 over 0.7s on
             // Tailwind's default curve (0.4,0,0.2,1) — live has no lift/translate
@@ -127,20 +125,22 @@ function PackRow({
     <>
       {/* Thumbnail + category chip */}
       <div className="relative flex h-16 w-14 shrink-0 items-center justify-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={pack.image}
           alt={pack.name}
+          width={205}
+          height={360}
           className={cn(
             'h-16 w-auto object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.5)]',
             oos && 'grayscale',
           )}
         />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={icon}
           alt=""
           aria-hidden="true"
+          width={16}
+          height={16}
           className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full object-contain"
         />
       </div>
@@ -252,11 +252,12 @@ export default function ClawClient({
               )}
             >
               {t.icon ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={t.icon}
                   alt=""
                   aria-hidden="true"
+                  width={16}
+                  height={16}
                   className="h-4 w-4 shrink-0 rounded-full object-cover"
                 />
               ) : (
@@ -305,11 +306,12 @@ export default function ClawClient({
         <section key={cat.id} className="mb-8">
           {/* Section header */}
           <div className="mb-4 flex items-center gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={cat.icon}
               alt=""
               aria-hidden="true"
+              width={24}
+              height={24}
               className="h-6 w-6 shrink-0 rounded-full object-cover"
             />
             <h2 className="font-heading text-lg font-bold tracking-tight text-white sm:text-xl">

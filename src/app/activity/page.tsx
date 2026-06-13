@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import Reveal from '@/components/Reveal';
 import { usd } from '@/lib/format';
 import { MOCK_CARDS } from '@/lib/mock/cards';
@@ -56,8 +57,13 @@ function Actor({ name }: { name: string }) {
       className="inline-flex items-center gap-1.5 text-white/80 hover:text-white hover:underline"
     >
       {u && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={u.pfp} alt="" className="h-5 w-5 rounded-full object-cover" />
+        <Image
+          src={u.pfp}
+          alt=""
+          width={20}
+          height={20}
+          className="h-5 w-5 rounded-full object-cover"
+        />
       )}
       <span className="max-w-[120px] truncate">{name}</span>
     </Link>
@@ -70,11 +76,12 @@ export default function ActivityPage() {
       {/* Hero */}
       <Reveal as="header" className="py-10 text-center sm:py-14">
         <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center [perspective:600px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/3dicons/activity-coin.webp"
             alt=""
             aria-hidden
+            width={80}
+            height={80}
             className="h-20 w-20 object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] [animation:coinSpin_3.5s_linear_infinite] motion-reduce:[animation:none]"
           />
         </div>
@@ -125,10 +132,11 @@ export default function ActivityPage() {
                     href={`/card/${row.card.id}`}
                     className="flex items-center gap-2.5 hover:underline"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={row.card.image}
                       alt=""
+                      width={28}
+                      height={40}
                       className="h-10 w-7 shrink-0 rounded object-contain"
                     />
                     <span className="max-w-[260px] truncate text-white/85">

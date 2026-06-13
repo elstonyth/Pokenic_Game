@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { features } from "@/lib/features";
 import {
   Vault,
   ShieldCheck,
@@ -143,12 +144,14 @@ export default function HowItWorksPage() {
               >
                 Start Opening Packs
               </Link>
-              <a
-                href="/marketplace"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-7 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-white/10"
-              >
-                Browse Marketplace
-              </a>
+              {features.marketplace && (
+                <a
+                  href="/marketplace"
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-7 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-white/10"
+                >
+                  Browse Marketplace
+                </a>
+              )}
             </Reveal>
           </div>
           {/* pack fan slides/scales in — matches the live site: a center Trainer pack

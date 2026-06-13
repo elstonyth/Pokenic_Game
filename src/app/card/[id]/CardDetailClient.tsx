@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Reveal from "@/components/Reveal";
+import { features } from "@/lib/features";
 import { usd, num } from "@/lib/format";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { openAuth } from "@/components/AuthButton";
@@ -62,10 +63,11 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
   return (
     <div className="mx-auto w-full px-fluid py-4">
       <Link
-        href="/marketplace"
+        href={features.marketplace ? "/marketplace" : "/claw"}
         className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-white/55 transition-colors hover:text-white"
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden /> Marketplace
+        <ArrowLeft className="h-4 w-4" aria-hidden />{" "}
+        {features.marketplace ? "Marketplace" : "Packs"}
       </Link>
 
       <section className="grid gap-8 md:grid-cols-[0.9fr_1.1fr]">

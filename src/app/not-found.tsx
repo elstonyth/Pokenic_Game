@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Press_Start_2P } from "next/font/google";
+import { features } from "@/lib/features";
 
 // Clone of the live custom 404 (wave-2 audit: captured on /lucky-draw, which
 // 404s on live — shots in docs/research/audit/shots/lucky-draw/live-*.png):
@@ -58,7 +59,9 @@ export default function NotFound() {
           </p>
         </div>
         <div className="mt-3 flex items-center justify-between px-1 pb-1">
-          <span className={`${pixel.className} text-[8px] leading-none text-neutral-500`}>
+          <span
+            className={`${pixel.className} text-[8px] leading-none text-neutral-500`}
+          >
             CERT
           </span>
           <span className="font-mono text-[10px] leading-none tracking-[0.3em] text-neutral-600">
@@ -77,10 +80,10 @@ export default function NotFound() {
 
       <div className="mt-7 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row sm:justify-center">
         <Link
-          href="/marketplace"
+          href={features.marketplace ? "/marketplace" : "/claw"}
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1aa87a] to-green-500 px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:w-auto"
         >
-          Back to marketplace
+          {features.marketplace ? "Back to marketplace" : "Back to packs"}
           <ArrowRight className="h-4 w-4" aria-hidden />
         </Link>
         <Link

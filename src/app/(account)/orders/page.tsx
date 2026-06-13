@@ -4,6 +4,7 @@ import { Package } from "lucide-react";
 import type { HttpTypes } from "@medusajs/types";
 import { AccountHeader, MockTable, Badge, Panel } from "@/components/account/ui";
 import { getOrders } from "@/lib/data/customer";
+import { features } from "@/lib/features";
 
 export const metadata: Metadata = { title: "Orders | Pokenic" };
 
@@ -79,10 +80,10 @@ function EmptyState() {
         will show up here.
       </p>
       <Link
-        href="/marketplace"
+        href={features.marketplace ? "/marketplace" : "/claw"}
         className="mt-1 inline-flex h-10 items-center rounded-xl bg-neutral-200 px-5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-white"
       >
-        Browse the marketplace
+        {features.marketplace ? "Browse the marketplace" : "Open a pack"}
       </Link>
     </Panel>
   );

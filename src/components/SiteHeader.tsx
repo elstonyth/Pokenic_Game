@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { features } from '@/lib/features';
 import AuthModal from './AuthModal';
 import { openAuth } from './AuthButton';
 import { useAuth } from './auth/AuthProvider';
@@ -31,12 +32,26 @@ type NavItem = {
   href: string;
   icon: LucideIcon;
   badge?: string;
+  /** Render as a non-clickable, dimmed "coming soon" tab instead of a link. */
+  disabled?: boolean;
 };
 
+// Built from feature flags: Marketplace tab is omitted entirely while hidden, and
+// Pack Party collapses to a non-clickable "Coming Soon" tab. Flip the env vars
+// (see src/lib/features.ts) to restore the real links.
 const NAV_ITEMS: NavItem[] = [
   { label: 'Packs', href: '/claw', icon: Layers, badge: 'NEW' },
-  { label: 'Pack Party', href: '/pack-party', icon: PartyPopper },
-  { label: 'Marketplace', href: '/marketplace', icon: Store },
+  features.packParty
+    ? { label: 'Pack Party', href: '/pack-party', icon: PartyPopper }
+    : {
+        label: 'Coming Soon',
+        href: '/pack-party',
+        icon: PartyPopper,
+        disabled: true,
+      },
+  ...(features.marketplace
+    ? [{ label: 'Marketplace', href: '/marketplace', icon: Store } as NavItem]
+    : []),
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];
 
@@ -77,9 +92,11 @@ export default function SiteHeader() {
   useEffect(() => {
     if (!moreOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+      if (moreRef.current && !moreRef.current.contains(e.target as Node))
+        setMoreOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMoreOpen(false);
+    const onKey = (e: KeyboardEvent) =>
+      e.key === 'Escape' && setMoreOpen(false);
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -106,7 +123,11 @@ export default function SiteHeader() {
               <Menu className="h-5 w-5" aria-hidden />
             )}
           </button>
-          <Link href="/" className="flex shrink-0 items-center" aria-label="Pokenic home">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center"
+            aria-label="Pokenic home"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={LOGO_SRC}
@@ -120,6 +141,18 @@ export default function SiteHeader() {
           <nav className="hidden items-center gap-0.5 lg:flex">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
+              if (item.disabled) {
+                return (
+                  <span
+                    key={item.label}
+                    aria-disabled="true"
+                    className="flex h-10 cursor-not-allowed items-center gap-2 rounded-lg px-3 text-[13px] font-medium text-neutral-500"
+                  >
+                    <Icon className="h-4 w-4 text-neutral-600" aria-hidden />
+                    {item.label}
+                  </span>
+                );
+              }
               return (
                 <a
                   key={item.label}
@@ -143,7 +176,10 @@ export default function SiteHeader() {
                 <Sparkles className="h-4 w-4 text-neutral-400" aria-hidden />
                 More
                 <ChevronDown
-                  className={cn('h-4 w-4 transition-transform duration-200', moreOpen && 'rotate-180')}
+                  className={cn(
+                    'h-4 w-4 transition-transform duration-200',
+                    moreOpen && 'rotate-180',
+                  )}
                   aria-hidden
                 />
               </button>
@@ -162,7 +198,10 @@ export default function SiteHeader() {
                         onClick={() => setMoreOpen(false)}
                         className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-200 transition-colors duration-150 hover:bg-white/5 hover:text-white"
                       >
-                        <Icon className="h-4 w-4 text-neutral-400" aria-hidden />
+                        <Icon
+                          className="h-4 w-4 text-neutral-400"
+                          aria-hidden
+                        />
                         {item.label}
                       </Link>
                     );
@@ -229,6 +268,18 @@ export default function SiteHeader() {
         <nav className="flex flex-col gap-1 border-t border-neutral-800 pt-3">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
+            if (item.disabled) {
+              return (
+                <span
+                  key={item.label}
+                  aria-disabled="true"
+                  className="flex h-11 cursor-not-allowed items-center gap-2 rounded-lg px-3 text-sm font-medium text-neutral-500"
+                >
+                  <Icon className="h-4 w-4 text-neutral-600" aria-hidden />
+                  {item.label}
+                </span>
+              );
+            }
             return (
               <a
                 key={item.label}
@@ -252,7 +303,10 @@ export default function SiteHeader() {
               More
             </span>
             <ChevronDown
-              className={cn('h-4 w-4 transition-transform duration-200', mobileMoreOpen && 'rotate-180')}
+              className={cn(
+                'h-4 w-4 transition-transform duration-200',
+                mobileMoreOpen && 'rotate-180',
+              )}
               aria-hidden
             />
           </button>
@@ -311,7 +365,10 @@ export default function SiteHeader() {
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
-                  onClick={() => { setMenuOpen(false); openAuth('login'); }}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openAuth('login');
+                  }}
                   className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white/5 px-4 text-sm font-medium text-neutral-50 transition-all duration-200 hover:bg-white/10"
                 >
                   <LogIn className="h-4 w-4" aria-hidden />
@@ -319,7 +376,10 @@ export default function SiteHeader() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setMenuOpen(false); openAuth('signup'); }}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openAuth('signup');
+                  }}
                   className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-gradient-to-r from-white/90 via-white to-white/90 px-5 text-sm font-medium text-black transition-all duration-300 hover:opacity-90"
                 >
                   Sign Up

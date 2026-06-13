@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { features } from "@/lib/features";
 
 const LOGO_SRC = "/branding/pokenic-logo.png";
 
@@ -11,7 +12,10 @@ type FooterLink = { label: string; href: string };
 
 const QUICK_LINKS: FooterLink[] = [
   { label: "Home", href: "/" },
-  { label: "Marketplace", href: "/marketplace" },
+  // Marketplace is hidden behind a feature flag — omit the link while it 404s.
+  ...(features.marketplace
+    ? [{ label: "Marketplace", href: "/marketplace" }]
+    : []),
   { label: "Play the Claw", href: "/claw" },
   { label: "Leaderboard", href: "/leaderboard" },
 ];

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Library, ArrowUpRight } from "lucide-react";
 import Reveal from "@/components/Reveal";
+import { features } from "@/lib/features";
 
 export const metadata: Metadata = {
   title: "Series — Pokenic",
@@ -36,7 +37,7 @@ export default function SeriesPage() {
         {SERIES.map((s, i) => (
           <Reveal key={s.name} delay={Math.min(i, 8) * 60} className="h-full">
             <Link
-              href="/marketplace"
+              href={features.marketplace ? "/marketplace" : "/claw"}
               aria-label={`${s.name} — ${s.count}`}
               className="group relative flex h-full items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06]">
               <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-950">

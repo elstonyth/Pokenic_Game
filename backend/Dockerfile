@@ -36,11 +36,13 @@ COPY apps/admin/package.json ./apps/admin/
 COPY apps/vendor/package.json ./apps/vendor/
 RUN corepack yarn install --immutable
 
-# Backend origin baked into the admin/vendor vite bundles at build time. App
-# Platform passes build-time env as docker build-args; ARG picks it up and ENV
-# exposes it to `yarn build` (the vite configs read process.env.MERCUR_BACKEND_URL).
-# Without this the dashboards ship pointing at localhost:9000 -> blank in prod.
-ARG MERCUR_BACKEND_URL=http://localhost:9000
+# Backend origin baked into the admin/vendor vite bundles at build time (the
+# vite configs read process.env.MERCUR_BACKEND_URL; turbo.json `env` lets it
+# through to the build task). App Platform does NOT reliably pass build-time
+# env as docker build-args, so this default IS the prod value — the Dockerfile
+# is the prod artifact (local dev uses `medusa develop`, not this image).
+# Update this if the backend gets a custom domain.
+ARG MERCUR_BACKEND_URL=https://pokenic-backend-tltfm.ondigitalocean.app
 ENV MERCUR_BACKEND_URL=$MERCUR_BACKEND_URL
 
 # Full source, then build (turbo: medusa build -> packages/api/.medusa,

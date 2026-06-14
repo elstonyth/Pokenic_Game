@@ -134,6 +134,13 @@ module.exports = defineConfig({
           },
         }
       : {}),
+    // Redis-backed sessions (express-session). Without redisUrl Medusa falls
+    // back to an in-memory MemoryStore ("not designed for production" warning —
+    // admin/vendor logins drop on every redeploy and aren't shared across
+    // instances). redisOptions carries the self-signed-CA TLS opt for DO Valkey
+    // (rediss://). Dev (no REDIS_URL) → MemoryStore, which is fine.
+    redisUrl: process.env.REDIS_URL,
+    redisOptions,
     // worker mode splits the deploy: the web instance serves HTTP (server) while
     // a second instance drains the event/workflow queues (worker). DO App
     // Platform sets MEDUSA_WORKER_MODE per component; dev stays 'shared'

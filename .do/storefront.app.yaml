@@ -1,0 +1,35 @@
+# DigitalOcean App Platform spec — pokenic-storefront (Next.js 16).
+#
+# COMMITTED IaC (single source of truth). No secrets here: the backend URL and
+# the publishable key are NEXT_PUBLIC_* (public by design) and are baked at
+# BUILD time, so the backend must already be live before a build.
+#
+#   Validate (no live change):  pwsh scripts/do-apply.ps1 storefront -Validate
+#   Apply (redeploys prod):     pwsh scripts/do-apply.ps1 storefront
+#
+# Edit here first, then apply — do not edit the app in the DO UI (drift).
+name: pokenic-storefront
+region: sgp
+
+services:
+  - name: storefront
+    dockerfile_path: Dockerfile
+    github:
+      repo: elstonyth/Pokenic_Game
+      branch: feat/do-app-platform-deploy
+      deploy_on_push: true
+    http_port: 3000
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    health_check:
+      http_path: /
+    envs:
+      - key: NODE_ENV
+        scope: RUN_AND_BUILD_TIME
+        value: production
+      - key: NEXT_PUBLIC_MEDUSA_BACKEND_URL
+        scope: RUN_AND_BUILD_TIME
+        value: https://pokenic-backend-tltfm.ondigitalocean.app
+      - key: NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+        scope: RUN_AND_BUILD_TIME
+        value: pk_86273b7c12ca5b2fd838bf1c1cf6427dbb6ef41c723d8af1efa20db183517534

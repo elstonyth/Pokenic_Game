@@ -1,0 +1,126 @@
+# Prod-PARITY stack — builds the REAL prod Dockerfiles (backend/Dockerfile +
+# root Dockerfile) against a local self-signed-SSL Postgres + Valkey, with the
+# same env shape as the DO App Platform spec. Run `scripts/preflight.ps1` before
+# pushing: it catches the redis-module / sessions / self-signed-CA / vite-base /
+# blank-dashboard bug classes in ~1 min locally instead of a 5–10 min cloud
+# round-trip. This is NOT the deploy artifact — DO builds from the Dockerfiles.
+#
+#   pwsh scripts/preflight.ps1                 # backend stack only
+#   pwsh scripts/preflight.ps1 -WithStorefront # + storefront
+#   pwsh scripts/preflight.ps1 -Down           # tear down
+#
+# Ports: backend -> host 9000, storefront -> host 4010 (3000/4000 taken locally).
+# pg/redis stay internal (no host port) to avoid clashing with the existing
+# pokenic-postgres / pokenic-redis dev containers.
+name: pokenic-prod-parity
+
+# Shared backend env — mirrors .do/backend.app.yaml (LOCAL test values; the
+# JWT/COOKIE secrets are throwaway and deliberately not "supersecret", which
+# medusa-config rejects in production).
+x-backend-env: &backend-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://medusa:medusa@pg:5432/medusa
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: local-parity-jwt-not-for-prod-0123456789
+  COOKIE_SECRET: local-parity-cookie-not-for-prod-0123456789
+  ADMIN_CORS: http://localhost:9000
+  AUTH_CORS: http://localhost:9000
+  VENDOR_CORS: http://localhost:9000
+  STORE_CORS: http://localhost:4010
+
+services:
+  pg:
+    build:
+      context: .
+      dockerfile: Dockerfile.pg-ssl
+    environment:
+      POSTGRES_USER: medusa
+      POSTGRES_PASSWORD: medusa
+      POSTGRES_DB: medusa
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U medusa -d medusa']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: valkey/valkey:8-alpine
+    command: ['valkey-server', '--save', '', '--appendonly', 'no']
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # The backend image is built ONCE here and reused by migrate + worker (image:
+  # only) — the same build-once / reuse pattern T2 applies on DO via DOCR.
+  backend:
+    image: pokenic-backend-parity:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        # Baked into the admin/vendor dashboards — point them at the local backend.
+        MERCUR_BACKEND_URL: http://localhost:9000
+    environment:
+      <<: *backend-env
+      MEDUSA_WORKER_MODE: server
+    ports:
+      - '9000:9000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(''http://localhost:9000/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # PRE_DEPLOY equivalent: migrate + seed + print the publishable key (idempotent).
+  # Prod runs plain `db:migrate`; locally we seed too so the stack has products.
+  migrate:
+    image: pokenic-backend-parity:latest
+    command: ['corepack', 'yarn', 'deploy:init']
+    environment:
+      <<: *backend-env
+      MEDUSA_WORKER_MODE: server
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: 'no'
+
+  worker:
+    image: pokenic-backend-parity:latest
+    command: ['corepack', 'yarn', 'start']
+    environment:
+      <<: *backend-env
+      MEDUSA_WORKER_MODE: worker
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  storefront:
+    profiles: ['storefront']
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NEXT_PUBLIC_MEDUSA_BACKEND_URL: http://localhost:9000
+        # Placeholder: a real key requires seeding first (read it from the
+        # migrate logs). Pages render; /store calls may 401 with the placeholder.
+        NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: pk_local_parity_placeholder
+    environment:
+      NODE_ENV: production
+    ports:
+      - '4010:3000'
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -48,6 +48,15 @@ COPY . .
 
 ENV NODE_ENV=production
 
+# Public (NEXT_PUBLIC_*) build inputs — baked into the client bundle at build
+# time. Declared as ARGs so the build is reproducible from build-args (local
+# docker-compose.prod.yml) as well as from env (DO App Platform sets these as
+# RUN_AND_BUILD_TIME). Empty default is safe: a real deploy always supplies them.
+ARG NEXT_PUBLIC_MEDUSA_BACKEND_URL
+ARG NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_MEDUSA_BACKEND_URL=$NEXT_PUBLIC_MEDUSA_BACKEND_URL
+ENV NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=$NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.

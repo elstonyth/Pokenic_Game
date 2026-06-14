@@ -1,0 +1,138 @@
+# DigitalOcean App Platform spec — pokenic-backend (Mercur/Medusa).
+#
+# COMMITTED IaC (single source of truth). The 4 secret env values are redacted
+# (placeholder tokens); the real values live in gitignored deploy/.env.deploy
+# and are injected at apply time by scripts/do-apply.ps1. Never put a real
+# secret in this file.
+#
+#   Validate (no live change):  pwsh scripts/do-apply.ps1 backend -Validate
+#   Apply (redeploys prod):     pwsh scripts/do-apply.ps1 backend
+#
+# This file mirrors LIVE steady state. Edit here first, then apply — do not edit
+# the app in the DO UI (that causes drift).
+#
+# Components all build from backend/Dockerfile (build context = backend/):
+#   - service "backend" : Medusa web (API + /dashboard + /seller), MEDUSA_WORKER_MODE=server
+#   - worker  "worker"  : drains event/workflow queues, MEDUSA_WORKER_MODE=worker
+#   - job     "migrate" : PRE_DEPLOY `deploy:migrate-user` (db:migrate + idempotent
+#                         create-admin) — runs every deploy, ensures the admin user
+#                         exists. create-admin.ts checks for an existing user and
+#                         SKIPS (no throw), so re-running is safe and self-healing.
+#                         ADMIN_EMAIL/ADMIN_PASSWORD below feed it.
+name: pokenic-backend
+region: sgp
+
+# App-level envs are inherited by every component below.
+envs:
+  - key: NODE_ENV
+    scope: RUN_AND_BUILD_TIME
+    value: production
+  # Baked into the admin/vendor vite bundles at BUILD time (Dockerfile ARG ->
+  # ENV -> yarn build). Must be this app's own public origin so the dashboards
+  # (served at /dashboard, /seller) call the same backend. Without it they ship
+  # pointing at localhost:9000 -> blank/black dashboard.
+  - key: MERCUR_BACKEND_URL
+    scope: BUILD_TIME
+    value: https://pokenic-backend-tltfm.ondigitalocean.app
+  # Explicit PUBLIC endpoints (not the ${cluster.DATABASE_URL} binding): on an
+  # attached production cluster the binding resolves to the PRIVATE host, which
+  # the app (not in the DB's VPC) can't reach -> KnexTimeoutError. The public
+  # host + the narrow `app:$APP_ID` trusted source is the "Public only" pattern.
+  # No ?sslmode=require in the URL — the framework can't strip it and it would
+  # force strict cert verify, defeating databaseDriverOptions.connection.ssl.
+  - key: DATABASE_URL
+    scope: RUN_TIME
+    type: SECRET
+    value: __SECRET__DATABASE_URL__
+  - key: REDIS_URL
+    scope: RUN_TIME
+    type: SECRET
+    value: __SECRET__REDIS_URL__
+  - key: JWT_SECRET
+    scope: RUN_TIME
+    type: SECRET
+    value: __SECRET__JWT_SECRET__
+  - key: COOKIE_SECRET
+    scope: RUN_TIME
+    type: SECRET
+    value: __SECRET__COOKIE_SECRET__
+  # Super-admin for /dashboard login, created idempotently by the migrate job's
+  # deploy:migrate-user (create-admin.ts). Skipped if the user already exists.
+  - key: ADMIN_EMAIL
+    scope: RUN_TIME
+    value: admin@pokenic.app
+  - key: ADMIN_PASSWORD
+    scope: RUN_TIME
+    type: SECRET
+    value: __SECRET__ADMIN_PASSWORD__
+  # CORS: admin/vendor/auth dashboards live on this app's own origin.
+  # STORE_CORS is the storefront origin.
+  - key: ADMIN_CORS
+    scope: RUN_TIME
+    value: ${APP_URL}
+  - key: AUTH_CORS
+    scope: RUN_TIME
+    value: ${APP_URL}
+  - key: VENDOR_CORS
+    scope: RUN_TIME
+    value: ${APP_URL}
+  - key: STORE_CORS
+    scope: RUN_TIME
+    value: https://pokenic-storefront-ijfiu.ondigitalocean.app
+
+services:
+  - name: backend
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github:
+      repo: elstonyth/Pokenic_Game
+      branch: feat/do-app-platform-deploy
+      deploy_on_push: true
+    http_port: 9000
+    instance_size_slug: basic-xs
+    instance_count: 1
+    health_check:
+      http_path: /health
+    envs:
+      - key: MEDUSA_WORKER_MODE
+        scope: RUN_TIME
+        value: server
+
+workers:
+  - name: worker
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github:
+      repo: elstonyth/Pokenic_Game
+      branch: feat/do-app-platform-deploy
+      deploy_on_push: true
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    run_command: corepack yarn start
+    envs:
+      - key: MEDUSA_WORKER_MODE
+        scope: RUN_TIME
+        value: worker
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github:
+      repo: elstonyth/Pokenic_Game
+      branch: feat/do-app-platform-deploy
+    instance_size_slug: basic-xxs
+    run_command: corepack yarn deploy:migrate-user
+
+databases:
+  - name: pokenic-pg
+    engine: PG
+    production: true
+    cluster_name: pokenic-pg
+  # Valkey is attached with engine REDIS (redis-compatible) — App Platform only
+  # resolves the binding under the REDIS enum. REDIS_URL is set explicitly above.
+  - name: pokenic-valkey
+    engine: REDIS
+    production: true
+    cluster_name: pokenic-valkey

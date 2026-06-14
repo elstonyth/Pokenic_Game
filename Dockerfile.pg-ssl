@@ -1,0 +1,20 @@
+# Local Postgres with a SELF-SIGNED SSL cert — mirrors DO Managed Postgres so
+# the prod-parity stack (docker-compose.prod.yml) exercises the exact TLS path
+# medusa-config takes in production: ssl.rejectUnauthorized=false (encrypted,
+# CA-unverified). Catches the SELF_SIGNED_CERT_IN_CHAIN class locally instead of
+# after a cloud deploy. LOCAL TEST ONLY — never used in the real deploy.
+FROM postgres:16
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends openssl; \
+    rm -rf /var/lib/apt/lists/*; \
+    mkdir -p /etc/ssl/pg; \
+    openssl req -new -x509 -days 3650 -nodes -text \
+      -subj "/CN=localhost" \
+      -out /etc/ssl/pg/server.crt -keyout /etc/ssl/pg/server.key; \
+    chmod 600 /etc/ssl/pg/server.key; \
+    chown postgres:postgres /etc/ssl/pg/server.crt /etc/ssl/pg/server.key
+CMD ["postgres", \
+     "-c", "ssl=on", \
+     "-c", "ssl_cert_file=/etc/ssl/pg/server.crt", \
+     "-c", "ssl_key_file=/etc/ssl/pg/server.key"]

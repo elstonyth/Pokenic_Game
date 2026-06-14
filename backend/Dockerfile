@@ -36,6 +36,13 @@ COPY apps/admin/package.json ./apps/admin/
 COPY apps/vendor/package.json ./apps/vendor/
 RUN corepack yarn install --immutable
 
+# Backend origin baked into the admin/vendor vite bundles at build time. App
+# Platform passes build-time env as docker build-args; ARG picks it up and ENV
+# exposes it to `yarn build` (the vite configs read process.env.MERCUR_BACKEND_URL).
+# Without this the dashboards ship pointing at localhost:9000 -> blank in prod.
+ARG MERCUR_BACKEND_URL=http://localhost:9000
+ENV MERCUR_BACKEND_URL=$MERCUR_BACKEND_URL
+
 # Full source, then build (turbo: medusa build -> packages/api/.medusa,
 # vite build -> apps/{admin,vendor}/dist). No DB/Redis needed at build time.
 COPY . .

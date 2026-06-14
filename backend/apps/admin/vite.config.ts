@@ -12,6 +12,12 @@ const BACKEND_URL = process.env.MERCUR_BACKEND_URL || 'http://localhost:9000';
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
+  // Served under /dashboard by the admin-ui module, so assets must resolve to
+  // /dashboard/assets/* — without this, vite emits /assets/* (root) and the
+  // SPA's JS/CSS 404 (blank dashboard). The mercurDashboardPlugin is supposed
+  // to derive this from medusa-config but its loader fails in the prod build,
+  // so set it explicitly.
+  base: '/dashboard/',
   server: { port: 7000 },
   plugins: [
     react(),

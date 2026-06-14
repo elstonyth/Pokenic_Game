@@ -78,7 +78,11 @@ const redisModules = process.env.REDIS_URL
       },
       {
         resolve: '@medusajs/medusa/workflow-engine-redis',
-        options: { redisUrl: process.env.REDIS_URL, redisOptions },
+        // ODD ONE OUT: this loader destructures from `options.redis` (nested),
+        // unlike cache/event-bus/locking which read redisUrl/redisOptions at the
+        // top level. Top-level here throws "Cannot destructure property 'url' of
+        // options.redis (undefined)". Keep redisUrl + redisOptions NESTED.
+        options: { redis: { redisUrl: process.env.REDIS_URL, redisOptions } },
       },
       {
         resolve: '@medusajs/medusa/locking',

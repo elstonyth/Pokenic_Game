@@ -178,7 +178,15 @@ module.exports = defineConfig({
     {
       // Custom gacha Packs module — Phase 4 ships the Pack catalog model; the
       // gacha internals (odds/pulls) land in Phase 5. See src/modules/packs.
-      resolve: './src/modules/packs',
+      // ABSOLUTE path (not './…'): Medusa resolves a module `resolve` string
+      // against process.cwd(). A relative path therefore breaks when this config
+      // is loaded from a DIFFERENT cwd — notably the admin/vendor vite build,
+      // where mercurDashboardPlugin's loadMedusaConfig() require()s this file
+      // from apps/{admin,vendor}; './src/modules/packs' resolves to
+      // apps/*/src/modules/packs → not found → the plugin SILENTLY catches it
+      // and drops pluginExtensions (and base). __dirname keeps it resolvable
+      // from any cwd. See docs/pokenic-do-deploy-handoff.md §8.
+      resolve: path.join(__dirname, 'src/modules/packs'),
     },
     {
       resolve: '@mercurjs/core/modules/admin-ui',

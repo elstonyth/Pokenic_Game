@@ -10,6 +10,19 @@ import { mercurDashboardPlugin } from '@mercurjs/dashboard-sdk';
 // calls localhost from the user's browser → blank/black dashboard.
 const BACKEND_URL = process.env.MERCUR_BACKEND_URL || 'http://localhost:9000';
 
+// mercurDashboardPlugin bakes the SPA's React Router basename into `__BASE__`,
+// derived from medusa-config's admin_ui.options.path. Its loader
+// (loadMedusaConfig) SILENTLY catches a failure in the prod Docker build and
+// returns no base, so `__BASE__` falls back to "/" → the SPA renders its own
+// 404 ("There is no page at this address") when served at /dashboard/ (assets
+// still resolve via `base` below). Force `__BASE__` to the real mount path,
+// independent of that loader. Must run AFTER mercurDashboardPlugin so this
+// `define` wins the config merge. See docs/pokenic-do-deploy-handoff.md.
+const forceBasename = (basename: string) => ({
+  name: 'pokenic:force-dashboard-basename',
+  config: () => ({ define: { __BASE__: JSON.stringify(basename) } }),
+});
+
 // https://vite.dev/config/
 export default defineConfig(() => ({
   // Served under /dashboard by the admin-ui module, so assets must resolve to
@@ -25,5 +38,6 @@ export default defineConfig(() => ({
       medusaConfigPath: '../../packages/api/medusa-config.ts',
       backendUrl: BACKEND_URL,
     }),
+    forceBasename('/dashboard'),
   ],
 }));

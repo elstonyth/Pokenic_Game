@@ -182,3 +182,18 @@ comes, add the index OUT-OF-BAND against prod (`CREATE INDEX CONCURRENTLY` via a
 manual psql/`doctl` session, outside the Medusa migration runner, in a low-write
 window) and declare it in the model `.indexes()` with the SAME name so a later
 `db:generate` sees no drift and won't try to recreate it.
+
+### Integration HTTP specs "fail" with `Error: Connection is closed` — BullMQ/ioredis teardown flake, NOT your code
+On this machine, `test:integration:http` specs that exercise a workflow which
+touches the event bus / Redis (e.g. `pack-open-charge.spec.ts` "buyback refills",
+`vault-buyback`, `customer-gacha`, `economy`) intermittently report the test as
+FAILED with a repeated unhandled `Error: Connection is closed` from
+`bullmq/src/classes/redis-connection.ts` — and NO `expect`/assertion mismatch in
+the output. The assertions actually PASS; jest (`--runInBand`) just marks the test
+red because BullMQ throws on a closed ioredis connection during teardown. Restarting
+`pokenic-redis` does NOT fix it. To confirm it's environmental and not a regression:
+`git stash` your change and rerun the same spec — it fails IDENTICALLY on the
+baseline (same test, same 10s timing, same connection error). Trust the unit tier
+(`test:unit`) + a baseline-identical integration run; don't chase the connection
+error as a bug in the code under test. (Seen 2026-06-15 across T3/T5/T7 of the
+arch-deepening refactor — all proven baseline-identical.)

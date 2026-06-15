@@ -1,4 +1,4 @@
-import { Migration } from "@mikro-orm/migrations";
+import { Migration } from "@medusajs/framework/mikro-orm/migrations";
 
 // Adds five partial (WHERE deleted_at IS NULL) indexes on the packs-module hot
 // read columns: the per-customer balance / vault / profile reads, the global

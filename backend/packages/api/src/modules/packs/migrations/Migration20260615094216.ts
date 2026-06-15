@@ -14,7 +14,8 @@ export class Migration20260615094216 extends Migration {
   }
 
   override async down(): Promise<void> {
-    // Lossy by nature: integer truncates any cents written while decimal.
+    // Lossy by nature: any cents written while decimal are rounded to the
+    // nearest dollar (round(), not truncation) when price goes back to integer.
     this.addSql(`ALTER TABLE "pack" DROP COLUMN IF EXISTS "raw_price";`);
     this.addSql(`ALTER TABLE "pack" ALTER COLUMN "price" TYPE integer USING (round("price")::integer);`);
   }

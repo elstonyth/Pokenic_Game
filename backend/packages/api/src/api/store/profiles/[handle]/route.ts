@@ -76,7 +76,7 @@ export async function GET(
   >;
   for (const p of pulls) {
     const card = cardByHandle.get(p.card_id);
-    volume += card ? Number(card.market_value) : 0;
+    volume += card ? toMoney(card.market_value) : 0;
     points += (priceBySlug.get(p.pack_id) ?? 0) * 100;
     byRarity[rarityOf(p.pack_id, p.card_id)] += 1;
   }
@@ -100,7 +100,7 @@ export async function GET(
             set: card.set,
             grader: card.grader,
             grade: card.grade,
-            market_value: Number(card.market_value),
+            market_value: toMoney(card.market_value),
             image: card.image,
           },
         },

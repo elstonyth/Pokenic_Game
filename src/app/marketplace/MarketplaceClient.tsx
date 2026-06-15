@@ -4,6 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import {
+  PEDESTAL_BG,
+  PEDESTAL_FRAME_HOVER,
+  PEDESTAL_IMAGE,
+} from '@/components/card-pedestal';
 import Reveal from '@/components/Reveal';
 import {
   Filter,
@@ -193,12 +198,17 @@ function MarketCard({ card }: { card: MarketplaceCard }) {
     <article
       className={cn(
         'group/card h-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-800',
-        'transition-all duration-300 ease-out',
-        'hover:-translate-y-1 hover:border-white/20 hover:shadow-xl hover:shadow-black/40',
+        PEDESTAL_FRAME_HOVER,
+        'hover:border-white/20',
       )}
     >
       {/* Image area on a dark radial pedestal */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
+      <div
+        className={cn(
+          'relative aspect-[3/4] w-full overflow-hidden',
+          PEDESTAL_BG,
+        )}
+      >
         {/* +pts badge, top-left */}
         <span className="absolute left-2 top-2 z-10 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
           +{card.points}pts
@@ -221,7 +231,7 @@ function MarketCard({ card }: { card: MarketplaceCard }) {
             alt={card.title}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-            className="object-contain p-3 transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"
+            className={cn(PEDESTAL_IMAGE, 'p-3')}
           />
         </Link>
       </div>

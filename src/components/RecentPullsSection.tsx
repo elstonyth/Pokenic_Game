@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import {
+  PEDESTAL_BG,
+  PEDESTAL_FRAME_HOVER,
+  PEDESTAL_IMAGE,
+} from '@/components/card-pedestal';
 import type { RecentPull } from '@/lib/data/packs';
 
 // Helper to build the real phygitals CDN card-image URL (localized webp).
@@ -95,13 +100,18 @@ function PullCard({ pull }: { pull: RecentPull }) {
       className={cn(
         'group/card w-[240px] shrink-0 overflow-hidden rounded-2xl',
         'border border-neutral-700 bg-neutral-800',
-        'transition-all duration-300 ease-out',
-        'hover:-translate-y-1 hover:border-neutral-500 hover:shadow-xl hover:shadow-black/40',
+        PEDESTAL_FRAME_HOVER,
+        'hover:border-neutral-500',
       )}
     >
       <div className="flex flex-col">
         {/* Card image on a dark pedestal / spotlight backdrop */}
-        <div className="relative aspect-square w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
+        <div
+          className={cn(
+            'relative aspect-square w-full overflow-hidden',
+            PEDESTAL_BG,
+          )}
+        >
           {/* Xm ago badge, top-right */}
           <span className="absolute right-2 top-2 z-10 rounded-full border border-white/10 bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
             {pull.agoLabel}
@@ -111,7 +121,7 @@ function PullCard({ pull }: { pull: RecentPull }) {
             alt={pull.name}
             fill
             sizes="(max-width: 640px) 60vw, (max-width: 1024px) 30vw, 238px"
-            className="object-contain p-4 transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"
+            className={cn(PEDESTAL_IMAGE, 'p-4')}
           />
         </div>
 

@@ -16,8 +16,14 @@
 
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
-import { isRarity, formatValue } from '@/lib/packs-format';
+import { formatValue } from '@/lib/packs-format';
 import { money } from '@/lib/format';
+import {
+  parseList,
+  PackRowSchema,
+  OddsEntrySchema,
+  RecentPullSchema,
+} from '@/lib/data/schemas';
 import {
   CATEGORIES as MOCK_CATEGORIES,
   findPack,
@@ -74,10 +80,10 @@ export async function getPackCategories(): Promise<PackCategory[]> {
     // not a runtime guard, so a renamed/absent field can't silently render
     // "$NaN" or a category-less pack.
     const byCategory = new Map<string, Pack[]>();
-    for (const p of packs) {
-      if (!p || typeof p.category !== 'string' || !Number.isFinite(p.price)) {
-        continue;
-      }
+    for (const p of parseList(
+      PackRowSchema,
+      packs,
+    ) as unknown as BackendPack[]) {
       const list = byCategory.get(p.category) ?? [];
       list.push(toPack(p));
       byCategory.set(p.category, list);
@@ -181,13 +187,10 @@ export async function getPackDetail(slug: string): Promise<PackDetail | null> {
 
     // The fetch generic is a type assertion, not a runtime guard — drop rows
     // with an unknown rarity or non-finite value so the UI can't render NaN.
-    const valid = odds.filter(
-      (o) =>
-        o &&
-        typeof o.handle === 'string' &&
-        isRarity(o.rarity) &&
-        Number.isFinite(o.market_value),
-    );
+    const valid = parseList(
+      OddsEntrySchema,
+      odds,
+    ) as unknown as BackendOddsEntry[];
     if (valid.length === 0) return null;
 
     const pool: PackCard[] = [...valid]
@@ -263,28 +266,21 @@ export async function getRecentPulls(): Promise<RecentPull[]> {
     );
     if (!Array.isArray(pulls)) return [];
 
-    return pulls
-      .filter(
-        (p) =>
-          p &&
-          typeof p.handle === 'string' &&
-          typeof p.name === 'string' &&
-          isRarity(p.rarity) &&
-          Number.isFinite(p.market_value),
-      )
-      .map((p, i) => {
-        const pack = findPack(p.pack_id);
-        return {
-          id: `${p.handle}-${p.rolled_at}-${i}`,
-          name: p.name,
-          image: p.image,
-          value: formatValue(p.market_value),
-          rarity: p.rarity as Rarity,
-          packName: pack?.name ?? 'Mystery Pack',
-          packIcon: pack?.image ?? FALLBACK_PACK_ICON,
-          agoLabel: relativeTime(p.rolled_at),
-        };
-      });
+    return (
+      parseList(RecentPullSchema, pulls) as unknown as BackendRecentPull[]
+    ).map((p, i) => {
+      const pack = findPack(p.pack_id);
+      return {
+        id: `${p.handle}-${p.rolled_at}-${i}`,
+        name: p.name,
+        image: p.image,
+        value: formatValue(p.market_value),
+        rarity: p.rarity as Rarity,
+        packName: pack?.name ?? 'Mystery Pack',
+        packIcon: pack?.image ?? FALLBACK_PACK_ICON,
+        agoLabel: relativeTime(p.rolled_at),
+      };
+    });
   } catch (error) {
     logger.error('[packs] failed to load recent pulls:', error);
     return [];

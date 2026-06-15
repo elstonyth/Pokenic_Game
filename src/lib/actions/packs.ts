@@ -12,9 +12,10 @@
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
 import { getAuthToken } from '@/lib/data/customer';
-import { isRarity, formatValue } from '@/lib/packs-format';
+import { formatValue } from '@/lib/packs-format';
 import type { Rarity } from '@/app/claw/packs-data';
 import { friendlyError, type ErrorRule } from '@/lib/errors';
+import { parseOne, WonCardSchema, OpenBuybackSchema } from '@/lib/data/schemas';
 
 // The won card, shaped for the roulette reveal (same fields as a mock PackCard).
 export type WonCard = {
@@ -101,38 +102,28 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
 
     // The fetch generic is a type assertion, not a runtime guard — validate the
     // shape so a renamed field can't render "$NaN" / an undefined rarity ring.
-    if (
-      !card ||
-      typeof card.handle !== 'string' ||
-      typeof card.name !== 'string' ||
-      !isRarity(card.rarity) ||
-      !Number.isFinite(card.market_value)
-    ) {
+    const wonCard = parseOne(WonCardSchema, card);
+    if (!wonCard) {
       return {
         ok: false,
         error: 'Got an unexpected response. Please try again.',
       };
     }
 
+    const offer = parseOne(OpenBuybackSchema, buyback);
+
     return {
       ok: true,
       card: {
-        id: card.handle,
-        name: card.name,
+        id: wonCard.handle,
+        name: wonCard.name,
         image: card.image,
-        value: formatValue(card.market_value),
-        rarity: card.rarity,
+        value: formatValue(wonCard.market_value),
+        rarity: wonCard.rarity as Rarity,
       },
       pullId: typeof pull?.id === 'string' ? pull.id : null,
-      marketValue: card.market_value,
-      buyback:
-        buyback &&
-        typeof buyback.percent === 'number' &&
-        Number.isFinite(buyback.percent) &&
-        typeof buyback.amount === 'number' &&
-        Number.isFinite(buyback.amount)
-          ? { percent: buyback.percent, amount: buyback.amount }
-          : null,
+      marketValue: wonCard.market_value,
+      buyback: offer ? { percent: offer.percent, amount: offer.amount } : null,
       balance:
         typeof balance === 'number' && Number.isFinite(balance)
           ? balance

@@ -1,6 +1,11 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import PacksModuleService from "../../../../modules/packs/service";
-import { PACKS_MODULE } from "../../../../modules/packs";
+import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import PacksModuleService from '../../../../modules/packs/service';
+import { PACKS_MODULE } from '../../../../modules/packs';
+import {
+  cardByHandle,
+  makeRarityOf,
+} from '../../../../modules/packs/card-view';
+import { toMoney } from '../../../../modules/packs/money';
 
 // GET /store/pulls/recent — the most recent pulls across all packs, for the
 // "Recent Pulls" live feed on /claw/[slug]. A plain publishable-key-scoped store
@@ -11,20 +16,20 @@ const RECENT_LIMIT = 12;
 
 export async function GET(
   req: MedusaRequest,
-  res: MedusaResponse
+  res: MedusaResponse,
 ): Promise<void> {
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
 
   const pulls = await packs.listPulls(
     {},
-    { order: { rolled_at: "DESC" }, take: RECENT_LIMIT }
+    { order: { rolled_at: 'DESC' }, take: RECENT_LIMIT },
   );
 
   const handles = [...new Set(pulls.map((p) => p.card_id))];
   const cards = handles.length
     ? await packs.listCards({ handle: handles }, { take: handles.length })
     : [];
-  const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
+  const byHandle = cardByHandle(cards);
 
   // Rarity is PER-PACK (PackOdds) — join each pull to its (pack, card) odds row.
   // Pulls whose odds row was since removed fall back to Common rather than
@@ -32,20 +37,18 @@ export async function GET(
   const oddsRows = handles.length
     ? await packs.listPackOdds({ card_id: handles }, { take: 1000 })
     : [];
-  const rarityByPair = new Map(
-    oddsRows.map((o) => [`${o.pack_id} ${o.card_id}`, o.rarity])
-  );
+  const rarityOf = makeRarityOf(oddsRows);
 
   const recent = pulls
     .map((p) => {
-      const card = cardByHandle.get(p.card_id);
+      const card = byHandle.get(p.card_id);
       if (!card) return null;
       return {
         handle: card.handle,
         name: card.name,
-        rarity: rarityByPair.get(`${p.pack_id} ${p.card_id}`) ?? "Common",
+        rarity: rarityOf(p.pack_id, p.card_id),
         // market_value is a BigNumber — normalize to a JSON number (USD decimal).
-        market_value: Number(card.market_value),
+        market_value: toMoney(card.market_value),
         image: card.image,
         // pack the card came from (= Pack.slug) — for the feed's pack label.
         // Still NO customer_id: the feed stays PII-free.

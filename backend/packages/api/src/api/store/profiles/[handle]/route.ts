@@ -1,9 +1,11 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { MedusaError, Modules } from "@medusajs/framework/utils";
-import PacksModuleService from "../../../../modules/packs/service";
-import { PACKS_MODULE } from "../../../../modules/packs";
-import { HANDLE_RE, seedOf } from "../../../../utils/profile-handle";
-import { findCustomerByHandle } from "../../../../utils/customer-by-handle";
+import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import { MedusaError, Modules } from '@medusajs/framework/utils';
+import PacksModuleService from '../../../../modules/packs/service';
+import { PACKS_MODULE } from '../../../../modules/packs';
+import { HANDLE_RE, seedOf } from '../../../../utils/profile-handle';
+import { findCustomerByHandle } from '../../../../utils/customer-by-handle';
+import { makeRarityOf } from '../../../../modules/packs/card-view';
+import { toMoney } from '../../../../modules/packs/money';
 
 // GET /store/profiles/:handle — PUBLIC profile page data (Task B). A plain
 // publishable-key store route (read-only, no workflow), same posture as
@@ -16,7 +18,7 @@ import { findCustomerByHandle } from "../../../../utils/customer-by-handle";
 const RECENT_N = 12;
 const MAX_PULLS = 20_000; // same aggregation cap as the leaderboard
 
-const RARITIES = ["Legendary", "Epic", "Rare", "Uncommon", "Common"] as const;
+const RARITIES = ['Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'] as const;
 type Rarity = (typeof RARITIES)[number];
 
 export async function GET(
@@ -26,20 +28,20 @@ export async function GET(
   const handle = req.params.handle;
   // Malformed params resolve like unknown ones — a 404, never a 500 (and the
   // regex gate keeps junk out of the JSONB lookup).
-  if (typeof handle !== "string" || !HANDLE_RE.test(handle)) {
-    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Profile not found");
+  if (typeof handle !== 'string' || !HANDLE_RE.test(handle)) {
+    throw new MedusaError(MedusaError.Types.NOT_FOUND, 'Profile not found');
   }
 
   const customers = req.scope.resolve(Modules.CUSTOMER);
   const customer = await findCustomerByHandle(customers, handle);
   if (!customer) {
-    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Profile not found");
+    throw new MedusaError(MedusaError.Types.NOT_FOUND, 'Profile not found');
   }
 
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const pulls = await packs.listPulls(
     { customer_id: customer.id },
-    { take: MAX_PULLS, order: { rolled_at: "DESC" } },
+    { take: MAX_PULLS, order: { rolled_at: 'DESC' } },
   );
 
   // Lookup tables, leaderboard-style: card display/value by handle, pack
@@ -62,11 +64,7 @@ export async function GET(
 
   const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
   const priceBySlug = new Map(packRows.map((p) => [p.slug, p.price]));
-  const rarityByPair = new Map(
-    odds.map((o) => [`${o.pack_id}|${o.card_id}`, o.rarity as Rarity]),
-  );
-  const rarityOf = (packId: string, cardId: string): Rarity =>
-    rarityByPair.get(`${packId}|${cardId}`) ?? "Common";
+  const rarityOf = makeRarityOf(odds) as (p: string, c: string) => Rarity;
 
   // Stats over the full pull history (same formulas as the leaderboard:
   // volume = Σ won-card FMV, points = Σ pack price × 100).
@@ -111,7 +109,7 @@ export async function GET(
     .slice(0, RECENT_N);
 
   const seed = seedOf(customer.id);
-  const first = (customer.first_name || "").trim();
+  const first = (customer.first_name || '').trim();
 
   res.json({
     handle,

@@ -150,3 +150,24 @@ IDX_credit_transaction_customer_id_created_at` (proves the index is valid and
 - `db:generate` could fold in unrelated snapshot drift — mitigated by reading the
   full emitted migration before applying; abort if it touches anything outside
   these models.
+
+## Implementation outcome (2026-06-15)
+
+Shipped in four commits on `master`: `64d65c8` (indexes), `53d5d97` (price
+decimal), `dba077a` (migration import + rollback-comment tidy), `c50c0f8`
+(public-route shaping).
+
+Two findings corrected the "no route/workflow code changes" assumption above:
+
+1. **`db:generate` snapshot drift.** The index migration also re-emitted the
+   `credit_transaction_reason_check` constraint (a prior `adjustment` enum value
+   was never re-snapshotted). It was a verified no-op against the live DB, but
+   the regenerated `down()` initially dropped a value; the migration was rewritten
+   to be index-only (the constraint is owned by `Migration20260612190000`).
+
+2. **`bigNumber` leaks a `raw_price` sidecar.** `pack.price` still serializes as a
+   JSON **number** (so `formatPrice` / `Number.isFinite` consumers are unaffected —
+   the "string" risk did not materialise, verified via live response). But the two
+   public store routes (`store/packs`, `store/packs/[slug]`) spread the raw pack
+   object and so began leaking the internal `raw_price` jsonb. Fixed by giving them
+   explicit public DTOs (matching `admin/packs`). No `Number()` coercion was needed.

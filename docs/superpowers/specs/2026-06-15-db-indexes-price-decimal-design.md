@@ -103,14 +103,18 @@ generated migration must therefore:
 3. `UPDATE pack SET raw_price = jsonb_build_object('value', price::text, 'precision', 20);` _(hand-added backfill — the generator emits DDL only; without this the 8 existing rows violate the NOT NULL add and money reads return null)_
 4. `ALTER TABLE pack ALTER COLUMN raw_price SET NOT NULL;`
 
-Down migration reverses (drop `raw_price`, `ALTER COLUMN price TYPE integer USING price::integer`) — lossy by nature (truncates any future cents); documented in the migration.
+Down migration reverses (drop `raw_price`, `ALTER COLUMN price TYPE integer USING round(price)::integer`) — lossy by nature (Postgres rounds any future cents to the nearest dollar on the numeric→integer cast, which is also how the original integer column behaved); documented in the migration.
 
 ### 3. Generation & files
 
 Edit the four model files, then run `corepack yarn medusa db:generate packs`
 from `backend/packages/api`. Inspect the single emitted migration; hand-add the
-step-2/3/4 ordering + backfill for price. No route or workflow code changes —
-`Number(pack.price)` reads identically off a numeric column.
+step-2/3/4 ordering + backfill for price. No route or workflow *logic* changes —
+`Number(pack.price)` reads identically off a numeric column. **Caveat (see
+Implementation outcome below):** the two public store routes (`store/packs`,
+`store/packs/[slug]`) did need explicit DTOs so the bigNumber `raw_price` jsonb
+sidecar isn't leaked into public responses — anyone re-applying this must keep
+that fix.
 
 **Files touched:**
 

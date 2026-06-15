@@ -237,7 +237,8 @@ export class Migration<tsB> extends Migration {
   }
 
   override async down(): Promise<void> {
-    // Lossy by nature: integer truncates any cents written while decimal.
+    // Lossy by nature: Postgres rounds any cents to the nearest dollar on the
+    // numeric->integer cast when price reverts to int4 (the original type).
     this.addSql(`ALTER TABLE "pack" DROP COLUMN IF EXISTS "raw_price";`);
     this.addSql(`ALTER TABLE "pack" ALTER COLUMN "price" TYPE integer USING (round("price")::integer);`);
   }

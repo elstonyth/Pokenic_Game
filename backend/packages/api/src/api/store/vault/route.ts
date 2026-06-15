@@ -1,13 +1,19 @@
 import {
   AuthenticatedMedusaRequest,
   MedusaResponse,
-} from "@medusajs/framework/http";
-import PacksModuleService from "../../../modules/packs/service";
-import { PACKS_MODULE } from "../../../modules/packs";
+} from '@medusajs/framework/http';
+import PacksModuleService from '../../../modules/packs/service';
+import { PACKS_MODULE } from '../../../modules/packs';
 import {
   buybackAmount,
   resolveBuybackRate,
-} from "../../../modules/packs/buyback-rate";
+} from '../../../modules/packs/buyback-rate';
+import {
+  cardByHandle,
+  makeRarityOf,
+  toCardView,
+} from '../../../modules/packs/card-view';
+import { toMoney } from '../../../modules/packs/money';
 
 // GET /store/vault — the authenticated customer's vault: every pull still held
 // (status "vaulted"), newest first, with a LIVE buyback offer per item: current
@@ -22,14 +28,14 @@ const VAULT_LIMIT = 500;
 
 export async function GET(
   req: AuthenticatedMedusaRequest,
-  res: MedusaResponse
+  res: MedusaResponse,
 ): Promise<void> {
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerId = req.auth_context.actor_id;
 
   const pulls = await packs.listPulls(
-    { customer_id: customerId, status: "vaulted" },
-    { order: { rolled_at: "DESC" }, take: VAULT_LIMIT }
+    { customer_id: customerId, status: 'vaulted' },
+    { order: { rolled_at: 'DESC' }, take: VAULT_LIMIT },
   );
 
   const handles = [...new Set(pulls.map((p) => p.card_id))];
@@ -47,39 +53,24 @@ export async function GET(
       : Promise.resolve([]),
   ]);
 
-  const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
+  const byHandle = cardByHandle(cards);
   const packBySlug = new Map(packRows.map((p) => [p.slug, p]));
-  // Rarity is per-pack (PackOdds) — join on the pull's (pack, card) pair.
-  const rarityByPair = new Map(
-    oddsRows.map((o) => [`${o.pack_id} ${o.card_id}`, o.rarity])
-  );
+  const rarityOf = makeRarityOf(oddsRows);
 
   const items = pulls
     .map((p) => {
-      const card = cardByHandle.get(p.card_id);
-      if (!card) return null; // card unregistered since — cannot value/display
-      // Corrupt FMV → no offer can be quoted; drop the row like a missing card
-      // (the buyback workflow refuses these too, so quote and credit agree).
-      if (!Number.isFinite(Number(card.market_value))) return null;
+      const card = byHandle.get(p.card_id);
+      if (!card) return null;
+      const marketValue = toMoney(card.market_value);
+      if (!Number.isFinite(marketValue)) return null;
       const pack = packBySlug.get(p.pack_id);
       const { percent, rate_type } = resolveBuybackRate(pack, p.rolled_at);
-      const marketValue = Number(card.market_value);
-
       return {
         pull_id: p.id,
         rolled_at: p.rolled_at,
         pack_id: p.pack_id,
         pack_title: pack?.title ?? p.pack_id,
-        card: {
-          handle: card.handle,
-          name: card.name,
-          set: card.set,
-          grader: card.grader,
-          grade: card.grade,
-          rarity: rarityByPair.get(`${p.pack_id} ${p.card_id}`) ?? "Common",
-          market_value: marketValue,
-          image: card.image,
-        },
+        card: toCardView(card, rarityOf(p.pack_id, p.card_id)),
         buyback: {
           percent,
           amount: buybackAmount(marketValue, percent),

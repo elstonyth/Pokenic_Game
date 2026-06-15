@@ -1,6 +1,8 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import PacksModuleService from "../../../../modules/packs/service";
-import { PACKS_MODULE } from "../../../../modules/packs";
+import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import PacksModuleService from '../../../../modules/packs/service';
+import { PACKS_MODULE } from '../../../../modules/packs';
+import { cardByHandle, toCardView } from '../../../../modules/packs/card-view';
+import { toMoney } from '../../../../modules/packs/money';
 
 // GET /store/packs/:slug — one active pack plus its prize pool (each odds row
 // joined to the referenced Card), behind /claw/[slug]'s Top Hits. A plain Medusa
@@ -16,14 +18,15 @@ import { PACKS_MODULE } from "../../../../modules/packs";
 // display fields (incl. market_value, which drives Top Hits) are exposed here.
 export async function GET(
   req: MedusaRequest,
-  res: MedusaResponse
+  res: MedusaResponse,
 ): Promise<void> {
-  const packsModuleService: PacksModuleService = req.scope.resolve(PACKS_MODULE);
+  const packsModuleService: PacksModuleService =
+    req.scope.resolve(PACKS_MODULE);
   const { slug } = req.params;
 
   const [pack] = await packsModuleService.listPacks(
-    { slug, status: "active" },
-    { take: 1 }
+    { slug, status: 'active' },
+    { take: 1 },
   );
   if (!pack) {
     res.status(404).json({ message: `Pack '${slug}' not found` });
@@ -33,37 +36,25 @@ export async function GET(
   const odds = await packsModuleService.listPackOdds(
     { pack_id: slug },
     // Explicit take so a framework default can't silently cap the prize pool.
-    { take: 1000 }
+    { take: 1000 },
   );
 
   const cardHandles = odds.map((o) => o.card_id);
   const cards = cardHandles.length
     ? await packsModuleService.listCards(
         { handle: cardHandles },
-        { take: cardHandles.length }
+        { take: cardHandles.length },
       )
     : [];
-  const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
+  const byHandle = cardByHandle(cards);
 
   // Join each odds row to its card; drop orphaned odds whose card is missing.
-  // rarity comes from the odds row — the card's tier IN THIS PACK.
+  // rarity comes from the odds row — the card's tier IN THIS PACK. o.weight
+  // (the secret win rate) is intentionally NOT included.
   const entries = odds
     .map((o) => {
-      const card = cardByHandle.get(o.card_id);
-      if (!card) return null;
-      return {
-        handle: card.handle,
-        name: card.name,
-        set: card.set,
-        grader: card.grader,
-        grade: card.grade,
-        rarity: o.rarity,
-        // market_value is a BigNumber (numeric column) — normalize to a JSON
-        // number; it's a USD decimal, never cents.
-        market_value: Number(card.market_value),
-        image: card.image,
-        // NOTE: o.weight (the secret win rate) is intentionally NOT included.
-      };
+      const card = byHandle.get(o.card_id);
+      return card ? toCardView(card, o.rarity) : null;
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
 
@@ -74,7 +65,7 @@ export async function GET(
       slug: pack.slug,
       title: pack.title,
       category: pack.category,
-      price: pack.price,
+      price: toMoney(pack.price),
       image: pack.image,
       boost: pack.boost,
       buyback_percent: pack.buyback_percent,

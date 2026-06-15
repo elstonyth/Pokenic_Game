@@ -1323,4 +1323,52 @@ export default async function seedDemoData({ container }: ExecArgs) {
     );
   }
   logger.info("Finished seeding demo gacha activity.");
+
+  // ---------------------------------------------------------------------------
+  // Convenience test login — ONE loginable customer (emailpass) so every
+  // environment shares the same dev credentials (no need to remember per-env
+  // logins). Unlike the demo collectors above (display-only, no password), this
+  // one registers an emailpass auth identity linked to the customer, so it can
+  // actually sign in on the storefront. Idempotent: skips if the customer email
+  // already exists. Env-overridable; defaults to the shared dev login.
+  // ---------------------------------------------------------------------------
+  logger.info("Seeding test customer login...");
+  const TEST_EMAIL = process.env.TEST_CUSTOMER_EMAIL || "test@pokenic.app";
+  const TEST_PASSWORD =
+    process.env.TEST_CUSTOMER_PASSWORD || "PokenicTest123!";
+  const authModuleService = container.resolve(Modules.AUTH);
+
+  const [existingTestCustomer] = await customerModuleService.listCustomers({
+    email: TEST_EMAIL,
+  });
+  if (existingTestCustomer) {
+    logger.info(`Test customer ${TEST_EMAIL} already exists, skipping.`);
+  } else {
+    const { authIdentity, error } = await authModuleService.register(
+      "emailpass",
+      { body: { email: TEST_EMAIL, password: TEST_PASSWORD } },
+    );
+    if (error || !authIdentity) {
+      logger.warn(`Test customer auth register failed: ${error}`);
+    } else {
+      const [testCustomer] = await customerModuleService.createCustomers([
+        { email: TEST_EMAIL, first_name: "tester" },
+      ]);
+      // Public profile handle (Task B) so /store/profiles/:handle resolves.
+      await customerModuleService.updateCustomers(testCustomer.id, {
+        metadata: { handle: deriveHandle("tester", testCustomer.id) },
+      });
+      // Link the auth identity to the customer (actor_type customer) — mirrors
+      // create-admin.ts's user_id linkage. Without this the login resolves no
+      // actor and /store/customers/me returns nothing.
+      await authModuleService.updateAuthIdentities({
+        id: authIdentity.id,
+        app_metadata: { customer_id: testCustomer.id },
+      });
+      logger.info(
+        `Seeded test customer ${TEST_EMAIL} (${testCustomer.id}).`,
+      );
+    }
+  }
+  logger.info("Finished seeding test customer login.");
 }

@@ -1,4 +1,4 @@
-import { MedusaService } from "@medusajs/framework/utils";
+import { MedusaService, MedusaError } from "@medusajs/framework/utils";
 import Pack from "./models/pack";
 import Card from "./models/card";
 import PackOdds from "./models/pack-odds";
@@ -7,6 +7,7 @@ import CreditTransaction from "./models/credit-transaction";
 import {
   resolveBuybackRate,
   buybackAmount,
+  instantDeadlineMs,
   type BuybackRate,
 } from "./buyback-rate";
 import {
@@ -37,12 +38,12 @@ class PacksModuleService extends MedusaService({
   // resolveBuybackRate re-query the open route did inline.
   async quoteBuyback(
     packSlug: string,
-    rolledAt: Date | string,
+    pull: { rolled_at: Date | string; revealed_at?: Date | string | null },
     marketValue: number,
     nowMs: number = Date.now()
   ): Promise<{ percent: number; amount: number; rate_type: BuybackRate["rate_type"] }> {
     const [pack] = await this.listPacks({ slug: packSlug }, { take: 1 });
-    const { percent, rate_type } = resolveBuybackRate(pack, rolledAt, nowMs);
+    const { percent, rate_type } = resolveBuybackRate(pack, pull, nowMs);
     return { percent, amount: buybackAmount(marketValue, percent), rate_type };
   }
 
@@ -77,6 +78,31 @@ class PacksModuleService extends MedusaService({
   // unchanged.
   async creditBalance(customerId: string): Promise<number> {
     return (await this.creditSummary(customerId)).balance;
+  }
+
+  // Stamp the first-seen time for a pull so the 30s instant window counts from
+  // the reveal, not the pull. Idempotent: only the first call writes revealed_at;
+  // later calls return the same deadline. Ownership enforced (a foreign/unknown
+  // pull 404s — same error, no existence leak). The grace cap in instantDeadlineMs
+  // means a late first call can't extend the window.
+  async revealPull(
+    pullId: string,
+    customerId: string,
+    nowMs: number = Date.now()
+  ): Promise<{ instant_deadline_ms: number }> {
+    const [pull] = await this.listPulls({ id: pullId }, { take: 1 });
+    if (!pull || pull.customer_id !== customerId) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Pull '${pullId}' not found.`
+      );
+    }
+    let revealedAt = pull.revealed_at as Date | null;
+    if (revealedAt == null) {
+      revealedAt = new Date(nowMs);
+      await this.updatePulls([{ id: pull.id, revealed_at: revealedAt }]);
+    }
+    return { instant_deadline_ms: instantDeadlineMs(pull.rolled_at, revealedAt) };
   }
 }
 

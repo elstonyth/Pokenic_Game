@@ -81,7 +81,10 @@ export const buybackPullStep = createStep(
     // spot"), the flat rate after — decided HERE from rolled_at, never by the
     // caller, so the better rate can't be claimed late via the raw API.
     const [pack] = await packs.listPacks({ slug: pull.pack_id }, { take: 1 });
-    const { percent, rate_type } = resolveBuybackRate(pack, pull.rolled_at);
+    const { percent, rate_type } = resolveBuybackRate(pack, {
+      rolled_at: pull.rolled_at,
+      revealed_at: pull.revealed_at,
+    });
 
     // A money amount must never be computed from a corrupt FMV — refuse rather
     // than credit NaN/garbage (the column is NOT NULL numeric, so this only

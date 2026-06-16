@@ -64,7 +64,10 @@ export async function GET(
       const marketValue = toMoney(card.market_value);
       if (!Number.isFinite(marketValue)) return null;
       const pack = packBySlug.get(p.pack_id);
-      const { percent, rate_type } = resolveBuybackRate(pack, p.rolled_at);
+      const { percent, rate_type } = resolveBuybackRate(pack, {
+        rolled_at: p.rolled_at,
+        revealed_at: p.revealed_at,
+      });
       return {
         pull_id: p.id,
         rolled_at: p.rolled_at,

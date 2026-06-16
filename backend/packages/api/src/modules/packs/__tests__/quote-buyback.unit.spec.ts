@@ -11,7 +11,7 @@ function fakePacks(pack: unknown) {
 describe("quoteBuyback", () => {
   it("quotes the instant offer for a fresh pull", async () => {
     const packs = fakePacks({ slug: "p1", buyback_percent: 99 });
-    const q = await packs.quoteBuyback("p1", new Date(NOW - 1000), 0.15, NOW);
+    const q = await packs.quoteBuyback("p1", { rolled_at: new Date(NOW - 1000) }, 0.15, NOW);
     expect(q).toEqual({
       percent: 99,
       amount: Math.round((Math.round(0.15 * 100) * 99) / 100) / 100,
@@ -20,7 +20,7 @@ describe("quoteBuyback", () => {
   });
   it("flat-floors the rate when the pack is gone (still inside the window)", async () => {
     const packs = fakePacks(null);
-    const q = await packs.quoteBuyback("gone", new Date(NOW - 1000), 1, NOW);
+    const q = await packs.quoteBuyback("gone", { rolled_at: new Date(NOW - 1000) }, 1, NOW);
     expect(q.rate_type).toBe("instant");
     expect(q.amount).toBe(Math.round((100 * q.percent) / 100) / 100);
   });

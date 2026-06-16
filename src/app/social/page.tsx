@@ -2,12 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import {
-  Users,
-  ChevronDown,
-  MessageSquare,
-  ArrowLeftRight,
-} from 'lucide-react';
+import { Users, ChevronDown, ArrowLeftRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
 import { compact } from '@/lib/format';
@@ -84,18 +79,12 @@ export default function SocialPage() {
                   </p>
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="mt-4 grid grid-cols-2 gap-2">
                 <Link
                   href={`/profile/${u.username}`}
                   className="flex h-9 items-center justify-center rounded-lg bg-neutral-200 text-[12px] font-semibold text-neutral-950 transition-colors hover:bg-white"
                 >
                   Profile
-                </Link>
-                <Link
-                  href="/messages"
-                  className="flex h-9 items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/5 text-[12px] font-medium text-white/80 transition-colors hover:bg-white/10"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" aria-hidden /> Message
                 </Link>
                 <button
                   type="button"

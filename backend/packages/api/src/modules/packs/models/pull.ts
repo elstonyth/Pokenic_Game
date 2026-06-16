@@ -16,6 +16,11 @@ export const Pull = model
     card_id: model.text(), // = Card.handle (the won card)
     order_id: model.text().nullable(),
     rolled_at: model.dateTime(),
+    // When the customer first SAW the card at the reveal (the open animation
+    // lags rolled_at). The 30s instant-sell window counts from here, capped at
+    // rolled_at + BUYBACK_REVEAL_GRACE_MS so a delayed ping can't extend it.
+    // Null until the reveal ping stamps it (or for cards never revealed).
+    revealed_at: model.dateTime().nullable(),
     // TRUE only when this pull actually decremented physical stock (pulls at 0
     // stock / untracked products don't). Buyback restores +1 ONLY when set —
     // otherwise repeated 0-stock pull→sell cycles would mint phantom units.

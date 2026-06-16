@@ -31,6 +31,18 @@ describe('timeAgo', () => {
   it('returns an em dash for an invalid ISO string', () => {
     expect(timeAgo('not-a-date', now)).toBe('—');
   });
+  it('returns "1m ago" at exactly 60 seconds', () => {
+    expect(timeAgo(new Date(now - 60_000).toISOString(), now)).toBe('1m ago');
+  });
+  it('returns "1h ago" at exactly 60 minutes', () => {
+    expect(timeAgo(new Date(now - 3_600_000).toISOString(), now)).toBe('1h ago');
+  });
+  it('returns "1d ago" at exactly 24 hours', () => {
+    expect(timeAgo(new Date(now - 86_400_000).toISOString(), now)).toBe('1d ago');
+  });
+  it('clamps a future timestamp to "just now"', () => {
+    expect(timeAgo(new Date(now + 5_000).toISOString(), now)).toBe('just now');
+  });
 });
 
 describe('fmtPct', () => {

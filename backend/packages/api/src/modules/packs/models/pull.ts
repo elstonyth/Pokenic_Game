@@ -27,7 +27,11 @@ export const Pull = model
     stock_earmarked: model.boolean().default(false),
     // Vault lifecycle: every pull starts vaulted; instant buyback (at reveal or
     // later from the vault page) flips it to bought_back and credits the customer.
-    status: model.enum(["vaulted", "bought_back"]).default("vaulted"),
+    // vaulted → delivering (in an active delivery order) → delivered (terminal);
+    // delivering → vaulted on order cancel. bought_back only reachable while vaulted.
+    status: model
+      .enum(["vaulted", "bought_back", "delivering", "delivered"])
+      .default("vaulted"),
     // USD actually credited (decimal, never cents) — a SNAPSHOT taken at buyback
     // time (current FMV × the pack's buyback_percent), kept since FMV moves.
     buyback_amount: model.bigNumber().nullable(),

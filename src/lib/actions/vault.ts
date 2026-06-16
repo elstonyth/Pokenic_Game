@@ -22,6 +22,8 @@ import {
   VaultItemSchema,
   BalanceSchema,
   AmountBalanceSchema,
+  CreditsSchema,
+  CreditTransactionSchema,
 } from '@/lib/data/schemas';
 
 export type VaultItem = {
@@ -195,6 +197,67 @@ export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
     return { ok: true, amount: parsed.amount, balance: parsed.balance };
   } catch (error) {
     logger.error('[vault] top-up failed:', error);
+    return {
+      ok: false,
+      error: friendlyError(error, VAULT_RULES, VAULT_FALLBACK),
+      needsAuth: isAuthError(error),
+    };
+  }
+}
+
+export type CreditTxn = {
+  id: string;
+  amount: number;
+  reason: 'buyback' | 'topup' | 'pack_open' | 'adjustment';
+  createdAt: string;
+};
+
+export type TransactionsResult =
+  | {
+      ok: true;
+      balance: number;
+      topupTotal: number;
+      spendTotal: number;
+      transactions: CreditTxn[];
+    }
+  | { ok: false; error: string; needsAuth?: boolean };
+
+// The credit ledger for the Transactions account page: lifetime totals + the
+// recent rows. The backend caps the row list; the totals are computed over the
+// FULL ledger server-side, so they stay accurate beyond the visible rows.
+export async function getTransactions(): Promise<TransactionsResult> {
+  const token = await getAuthToken();
+  if (!token) {
+    return {
+      ok: false,
+      error: 'Please log in to view your transactions.',
+      needsAuth: true,
+    };
+  }
+  try {
+    const raw = await sdk.client.fetch('/store/credits', {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    const totals = parseOne(CreditsSchema, raw);
+    const rows = parseList(
+      CreditTransactionSchema,
+      (raw as { transactions?: unknown }).transactions,
+    );
+    return {
+      ok: true,
+      balance: totals?.balance ?? 0,
+      topupTotal: totals?.topup_total ?? 0,
+      spendTotal: totals?.spend_total ?? 0,
+      transactions: rows.map((r) => ({
+        id: r.id,
+        amount: r.amount,
+        reason: r.reason,
+        createdAt: r.created_at,
+      })),
+    };
+  } catch (error) {
+    logger.error('[credits] transactions load failed:', error);
     return {
       ok: false,
       error: friendlyError(error, VAULT_RULES, VAULT_FALLBACK),

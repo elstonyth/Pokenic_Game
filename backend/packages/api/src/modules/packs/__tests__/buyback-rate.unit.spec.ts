@@ -105,6 +105,21 @@ describe("buybackAmount", () => {
     expect(buybackAmount(2.45, 90)).toBe(2.21);
     expect(buybackAmount(0.05, 90)).toBe(0.05);
   });
+
+  it("returns whole cents within half a cent of the exact product, across the input space", () => {
+    // Implementation-independent contract (NOT the formula restated): every
+    // result is a whole number of cents, and never further than half a cent
+    // from the mathematically exact FMV × percent.
+    for (let cents = 0; cents <= 5000; cents += 7) {
+      const fmv = cents / 100;
+      for (const pct of [90, 92, 95, 100]) {
+        const result = buybackAmount(fmv, pct);
+        const resultCents = result * 100;
+        expect(Math.abs(resultCents - Math.round(resultCents))).toBeLessThan(1e-9);
+        expect(Math.abs(result - (fmv * pct) / 100)).toBeLessThanOrEqual(0.005 + 1e-9);
+      }
+    }
+  });
 });
 
 describe("instantWindowMs", () => {

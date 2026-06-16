@@ -18,8 +18,8 @@ export async function GET(
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerId = req.auth_context.actor_id;
 
-  const [balance, transactions] = await Promise.all([
-    packs.creditBalance(customerId),
+  const [summary, transactions] = await Promise.all([
+    packs.creditSummary(customerId),
     packs.listCreditTransactions(
       { customer_id: customerId },
       { order: { created_at: "DESC" }, take: RECENT_TRANSACTIONS }
@@ -27,7 +27,9 @@ export async function GET(
   ]);
 
   res.json({
-    balance,
+    balance: summary.balance,
+    topup_total: summary.topupTotal,
+    spend_total: summary.spendTotal,
     transactions: transactions.map((t) => ({
       id: t.id,
       amount: Number(t.amount),

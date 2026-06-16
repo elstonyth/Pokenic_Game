@@ -85,9 +85,10 @@ to: **Messages, Borrow/Lend, PokéCoin, Accelerate Claim**.
 - UI:
   - Summary cards: **Current balance · Total topped up · Total spent**.
   - Table: date · type label (`Top-up +`, `Pack open −`, `Sell-back +`,
-    `Adjustment ±`) · signed amount · running balance.
-  - A small pure util maps `reason → {label, sign}` and computes running
-    balance — unit-tested (this is the genuine logic in the phase).
+    `Adjustment ±`) · signed amount. (No running-balance column — dropped in
+    review; the totals above + per-row sign cover the need.)
+  - A small pure util maps `reason → {label, sign}` — unit-tested (the genuine
+    logic in the phase).
 
 ### 1.3 Sell-confirmation modal (both sell points) + strict 30s window
 
@@ -140,7 +141,7 @@ component.
   backend — keep that (authoritative).
 
 ### Phase 1 testing
-- Unit: `reason → {label, sign}` + running-balance util; updated
+- Unit: `reason → {label, sign}` label/sign util; updated
   `sell-countdown` tests for deadline-anchored countdown.
 - Playwright: sell modal open/confirm/cancel at vault and reveal; reveal
   post-expiry flat-sell path; transactions page renders ledger.

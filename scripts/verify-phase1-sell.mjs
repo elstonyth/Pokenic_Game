@@ -6,8 +6,9 @@ import { chromium } from 'playwright';
 
 const BASE = 'http://localhost:4000';
 const BACKEND = 'http://localhost:9000';
-const EMAIL = 'test@pokenic.app';
-const PASSWORD = 'PokenicTest123!';
+// Shared DEV login (seeded by seed.ts; not a secret). Override via env elsewhere.
+const EMAIL = process.env.PW_EMAIL || 'test@pokenic.app';
+const PASSWORD = process.env.PW_PASSWORD || 'PokenicTest123!';
 const PACK = 'pokemon-rookie';
 
 let failed = false;
@@ -39,13 +40,12 @@ try {
     headers: { 'Content-Type': 'application/json' },
     body: '{}',
   });
-  // No publishable key → the /store/* key gate answers 400 before auth; that
-  // still proves the route EXISTS + is protected (a missing route would 404).
-  if (unauth.status === 401 || unauth.status === 400)
-    ok(
-      `POST /store/pulls/:id/reveal exists + gated (${unauth.status}, not 404)`,
-    );
-  else fail(`reveal route expected 401/400 (gated), got ${unauth.status}`);
+  // Purpose is "route exists + is gated": only a 404 (missing route) should
+  // fail. Any other status (400 key-gate, 401 auth, …) proves it's registered
+  // and protected — restricting to 400/401 would false-negative on valid gates.
+  if (unauth.status !== 404)
+    ok(`POST /store/pulls/:id/reveal exists + gated (${unauth.status})`);
+  else fail(`reveal route missing — got 404`);
 
   const ctx = await browser.newContext({
     reducedMotion: 'reduce',

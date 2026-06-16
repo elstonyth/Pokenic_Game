@@ -4,6 +4,8 @@
 
 **Goal:** Trim four dead account tabs, turn the mock "Earnings" tab into a real "Transactions" ledger, and add a sell-confirmation modal at both sell points — with the instant-sell window made strict-30s by anchoring it to a server-stamped card-reveal time.
 
+> **Post-review note:** the Transactions running-balance column (and the `withRunningBalance` helper) described below were **dropped during review** — the page ships date · type · signed amount plus the three totals only. Code/test blocks below that build the running balance are superseded; see PR #7.
+
 **Architecture:** Three independent groups. **A** (storefront-only) removes nav entries + routes. **B** (backend service + storefront) exposes lifetime credit totals and renders the existing `/store/credits` ledger. **C** (backend model/route + storefront) adds a `revealed_at` stamp + `POST /store/pulls/:id/reveal` ping so the 30s instant window counts from card-reveal, then wires a shared `SellConfirmModal` into the reveal overlay and the vault grid, including a post-expiry flat-sell affordance.
 
 **Tech Stack:** Next.js 16 (App Router, RSC + server actions), React 19, zod, vitest, Tailwind v4, `@base-ui/react`, lucide-react (storefront); Medusa v2 / Mercur, MikroORM models + migrations, jest (backend).
@@ -32,7 +34,7 @@
 - Modify `backend/packages/api/src/api/store/credits/route.ts` — return lifetime totals.
 - Modify `src/lib/data/schemas.ts` — `CreditsSchema` + `CreditTransactionSchema`.
 - Modify `src/lib/actions/vault.ts` — `getTransactions()` action + types.
-- Create `src/lib/transactions.ts` — `reasonLabel` / `signedUsd` / `withRunningBalance` (pure).
+- Create `src/lib/transactions.ts` — `reasonLabel` / `signedUsd` (pure). _(running-balance helper dropped in review — see note up top.)_
 - Create `src/lib/__tests__/transactions.test.ts`.
 - Rename `src/app/(account)/earnings/` → `src/app/(account)/transactions/`; rewrite `page.tsx`.
 - Modify `src/components/account/AccountSidebar.tsx` — Earnings → Transactions entry.
@@ -58,7 +60,7 @@
 
 ---
 
-# GROUP A — Account Cleanup
+## GROUP A — Account Cleanup
 
 ### Task A1: Remove the four dead nav entries
 
@@ -214,7 +216,7 @@ git commit -m "refactor(account): delete messages/pokecoin/accelerate-claim/borr
 
 - [ ] **Step 1: Serve the standalone build**
 
-```
+```bash
 npm run build
 pwsh scripts/serve-standalone.ps1 -Port 4000   # run in background
 ```
@@ -231,7 +233,7 @@ Expected: Next.js 404 for both.
 
 ---
 
-# GROUP B — Earnings → Transactions
+## GROUP B — Earnings → Transactions
 
 ### Task B1: Pure ledger-fold helpers (backend)
 
@@ -852,7 +854,7 @@ git commit -m "feat(account): real Transactions ledger page (replaces mock Earni
 
 ---
 
-# GROUP C — Sell Confirmation + Strict-30s Reveal Ping
+## GROUP C — Sell Confirmation + Strict-30s Reveal Ping
 
 > Build the backend (C1–C6) before the storefront (C7–C13): the storefront reveal ping and the new buyback payload fields depend on the backend changes.
 

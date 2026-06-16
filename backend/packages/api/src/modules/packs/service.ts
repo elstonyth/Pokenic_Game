@@ -97,12 +97,28 @@ class PacksModuleService extends MedusaService({
         `Pull '${pullId}' not found.`
       );
     }
-    let revealedAt = pull.revealed_at as Date | null;
-    if (revealedAt == null) {
-      revealedAt = new Date(nowMs);
-      await this.updatePulls([{ id: pull.id, revealed_at: revealedAt }]);
+    if (pull.revealed_at == null) {
+      // First-write-wins under concurrent reveals: the FILTERED update only
+      // stamps while revealed_at IS NULL (atomic at the DB), so racing calls
+      // can't shift the anchor. Re-read to return whichever value persisted.
+      await this.updatePulls({
+        selector: { id: pull.id, revealed_at: null },
+        data: { revealed_at: new Date(nowMs) },
+      });
+      const [fresh] = await this.listPulls({ id: pull.id }, { take: 1 });
+      return {
+        instant_deadline_ms: instantDeadlineMs(
+          fresh.rolled_at,
+          fresh.revealed_at,
+        ),
+      };
     }
-    return { instant_deadline_ms: instantDeadlineMs(pull.rolled_at, revealedAt) };
+    return {
+      instant_deadline_ms: instantDeadlineMs(
+        pull.rolled_at,
+        pull.revealed_at,
+      ),
+    };
   }
 }
 

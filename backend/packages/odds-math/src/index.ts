@@ -1,19 +1,26 @@
-// Rarity-weighted odds math — MIRROR of the backend's authoritative copy at
-// packages/api/src/modules/packs/odds-math.ts. The admin form's live preview
-// MUST compute byte-identically to the save workflow, or the preview would lie
-// about what gets persisted. Everything below this header is kept verbatim in
-// lock-step with the API copy.
+// Rarity-weighted odds math — the single source of truth shared by the backend
+// save workflow (authoritative) and the admin win-rate editor's live preview.
+// Pure + dependency-free. Both consumers import this exact module, so the
+// preview can never drift from what gets persisted.
+//
+// Model: each pack's PackOdds weights are normalized to BASIS POINTS that sum to
+// exactly TOTAL_BPS (= 10000 = 100%), so weight/100 reads back as the win %.
+//   - LOCKED cards keep the operator's chosen % verbatim.
+//   - UNLOCKED cards split the leftover (10000 − Σlocked) bps PROPORTIONALLY to
+//     their per-pack rarity weight (see RARITY_WEIGHT), with largest-remainder
+//     rounding (fraction ties broken by lowest card_id) so the total is exactly
+//     10000 regardless of input order.
 
 export const TOTAL_BPS = 10000;
 
 // Per-pack rarity tiers, rarest first. Rarity belongs to the pack↔card link
 // (PackOdds), not the card — the same card can be a different tier per pack.
 export const RARITIES = [
-  "Legendary",
-  "Epic",
-  "Rare",
-  "Uncommon",
-  "Common",
+  'Legendary',
+  'Epic',
+  'Rare',
+  'Uncommon',
+  'Common',
 ] as const;
 
 export type OddsRarity = (typeof RARITIES)[number];
@@ -81,23 +88,19 @@ export function computeOdds(entries: OddsInput[]): OddsResult {
     if (!e.locked) continue;
     const pct = Number(e.pct);
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
-      error ??= "Each locked win rate must be between 0% and 100%.";
+      error ??= 'Each locked win rate must be between 0% and 100%.';
     }
     const bps = clampBps(Math.round((Number.isFinite(pct) ? pct : 0) * 100));
     lockedBpsById.set(e.card_id, bps);
     lockedBpsTotal += bps;
   }
 
-  if (safe.length === 0) error ??= "No cards to configure.";
-  if (lockedBpsTotal > TOTAL_BPS) error ??= "Locked win rates exceed 100%.";
+  if (safe.length === 0) error ??= 'No cards to configure.';
+  if (lockedBpsTotal > TOTAL_BPS) error ??= 'Locked win rates exceed 100%.';
   if (unlocked.length === 0 && lockedBpsTotal !== TOTAL_BPS) {
-    error ??= "With every card locked, win rates must total exactly 100%.";
+    error ??= 'With every card locked, win rates must total exactly 100%.';
   }
 
-  // Split the remainder across the unlocked cards proportionally to their
-  // rarity weight. Largest-remainder rounding; fraction ties broken by lowest
-  // card_id so the result is order-independent (the preview and the save
-  // compute byte-identically).
   const remainder = Math.max(0, TOTAL_BPS - lockedBpsTotal);
   const totalRarityWeight = unlocked.reduce(
     (sum, e) => sum + rarityWeight(e.rarity),
@@ -127,8 +130,8 @@ export function computeOdds(entries: OddsInput[]): OddsResult {
 
   const computed: ComputedOdd[] = safe.map((e) => {
     const weight = e.locked
-      ? lockedBpsById.get(e.card_id) ?? 0
-      : shareById.get(e.card_id) ?? 0;
+      ? (lockedBpsById.get(e.card_id) ?? 0)
+      : (shareById.get(e.card_id) ?? 0);
     return { card_id: e.card_id, weight, locked: e.locked, pct: weight / 100 };
   });
 

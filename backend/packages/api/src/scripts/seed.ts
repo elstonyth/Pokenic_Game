@@ -30,6 +30,7 @@ import PacksModuleService from "../modules/packs/service";
 import { PACKS_MODULE } from "../modules/packs";
 import { buildCardProductInput } from "../modules/packs/card-product";
 import { HANDLE_RE, deriveHandle } from "../utils/profile-handle";
+import { RARITY_WEIGHT, type OddsRarity } from "@acme/odds-math";
 
 const updateStoreCurrencies = createWorkflow(
   "update-store-currencies",
@@ -93,9 +94,11 @@ const CARD_IMG = {
 
 const cardImage = (id: string) => `/cdn/cards/${id}.webp`;
 
-// The 5 gacha rarity tiers. Typing CardSeed.rarity as this union (not string)
-// makes a rarity typo a compile error instead of a silent RARITY_WEIGHT miss.
-type Rarity = "Legendary" | "Epic" | "Rare" | "Uncommon" | "Common";
+// The 5 gacha rarity tiers — aliased to @acme/odds-math's OddsRarity so the seed's
+// tier set and the canonical odds table share one source (a tier rename can't
+// silently desync them). Typing CardSeed.rarity as this union (not string) makes a
+// rarity typo a compile error instead of a silent RARITY_WEIGHT miss.
+type Rarity = OddsRarity;
 
 type CardSeed = {
   handle: string;
@@ -1149,18 +1152,13 @@ export default async function seedDemoData({ container }: ExecArgs) {
     logger.info(`Seeded ${gachaCardsToCreate.length} gacha card(s).`);
   }
 
-  // Relative pull weight per rarity: pull chance = weight / Σ(weights in pack),
-  // so rarer tiers carry less weight. Each pack draws ONLY from cards of its own
-  // category; the catalog is Pokémon-only, so every pack draws the Pokémon pool.
-  // Within a category the rarity weights are identical, so the aggregated
+  // Relative pull weight per rarity — RARITY_WEIGHT is imported from
+  // @acme/odds-math (the same table the live odds engine uses), so seeded stock
+  // weights can't drift from the odds tiers. Pull chance = weight / Σ(weights in
+  // pack), so rarer tiers carry less weight. Each pack draws ONLY from cards of its
+  // own category; the catalog is Pokémon-only, so every pack draws the Pokémon
+  // pool. Within a category the rarity weights are identical, so the aggregated
   // per-rarity odds match across that category's packs.
-  const RARITY_WEIGHT: Record<Rarity, number> = {
-    Legendary: 5,
-    Epic: 45,
-    Rare: 150,
-    Uncommon: 300,
-    Common: 500,
-  };
 
   const existingOdds = await packsModuleService.listPackOdds(
     { pack_id: PACK_SLUGS },

@@ -38,6 +38,16 @@ export default defineConfig(() => ({
   define: {
     __STOREFRONT_URL__: JSON.stringify(process.env.MERCUR_STOREFRONT_URL || ''),
   },
+  // @acme/odds-math ships CJS-only. Because it is a workspace symlink Rollup
+  // resolves it to ../../packages/odds-math/dist/index.js — outside the default
+  // /node_modules/ CJS-plugin scope. Extend the include list to cover it while
+  // keeping the default node_modules coverage so React etc. still work.
+  optimizeDeps: { include: ['@acme/odds-math'] },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/, /packages[\\/]odds-math/],
+    },
+  },
   server: { port: 7000 },
   plugins: [
     react(),

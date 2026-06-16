@@ -1,5 +1,5 @@
-import { client } from "./client";
-import type { ComputedOdd, OddsInput } from "./odds-math";
+import { client } from './client';
+import type { ComputedOdd, OddsInput } from '@acme/odds-math';
 
 // Typed facade for the custom gacha admin routes.
 //
@@ -16,7 +16,7 @@ export interface AdminPack {
   slug: string;
   title: string;
   category: string;
-  status: "active" | "draft";
+  status: 'active' | 'draft';
   rank: number;
   price: number;
   image: string;
@@ -37,7 +37,7 @@ export interface AdminPackWrite {
   buyback_percent: number;
   boost: boolean;
   rank: number;
-  status: "active" | "draft";
+  status: 'active' | 'draft';
 }
 
 // No rarity here — rarity is a per-pack property (PackOdds), edited in each
@@ -107,7 +107,7 @@ export interface PullRow {
   customer_email: string | null;
   pack_id: string;
   /** Vault lifecycle: still held vs instantly sold back. */
-  status: "vaulted" | "bought_back";
+  status: 'vaulted' | 'bought_back';
   /** USD credited at buyback time; null while vaulted. */
   buyback_amount: number | null;
   card: {
@@ -149,7 +149,7 @@ type PacksApi = {
       $slug: {
         query: (input: { $slug: string }) => Promise<{ pack: AdminPack }>;
         mutate: (
-          input: { $slug: string } & AdminPackWrite
+          input: { $slug: string } & AdminPackWrite,
         ) => Promise<{ pack: { slug: string } }>;
         odds: {
           query: (input: { $slug: string }) => Promise<PackOddsResponse>;
@@ -160,10 +160,7 @@ type PacksApi = {
         };
         members: {
           query: (input: { $slug: string }) => Promise<{ members: string[] }>;
-          mutate: (input: {
-            $slug: string;
-            card_ids: string[];
-          }) => Promise<{
+          mutate: (input: { $slug: string; card_ids: string[] }) => Promise<{
             pack_id: string;
             members: string[];
             added: number;
@@ -183,7 +180,7 @@ type PacksApi = {
       $handle: {
         query: (input: { $handle: string }) => Promise<{ card: AdminCard }>;
         mutate: (
-          input: { $handle: string } & AdminCardUpdate
+          input: { $handle: string } & AdminCardUpdate,
         ) => Promise<{ card: { handle: string; productId: string } }>;
       };
     };

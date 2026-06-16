@@ -1,7 +1,7 @@
 // Economy dashboard math — pure functions so the /admin/economy route stays a
 // thin aggregator and the numbers are unit-testable without a container.
-// Integer-cent sums throughout, like credit-balance.ts, so float drift can't
-// skew the operator's money reports.
+// Integer-cent sums throughout, like service.ts creditBalance, so float drift
+// can't skew the operator's money reports.
 
 export type OddsValue = {
   /** Relative win weight (normalized to 10000 bps on save, but the math
@@ -80,10 +80,10 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
   for (const row of rows) {
     if (!Number.isFinite(row.amount)) continue;
     const cents = Math.round(row.amount * 100);
-    if (row.reason === "pack_open") openCents += cents;
-    else if (row.reason === "buyback") buybackCents += cents;
-    else if (row.reason === "topup") topupCents += cents;
-    else if (row.reason === "adjustment") adjustmentCents += cents;
+    if (row.reason === 'pack_open') openCents += cents;
+    else if (row.reason === 'buyback') buybackCents += cents;
+    else if (row.reason === 'topup') topupCents += cents;
+    else if (row.reason === 'adjustment') adjustmentCents += cents;
   }
 
   // Negation, not abs: if the pack_open bucket ever nets positive (a

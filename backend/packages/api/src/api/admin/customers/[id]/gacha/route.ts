@@ -1,11 +1,11 @@
-import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { Modules } from "@medusajs/framework/utils";
-import type { ICustomerModuleService } from "@medusajs/framework/types";
-import { PACKS_MODULE } from "../../../../../modules/packs";
-import type PacksModuleService from "../../../../../modules/packs/service";
-import { creditBalance } from "../../../../../modules/packs/credit-balance";
-import { pageAll } from "../../../../utils/page-all";
-import { toMoney } from "../../../../../modules/packs/money";
+import type { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import { Modules } from '@medusajs/framework/utils';
+import type { ICustomerModuleService } from '@medusajs/framework/types';
+import { PACKS_MODULE } from '../../../../../modules/packs';
+import type PacksModuleService from '../../../../../modules/packs/service';
+import { pageAll } from '../../../../utils/page-all';
+import { toMoney } from '../../../../../modules/packs/money';
+import { cardByHandle } from '../../../../../modules/packs/card-view';
 
 const RECENT = 50;
 
@@ -31,19 +31,19 @@ export async function GET(
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
 
   const [balance, transactions, pulls, vaulted] = await Promise.all([
-    creditBalance(packs, id),
+    packs.creditBalance(id),
     packs.listCreditTransactions(
       { customer_id: id },
-      { order: { created_at: "DESC" }, take: RECENT },
+      { order: { created_at: 'DESC' }, take: RECENT },
     ),
     packs.listPulls(
       { customer_id: id },
-      { order: { rolled_at: "DESC" }, take: RECENT },
+      { order: { rolled_at: 'DESC' }, take: RECENT },
     ),
     // Vault summary scans ALL vaulted pulls (not just the recent slice) so
     // the FMV-owed number is exact at any vault size.
     pageAll((opts) =>
-      packs.listPulls({ customer_id: id, status: "vaulted" }, opts),
+      packs.listPulls({ customer_id: id, status: 'vaulted' }, opts),
     ),
   ]);
 
@@ -52,10 +52,10 @@ export async function GET(
   const cards = handles.length
     ? await packs.listCards({ handle: handles }, { take: handles.length })
     : [];
-  const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
+  const byHandle = cardByHandle(cards);
 
   const vaultValueCents = vaulted.reduce((sum, p) => {
-    const card = cardByHandle.get(p.card_id);
+    const card = byHandle.get(p.card_id);
     const value = card ? toMoney(card.market_value) : 0;
     return sum + (Number.isFinite(value) ? Math.round(value * 100) : 0);
   }, 0);
@@ -76,7 +76,7 @@ export async function GET(
       created_at: t.created_at,
     })),
     pulls: pulls.map((p) => {
-      const card = cardByHandle.get(p.card_id);
+      const card = byHandle.get(p.card_id);
       return {
         id: p.id,
         pack_id: p.pack_id,

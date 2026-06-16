@@ -17,7 +17,7 @@
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
 import { formatValue } from '@/lib/packs-format';
-import { money } from '@/lib/format';
+import { money, relativeTime } from '@/lib/format';
 import {
   parseList,
   PackRowSchema,
@@ -238,19 +238,6 @@ export interface RecentPull {
 
 // Fallback pack label when a pull's pack_id isn't in the static catalog.
 const FALLBACK_PACK_ICON = '/images/claw/rookie-pack-icon.webp';
-
-// rolled_at -> "just now" / "4m ago" / "2h ago" / "3d ago".
-function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return 'just now';
-  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (secs < 60) return 'just now';
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 /**
  * The most recent pulls across all packs, for the /claw/[slug] "Recent Pulls"

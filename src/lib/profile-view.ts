@@ -6,6 +6,7 @@
  */
 import type { MockUser } from '@/lib/mock/users';
 import type { PublicProfile } from '@/lib/data/profiles';
+import { relativeTime } from '@/lib/format';
 
 export interface ProfileViewCard {
   id: string;
@@ -43,20 +44,6 @@ const PFP_COUNT = 81; // public/images/pfps/pfp-1..81.webp
 export const avatarForSeed = (seed: number): string =>
   `/images/pfps/pfp-${(Math.abs(Math.trunc(seed)) % PFP_COUNT) + 1}.webp`;
 
-/** Coarse relative time for the activity feed ("3h ago", "2d ago"). */
-export function timeAgo(iso: string, now: Date = new Date()): string {
-  const ms = now.getTime() - new Date(iso).getTime();
-  if (!Number.isFinite(ms) || ms < 0) return 'just now';
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 365) return `${days}d ago`;
-  return `${Math.floor(days / 365)}y ago`;
-}
-
 /** Join year for "Collecting since {year}" — "—" for an unparsable date. */
 function joinedYear(iso: string): string {
   const year = new Date(iso).getFullYear();
@@ -84,7 +71,7 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     collection: cards,
     activity: profile.recent.map((p, i) => ({
       verb: 'pulled',
-      time: timeAgo(p.rolled_at),
+      time: relativeTime(p.rolled_at),
       card: cards[i],
     })),
   };

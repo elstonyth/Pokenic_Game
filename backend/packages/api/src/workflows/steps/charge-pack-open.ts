@@ -2,7 +2,6 @@ import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
 import { MedusaError } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../modules/packs";
 import type PacksModuleService from "../../modules/packs/service";
-import { creditBalance } from "../../modules/packs/credit-balance";
 import { hasEnoughCredit } from "../../modules/packs/pack-open-charge";
 
 export type ChargePackOpenInput = {
@@ -55,7 +54,7 @@ export const chargePackOpenStep = createStep(
       );
     }
 
-    const balance = await creditBalance(packs, input.customer_id);
+    const balance = await packs.creditBalance(input.customer_id);
     if (!hasEnoughCredit(balance, price)) {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
@@ -82,7 +81,7 @@ export const chargePackOpenStep = createStep(
     ]);
 
     // New balance = paged Σ ledger (append-only; exact at any ledger size).
-    const newBalance = await creditBalance(packs, input.customer_id);
+    const newBalance = await packs.creditBalance(input.customer_id);
 
     return new StepResponse(
       { price, balance: newBalance } satisfies ChargePackOpenResult,

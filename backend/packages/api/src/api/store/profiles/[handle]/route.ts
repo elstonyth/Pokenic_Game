@@ -4,7 +4,10 @@ import PacksModuleService from '../../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../../modules/packs';
 import { HANDLE_RE, seedOf } from '../../../../utils/profile-handle';
 import { findCustomerByHandle } from '../../../../utils/customer-by-handle';
-import { makeRarityOf } from '../../../../modules/packs/card-view';
+import {
+  cardByHandle,
+  makeRarityOf,
+} from '../../../../modules/packs/card-view';
 import { toMoney } from '../../../../modules/packs/money';
 
 // GET /store/profiles/:handle — PUBLIC profile page data (Task B). A plain
@@ -62,7 +65,7 @@ export async function GET(
         )
       : [];
 
-  const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
+  const byHandle = cardByHandle(cards);
   const priceBySlug = new Map(packRows.map((p) => [p.slug, p.price]));
   const rarityOf = makeRarityOf(odds) as (p: string, c: string) => Rarity;
 
@@ -75,7 +78,7 @@ export async function GET(
     number
   >;
   for (const p of pulls) {
-    const card = cardByHandle.get(p.card_id);
+    const card = byHandle.get(p.card_id);
     volume += card ? toMoney(card.market_value) : 0;
     points += (priceBySlug.get(p.pack_id) ?? 0) * 100;
     byRarity[rarityOf(p.pack_id, p.card_id)] += 1;
@@ -87,7 +90,7 @@ export async function GET(
   // the feed.
   const recent = pulls
     .flatMap((p) => {
-      const card = cardByHandle.get(p.card_id);
+      const card = byHandle.get(p.card_id);
       if (!card) return [];
       return [
         {

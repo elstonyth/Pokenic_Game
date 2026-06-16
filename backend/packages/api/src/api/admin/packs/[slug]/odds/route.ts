@@ -1,13 +1,14 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import PacksModuleService from "../../../../../modules/packs/service";
-import { PACKS_MODULE } from "../../../../../modules/packs";
-import { savePackOddsWorkflow } from "../../../../../workflows/save-pack-odds";
+import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import PacksModuleService from '../../../../../modules/packs/service';
+import { PACKS_MODULE } from '../../../../../modules/packs';
+import { savePackOddsWorkflow } from '../../../../../workflows/save-pack-odds';
 import {
   RARITIES,
   type OddsInput,
-} from "../../../../../modules/packs/odds-math";
-import { getCardStockByHandle } from "../../../../../modules/packs/card-stock";
-import { toMoney } from "../../../../../modules/packs/money";
+} from '../../../../../modules/packs/odds-math';
+import { getCardStockByHandle } from '../../../../../modules/packs/card-stock';
+import { toMoney } from '../../../../../modules/packs/money';
+import { cardByHandle } from '../../../../../modules/packs/card-view';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -34,9 +35,10 @@ type OddsRow = {
 // GET /admin/packs/:slug/odds — load the editor state (admin-only, auto-protected).
 export async function GET(
   req: MedusaRequest,
-  res: MedusaResponse
+  res: MedusaResponse,
 ): Promise<void> {
-  const packsModuleService: PacksModuleService = req.scope.resolve(PACKS_MODULE);
+  const packsModuleService: PacksModuleService =
+    req.scope.resolve(PACKS_MODULE);
   const { slug } = req.params;
 
   const [pack] = await packsModuleService.listPacks({ slug }, { take: 1 });
@@ -47,24 +49,24 @@ export async function GET(
 
   const odds = await packsModuleService.listPackOdds(
     { pack_id: slug },
-    { take: 1000 }
+    { take: 1000 },
   );
 
   const handles = odds.map((o) => o.card_id);
   const cards = handles.length
     ? await packsModuleService.listCards(
         { handle: handles },
-        { take: handles.length }
+        { take: handles.length },
       )
     : [];
-  const cardByHandle = new Map(cards.map((c) => [c.handle, c]));
+  const byHandle = cardByHandle(cards);
   const stockByHandle = await getCardStockByHandle(req.scope, handles);
 
   const total = odds.reduce((sum, o) => sum + o.weight, 0) || 1;
 
   const rows: OddsRow[] = [];
   for (const o of odds) {
-    const card = cardByHandle.get(o.card_id);
+    const card = byHandle.get(o.card_id);
     if (!card) continue; // drop odds whose card is missing
     rows.push({
       card_id: card.handle,
@@ -99,36 +101,36 @@ type SaveBody = { entries?: unknown };
 // card-set match) lives in the workflow; here we only coerce the body shape.
 export async function POST(
   req: MedusaRequest,
-  res: MedusaResponse
+  res: MedusaResponse,
 ): Promise<void> {
   const { slug } = req.params;
   const body = (req.body ?? {}) as SaveBody;
 
   if (!Array.isArray(body.entries)) {
-    res.status(400).json({ message: "Body must include an `entries` array." });
+    res.status(400).json({ message: 'Body must include an `entries` array.' });
     return;
   }
 
   // Coerce to the workflow input shape; reject malformed rows up front.
   const entries: OddsInput[] = [];
   for (const raw of body.entries) {
-    if (!raw || typeof raw !== "object") {
-      res.status(400).json({ message: "Each entry must be an object." });
+    if (!raw || typeof raw !== 'object') {
+      res.status(400).json({ message: 'Each entry must be an object.' });
       return;
     }
     const e = raw as Record<string, unknown>;
-    if (typeof e.card_id !== "string" || typeof e.locked !== "boolean") {
-      res
-        .status(400)
-        .json({ message: "Each entry needs a string card_id and boolean locked." });
+    if (typeof e.card_id !== 'string' || typeof e.locked !== 'boolean') {
+      res.status(400).json({
+        message: 'Each entry needs a string card_id and boolean locked.',
+      });
       return;
     }
     if (
-      typeof e.rarity !== "string" ||
+      typeof e.rarity !== 'string' ||
       !(RARITIES as readonly string[]).includes(e.rarity)
     ) {
       res.status(400).json({
-        message: `Each entry needs a rarity (one of: ${RARITIES.join(", ")}).`,
+        message: `Each entry needs a rarity (one of: ${RARITIES.join(', ')}).`,
       });
       return;
     }

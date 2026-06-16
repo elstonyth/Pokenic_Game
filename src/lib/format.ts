@@ -32,3 +32,20 @@ export const compact = (n: number) =>
   n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 
 export const num = (n: number) => n.toLocaleString('en-US');
+
+// Coarse relative time for the activity / recent-pulls feeds ("3h ago",
+// "2d ago"). Future and unparsable dates read as "just now"; `now` is injectable
+// so the cascade is testable without mocking the clock. The single home for what
+// were two drifted copies (data/packs.relativeTime + profile-view.timeAgo).
+export function relativeTime(iso: string, now: Date = new Date()): string {
+  const ms = now.getTime() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return 'just now';
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 365) return `${days}d ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}

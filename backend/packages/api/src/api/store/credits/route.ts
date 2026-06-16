@@ -4,7 +4,6 @@ import {
 } from "@medusajs/framework/http";
 import PacksModuleService from "../../../modules/packs/service";
 import { PACKS_MODULE } from "../../../modules/packs";
-import { creditBalance } from "../../../modules/packs/credit-balance";
 
 // GET /store/credits — the authenticated customer's site-credit balance
 // (paged Σ over the append-only ledger — exact at any size) plus their most
@@ -20,7 +19,7 @@ export async function GET(
   const customerId = req.auth_context.actor_id;
 
   const [balance, transactions] = await Promise.all([
-    creditBalance(packs, customerId),
+    packs.creditBalance(customerId),
     packs.listCreditTransactions(
       { customer_id: customerId },
       { order: { created_at: "DESC" }, take: RECENT_TRANSACTIONS }

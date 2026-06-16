@@ -7,7 +7,6 @@ import {
 import { PACKS_MODULE } from "../../modules/packs";
 import type PacksModuleService from "../../modules/packs/service";
 import { findCardInventoryTarget } from "../../modules/packs/card-stock";
-import { creditBalance } from "../../modules/packs/credit-balance";
 import {
   buybackAmount,
   resolveBuybackRate,
@@ -183,7 +182,7 @@ export const buybackPullStep = createStep(
     }
 
     // New balance = paged Σ ledger (append-only; exact at any ledger size).
-    const balance = await creditBalance(packs, input.customer_id);
+    const balance = await packs.creditBalance(input.customer_id);
 
     const result: BuybackResult = {
       pull_id: pull.id,

@@ -5,9 +5,7 @@ import PacksModuleService from "../service";
 // way a running float sum can.
 //
 // We test PacksModuleService.prototype.creditBalance directly by constructing a
-// prototype-linked object and stubbing listCreditTransactions. The free function
-// in credit-balance.ts is now a thin delegating shim, so this exercises the
-// real logic path for both the method and any caller of the free function.
+// prototype-linked object and stubbing listCreditTransactions.
 
 type Txn = { amount: number | string };
 

@@ -2,7 +2,6 @@ import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
 import { MedusaError } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../modules/packs";
 import type PacksModuleService from "../../modules/packs/service";
-import { creditBalance } from "../../modules/packs/credit-balance";
 import { mockCharge, topUpAmountError } from "../../modules/packs/topup";
 
 export type TopUpCreditsInput = {
@@ -56,7 +55,7 @@ export const topUpCreditsStep = createStep(
     ]);
 
     // New balance = paged Σ ledger (append-only; exact at any ledger size).
-    const balance = await creditBalance(packs, input.customer_id);
+    const balance = await packs.creditBalance(input.customer_id);
 
     const result: TopUpResult = {
       amount,

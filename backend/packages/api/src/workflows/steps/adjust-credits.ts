@@ -2,7 +2,6 @@ import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
 import { MedusaError } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../modules/packs";
 import type PacksModuleService from "../../modules/packs/service";
-import { creditBalance } from "../../modules/packs/credit-balance";
 import {
   adjustAmountError,
   adjustNoteError,
@@ -43,7 +42,7 @@ export const adjustCreditsStep = createStep(
 
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
-    const before = await creditBalance(packs, input.customer_id);
+    const before = await packs.creditBalance(input.customer_id);
     if (amount < 0 && before + amount < -1e-6) {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
@@ -61,7 +60,7 @@ export const adjustCreditsStep = createStep(
       },
     ]);
 
-    const balance = await creditBalance(packs, input.customer_id);
+    const balance = await packs.creditBalance(input.customer_id);
 
     const result: AdjustCreditsResult = { amount, balance };
     return new StepResponse(result, { creditTransactionId: txn.id });

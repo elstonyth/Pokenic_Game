@@ -55,6 +55,14 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
           ),
         );
         setError(res.error);
+      } else {
+        // Align to the server-confirmed state and clear any stale error.
+        setItems((prev) =>
+          prev.map((i) =>
+            i.pullId === item.pullId ? { ...i, showcased: res.showcased } : i,
+          ),
+        );
+        setError(null);
       }
     } catch {
       setItems((prev) =>

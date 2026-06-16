@@ -280,6 +280,10 @@ export async function toggleShowcase(
   if (typeof pullId !== 'string' || pullId.trim() === '') {
     return { ok: false, error: 'Invalid card.' };
   }
+  // Server actions are public endpoints — guard the boolean at the boundary.
+  if (typeof showcased !== 'boolean') {
+    return { ok: false, error: 'Invalid showcase state.' };
+  }
 
   const token = await getAuthToken();
   if (!token) {
@@ -299,6 +303,16 @@ export async function toggleShowcase(
       ),
     );
     if (!parsed) {
+      return {
+        ok: false,
+        error: 'Got an unexpected response. Please try again.',
+      };
+    }
+    // Never act on a response for a different pull (backend bug / misrouting).
+    if (parsed.pull_id !== pullId) {
+      logger.error(
+        `[vault] showcase toggle id mismatch: requested '${pullId}', got '${parsed.pull_id}'`,
+      );
       return {
         ok: false,
         error: 'Got an unexpected response. Please try again.',

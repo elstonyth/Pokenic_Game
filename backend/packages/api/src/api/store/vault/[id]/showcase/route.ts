@@ -33,14 +33,20 @@ export async function POST(
 ): Promise<void> {
   const customerId = req.auth_context.actor_id;
   const pullId = req.params.id;
-  const body = req.body as { showcased?: unknown };
-
-  if (typeof body.showcased !== "boolean") {
+  // Guard the body shape first — an empty / non-JSON body must yield a clean
+  // INVALID_DATA, never a TypeError on a property read of undefined.
+  const body = req.body;
+  if (
+    !body ||
+    typeof body !== "object" ||
+    typeof (body as { showcased?: unknown }).showcased !== "boolean"
+  ) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
       "`showcased` must be a boolean",
     );
   }
+  const showcased = (body as { showcased: boolean }).showcased;
 
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const [pull] = await packs.listPulls({ id: pullId }, { take: 1 });
@@ -59,7 +65,7 @@ export async function POST(
     );
   }
 
-  await packs.updatePulls([{ id: pullId, showcased: body.showcased }]);
+  await packs.updatePulls([{ id: pullId, showcased }]);
 
-  res.json({ pull_id: pullId, showcased: body.showcased });
+  res.json({ pull_id: pullId, showcased });
 }

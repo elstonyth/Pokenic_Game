@@ -49,6 +49,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@acme/odds-math@workspace:packages/odds-math":
+  version: 0.0.0-use.local
+  resolution: "@acme/odds-math@workspace:packages/odds-math"
+  dependencies:
+    "@swc/core": "npm:^1.7.28"
+    "@swc/jest": "npm:^0.2.36"
+    "@types/jest": "npm:^29.5.13"
+    jest: "npm:^29.7.0"
+    typescript: "npm:5.9.3"
+  languageName: unknown
+  linkType: soft
+
 "@acme/vendor@workspace:apps/vendor":
   version: 0.0.0-use.local
   resolution: "@acme/vendor@workspace:apps/vendor"

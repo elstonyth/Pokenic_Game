@@ -160,7 +160,7 @@ component.
 - `GET /store/profiles/:handle` Collection now returns **showcased pulls only**.
   Default-empty until the customer opts in (intended).
 - **Activity feed stays = all recent pulls** (it is activity, not a showcase).
-  Decision flagged at review.
+  Resolved: ungated (see Decisions Made).
 
 ### 2.3 Frontend
 - Vault: per-card "Feature on profile" toggle (star/eye affordance) with a

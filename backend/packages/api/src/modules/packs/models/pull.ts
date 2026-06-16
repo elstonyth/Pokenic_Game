@@ -32,6 +32,8 @@ export const Pull = model
     // time (current FMV × the pack's buyback_percent), kept since FMV moves.
     buyback_amount: model.bigNumber().nullable(),
     buyback_at: model.dateTime().nullable(),
+    // Profile showcase opt-in: customer chose to display this pull publicly.
+    showcased: model.boolean().default(false),
   })
   .indexes([
     // vault + public profile + admin gacha: filter customer_id, order rolled_at.

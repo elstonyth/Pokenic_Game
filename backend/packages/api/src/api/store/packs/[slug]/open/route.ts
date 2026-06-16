@@ -6,6 +6,11 @@ import { openPackWorkflow } from '../../../../../workflows/open-pack';
 import { PACKS_MODULE } from '../../../../../modules/packs';
 import type PacksModuleService from '../../../../../modules/packs/service';
 import { toMoney } from '../../../../../modules/packs/money';
+import {
+  FLAT_PERCENT,
+  buybackAmount,
+  instantDeadlineMs,
+} from '../../../../../modules/packs/buyback-rate';
 
 // POST /store/packs/:slug/open — open a pack: roll a winner over the pack's
 // weighted odds and append the result to the Pull ledger.
@@ -42,10 +47,11 @@ export async function POST(
   // on a 99%-boosted pack. Freshly rolled, so this is inside the instant window
   // (rate_type "instant").
   const packsService = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
+  const marketValue = toMoney(result.card.market_value);
   const buyback = await packsService.quoteBuyback(
     slug,
-    result.pull.rolled_at,
-    toMoney(result.card.market_value),
+    { rolled_at: result.pull.rolled_at, revealed_at: result.pull.revealed_at },
+    marketValue,
   );
 
   // result.card is already a plain, JSON-safe object (normalized in roll-pack);
@@ -56,6 +62,18 @@ export async function POST(
     card: result.card,
     balance: result.balance,
     price: result.price,
-    buyback,
+    buyback: {
+      ...buyback,
+      // The flat rate that applies after the instant window — surfaced so the
+      // reveal can offer a post-expiry "sell at flat" without recomputing.
+      vault_percent: FLAT_PERCENT,
+      vault_amount: buybackAmount(marketValue, FLAT_PERCENT),
+      // Fallback instant deadline (rolled_at + window) for when the reveal ping
+      // fails; the ping returns the authoritative, reveal-anchored deadline.
+      instant_deadline_ms: instantDeadlineMs(
+        result.pull.rolled_at,
+        result.pull.revealed_at,
+      ),
+    },
   });
 }

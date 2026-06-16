@@ -1,14 +1,14 @@
 // Which buyback rate applies to a pull — the single source of truth shared by
-// the buyback workflow (what actually gets credited) and the vault route (the
-// offer shown). The two must agree or the vault would quote one amount and
+// the buyback workflow (what gets credited), the vault route, the reveal route,
+// and the open quote. They must agree or the UI would quote one amount and
 // credit another.
 //
-// Model: a sell-back within the INSTANT WINDOW after the pull gets the pack's
-// instant rate (buyback_percent — the "sell on the spot" offer behind the
-// 30-second keep/sell countdown at the reveal); after the window — i.e. the
-// moment the card sits in the vault/inventory — every sell is at the FLAT
-// rate. Time-based so the better rate can't be claimed later by replaying the
-// reveal's API call.
+// Model: a sell within the INSTANT WINDOW gets the pack's instant rate
+// (buyback_percent — the "sell on the spot" offer behind the 30s keep/sell
+// countdown). The window is 30s from the card REVEAL (revealed_at), capped at
+// rolled_at + GRACE so a delayed reveal ping can't extend it. Before the ping
+// stamps revealed_at (e.g. the open quote, or if the ping fails) it falls back
+// to rolled_at + window. After the window, every sell is at the FLAT rate.
 
 export type BuybackRateType = "instant" | "vault";
 
@@ -18,38 +18,55 @@ export type BuybackRate = {
   rate_type: BuybackRateType;
 };
 
-// The site-wide FLAT buyback rate: applied to every sell from the
-// vault/inventory, and the floor a pack's instant rate must beat (admin
-// validation rejects buyback_percent below it). Also the fallback when the
-// source pack was deleted after the pull.
+// Site-wide flat buyback rate: every vault sell, the floor a pack's instant
+// rate must beat, and the fallback when the source pack was deleted.
 export const FLAT_PERCENT = 90;
 
-// The on-screen keep/sell countdown is 30s, but the server clock starts at
-// rolled_at — before the open-pack animation plays — so the window carries
-// grace for the animation and network on top of the visible 30s.
-const DEFAULT_WINDOW_MS = 90 * 1000;
+// Strict 30s instant window, anchored to revealed_at (see header).
+const DEFAULT_WINDOW_MS = 30 * 1000;
+// Hard ceiling from rolled_at: even a delayed reveal ping cannot push the
+// instant window beyond this, so a client can't sit on the pre-card stages then
+// ping late to start a fresh 30s arbitrarily far from the pull.
+const DEFAULT_REVEAL_GRACE_MS = 5 * 60 * 1000;
 
-// Env-tunable like the rate limits; invalid values fall back, never 0 (a 0ms
-// window would silently kill the instant rate).
-export function instantBuybackWindowMs(): number {
-  const raw = process.env.BUYBACK_INSTANT_WINDOW_MS;
-  if (raw === undefined || raw === "") return DEFAULT_WINDOW_MS;
+// Env-tunable; invalid values fall back, never 0 (a 0ms window would silently
+// kill the instant rate).
+function envMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
   const floored = Math.floor(Number(raw));
-  return Number.isSafeInteger(floored) && floored > 0
-    ? floored
-    : DEFAULT_WINDOW_MS;
+  return Number.isSafeInteger(floored) && floored > 0 ? floored : fallback;
 }
 
-// FMV × percent in INTEGER CENTS. Money here is USD decimals stored to 2dp
-// (Medusa stores prices as-is, never cents), and naive float math misrounds
-// exact half-cents (0.15 × 90 = 13.499999999999998 → 13¢ instead of 14¢).
-// cents × percent is exact integer arithmetic and a true half after /100 is
-// exactly representable in binary, so Math.round always breaks the tie up.
-// (The exactness argument assumes an INTEGER percent — guaranteed today by the
-// integer buyback_percent column + admin validation's Math.trunc, and
-// FLAT_PERCENT is integer. Revisit if fractional rates ever land.)
-// The vault quote and the buyback credit MUST both go through this helper —
-// they have to agree to the cent.
+export const instantWindowMs = (): number =>
+  envMs("BUYBACK_INSTANT_WINDOW_MS", DEFAULT_WINDOW_MS);
+
+export const revealGraceMs = (): number =>
+  envMs("BUYBACK_REVEAL_GRACE_MS", DEFAULT_REVEAL_GRACE_MS);
+
+/**
+ * Epoch ms when the instant rate expires for a pull. Reveal-anchored once the
+ * ping has stamped revealed_at; otherwise rolled_at + window (the open quote,
+ * before reveal, and the safe default if the ping never lands). Always capped at
+ * rolled_at + grace. NaN for an unparsable rolled_at (treated as expired).
+ */
+export function instantDeadlineMs(
+  rolledAt: Date | string,
+  revealedAt: Date | string | null | undefined,
+): number {
+  const rolledMs = new Date(rolledAt).getTime();
+  if (!Number.isFinite(rolledMs)) return NaN;
+  const cap = rolledMs + revealGraceMs();
+  if (revealedAt == null) return Math.min(rolledMs + instantWindowMs(), cap);
+  const revealedMs = new Date(revealedAt).getTime();
+  if (!Number.isFinite(revealedMs)) {
+    return Math.min(rolledMs + instantWindowMs(), cap);
+  }
+  return Math.min(revealedMs + instantWindowMs(), cap);
+}
+
+// FMV × percent in INTEGER CENTS (naive float misrounds exact half-cents). The
+// vault quote and the buyback credit MUST both go through this helper.
 export function buybackAmount(marketValue: number, percent: number): number {
   const cents = Math.round(marketValue * 100);
   return Math.round((cents * percent) / 100) / 100;
@@ -62,18 +79,14 @@ const sanePercent = (value: unknown): number | null => {
 
 export function resolveBuybackRate(
   pack: { buyback_percent: unknown } | undefined | null,
-  rolledAt: Date | string,
-  nowMs: number = Date.now()
+  pull: { rolled_at: Date | string; revealed_at?: Date | string | null },
+  nowMs: number = Date.now(),
 ): BuybackRate {
-  const rolledMs = new Date(rolledAt).getTime();
-  // An unparsable rolled_at counts as outside the window — the flat rate is
-  // the conservative default.
-  const isInstant =
-    Number.isFinite(rolledMs) && nowMs - rolledMs <= instantBuybackWindowMs();
+  const deadline = instantDeadlineMs(pull.rolled_at, pull.revealed_at ?? null);
+  const isInstant = Number.isFinite(deadline) && nowMs <= deadline;
 
-  // Floor the instant rate at flat: admin validation enforces >= flat on
-  // writes, but legacy rows predating that rule must never make selling now
-  // pay less than vaulting would.
+  // Floor the instant rate at flat: legacy rows predating admin validation must
+  // never make selling now pay less than vaulting would.
   const percent = isInstant
     ? Math.max(sanePercent(pack?.buyback_percent) ?? FLAT_PERCENT, FLAT_PERCENT)
     : FLAT_PERCENT;

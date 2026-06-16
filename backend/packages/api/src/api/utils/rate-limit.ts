@@ -436,6 +436,25 @@ export function createVaultBuybackRateLimit(): MiddlewareHandler {
 }
 
 /**
+ * The pull-reveal limiter — scoped per customer. The reveal ping fires once per
+ * pull and is DB-idempotent, so this only throttles hammering. Env-tunable:
+ * PULL_REVEAL_RATE_BURST_LIMIT / PULL_REVEAL_RATE_BURST_WINDOW_MS (20/10s)
+ * PULL_REVEAL_RATE_LIMIT / PULL_REVEAL_RATE_WINDOW_MS (60/60s)
+ */
+export function createPullRevealRateLimit(): MiddlewareHandler {
+  return createEnvRateLimit({
+    name: "pull-reveal",
+    message: "Too many requests.",
+    defaults: {
+      burstLimit: 20,
+      burstWindowMs: 10_000,
+      limit: 60,
+      windowMs: 60_000,
+    },
+  });
+}
+
+/**
  * The credit-topup limiter — same construction as vault-buyback, scoped per
  * customer. Top-ups are gateway-backed writes (mock today), so the budget is
  * tighter than the read limiter but roomy for honest retries. Env-tunable:

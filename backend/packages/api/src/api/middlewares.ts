@@ -12,6 +12,7 @@ import {
   createCreditTopupRateLimit,
   createPackOpenRateLimit,
   createProfileReadRateLimit,
+  createPullRevealRateLimit,
   createStoreReadRateLimit,
   createVaultBuybackRateLimit,
 } from './utils/rate-limit';
@@ -137,6 +138,16 @@ export default defineMiddlewares({
       middlewares: [
         authenticate('customer', ['bearer']),
         createVaultBuybackRateLimit(),
+      ],
+    },
+    {
+      // Reveal ping (POST /store/pulls/:id/reveal) — stamps revealed_at so the
+      // 30s instant window counts from the card reveal.
+      matcher: '/store/pulls/*/reveal',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        createPullRevealRateLimit(),
       ],
     },
     {

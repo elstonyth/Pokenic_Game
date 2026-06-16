@@ -3,16 +3,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Star } from 'lucide-react';
 import { AccountHeader, StatCards } from '@/components/account/ui';
 import { AddCreditsPanel } from '@/components/account/AddCreditsPanel';
 import { usd } from '@/lib/format';
 import {
   sellBackPull,
+  toggleShowcase,
   type VaultItem,
   type VaultResult,
 } from '@/lib/actions/vault';
 import { FLAT_BUYBACK_PERCENT } from '@/app/claw/packs-data';
 import SellConfirmModal from '@/components/SellConfirmModal';
+import { cn } from '@/lib/utils';
 
 // The customer's vault: every pulled card still held, each with a sell-back
 // offer (current FMV × the flat buyback rate — the server quotes the percent).
@@ -29,8 +32,49 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
     initial.ok ? null : initial.error,
   );
   const [confirmItem, setConfirmItem] = useState<VaultItem | null>(null);
+  const [showcasingId, setShowcasingId] = useState<string | null>(null);
 
   const vaultValue = items.reduce((sum, i) => sum + i.card.marketValue, 0);
+
+  async function handleToggleShowcase(item: VaultItem) {
+    if (showcasingId) return;
+    setShowcasingId(item.pullId);
+    // Optimistic update
+    setItems((prev) =>
+      prev.map((i) =>
+        i.pullId === item.pullId ? { ...i, showcased: !item.showcased } : i,
+      ),
+    );
+    try {
+      const res = await toggleShowcase(item.pullId, !item.showcased);
+      if (!res.ok) {
+        // Revert on failure
+        setItems((prev) =>
+          prev.map((i) =>
+            i.pullId === item.pullId ? { ...i, showcased: item.showcased } : i,
+          ),
+        );
+        setError(res.error);
+      } else {
+        // Align to the server-confirmed state and clear any stale error.
+        setItems((prev) =>
+          prev.map((i) =>
+            i.pullId === item.pullId ? { ...i, showcased: res.showcased } : i,
+          ),
+        );
+        setError(null);
+      }
+    } catch {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.pullId === item.pullId ? { ...i, showcased: item.showcased } : i,
+        ),
+      );
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setShowcasingId(null);
+    }
+  }
 
   async function sell(item: VaultItem) {
     if (sellingId) return;
@@ -134,6 +178,31 @@ export default function VaultClient({ initial }: { initial: VaultResult }) {
                 {sellingId === item.pullId
                   ? 'Selling…'
                   : `Sell for ${usd(item.buyback.amount)} (${item.buyback.percent}%)`}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleShowcase(item)}
+                disabled={showcasingId !== null}
+                title={
+                  item.showcased
+                    ? 'Remove from profile showcase'
+                    : 'Feature on profile'
+                }
+                className={cn(
+                  'mt-1.5 inline-flex h-7 w-full items-center justify-center gap-1 rounded-lg text-[11px] font-semibold transition-colors disabled:opacity-50',
+                  item.showcased
+                    ? 'border border-yellow-400/50 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-400/20'
+                    : 'border border-white/10 bg-white/[0.03] text-white/40 hover:border-white/20 hover:text-white/60',
+                )}
+              >
+                <Star
+                  className={cn('h-3 w-3', item.showcased && 'fill-yellow-300')}
+                />
+                {showcasingId === item.pullId
+                  ? '…'
+                  : item.showcased
+                    ? 'On profile'
+                    : 'Feature on profile'}
               </button>
             </div>
           ))}

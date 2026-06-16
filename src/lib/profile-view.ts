@@ -52,7 +52,19 @@ function joinedYear(iso: string): string {
 
 /** Real backend profile → the view the page renders. */
 export function toProfileView(profile: PublicProfile): ProfileViewUser {
-  const cards: ProfileViewCard[] = profile.recent.map((p) => ({
+  // Collection = showcased cards (opt-in). Activity = all recent pulls.
+  const collectionCards: ProfileViewCard[] = (profile.collection ?? []).map(
+    (c) => ({
+      id: c.handle,
+      name: c.name,
+      image: c.image,
+      grader: c.grader,
+      grade: c.grade,
+      price: c.market_value,
+    }),
+  );
+
+  const activityCards: ProfileViewCard[] = profile.recent.map((p) => ({
     id: p.card.handle,
     name: p.card.name,
     image: p.card.image,
@@ -60,6 +72,7 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     grade: p.card.grade,
     price: p.card.market_value,
   }));
+
   return {
     username: profile.name,
     pfp: avatarForSeed(profile.seed),
@@ -68,11 +81,11 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     pulls: profile.stats.pulls,
     volume: profile.stats.volume,
     joined: joinedYear(profile.joined_at),
-    collection: cards,
+    collection: collectionCards,
     activity: profile.recent.map((p, i) => ({
       verb: 'pulled',
       time: relativeTime(p.rolled_at),
-      card: cards[i],
+      card: activityCards[i],
     })),
   };
 }

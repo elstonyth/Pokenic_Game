@@ -141,6 +141,11 @@ export default defineMiddlewares({
       ],
     },
     {
+      // Showcase toggle (POST /store/vault/:id/showcase).
+      matcher: '/store/vault/*/showcase',
+      middlewares: [authenticate('customer', ['bearer'])],
+    },
+    {
       // Reveal ping (POST /store/pulls/:id/reveal) — stamps revealed_at so the
       // 30s instant window counts from the card reveal.
       matcher: '/store/pulls/*/reveal',

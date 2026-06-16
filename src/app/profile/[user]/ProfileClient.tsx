@@ -136,40 +136,52 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
       </div>
 
       {/* Panels */}
-      {tab === 'Collection' && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {/* Key includes the index: a real profile's recent pulls can repeat
-              the same card (same handle) — ids alone would collide. */}
-          {user.collection.map((c, i) => (
-            <Reveal
-              key={`${c.id}-${i}`}
-              delay={Math.min(i, 8) * 45}
-              className="h-full"
-            >
-              <Link
-                href={`/card/${c.id}`}
-                className="group block h-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-800 transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
+      {tab === 'Collection' &&
+        (user.collection.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-12 text-center">
+            <p className="text-sm font-medium text-white/60">
+              No cards showcased yet.
+            </p>
+            <p className="mt-1 text-[13px] text-white/35">
+              Cards featured from the vault appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {/* Key includes the index: a real profile's recent pulls can repeat
+                the same card (same handle) — ids alone would collide. */}
+            {user.collection.map((c, i) => (
+              <Reveal
+                key={`${c.id}-${i}`}
+                delay={Math.min(i, 8) * 45}
+                className="h-full"
               >
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
-                  <Image
-                    src={c.image}
-                    alt={c.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                    className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
-                  />
-                </div>
-                <div className="p-2.5">
-                  <p className="truncate text-[11px] text-white/60">
-                    {c.grader} {c.grade}
-                  </p>
-                  <p className="text-sm font-bold text-white">{usd(c.price)}</p>
-                </div>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
-      )}
+                <Link
+                  href={`/card/${c.id}`}
+                  className="group block h-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-800 transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
+                >
+                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
+                    <Image
+                      src={c.image}
+                      alt={c.name}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                      className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
+                    />
+                  </div>
+                  <div className="p-2.5">
+                    <p className="truncate text-[11px] text-white/60">
+                      {c.grader} {c.grade}
+                    </p>
+                    <p className="text-sm font-bold text-white">
+                      {usd(c.price)}
+                    </p>
+                  </div>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+        ))}
 
       {tab === 'Activity' && (
         <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">

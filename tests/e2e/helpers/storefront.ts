@@ -171,10 +171,18 @@ export async function expectVaultHasCard(page: Page): Promise<void> {
   ).toBeVisible({ timeout: 20_000 });
 }
 
-// Click the first sell-back button.
+// Sell the first vaulted card end-to-end: the grid "Sell for $X" button opens
+// the confirm dialog, then the dialog's own "Sell for $X" button fires the
+// buyback. Without the second click the modal never confirms and the buyback
+// endpoint is never hit (the gap that left the sell-back path untested).
 export async function sellFirstCard(page: Page): Promise<void> {
   await page
     .getByRole('button', { name: /sell for/i })
     .first()
     .click();
+  // Scope to the modal (aria-label "Confirm sell-back") so the dialog's confirm
+  // button is unambiguous vs. the grid buttons behind it.
+  const dialog = page.getByRole('dialog', { name: 'Confirm sell-back' });
+  await dialog.getByRole('button', { name: /sell for/i }).click();
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
 }

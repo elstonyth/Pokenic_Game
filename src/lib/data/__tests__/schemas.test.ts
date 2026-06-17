@@ -11,6 +11,7 @@ import {
   BalanceSchema,
   WonCardSchema,
   OpenBuybackSchema,
+  BuybackResultSchema,
 } from '../schemas';
 
 describe('parseList — drops invalid items, never throws', () => {
@@ -61,15 +62,52 @@ describe('parseList — drops invalid items, never throws', () => {
     expect((out[0] as unknown as { seed: number }).seed).toBe(9); // passthrough
   });
 
-  it('VaultItem requires pull_id + card.name + finite buyback.amount', () => {
-    const good = { pull_id: 'p', card: { name: 'C' }, buyback: { amount: 5 } };
+  it('VaultItem requires pull_id + card.name + finite buyback.amount/percent', () => {
+    const good = {
+      pull_id: 'p',
+      card: { name: 'C' },
+      buyback: { amount: 5, percent: 90 },
+    };
     const out = parseList(VaultItemSchema, [
       good,
       { pull_id: 'p', card: { name: 'C' } }, // missing buyback → drop
-      { pull_id: 'p', card: {}, buyback: { amount: 5 } }, // missing card.name → drop
-      { pull_id: 'p', card: { name: 'C' }, buyback: { amount: NaN } }, // → drop
+      { pull_id: 'p', card: {}, buyback: { amount: 5, percent: 90 } }, // missing card.name → drop
+      {
+        pull_id: 'p',
+        card: { name: 'C' },
+        buyback: { amount: NaN, percent: 90 },
+      }, // → drop
     ]);
     expect(out).toHaveLength(1);
+  });
+});
+
+// #6 — the buyback percent is shown the instant a customer commits money. Guard
+// it at the data boundary (mirrors OpenBuybackSchema) so a dropped field becomes
+// a friendly error / dropped row, never a rendered "NaN%".
+describe('buyback percent guard (#6)', () => {
+  it('VaultItemSchema drops items missing a finite buyback.percent', () => {
+    const base = { pull_id: 'p', card: { name: 'C' } };
+    const out = parseList(VaultItemSchema, [
+      { ...base, buyback: { amount: 5, percent: 90 } }, // keep
+      { ...base, buyback: { amount: 5 } }, // missing percent → drop
+      { ...base, buyback: { amount: 5, percent: NaN } }, // → drop
+    ]);
+    expect(out).toHaveLength(1);
+  });
+
+  it('BuybackResultSchema requires finite amount + balance; percent optional', () => {
+    expect(
+      parseOne(BuybackResultSchema, { amount: 5, balance: 10, percent: 90 }),
+    ).not.toBeNull();
+    // percent is unused on the sell path — its absence must NOT fail the buyback.
+    expect(
+      parseOne(BuybackResultSchema, { amount: 5, balance: 10 }),
+    ).not.toBeNull();
+    // a non-finite amount/balance (the rendered fields) still rejects.
+    expect(
+      parseOne(BuybackResultSchema, { amount: NaN, balance: 10 }),
+    ).toBeNull();
   });
 });
 

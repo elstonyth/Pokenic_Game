@@ -13,39 +13,15 @@ const FMV = 25;
 const PACK_PRICE = 5;
 const TOPUP = 5 * PACK_PRICE;
 
-// Force the in-memory workflow engine + event bus for THIS suite. `loadEnv`
-// merges `.env.test` then the developer's local `.env`, which carries
-// REDIS_URL=redis://localhost:6379 for dev. With REDIS_URL set, medusa-config
-// registers the Redis-backed workflow-engine / event-bus (BullMQ); the runner
-// tears the app down between/after tests while those BullMQ workers still have
-// in-flight reconnects, raising a benign "Connection is closed" UNHANDLED
-// rejection that Jest counts as a failed test even though every assertion in
-// the body passed (vault-buyback fails identically with REDIS_URL set).
-//
-// medusa-config.ts decides which engine to register from `process.env.REDIS_URL`
-// at MODULE-EVAL time (a top-level const), which the runner reads in its
-// beforeAll BEFORE applying the `env:` option — so `env:` is too late here.
-// Instead we blank REDIS_URL at this spec's module scope (runs before the
-// runner's beforeAll) and RESTORE it in afterAll, so the Redis-backed rate-limit
-// suites (auth/pack-open/rate-limit-redis-store, which need the real rl:*
-// keyspace + a valid Redis URL for connectTestRedisOrFail) are unaffected when
-// the full suite runs in-band. Empty string is falsy in the medusa-config gate
-// and the rate-limit factory; deleting the key keeps connectTestRedisOrFail's
-// `?? "redis://localhost:6379"` default intact for later suites.
-const ORIGINAL_REDIS_URL = process.env.REDIS_URL;
-process.env.REDIS_URL = '';
+// The in-memory workflow-engine / event-bus is now forced for ALL integration
+// tests in medusa-config.ts (gated on TEST_TYPE), so this suite no longer needs
+// to blank REDIS_URL to dodge the BullMQ "Connection is closed" teardown
+// rejection — and crucially no longer leaks a blanked REDIS_URL into the
+// later rate-limit suites under --runInBand. See medusa-config `isIntegrationTest`.
 
 medusaIntegrationTestRunner({
   inApp: true,
   testSuite: ({ api, getContainer }) => {
-    afterAll(() => {
-      if (ORIGINAL_REDIS_URL === undefined) {
-        delete process.env.REDIS_URL;
-      } else {
-        process.env.REDIS_URL = ORIGINAL_REDIS_URL;
-      }
-    });
-
     describe('delivery orders', () => {
       let storeHeaders: Record<string, string>;
 

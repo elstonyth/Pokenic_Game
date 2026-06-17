@@ -15,6 +15,16 @@ const isProduction = ['production', 'prod'].includes(
   process.env.NODE_ENV || '',
 );
 
+// Integration tests (TEST_TYPE set) force Medusa's in-memory cache / event-bus /
+// workflow-engine / locking + session store, even when REDIS_URL is set for the
+// dev box. The test runner tears the app down between/after tests while the
+// Redis-backed BullMQ workers still have in-flight reconnects, raising a benign
+// "Connection is closed" UNHANDLED rejection that Jest miscounts as a failed
+// test (the #11 "9 of 15 FAILED" teardown flake). REDIS_URL stays set so the
+// rate limiter's OWN ioredis client (src/api/utils/rate-limit.ts) and the
+// rate-limit suites' connectTestRedisOrFail keep using the real rl:* keyspace.
+const isIntegrationTest = Boolean(process.env.TEST_TYPE);
+
 // File storage is env-gated: when S3/R2 credentials are present we register the
 // S3 file provider (durable object storage + CDN), otherwise Medusa's built-in
 // local provider is used (writes to static/ — fine for dev, lost on redeploy).
@@ -66,39 +76,40 @@ const fileModule = s3Configured
 const redisOptions = process.env.REDIS_URL?.startsWith('rediss://')
   ? { tls: { rejectUnauthorized: false } }
   : undefined;
-const redisModules = process.env.REDIS_URL
-  ? [
-      {
-        resolve: '@medusajs/medusa/cache-redis',
-        options: { redisUrl: process.env.REDIS_URL, redisOptions },
-      },
-      {
-        resolve: '@medusajs/medusa/event-bus-redis',
-        options: { redisUrl: process.env.REDIS_URL, redisOptions },
-      },
-      {
-        resolve: '@medusajs/medusa/workflow-engine-redis',
-        // ODD ONE OUT: this loader destructures from `options.redis` (nested),
-        // unlike cache/event-bus/locking which read redisUrl/redisOptions at the
-        // top level. Top-level here throws "Cannot destructure property 'url' of
-        // options.redis (undefined)". Keep redisUrl + redisOptions NESTED.
-        options: { redis: { redisUrl: process.env.REDIS_URL, redisOptions } },
-      },
-      {
-        resolve: '@medusajs/medusa/locking',
-        options: {
-          providers: [
-            {
-              resolve: '@medusajs/medusa/locking-redis',
-              id: 'locking-redis',
-              is_default: true,
-              options: { redisUrl: process.env.REDIS_URL, redisOptions },
-            },
-          ],
+const redisModules =
+  process.env.REDIS_URL && !isIntegrationTest
+    ? [
+        {
+          resolve: '@medusajs/medusa/cache-redis',
+          options: { redisUrl: process.env.REDIS_URL, redisOptions },
         },
-      },
-    ]
-  : [];
+        {
+          resolve: '@medusajs/medusa/event-bus-redis',
+          options: { redisUrl: process.env.REDIS_URL, redisOptions },
+        },
+        {
+          resolve: '@medusajs/medusa/workflow-engine-redis',
+          // ODD ONE OUT: this loader destructures from `options.redis` (nested),
+          // unlike cache/event-bus/locking which read redisUrl/redisOptions at the
+          // top level. Top-level here throws "Cannot destructure property 'url' of
+          // options.redis (undefined)". Keep redisUrl + redisOptions NESTED.
+          options: { redis: { redisUrl: process.env.REDIS_URL, redisOptions } },
+        },
+        {
+          resolve: '@medusajs/medusa/locking',
+          options: {
+            providers: [
+              {
+                resolve: '@medusajs/medusa/locking-redis',
+                id: 'locking-redis',
+                is_default: true,
+                options: { redisUrl: process.env.REDIS_URL, redisOptions },
+              },
+            ],
+          },
+        },
+      ]
+    : [];
 const secretFromEnv = (
   name: 'JWT_SECRET' | 'COOKIE_SECRET',
 ): string | undefined => {
@@ -138,8 +149,9 @@ module.exports = defineConfig({
     // back to an in-memory MemoryStore ("not designed for production" warning —
     // admin/vendor logins drop on every redeploy and aren't shared across
     // instances). redisOptions carries the self-signed-CA TLS opt for DO Valkey
-    // (rediss://). Dev (no REDIS_URL) → MemoryStore, which is fine.
-    redisUrl: process.env.REDIS_URL,
+    // (rediss://). Dev (no REDIS_URL) → MemoryStore, which is fine. Integration
+    // tests use the MemoryStore too (see isIntegrationTest above).
+    redisUrl: isIntegrationTest ? undefined : process.env.REDIS_URL,
     redisOptions,
     // worker mode splits the deploy: the web instance serves HTTP (server) while
     // a second instance drains the event/workflow queues (worker). DO App

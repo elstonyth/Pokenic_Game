@@ -1,8 +1,8 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { Modules } from "@medusajs/framework/utils";
-import PacksModuleService from "../../../modules/packs/service";
-import { PACKS_MODULE } from "../../../modules/packs";
-import { HANDLE_RE, seedOf } from "../../../utils/profile-handle";
+import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import { Modules } from '@medusajs/framework/utils';
+import PacksModuleService from '../../../modules/packs/service';
+import { PACKS_MODULE } from '../../../modules/packs';
+import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
 
 // GET /store/leaderboard?period=weekly|alltime — public leaderboard aggregated
 // from the Pull ledger. A plain publishable-key store route (read-only, no
@@ -27,88 +27,53 @@ export async function GET(
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerService = req.scope.resolve(Modules.CUSTOMER);
 
-  const period = req.query.period === "alltime" ? "alltime" : "weekly";
-  const filter =
-    period === "weekly"
-      ? { rolled_at: { $gte: new Date(Date.now() - WEEKLY_MS) } }
-      : {};
+  const period = req.query.period === 'alltime' ? 'alltime' : 'weekly';
+  const sinceMs = period === 'weekly' ? Date.now() - WEEKLY_MS : null;
 
-  const pulls = await packs.listPulls(filter, { take: 20000 });
-  if (pulls.length === 0) {
+  // Ranked top-N is aggregated in the DB (GROUP BY + ORDER BY + LIMIT) so it's
+  // correct at any pull volume — no more in-memory ranking of an unordered 20k
+  // slice (#7). `ranked` is already points-desc, top-N, with a stable tie-break.
+  const ranked = await packs.leaderboardTop({ sinceMs, limit: TOP_N });
+  if (ranked.length === 0) {
     res.json({ period, entries: [] });
     return;
   }
-
-  // Lookup tables: card market value (by handle), pack price (by slug).
-  const handles = [...new Set(pulls.map((p) => p.card_id))];
-  const cards = handles.length
-    ? await packs.listCards({ handle: handles }, { take: handles.length })
-    : [];
-  const mvByHandle = new Map(
-    cards.map((c) => [c.handle, Number(c.market_value)]),
-  );
-
-  const packIds = [...new Set(pulls.map((p) => p.pack_id))];
-  const packRows = packIds.length
-    ? await packs.listPacks({ slug: packIds }, { take: packIds.length })
-    : [];
-  const priceBySlug = new Map(packRows.map((p) => [p.slug, p.price]));
-
-  // Aggregate per customer (skip anonymous/null pulls).
-  type Agg = { pulls: number; volume: number; points: number };
-  const byCustomer = new Map<string, Agg>();
-  for (const p of pulls) {
-    if (!p.customer_id) continue;
-    const a = byCustomer.get(p.customer_id) ?? {
-      pulls: 0,
-      volume: 0,
-      points: 0,
-    };
-    a.pulls += 1;
-    a.volume += mvByHandle.get(p.card_id) ?? 0;
-    a.points += (priceBySlug.get(p.pack_id) ?? 0) * 100;
-    byCustomer.set(p.customer_id, a);
-  }
-
-  const ranked = [...byCustomer.entries()]
-    .sort((a, b) => b[1].points - a[1].points)
-    .slice(0, TOP_N);
 
   // Names for the ranked customers only — first_name ONLY (never email).
   // The public profile handle (customer metadata.handle, PII-safe by design)
   // rides along so the storefront can link each row to /profile/<handle>.
   // Customers that predate handle assignment return null — NO mutation here
   // (handles are assigned by the ensure-profile-handle workflow, not a GET).
-  const ids = ranked.map(([id]) => id);
+  const ids = ranked.map((r) => r.customer_id);
   const customers = ids.length
     ? await customerService.listCustomers({ id: ids }, { take: ids.length })
     : [];
   const firstNameById = new Map(
-    customers.map((c) => [c.id, (c.first_name || "").trim()]),
+    customers.map((c) => [c.id, (c.first_name || '').trim()]),
   );
   const handleById = new Map(
     customers.map((c) => {
-      const handle = (c.metadata ?? {})["handle"];
+      const handle = (c.metadata ?? {})['handle'];
       return [
         c.id,
-        typeof handle === "string" && HANDLE_RE.test(handle) ? handle : null,
+        typeof handle === 'string' && HANDLE_RE.test(handle) ? handle : null,
       ];
     }),
   );
 
-  const entries = ranked.map(([id, a], i) => {
-    const first = firstNameById.get(id);
-    const seed = seedOf(id);
+  const entries = ranked.map((r, i) => {
+    const first = firstNameById.get(r.customer_id);
+    const seed = seedOf(r.customer_id);
     return {
       rank: i + 1,
       name:
         first && first.length > 0
           ? first
           : `Collector ${String(seed).slice(0, 4)}`,
-      handle: handleById.get(id) ?? null,
-      volume: Math.round(a.volume * 100) / 100,
-      pulls: a.pulls,
-      points: a.points,
+      handle: handleById.get(r.customer_id) ?? null,
+      volume: r.volume,
+      pulls: r.pulls,
+      points: r.points,
       seed,
     };
   });

@@ -1,8 +1,7 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError } from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
-import { hasEnoughCredit } from "../../modules/packs/pack-open-charge";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { MedusaError } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
 
 export type ChargePackOpenInput = {
   pack_id: string; // = Pack.slug
@@ -23,14 +22,11 @@ type CompensateData = { creditTransactionId: string } | undefined;
 // charge aborts the open and a failure later in the chain deletes the charge
 // row via compensation — no unpaid Pull, no paid non-Pull.
 //
-// RACE NOTE: balance check + ledger insert is read-then-write — two opens
-// racing on the same balance can both pass the check and overspend (a
-// negative balance, not free goods: the rows still record both debits).
-// Accepted for the mock-money first pass (mirrors the stock-counter
-// decision); a DB-level guard (SELECT ... FOR UPDATE, or a CHECK on the
-// running balance) lands with the real gateway.
+// The debit goes through packs.mutateCreditAtomic, which holds a per-customer
+// advisory lock across the balance re-read + check + insert, so concurrent
+// opens (or an open racing an admin deduct) can't both pass and overspend (#2).
 export const chargePackOpenStep = createStep(
-  "charge-pack-open",
+  'charge-pack-open',
   async (input: ChargePackOpenInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
@@ -50,42 +46,32 @@ export const chargePackOpenStep = createStep(
     if (!Number.isFinite(price) || price < 0) {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
-        "This pack has no valid price and cannot be opened.",
+        'This pack has no valid price and cannot be opened.',
       );
     }
 
-    const balance = await packs.creditBalance(input.customer_id);
-    if (!hasEnoughCredit(balance, price)) {
-      throw new MedusaError(
-        MedusaError.Types.NOT_ALLOWED,
-        "Not enough credits to open this pack.",
-      );
-    }
-
-    // A free pack debits nothing — skip the pointless -0 ledger row.
+    // A free pack debits nothing — skip the pointless -0 ledger row (and the
+    // lock): there's no overspend to guard when nothing is charged.
     if (price === 0) {
+      const balance = await packs.creditBalance(input.customer_id);
       return new StepResponse(
         { price, balance } satisfies ChargePackOpenResult,
         undefined as CompensateData,
       );
     }
 
-    const [txn] = await packs.createCreditTransactions([
-      {
-        customer_id: input.customer_id,
-        amount: -price,
-        reason: "pack_open" as const,
-        pull_id: null,
-        reference: null,
-      },
-    ]);
-
-    // New balance = paged Σ ledger (append-only; exact at any ledger size).
-    const newBalance = await packs.creditBalance(input.customer_id);
+    // Serialized debit: the affordability check + ledger write happen under a
+    // per-customer lock, so concurrent opens can't both overspend (#2).
+    const { id, balance } = await packs.mutateCreditAtomic({
+      customerId: input.customer_id,
+      amount: -price,
+      reason: 'pack_open',
+      floor: 0,
+    });
 
     return new StepResponse(
-      { price, balance: newBalance } satisfies ChargePackOpenResult,
-      { creditTransactionId: txn.id } satisfies CompensateData,
+      { price, balance } satisfies ChargePackOpenResult,
+      { creditTransactionId: id } satisfies CompensateData,
     );
   },
   async (data: CompensateData, { container }) => {

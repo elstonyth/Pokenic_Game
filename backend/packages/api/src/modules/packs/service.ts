@@ -1,23 +1,30 @@
-import { MedusaService, MedusaError } from "@medusajs/framework/utils";
-import Pack from "./models/pack";
-import Card from "./models/card";
-import PackOdds from "./models/pack-odds";
-import Pull from "./models/pull";
-import CreditTransaction from "./models/credit-transaction";
-import DeliveryOrder from "./models/delivery-order";
-import DeliveryOrderItem from "./models/delivery-order-item";
+import {
+  MedusaService,
+  MedusaError,
+  InjectManager,
+  InjectTransactionManager,
+  MedusaContext,
+} from '@medusajs/framework/utils';
+import type { Context } from '@medusajs/framework/types';
+import Pack from './models/pack';
+import Card from './models/card';
+import PackOdds from './models/pack-odds';
+import Pull from './models/pull';
+import CreditTransaction from './models/credit-transaction';
+import DeliveryOrder from './models/delivery-order';
+import DeliveryOrderItem from './models/delivery-order-item';
 import {
   resolveBuybackRate,
   buybackAmount,
   instantDeadlineMs,
   type BuybackRate,
-} from "./buyback-rate";
+} from './buyback-rate';
 import {
   EMPTY_TOTALS,
   foldLedgerRow,
   totalsToUsd,
   type LedgerTotals,
-} from "./credit-summary";
+} from './credit-summary';
 
 // Auto-generates CRUD for each model: list/retrieve/create/update/delete<Model>s
 // (e.g. listPacks, listCards, listPackOdds, createPulls,
@@ -26,6 +33,32 @@ import {
 // CreditTransaction = the site-credit ledger written by buybacks.
 
 const BALANCE_PAGE = 1000;
+
+/** A signed credit-ledger write reason (mirrors CreditTransaction.reason). */
+export type CreditMutationReason =
+  | 'buyback'
+  | 'topup'
+  | 'pack_open'
+  | 'adjustment';
+
+export type CreditMutationInput = {
+  customerId: string;
+  /** Signed USD decimal (never cents): negative = spend, positive = grant. */
+  amount: number;
+  reason: CreditMutationReason;
+  /** Note (adjustment) / gateway ref (top-up); null otherwise. */
+  reference?: string | null;
+  /** The pull this credit came from (buyback rows only). */
+  pullId?: string | null;
+  /** Minimum allowed resulting balance in USD (default $0 — no overdraft). */
+  floor?: number;
+};
+
+/** The transactional MikroORM manager surface we use for the advisory lock +
+ *  the Σ-ledger read. `?` placeholders are inlined by MikroORM's formatQuery. */
+type LedgerSqlManager = {
+  execute<T = unknown>(query: string, params?: unknown[]): Promise<T>;
+};
 
 class PacksModuleService extends MedusaService({
   Pack,
@@ -44,8 +77,12 @@ class PacksModuleService extends MedusaService({
     packSlug: string,
     pull: { rolled_at: Date | string; revealed_at?: Date | string | null },
     marketValue: number,
-    nowMs: number = Date.now()
-  ): Promise<{ percent: number; amount: number; rate_type: BuybackRate["rate_type"] }> {
+    nowMs: number = Date.now(),
+  ): Promise<{
+    percent: number;
+    amount: number;
+    rate_type: BuybackRate['rate_type'];
+  }> {
     const [pack] = await this.listPacks({ slug: packSlug }, { take: 1 });
     const { percent, rate_type } = resolveBuybackRate(pack, pull, nowMs);
     return { percent, amount: buybackAmount(marketValue, percent), rate_type };
@@ -64,7 +101,7 @@ class PacksModuleService extends MedusaService({
     for (let skip = 0; ; skip += BALANCE_PAGE) {
       const page = await this.listCreditTransactions(
         { customer_id: customerId },
-        { skip, take: BALANCE_PAGE, order: { created_at: "ASC" } }
+        { skip, take: BALANCE_PAGE, order: { created_at: 'ASC' } },
       );
       for (const t of page) {
         totals = foldLedgerRow(totals, {
@@ -84,6 +121,120 @@ class PacksModuleService extends MedusaService({
     return (await this.creditSummary(customerId)).balance;
   }
 
+  // Serialized, balance-checked credit-ledger write. Holds a per-customer
+  // xact-scoped Postgres advisory lock across the Σ(ledger) re-read, the floor
+  // check, and the insert — all in ONE transaction — so two concurrent credit
+  // mutations for the same customer can't both pass the check and overspend
+  // (fixes pack-open/pack-open and pack-open/admin-deduct double-spend). The
+  // lock auto-releases on commit/rollback; arithmetic is done in integer cents.
+  @InjectTransactionManager()
+  async mutateCreditAtomic(
+    input: CreditMutationInput,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ id: string; balance: number }> {
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+
+    // 1) Serialize all credit mutations for THIS customer on the locked txn.
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${input.customerId}`,
+    ]);
+
+    // 2) Re-read the balance in cents inside the lock (exact; soft-delete aware).
+    const rows = await em.execute<{ balance_cents: string | null }[]>(
+      'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents ' +
+        'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+      [input.customerId],
+    );
+    const beforeCents = Number(rows[0]?.balance_cents ?? 0);
+    const deltaCents = Math.round(input.amount * 100);
+    const floorCents = Math.round((input.floor ?? 0) * 100);
+
+    // 3) Floor check — covers both "enough credit to open" and "no overdraft".
+    if (deltaCents < 0 && beforeCents + deltaCents < floorCents) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        input.reason === 'pack_open'
+          ? 'Not enough credits to open this pack.'
+          : `Deduction exceeds the customer's balance ($${(
+              beforeCents / 100
+            ).toFixed(2)}) — the balance cannot go below $${(
+              floorCents / 100
+            ).toFixed(2)}.`,
+      );
+    }
+
+    // 4) Insert the ledger row IN THE SAME TRANSACTION (thread sharedContext so
+    //    the write enrolls in the locked txn — not a separate connection).
+    const [txn] = await this.createCreditTransactions(
+      [
+        {
+          customer_id: input.customerId,
+          // Persist exact cents (matches the SUM(ROUND(...)) re-read + the
+          // returned balance) so a non-cent input can't drift the ledger
+          // vs. creditSummary's raw sum (CodeRabbit).
+          amount: deltaCents / 100,
+          reason: input.reason,
+          pull_id: input.pullId ?? null,
+          reference: input.reference ?? null,
+        },
+      ],
+      sharedContext,
+    );
+
+    return { id: txn.id, balance: (beforeCents + deltaCents) / 100 };
+  }
+
+  // Top-N leaderboard computed in the DB (GROUP BY + ORDER BY + LIMIT), so it's
+  // correct at any pull volume — replaces the old route that fetched an UNORDERED
+  // 20k slice and ranked it in memory (wrong/jittery once pulls passed ~20k, #7).
+  // points = Σ(pack price) × 100, volume = Σ(card market_value), pulls = count.
+  // sinceMs = null → all-time; a timestamp → weekly window (rolled_at >= since).
+  @InjectManager()
+  async leaderboardTop(
+    opts: { sinceMs: number | null; limit: number },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<
+    { customer_id: string; pulls: number; points: number; volume: number }[]
+  > {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+    const since =
+      opts.sinceMs != null ? new Date(opts.sinceMs).toISOString() : null;
+
+    const rows = await em.execute<
+      {
+        customer_id: string;
+        pulls: string;
+        points: string;
+        volume_cents: string;
+      }[]
+    >(
+      'SELECT pu.customer_id AS customer_id, ' +
+        'COUNT(*) AS pulls, ' +
+        'ROUND(COALESCE(SUM(pk.price), 0) * 100)::bigint AS points, ' +
+        'ROUND(COALESCE(SUM(c.market_value), 0) * 100)::bigint AS volume_cents ' +
+        'FROM pull pu ' +
+        'LEFT JOIN pack pk ON pk.slug = pu.pack_id AND pk.deleted_at IS NULL ' +
+        'LEFT JOIN card c ON c.handle = pu.card_id AND c.deleted_at IS NULL ' +
+        'WHERE pu.deleted_at IS NULL AND pu.customer_id IS NOT NULL ' +
+        // Branch on `since` rather than a nullable param: the
+        // `(? IS NULL OR rolled_at >= ?)` form is non-sargable and would skip
+        // the IDX_pull_rolled_at index on the weekly window (Sourcery).
+        (since === null ? '' : 'AND pu.rolled_at >= ?::timestamptz ') +
+        'GROUP BY pu.customer_id ' +
+        'ORDER BY points DESC, pulls DESC, pu.customer_id ASC ' +
+        'LIMIT ?',
+      since === null ? [opts.limit] : [since, opts.limit],
+    );
+
+    return rows.map((r) => ({
+      customer_id: r.customer_id,
+      pulls: Number(r.pulls),
+      points: Number(r.points),
+      volume: Number(r.volume_cents) / 100,
+    }));
+  }
+
   // Stamp the first-seen time for a pull so the 30s instant window counts from
   // the reveal, not the pull. Idempotent: only the first call writes revealed_at;
   // later calls return the same deadline. Ownership enforced (a foreign/unknown
@@ -92,13 +243,13 @@ class PacksModuleService extends MedusaService({
   async revealPull(
     pullId: string,
     customerId: string,
-    nowMs: number = Date.now()
+    nowMs: number = Date.now(),
   ): Promise<{ instant_deadline_ms: number }> {
     const [pull] = await this.listPulls({ id: pullId }, { take: 1 });
     if (!pull || pull.customer_id !== customerId) {
       throw new MedusaError(
         MedusaError.Types.NOT_FOUND,
-        `Pull '${pullId}' not found.`
+        `Pull '${pullId}' not found.`,
       );
     }
     if (pull.revealed_at == null) {
@@ -118,10 +269,7 @@ class PacksModuleService extends MedusaService({
       };
     }
     return {
-      instant_deadline_ms: instantDeadlineMs(
-        pull.rolled_at,
-        pull.revealed_at,
-      ),
+      instant_deadline_ms: instantDeadlineMs(pull.rolled_at, pull.revealed_at),
     };
   }
 }

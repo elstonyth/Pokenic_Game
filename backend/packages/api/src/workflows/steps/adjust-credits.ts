@@ -1,11 +1,11 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError } from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { MedusaError } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
 import {
   adjustAmountError,
   adjustNoteError,
-} from "../../modules/packs/credit-adjust";
+} from '../../modules/packs/credit-adjust';
 
 export type AdjustCreditsInput = {
   customer_id: string;
@@ -24,10 +24,11 @@ export type AdjustCreditsResult = {
 // adjust-credits — operator grant/refund/clawback from the support view: one
 // signed ledger row (reason "adjustment", note in "reference"). The balance
 // floor is $0 — a deduction larger than the current balance is refused before
-// anything is written. Same accepted read-then-write race as the pack-open
-// charge (see charge-pack-open.ts); a DB-level guard lands with real payments.
+// anything is written. The check + write go through packs.mutateCreditAtomic,
+// which serializes per-customer credit mutations under an advisory lock so a
+// deduct racing another deduct or a pack-open can't breach the floor (#4).
 export const adjustCreditsStep = createStep(
-  "adjust-credits",
+  'adjust-credits',
   async (input: AdjustCreditsInput, { container }) => {
     const invalidAmount = adjustAmountError(input.amount);
     if (invalidAmount) {
@@ -42,28 +43,19 @@ export const adjustCreditsStep = createStep(
 
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
-    const before = await packs.creditBalance(input.customer_id);
-    if (amount < 0 && before + amount < -1e-6) {
-      throw new MedusaError(
-        MedusaError.Types.NOT_ALLOWED,
-        `Deduction exceeds the customer's balance ($${before.toFixed(2)}) — the balance cannot go below $0.`,
-      );
-    }
-
-    const [txn] = await packs.createCreditTransactions([
-      {
-        customer_id: input.customer_id,
-        amount,
-        reason: "adjustment" as const,
-        pull_id: null,
-        reference: note,
-      },
-    ]);
-
-    const balance = await packs.creditBalance(input.customer_id);
+    // Serialized write: the $0-floor check + ledger insert happen under the same
+    // per-customer lock as a pack-open, so two deducts (or a deduct racing an
+    // open) can't both pass the floor and push the balance negative (#4).
+    const { id, balance } = await packs.mutateCreditAtomic({
+      customerId: input.customer_id,
+      amount,
+      reason: 'adjustment',
+      reference: note,
+      floor: 0,
+    });
 
     const result: AdjustCreditsResult = { amount, balance };
-    return new StepResponse(result, { creditTransactionId: txn.id });
+    return new StepResponse(result, { creditTransactionId: id });
   },
   async (data: { creditTransactionId: string } | undefined, { container }) => {
     if (!data) return;

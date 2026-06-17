@@ -163,18 +163,19 @@ medusaIntegrationTestRunner({
         );
 
       it("two concurrent opens on a one-pack balance → exactly one wins, balance never < 0", async () => {
-        const { token } = await registerCustomer("race-a@test.dev");
+        const { token, id } = await registerCustomer("race-a@test.dev");
         expect((await topUp(PACK_PRICE, token)).status).toBe(200);
 
         const [r1, r2] = await Promise.all([open(token), open(token)]);
         const statuses = [r1.status, r2.status].sort();
         expect(statuses).toEqual([200, 400]);
 
+        // Scope to THIS customer — a global count is flaky if a sibling test
+        // shares the DB context (CodeRabbit).
         const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
-        const pulls = await packs.listPulls({}, { take: 100 });
+        const pulls = await packs.listPulls({ customer_id: id }, { take: 100 });
         expect(pulls).toHaveLength(1);
         expect(await balanceOf(token)).toBe(0);
-        expect(await balanceOf(token)).toBeGreaterThanOrEqual(0);
       });
 
       it("an open racing an admin deduct on a one-pack balance → floor holds, balance never < 0", async () => {

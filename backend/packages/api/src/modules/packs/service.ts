@@ -169,7 +169,10 @@ class PacksModuleService extends MedusaService({
       [
         {
           customer_id: input.customerId,
-          amount: input.amount,
+          // Persist exact cents (matches the SUM(ROUND(...)) re-read + the
+          // returned balance) so a non-cent input can't drift the ledger
+          // vs. creditSummary's raw sum (CodeRabbit).
+          amount: deltaCents / 100,
           reason: input.reason,
           pull_id: input.pullId ?? null,
           reference: input.reference ?? null,

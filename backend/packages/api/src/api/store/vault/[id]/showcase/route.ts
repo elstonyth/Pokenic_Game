@@ -56,7 +56,9 @@ export async function POST(
     throw new MedusaError(MedusaError.Types.NOT_FOUND, 'Pull not found');
   }
   if (validation === 'forbidden') {
-    throw new MedusaError(MedusaError.Types.UNAUTHORIZED, 'Forbidden');
+    // Don't leak that someone else's pull exists — surface as 404, same as
+    // not_found (matches the request-delivery cross-account pattern, CodeRabbit).
+    throw new MedusaError(MedusaError.Types.NOT_FOUND, 'Pull not found');
   }
   if (validation === 'not_vaulted') {
     throw new MedusaError(

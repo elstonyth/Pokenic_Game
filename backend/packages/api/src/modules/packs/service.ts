@@ -4,6 +4,8 @@ import Card from "./models/card";
 import PackOdds from "./models/pack-odds";
 import Pull from "./models/pull";
 import CreditTransaction from "./models/credit-transaction";
+import DeliveryOrder from "./models/delivery-order";
+import DeliveryOrderItem from "./models/delivery-order-item";
 import {
   resolveBuybackRate,
   buybackAmount,
@@ -31,6 +33,8 @@ class PacksModuleService extends MedusaService({
   PackOdds,
   Pull,
   CreditTransaction,
+  DeliveryOrder,
+  DeliveryOrderItem,
 }) {
   // The instant/flat sell-back offer for a pull, composed from the SAME pure
   // helpers the buyback workflow credits with — so the reveal quote, the vault

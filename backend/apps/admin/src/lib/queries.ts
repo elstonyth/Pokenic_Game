@@ -20,9 +20,13 @@ import {
   deletePack,
   getCustomerGacha,
   getEconomyReport,
+  listDeliveryOrders,
   listEligibleProducts,
+  updateDeliveryOrder,
   uploadImage,
+  type AdminDeliveryOrder,
   type CustomerGacha,
+  type DeliveryStatus,
   type EconomyReport,
   type EligibleProduct,
 } from './admin-rest';
@@ -80,6 +84,14 @@ export const useCustomerGacha = (
     queryKey: qk.customerGacha(id ?? ''),
     queryFn: () => getCustomerGacha(id as string),
     enabled: !!id,
+  });
+
+export const useDeliveryOrders = (
+  status?: DeliveryStatus,
+): UseQueryResult<AdminDeliveryOrder[]> =>
+  useQuery({
+    queryKey: qk.deliveryOrders(status),
+    queryFn: () => listDeliveryOrders(status),
   });
 
 // ── Mutations ────────────────────────────────────────────────────────────────
@@ -188,3 +200,21 @@ export const useUploadImage = () =>
     mutationFn: (vars: { file: File; kind: 'pack' | 'card' }) =>
       uploadImage(vars.file, vars.kind),
   });
+
+export const useUpdateDeliveryOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      id: string;
+      status?: DeliveryStatus;
+      tracking_number?: string | null;
+    }) =>
+      updateDeliveryOrder(vars.id, {
+        status: vars.status,
+        tracking_number: vars.tracking_number,
+      }),
+    // Status filters vary, so drop the whole delivery-orders namespace.
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['admin', 'delivery-orders'] }),
+  });
+};

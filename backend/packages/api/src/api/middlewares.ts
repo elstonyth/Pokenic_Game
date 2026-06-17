@@ -146,6 +146,16 @@ export default defineMiddlewares({
       middlewares: [authenticate('customer', ['bearer'])],
     },
     {
+      // GET + POST /store/delivery-orders
+      matcher: '/store/delivery-orders',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
+      // GET /store/delivery-orders/:id  +  POST /store/delivery-orders/:id/address
+      matcher: '/store/delivery-orders/*',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
       // Reveal ping (POST /store/pulls/:id/reveal) — stamps revealed_at so the
       // 30s instant window counts from the card reveal.
       matcher: '/store/pulls/*/reveal',

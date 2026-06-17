@@ -221,3 +221,74 @@ export async function getPriceChartingProduct(id: string): Promise<PcProduct> {
   );
   return data.product;
 }
+
+// ── Delivery orders ──────────────────────────────────────────────────────────
+
+export type DeliveryStatus =
+  | 'requested'
+  | 'packing'
+  | 'shipped'
+  | 'delivered'
+  | 'canceled';
+
+export interface AdminDeliveryItem {
+  pull_id: string;
+  card: { handle: string; name: string; image: string } | null;
+}
+export interface AdminDeliveryOrder {
+  id: string;
+  customer_id: string;
+  customer_email: string | null;
+  status: DeliveryStatus;
+  address: {
+    name: string;
+    address_1: string;
+    address_2: string | null;
+    city: string;
+    province: string | null;
+    postal_code: string;
+    country_code: string;
+    phone: string | null;
+  };
+  tracking_number: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  items: AdminDeliveryItem[];
+}
+
+export async function listDeliveryOrders(
+  status?: DeliveryStatus,
+): Promise<AdminDeliveryOrder[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const data = await getJson<{ orders: AdminDeliveryOrder[] }>(
+    `/admin/delivery-orders${qs}`,
+  );
+  return data.orders;
+}
+
+export async function getDeliveryOrder(id: string): Promise<AdminDeliveryOrder> {
+  const data = await getJson<{ order: AdminDeliveryOrder }>(
+    `/admin/delivery-orders/${encodeURIComponent(id)}`,
+  );
+  return data.order;
+}
+
+export async function updateDeliveryOrder(
+  id: string,
+  body: { status?: DeliveryStatus; tracking_number?: string | null },
+): Promise<{ order_id: string; status: DeliveryStatus }> {
+  const res = await fetch(
+    `${__BACKEND_URL__}/admin/delivery-orders/${encodeURIComponent(id)}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(await errorMessage(res));
+  }
+  return (await res.json()) as { order_id: string; status: DeliveryStatus };
+}

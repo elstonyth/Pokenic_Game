@@ -214,11 +214,14 @@ class PacksModuleService extends MedusaService({
         'LEFT JOIN pack pk ON pk.slug = pu.pack_id AND pk.deleted_at IS NULL ' +
         'LEFT JOIN card c ON c.handle = pu.card_id AND c.deleted_at IS NULL ' +
         'WHERE pu.deleted_at IS NULL AND pu.customer_id IS NOT NULL ' +
-        'AND (?::timestamptz IS NULL OR pu.rolled_at >= ?::timestamptz) ' +
+        // Branch on `since` rather than a nullable param: the
+        // `(? IS NULL OR rolled_at >= ?)` form is non-sargable and would skip
+        // the IDX_pull_rolled_at index on the weekly window (Sourcery).
+        (since === null ? '' : 'AND pu.rolled_at >= ?::timestamptz ') +
         'GROUP BY pu.customer_id ' +
         'ORDER BY points DESC, pulls DESC, pu.customer_id ASC ' +
         'LIMIT ?',
-      [since, since, opts.limit],
+      since === null ? [opts.limit] : [since, opts.limit],
     );
 
     return rows.map((r) => ({

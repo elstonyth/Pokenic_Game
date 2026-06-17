@@ -124,13 +124,15 @@ export const AmountBalanceSchema = z.looseObject({
   balance: finite,
 });
 
-/** POST /store/vault/:id/buyback response — finite amount + balance + percent.
- *  Unlike top-up, the buyback response carries the rate `percent` shown back to
- *  the customer; require it so a dropped field is a friendly error, not "NaN%". */
+/** POST /store/vault/:id/buyback response — finite amount + balance. `percent`
+ *  rides along but is NOT rendered on the sell path (consumers read amount/
+ *  balance), so it stays OPTIONAL: requiring it would false-fail an idempotent
+ *  buyback that succeeded server-side but omitted the field. The rendered
+ *  percent is guarded on the vault-list side (VaultItemSchema). */
 export const BuybackResultSchema = z.looseObject({
   amount: finite,
   balance: finite,
-  percent: finite,
+  percent: finite.optional(),
 });
 
 // --- actions/packs.ts -------------------------------------------------------

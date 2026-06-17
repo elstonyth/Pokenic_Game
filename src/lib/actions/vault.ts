@@ -364,7 +364,9 @@ export async function sellBackPull(pullId: string): Promise<SellBackResult> {
     return {
       ok: true,
       amount: parsed.amount,
-      percent: parsed.percent,
+      // Not rendered on the sell path; default keeps the type honest if a
+      // backend ever omits it (the credit still landed — don't false-fail).
+      percent: parsed.percent ?? 0,
       balance: parsed.balance,
     };
   } catch (error) {

@@ -96,15 +96,17 @@ describe('buyback percent guard (#6)', () => {
     expect(out).toHaveLength(1);
   });
 
-  it('BuybackResultSchema requires finite amount + balance + percent', () => {
+  it('BuybackResultSchema requires finite amount + balance; percent optional', () => {
     expect(
       parseOne(BuybackResultSchema, { amount: 5, balance: 10, percent: 90 }),
     ).not.toBeNull();
+    // percent is unused on the sell path — its absence must NOT fail the buyback.
     expect(
       parseOne(BuybackResultSchema, { amount: 5, balance: 10 }),
-    ).toBeNull(); // missing percent
+    ).not.toBeNull();
+    // a non-finite amount/balance (the rendered fields) still rejects.
     expect(
-      parseOne(BuybackResultSchema, { amount: 5, balance: 10, percent: NaN }),
+      parseOne(BuybackResultSchema, { amount: NaN, balance: 10 }),
     ).toBeNull();
   });
 });

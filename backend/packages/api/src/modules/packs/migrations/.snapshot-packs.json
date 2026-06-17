@@ -660,6 +660,15 @@
           "expression": "CREATE INDEX IF NOT EXISTS \"IDX_delivery_order_item_pull_id\" ON \"delivery_order_item\" (\"pull_id\") WHERE deleted_at IS NULL"
         },
         {
+          "keyName": "IDX_delivery_order_item_order_pull_unique",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE UNIQUE INDEX IF NOT EXISTS \"IDX_delivery_order_item_order_pull_unique\" ON \"delivery_order_item\" (\"delivery_order_id\", \"pull_id\") WHERE deleted_at IS NULL"
+        },
+        {
           "keyName": "delivery_order_item_pkey",
           "columnNames": [
             "id"

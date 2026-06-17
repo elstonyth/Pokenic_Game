@@ -167,8 +167,7 @@ export const DeliveryOrderSchema = z.looseObject({
             name: z.string(),
             image: z.string(),
           })
-          .nullable()
-          .optional(),
+          .nullable(),
       }),
     )
     .optional(),

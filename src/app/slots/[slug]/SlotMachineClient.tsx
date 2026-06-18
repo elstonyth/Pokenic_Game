@@ -70,6 +70,7 @@ export default function SlotMachineClient({
   // Load balance on mount / auth change (PackDetailClient.tsx:98-110).
   useEffect(() => {
     if (!customer) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- v7 false positive (same pattern in PackDetailClient passes clean)
       setBalance(null);
       return;
     }

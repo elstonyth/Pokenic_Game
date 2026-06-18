@@ -1,155 +1,115 @@
-# AI Website Cloner Template
+# Trading Card Pack Collectibles Platform
 
-<a href="https://github.com/JCodesMore/ai-website-cloner-template/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a> <a href="https://github.com/JCodesMore/ai-website-cloner-template/stargazers"><img src="https://img.shields.io/github/stars/JCodesMore/ai-website-cloner-template?style=flat" alt="Stars" /></a> <a href="https://discord.gg/hrTSX5yTpB"><img src="https://img.shields.io/discord/1400896964597383279?label=discord" alt="Discord" /></a>
+A physical/digital trading-card-pack collectibles platform — built as a Next.js 16 storefront on top of a Medusa v2 + Mercur marketplace backend.
 
-A reusable template for reverse-engineering any website into a clean, modern Next.js codebase using AI coding agents. 
+The experience: pack drops, a claw machine, a vault, a marketplace, and a leaderboard, in a clean, full-bleed, dark-mode codebase.
 
-**Recommended: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with Opus 4.7 for best results** — but works with a variety of AI coding agents.
+## What's inside
 
-Point it at a URL, run `/clone-website`, and your AI agent will inspect the site, extract design tokens and assets, write component specs, and dispatch parallel builders to reconstruct every section.
+- **Storefront** (`src/`) — Next.js 16 (App Router, React 19, TypeScript strict), ~36 routes including the home page, `/claw`, `/how-it-works`, `/leaderboard`, `/marketplace`, `/pack-party`, and an account area (vault, orders, transactions, settings, referrals).
+- **Backend** (`backend/`) — a [Medusa v2](https://medusajs.com/) + [Mercur](https://mercurjs.com/) (multi-vendor) commerce API at `backend/packages/api`, plus an admin dashboard at `backend/apps/admin`.
+- **Credit economy** — top-up, per-customer credit charging, public profiles, a client-side demo spin, forgot-password, a card vault, two-tier buyback, stock-aware pack pulls, and a DB-aggregated leaderboard.
 
-## Demo
+## Tech Stack
 
-[![Watch the demo](docs/design-references/comparison.png)](https://youtu.be/O669pVZ_qr0)
+| Layer         | Choice                                                                             |
+| ------------- | ---------------------------------------------------------------------------------- |
+| Storefront    | Next.js 16 · React 19 · TypeScript (strict)                                        |
+| Styling       | Tailwind CSS v4 · hardcoded dark neutrals                                          |
+| UI primitives | shadcn-style components on `@base-ui/react` · Lucide icons                         |
+| Animation     | Framer Motion (`motion`) + a custom scroll-reveal engine (`src/lib/use-reveal.ts`) |
+| Backend       | Medusa v2 + Mercur (multi-vendor marketplace)                                      |
+| Data          | PostgreSQL · Redis (via Docker)                                                    |
+| Deploy        | DigitalOcean App Platform + Spaces (media)                                         |
 
-> Click the image above to watch the full demo on YouTube.
-
-## Quick Start
-
-1. **Clone this repository**
-   ```bash
-   git clone https://github.com/JCodesMore/ai-website-cloner-template.git my-clone
-   cd my-clone
-   ```
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-3. **Start your AI agent** — Claude Code recommended:
-   ```bash
-   claude --chrome
-   ```
-4. **Run the skill**:
-   ```
-   /clone-website <target-url1> [<target-url2> ...]
-   ```
-5. **Customize** (optional) — after the base clone is built, modify as needed
-
-> Using a different agent? Open `AGENTS.md` for project instructions — most agents pick it up automatically.
-
-## Supported Platforms
-
-| Agent                                                         | Status                     |
-| ------------------------------------------------------------- | -------------------------- |
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | **Recommended** — Opus 4.7 |
-| [Codex CLI](https://github.com/openai/codex)                  | Supported                  |
-| [OpenCode](https://opencode.ai/)                              | Supported                  |
-| [GitHub Copilot](https://github.com/features/copilot)         | Supported                  |
-| [Cursor](https://cursor.com/)                                 | Supported                  |
-| [Windsurf](https://codeium.com/windsurf)                      | Supported                  |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli)     | Supported                  |
-| [Cline](https://github.com/cline/cline)                       | Supported                  |
-| [Roo Code](https://github.com/RooCodeInc/Roo-Code)            | Supported                  |
-| [Continue](https://continue.dev/)                             | Supported                  |
-| [Amazon Q](https://aws.amazon.com/q/developer/)               | Supported                  |
-| [Augment Code](https://www.augmentcode.com/)                  | Supported                  |
-| [Aider](https://aider.chat/)                                  | Supported                  |
+Fonts: **Nekst Black** (self-hosted) for headings, **Geist** for body. The site is full-bleed by design — no `max-w-*` caps; the `.px-fluid` gutter scales padding continuously from mobile to 4K.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 24+
-- An AI coding agent (see [Supported Platforms](#supported-platforms))
+- Docker (Postgres + Redis for the backend)
+- `corepack` (the backend uses Yarn via corepack)
 
-## Tech Stack
+## Quick Start (storefront)
 
-- **Next.js 16** — App Router, React 19, TypeScript strict
-- **shadcn/ui** — Radix primitives + Tailwind CSS v4
-- **Tailwind CSS v4** — oklch design tokens
-- **Lucide React** — default icons (replaced by extracted SVGs during cloning)
-
-## How It Works
-
-The `/clone-website` skill runs a multi-phase pipeline:
-
-1. **Reconnaissance** — screenshots, design token extraction, interaction sweep (scroll, click, hover, responsive)
-2. **Foundation** — updates fonts, colors, globals, downloads all assets
-3. **Component Specs** — writes detailed spec files (`docs/research/components/`) with exact computed CSS values, states, behaviors, and content
-4. **Parallel Build** — dispatches builder agents in git worktrees, one per section/component
-5. **Assembly & QA** — merges worktrees, wires up the page, runs visual diff against the original
-
-Each builder agent receives the full component specification inline — exact `getComputedStyle()` values, interaction models, multi-state content, responsive breakpoints, and asset paths. No guessing.
-
-## Use Cases
-
-- **Platform migration** — rebuild a site you own from WordPress/Webflow/Squarespace into a modern Next.js codebase
-- **Lost source code** — your site is live but the repo is gone, the developer left, or the stack is legacy. Get the code back in a modern format
-- **Learning** — deconstruct how production sites achieve specific layouts, animations, and responsive behavior by working with real code
-
-## Not Intended For
-
-- **Phishing or impersonation** — this project must not be used for deceptive purposes, impersonation, or any activity that breaks the law.
-- **Passing off someone's design as your own** — logos, brand assets, and original copy belong to their owners.
-- **Violating terms of service** — some sites explicitly prohibit scraping or reproduction. Check first.
-
-## Project Structure
-
+```bash
+npm install
+npm run dev          # http://localhost:3000
 ```
-src/
-  app/              # Next.js routes
-  components/       # React components
-    ui/             # shadcn/ui primitives
-    icons.tsx       # Extracted SVG icons
-  lib/utils.ts      # cn() utility
-  types/            # TypeScript interfaces
-  hooks/            # Custom React hooks
-public/
-  images/           # Downloaded images from target
-  videos/           # Downloaded videos from target
-  seo/              # Favicons, OG images
-docs/
-  research/         # Extraction output & component specs
-  design-references/ # Screenshots
-scripts/
-  sync-agent-rules.sh  # Regenerate agent instruction files
-  sync-skills.mjs      # Regenerate /clone-website for all platforms
-AGENTS.md           # Agent instructions (single source of truth)
-CLAUDE.md           # Claude Code config (imports AGENTS.md)
-GEMINI.md           # Gemini CLI config (imports AGENTS.md)
+
+> **Verify against a production build, not `next dev`.** `next dev` serves images
+> slowly on some machines and makes a correct build _look_ broken. `next.config.ts`
+> sets `output: 'standalone'`, which makes `npx next start` unusable — serve the
+> standalone bundle instead:
+>
+> ```bash
+> npm run build
+> pwsh scripts/serve-standalone.ps1 -Port 4000
+> ```
+
+## Running the backend
+
+```bash
+# Postgres + Redis stay up via Docker (--restart unless-stopped)
+cd backend/packages/api && corepack yarn dev     # Medusa API on :9000 (health: /health)
+cd backend/apps/admin   && node ../../node_modules/vite/bin/vite.js   # Admin on :7000
 ```
 
 ## Commands
 
 ```bash
-npm run dev    # Start dev server
-npm run build  # Production build
-npm run lint   # ESLint check
-npm run typecheck # TypeScript check
-npm run check  # Run lint + typecheck + build
+npm run dev        # Start dev server
+npm run build      # Production build
+npm run start      # next start (prefer serve-standalone.ps1 — see above)
+npm run lint       # ESLint
+npm run typecheck  # tsc --noEmit
+npm run check      # lint + typecheck + build
+npm run format     # Prettier write (src, scripts)
+npm run test       # Vitest
 ```
 
-### If using docker
+### Docker
 
 ```bash
-docker compose up app --build # build and run the app
-docker compose up dev --build # run the app in dev mode on port 3001
+docker compose up app --build   # production build
+docker compose up dev --build   # dev mode on port 3001
 ```
 
-## Updating for Other Platforms
+## Architecture
 
-Two source-of-truth files power all platform support. Edit the source, then run the sync script:
+- **Section composition + scroll-in animation is the core pattern.** `src/app/page.tsx` stacks section components, wrapping most in `<Reveal>` (fade-up on scroll-into-view). The engine — `useInView` + `usePrefersReducedMotion` (`src/lib/use-reveal.ts`) — honors `prefers-reduced-motion` everywhere. Sections with their own internal scroll animation (`HowItWorksSection`, `LeaderboardSection`) are intentionally not double-wrapped.
+- **Server/client split.** Route `page.tsx` files stay server components and export `metadata`; interactivity moves to a sibling `'use client'` component (canonical example: `marketplace/page.tsx` → `marketplace/MarketplaceClient.tsx`).
+- **Global shell.** `src/app/layout.tsx` forces dark mode and wraps every page in `SiteHeader` + `SiteFooter`. The palette is hardcoded Tailwind neutrals, not the shadcn oklch tokens.
 
-| What                   | Source of truth                         | Sync command                       |
-| ---------------------- | --------------------------------------- | ---------------------------------- |
-| Project instructions   | `AGENTS.md`                             | `bash scripts/sync-agent-rules.sh` |
-| `/clone-website` skill | `.claude/skills/clone-website/SKILL.md` | `node scripts/sync-skills.mjs`     |
+## Measurement-driven UI
 
-Each script regenerates the platform-specific copies automatically. Agents that read the source files natively need no regeneration.
+UI work is measurement-driven, not eyeballed. The `scripts/*.mjs` Playwright scripts read computed styles and `getBoundingClientRect`, dumping screenshots and JSON into `docs/research/`. Per-component specs (exact computed CSS, states, content, responsive breakpoints) live in `docs/research/components/*.spec.md`. Verify with the Playwright scripts (screenshots → `docs/research/*.png`), not ad-hoc browser sessions.
 
+## Project Structure
 
-## Star History
+```
+src/
+  app/                # Next.js routes (~36)
+  components/
+    ui/               # shadcn-style primitives on @base-ui
+  lib/                # cn(), use-reveal.ts, utilities
+  hooks/              # custom React hooks
+public/
+  fonts/ images/ videos/ seo/
+backend/
+  packages/api/       # Medusa v2 + Mercur commerce API
+  apps/admin/         # Admin dashboard (Vite)
+docs/
+  research/           # component specs, page topology, measurement output
+scripts/              # Playwright capture/measure/QA + serve-standalone.ps1
+AGENTS.md             # Agent instructions (single source of truth)
+CLAUDE.md             # Claude Code config (imports AGENTS.md)
+```
 
-[![Star History Chart](https://api.star-history.com/svg?repos=JCodesMore/ai-website-cloner-template&type=Date)](https://star-history.com/#JCodesMore/ai-website-cloner-template&Date)
+## Deployment
+
+Deploys to **DigitalOcean App Platform** (managed via the `doctl` CLI). Both the storefront and backend build from `git master` with `deploy_on_push`, so code changes ship via commit + push. Media is served from a DigitalOcean Spaces bucket + CDN. See `docs/HANDOFF.md` for operational details.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

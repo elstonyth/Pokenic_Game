@@ -1,7 +1,7 @@
-# Slot Machine v2 — Design Spec (rev 2: Pokémon-sprite reel)
+# Slot Machine v2 — Design Spec (rev 3: Pokémon-sprite reel)
 
-**Status:** Approved design, **revised** after a mid-build correction (reel = Pokémon pixel sprites, not balls; configurator = reuse `PackDetailClient`).
-**Date:** 2026-06-18
+**Status:** Approved design, **revised** after a mid-build correction (reel = Pokémon pixel sprites, not balls). Rev 3 closes a fresh-eyes review (gaps G1–G7): configurator is a **lean dedicated `/slots` page** (NOT a fork of `PackDetailClient`); chrome suppression via **route groups**; `pokemonFromCard` gets normalization + a non-Pokémon fallback; price-tier value source pinned + a QA-data note.
+**Date:** 2026-06-19
 **Branch:** `feat/slot-machine-v2` (off `master` @ 37626f6, which has the shipped v1 x1 slot from PR #11)
 **Supersedes:** v1 PRD `docs/prd/slot-machine-conversion.md` (balls); and the rev-1 ball direction of this very spec — the ball assets/`BallToken`/`balls.ts`/`ball-alpha.ts` built in the first Phase-A pass are **dead** and get removed.
 
@@ -14,7 +14,8 @@
 ## 2. The reel — Pokémon pixel sprites + price-tier glow (the core change)
 
 - **Reel cells are Pokémon pixel sprites**, reusing the repo's Pokédex sprite source: `spriteGif(dex)` (animated PokeAPI "showdown" sprite) with `spritePng(dex)` fallback, from `@/lib/mock/pokedex`. Rendered with a plain `<img>` (the Pokédex already does this — no `next/image` remote-host config needed). The sprite "runs"/idles as it scrolls.
-- **Card → Pokémon:** the won card's name contains its Pokémon (e.g. "Jet-Black Spirit **Celebi** V CGC 10" → Celebi). A helper `pokemonFromCard(name)` matches the longest `POKEDEX_NAMES` entry present in the card name → its `dex` → `spriteGif(dex)`. A Pikachu sprite landing means a Pikachu-related card prize. **The same Pokémon can land at different price tiers.**
+- **Card → Pokémon (G4):** the won card's name contains its Pokémon (e.g. "Jet-Black Spirit **Celebi** V CGC 10" → Celebi). A pure helper `pokemonFromCard(name): { dex: number; name: string } | null` does a **normalized longest-match**: lowercase, strip punctuation (`-`, `'`, `:`, `.`) and gender symbols, collapse whitespace on **both** the card name **and** every `POKEDEX_NAMES` entry (the list is 1028 names, Gen 1–9, already punctuation-stripped: "Farfetchd", "Ho Oh", "Porygon Z", "Type Null"), then pick the **longest** normalized entry that appears as a substring → its `dex` (= index + 1) → `spriteGif(dex)`. Longest-match disambiguates nested names ("Mr Mime" beats "Mime"). Naïve substring on raw strings would miss real card punctuation ("Ho-Oh", "Farfetch'd", "Type: Null") and form suffixes ("Deoxys Normal" ≠ "Deoxys ex") — normalization is mandatory, not optional.
+- **No-match fallback (G5 — non-Pokémon cards):** the backend can draw trainer/energy/item cards with no Pokémon in the name → `pokemonFromCard` returns `null`. The reel cell then shows a **neutral fallback** (the card's own `card.image`, no sprite); the glow still fires from `priceTier` (§3). Never crash or render a blank cell on a null match.
 - **Decoy cells:** random Pokémon sprites (any dex) so the reel reads as a varied scroll; only the winner cell is the real card's Pokémon.
 - **Landing — grow + glow:** when a reel settles, the winning sprite **scales up** and gets a **glow ring/aura colored by the card's price tier** (§3). This is the reveal beat (replaces the v1 ball-casing highlight).
 
@@ -32,7 +33,9 @@ The landed Pokémon's glow color encodes a **price tier** derived from the won c
 | immortal  | orange `#fb923c`      | `≥ 10,000`                        |
 
 - A pure helper `priceTier(value: number): Tier` buckets the value; `TIER_COLOR[tier]` gives the glow rgb. **Tier is by price, independent of the card's `rarity` field** (so one Pokémon at $30 glows light-blue, the same Pokémon at $3,000 glows bright-pink).
-- **Thresholds are a §13 open item** — the bands above are a sensible default pending the operator's real numbers.
+- **Value source (pinned):** feed `priceTier` the **backend `market_value`** (decimal USD) surfaced as `marketValue` on the `openPack`/`open-batch` result — NOT the mock `fmv`/`price` fields. The won card's value is server-authoritative.
+- **QA data gap (G3):** current seed cards are tiny (`fmv` ≈ $8–$40) and mock cards top out at $999, so a real spin only ever lands tiers 1–2 (gray / light-blue) — tiers 3–6 **never fire** on existing data. The 6-tier glow is the reveal's centerpiece, so **seed a handful of high-value fixture cards** (one per tier, ≥$10k for `immortal`) or add a dev value-override, else Playwright cannot verify the upper tiers.
+- **Thresholds** are confirmed defaults (operator-tunable later); the bands above stand.
 
 ## 4. Reported bugs (folded in)
 
@@ -43,10 +46,10 @@ The landed Pokémon's glow color encodes a **price tier** derived from the won c
 
 | Route           | Role                                                                                                                                                                                                              |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/slots`        | **Configurator — reuse the `/claw` `PackDetailClient`**, parameterized so its links/CTA route to `/slots/[slug]` instead of opening the claw overlay. Quantity becomes **packs 1–3**. (Reuse, don't reimplement.) |
+| `/slots`        | **Configurator — a lean dedicated page** (`/slots/page.tsx` server + `SlotsConfigClient` client, mirroring the `marketplace/` server→client split). Lists slot-eligible packs as tiles + a **quantity stepper (1–3)** + Play → `/slots/[slug]?count=N`. **Reuses `PackDetailClient`'s data source and shared visual primitives, but is NOT a fork of that claw-coupled component** (G1). |
 | `/slots/[slug]` | **Immersive full-screen reveal**: N front-facing packs → tap → peel → N vertical Pokémon reels → stop staggered L→R → grow+glow winner. No site chrome. `count` via query.                                        |
 
-`/claw/*` untouched. Implementation approach for reuse: extract the shared configurator out of `PackDetailClient` (or add a `mode: 'claw' | 'slots'` prop driving the CTA target), so both routes render one component. Prefer the smallest change that avoids a forked copy.
+`/claw/*` untouched. **Configurator decision (G1):** build a lean dedicated `/slots` configurator rather than forking or over-parameterizing `PackDetailClient` (it is tightly coupled to the claw stage/carousel/details/recent-pulls, has a single-open CTA, and no quantity selector — "just reuse it" is heavier than it reads). Reuse the *data loader* and *shared primitives* (pack tile, quantity stepper, the `openPack`/`open-batch` actions) — keep the claw component untouched to avoid regressing `/claw`. (Mirrors the pre-pivot `SlotsConfigClient` from commit `222e5c3`, but written fresh against current pack-data shapes.)
 
 ## 6. Reveal sequence
 
@@ -73,14 +76,16 @@ Reuse the already-extracted `SellBackPanel` (30s instant + countdown + confirm +
 
 Immersive (no `SiteHeader`/`SiteFooter` on `/slots/[slug]`); body scroll locked during reveal; `100dvh`, no layout shift; ≥48px controls; single `role="status" aria-live` announcing once on final settle; `aria-busy` during spin; dialogs get `role="dialog" aria-modal` + Escape + focus; reduced-motion degrades every surface (no scroll/peel/glow-pulse — winners centered + glow shown statically).
 
+**Chrome-suppression mechanism (G2 — route groups).** `SiteHeader`/`SiteFooter` currently live in the **root** `layout.tsx`, which wraps every route — a nested layout *composes* with it and cannot remove it. Resolution: relocate the chrome into a `(site)` route-group layout and move the currently-chromed routes under `src/app/(site)/`; place the immersive slot reveal in a bare `(immersive)` group (or leave it at root once root holds only `<html>`/providers). Route groups don't change URLs, so this is a mechanical folder move. **This restructure lands in Phase B** (when the full-screen surface is built), not Phase A′.
+
 ## 11. Reuse map
 
 | Reuse                                                                             | For                                                   |
 | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `PackDetailClient` (`/claw/[slug]`)                                               | the `/slots` configurator (parameterized, not forked) |
+| `PackDetailClient` data loader + shared primitives (`/claw/[slug]`)               | the lean `/slots` configurator — reuse the data source + pack-tile/quantity primitives only, **do not fork the component** (G1) |
 | `@/lib/mock/pokedex` (`spriteGif`/`spritePng`/`POKEDEX_NAMES`/`getGeneration`)    | reel Pokémon sprites + card→Pokémon lookup            |
 | `RouletteClient`'s `Thumb`/`<img>` sprite pattern (`PokeSprite` in PokedexClient) | reel cell rendering with gif→png fallback             |
-| `reelTarget`/`buildStrip` (`src/lib/reel.ts`)                                     | reel landing math — **adapt X→Y (vertical)**          |
+| `reelTarget`/`buildStrip` (`src/lib/reel.ts`)                                     | reel landing math — `reelTarget` is **X-axis**; add a `reelTargetY` (`itemH`/`translateY`) variant. `buildStrip` pins a winner in a **`Rarity[]`** strip; v2 cells are **dex/sprites** w/ random-dex decoys, so reuse the *winner-pinning structure* but write a dex-strip builder, don't reuse it verbatim (G6). |
 | `SellBackPanel`, `useSound`, `motion.ts` tokens, win-burst keyframes              | sell-back, SFX, peel + grow/glow polish               |
 | `openPack`/`revealPull`/`getCreditBalance`/`sellBackPull` + new `openBatch`       | rolls + sell-back                                     |
 
@@ -96,7 +101,7 @@ The first Phase-A pass built a ball direction that is now wrong. **Remove**: `sr
 
 ## 14. Phased rollout (revised)
 
-- **Phase A′ — Configurator + reel-token swap:** remove ball work (§12); reuse `PackDetailClient` for `/slots` (route to `/slots/[slug]`); build `PokemonToken` (sprite via `spriteGif` + grow/glow by tier) + `pokemonFromCard` + `priceTier` (TDD).
+- **Phase A′ — Configurator + reel-token swap:** ball work is **already removed** (verified clean — branch net-diff vs master is just this spec + `.gitignore`). Build the **lean dedicated `/slots` configurator** (G1; `/slots` index is net-new — v1 only shipped `/slots/[slug]`, G7) routing to `/slots/[slug]?count=N`; build `PokemonToken` (sprite via `spriteGif` + png fallback per `PokeSprite` + grow/glow by tier) + `pokemonFromCard` (normalized longest-match + null fallback, §2) + `priceTier` (§3) — both helpers TDD.
 - **Phase B — Full-screen reveal + vertical Pokémon reel:** immersive route; adapt reel math to vertical; `SlotReelColumn`/`SlotReelStack` (N columns, shared payline, staggered L→R, winner grow+glow); win-after-stop.
 - **Phase C — Packs + peel:** N front-facing packs (pack foil art); one-tap peel (`PackPeel`, Motion + CSS clip-path, swappable); idle→SPIN gate.
 - **Phase D — `open-batch` backend** (all-or-nothing) + `openBatch` action; wire N reels to N rolls.
@@ -104,10 +109,11 @@ The first Phase-A pass built a ball direction that is now wrong. **Remove**: `sr
 
 ## 15. Open items (confirm)
 
-1. **Price-tier thresholds** (§3) — confirm the 6 bands or give real numbers.
+1. ~~Price-tier thresholds~~ — **confirmed** (defaults in §3 stand, operator-tunable later). Open instead: seed/override high-value cards so tiers 3–6 are QA-verifiable (§3 G3).
 2. Decoy sprite pool size/range per reel (default: random across all dex, reshuffled per spin).
 3. Pack-peel choreography (Phase C visual tune).
 4. Whether `/slots` keeps the demo spin (default: yes).
+5. Non-Pokémon-card fallback visual — default = card thumbnail + tier glow (§2); confirm if a dedicated card-back asset is preferred.
 
 ---
 

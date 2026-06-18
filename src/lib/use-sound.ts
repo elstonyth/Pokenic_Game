@@ -40,15 +40,18 @@ export function writeMuted(muted: boolean): void {
 }
 
 export function useSound() {
-  // Lazy initialiser reads localStorage on the client; `readMuted` guards with
-  // try/catch so it is safe in restricted environments. This avoids calling
-  // setState synchronously inside an effect (react-hooks/set-state-in-effect).
-  const [muted, setMuted] = useState(() => readMuted());
+  // SSR-safe: server + client first render both start unmuted, so there's no
+  // hydration mismatch on the mute icon; the stored value is applied in an
+  // effect after mount (mirrors usePrefersReducedMotion). A lazy useState
+  // initialiser would read localStorage during render and diverge from the
+  // server snapshot.
+  const [muted, setMuted] = useState(false);
   const pool = useRef<Partial<Record<SoundName, HTMLAudioElement>>>({});
 
-  // Preload the audio pool on the client only (no mute sync needed here —
-  // mute is already initialised above via the lazy useState).
+  // Hydrate mute state + preload the audio pool on the client only.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- v7 false positive; deliberate post-mount SSR-safe sync
+    setMuted(readMuted());
     for (const [name, src] of Object.entries(FILES)) {
       const audio = new Audio(src);
       audio.preload = 'auto';

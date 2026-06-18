@@ -1248,6 +1248,8 @@ export default function SlotMachineClient({
   const [error, setError] = useState<string | null>(null);
   const [needsTopUp, setNeedsTopUp] = useState(false);
   const [oddsOpen, setOddsOpen] = useState(false);
+  // Brief post-settle cooldown so a mash can't re-fire instantly (PRD §10).
+  const [cooldown, setCooldown] = useState(false);
 
   // Won result + a nonce that remounts the reel row to re-spin (PRD §6.5).
   const [spin, setSpin] = useState<{ nonce: number; card: WonCard } | null>(
@@ -1371,8 +1373,9 @@ export default function SlotMachineClient({
     setAnnounce(`Won ${won.name}, ${won.value}`);
     setPhase('landed');
 
-    // Brief cooldown so a mash can't double-charge before re-enable (PRD §10).
-    window.setTimeout(() => {}, COOLDOWN_MS);
+    // Brief cooldown so a mash can't re-fire before re-enable (PRD §10).
+    setCooldown(true);
+    window.setTimeout(() => setCooldown(false), COOLDOWN_MS);
   }, [spin, pack.name, pack.image, play, vibrate]);
 
   const refreshBalance = useCallback((b: number) => setBalance(b), []);
@@ -1454,7 +1457,7 @@ export default function SlotMachineClient({
       <SlotControls
         cost={cost}
         spinning={phase === 'spinning' || phase === 'resolving'}
-        disabled={spinGuarded || (customer != null && !canAfford)}
+        disabled={spinGuarded || cooldown || (customer != null && !canAfford)}
         label={
           !customer
             ? 'Log in to spin'

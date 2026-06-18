@@ -1,19 +1,36 @@
 import type { Metadata } from 'next';
 import { getPackCategories } from '@/lib/data/packs';
-import type { Pack } from '@/app/claw/packs-data';
-import { SlotsConfigClient } from './SlotsConfigClient';
+import ClawClient from '@/app/claw/ClawClient';
 
 export const metadata: Metadata = {
   title: 'Slot Machine | Pokenic',
   description: 'Pick a pack, choose how many to open, and spin the reels.',
 };
 
-// Packs are read live from the Store API per request (reflects live inventory),
-// same seam as /claw — degrade to the mock catalog inside the loader on failure.
+// Pack catalog read live from the backend — same seam as /claw. Render fresh.
 export const dynamic = 'force-dynamic';
 
-export default async function SlotsPage() {
-  const categories = await getPackCategories();
-  const packs: Pack[] = categories.flatMap((c) => c.packs);
-  return <SlotsConfigClient packs={packs} />;
+export default async function SlotsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const [{ category }, categories] = await Promise.all([
+    searchParams,
+    getPackCategories(),
+  ]);
+
+  // Honor /slots?category=<key> when it exists; else default to "All Packs".
+  const initialCategory =
+    category && categories.some((c) => c.id === category) ? category : 'all';
+
+  // /slots reuses the /claw layout verbatim (ClawClient) — only the card CTA
+  // routes to the slot reel (/slots/[slug]?count=N) via mode="slots".
+  return (
+    <ClawClient
+      categories={categories}
+      initialCategory={initialCategory}
+      mode="slots"
+    />
+  );
 }

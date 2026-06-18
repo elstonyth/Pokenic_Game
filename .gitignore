@@ -87,3 +87,7 @@ graphify-out/*
 
 # brainstorming visual-companion scratch
 .superpowers/
+
+# Local tool/build caches (regenerated locally, never committed)
+.turbo/
+.clone/

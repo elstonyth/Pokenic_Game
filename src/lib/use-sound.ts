@@ -40,12 +40,15 @@ export function writeMuted(muted: boolean): void {
 }
 
 export function useSound() {
-  const [muted, setMuted] = useState(false);
+  // Lazy initialiser reads localStorage on the client; `readMuted` guards with
+  // try/catch so it is safe in restricted environments. This avoids calling
+  // setState synchronously inside an effect (react-hooks/set-state-in-effect).
+  const [muted, setMuted] = useState(() => readMuted());
   const pool = useRef<Partial<Record<SoundName, HTMLAudioElement>>>({});
 
-  // Hydrate mute state + preload the pool on the client only.
+  // Preload the audio pool on the client only (no mute sync needed here —
+  // mute is already initialised above via the lazy useState).
   useEffect(() => {
-    setMuted(readMuted());
     for (const [name, src] of Object.entries(FILES)) {
       const audio = new Audio(src);
       audio.preload = 'auto';

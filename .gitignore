@@ -84,3 +84,6 @@ graphify-out/*
 /test-results/
 /tests/e2e/.env.e2e
 /tests/prod-smoke/.artifacts/
+
+# brainstorming visual-companion scratch
+.superpowers/

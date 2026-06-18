@@ -39,6 +39,12 @@ export function buildStrip(
   length: number,
   winIndex: number,
 ): Rarity[] {
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new RangeError('buildStrip: length must be a positive integer');
+  }
+  if (!Number.isInteger(winIndex) || winIndex < 0 || winIndex >= length) {
+    throw new RangeError('buildStrip: winIndex must be within [0, length)');
+  }
   const safePool = pool.length > 0 ? pool : [winnerRarity];
   const strip = Array.from(
     { length },

@@ -485,7 +485,7 @@ Unchanged: `POST /store/vault/:id/buyback` returns `{ pull_id, amount, percent, 
 
 ### 6.1 New route (coexist)
 
-```
+```text
 src/app/slots/[slug]/
   page.tsx              # server component, exports metadata, force-dynamic,
                         # fetches getPackBySlug + getPackDetail + getRecentPulls

@@ -1,4 +1,5 @@
 // src/app/slots/[slug]/BallToken.tsx
+import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import type { Rarity } from '@/app/claw/packs-data';
 
@@ -28,17 +29,17 @@ export function BallToken({
 }) {
   const rgb = RARITY_RGB[rarity];
   return (
-    <div className="shrink-0 px-1.5" style={w ? { width: w } : undefined}>
+    <div
+      className="w-[var(--bw)] shrink-0 px-1.5"
+      style={{ '--ball': rgb, '--bw': w ? `${w}px` : '100%' } as CSSProperties}
+    >
       <div
         className={cn(
-          'relative aspect-square overflow-hidden rounded-2xl border bg-neutral-900 p-3 transition-shadow',
+          'relative aspect-square overflow-hidden rounded-2xl border border-[rgba(var(--ball),0.55)] bg-neutral-900 p-3 transition-shadow',
+          highlight
+            ? 'shadow-[0_0_30px_-2px_rgba(var(--ball),0.9)]'
+            : 'shadow-[0_0_16px_-8px_rgba(var(--ball),0.6)]',
         )}
-        style={{
-          borderColor: `rgba(${rgb},0.55)`,
-          boxShadow: highlight
-            ? `0 0 30px -2px rgba(${rgb},0.9)`
-            : `0 0 16px -8px rgba(${rgb},0.6)`,
-        }}
       >
         <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden>
           {/* white base */}

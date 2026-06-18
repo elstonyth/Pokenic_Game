@@ -1,7 +1,13 @@
 ﻿// src/app/slots/[slug]/SlotReelRow.tsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { cn } from '@/lib/utils';
 import {
   reelTarget,
@@ -39,7 +45,13 @@ export function SlotReelRow({
   const settled = useRef(false);
 
   const strip = useMemo(
-    () => buildStrip(winnerRarity ?? pool[0], pool, STRIP_LEN, WIN_INDEX),
+    () =>
+      buildStrip(
+        winnerRarity ?? pool[0] ?? 'Common',
+        pool,
+        STRIP_LEN,
+        WIN_INDEX,
+      ),
     [winnerRarity, pool],
   );
 
@@ -94,12 +106,17 @@ export function SlotReelRow({
       aria-hidden
     >
       <div
-        className={cn('flex', spinning && 'transition-transform')}
-        style={{
-          transform: `translateX(${offset}px)`,
-          transitionDuration: spinning ? `${durationMs}ms` : undefined,
-          transitionTimingFunction: spinning ? REEL_EASE : undefined,
-        }}
+        className={cn(
+          'flex [transform:translateX(var(--reel-x))]',
+          spinning && '[transition:transform_var(--reel-dur)_var(--reel-ease)]',
+        )}
+        style={
+          {
+            '--reel-x': `${offset}px`,
+            '--reel-dur': spinning ? `${durationMs}ms` : '0ms',
+            '--reel-ease': REEL_EASE,
+          } as CSSProperties
+        }
         onTransitionEnd={() => {
           if (spinning && !settled.current) {
             settled.current = true;

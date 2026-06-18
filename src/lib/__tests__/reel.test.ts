@@ -46,4 +46,15 @@ describe('buildStrip', () => {
       buildStrip('Rare', POOL, STRIP_LEN, WIN_INDEX),
     );
   });
+
+  it('throws when winIndex is out of bounds', () => {
+    expect(() => buildStrip('Rare', POOL, STRIP_LEN, STRIP_LEN)).toThrow(
+      RangeError,
+    );
+    expect(() => buildStrip('Rare', POOL, STRIP_LEN, -1)).toThrow(RangeError);
+  });
+
+  it('throws when length is not a positive integer', () => {
+    expect(() => buildStrip('Rare', POOL, 0, 0)).toThrow(RangeError);
+  });
 });

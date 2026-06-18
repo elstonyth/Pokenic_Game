@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import QtyStepper from '@/components/QtyStepper';
-import { money } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Pack } from '@/app/claw/packs-data';
 

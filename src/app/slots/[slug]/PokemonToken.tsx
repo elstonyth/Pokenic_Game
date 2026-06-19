@@ -41,6 +41,7 @@ export function PokemonToken({
   const [src, setSrc] = useState(imageSrc ?? spriteGif(dex));
   // Re-sync if a recycled cell receives a new dex or image override.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- v7 false positive: deriving src from props for recycled cells (same pattern as SlotReelColumn)
     setSrc(imageSrc ?? spriteGif(dex));
   }, [dex, imageSrc]);
   const rgb = TIER_COLOR[tier];

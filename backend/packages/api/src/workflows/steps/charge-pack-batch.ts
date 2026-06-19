@@ -1,4 +1,5 @@
 import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../modules/packs';
 import type PacksModuleService from '../../modules/packs/service';
 
@@ -24,7 +25,13 @@ export const chargePackBatchStep = createStep<
   async (input: ChargePackBatchInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
     const [pack] = await packs.listPacks({ slug: input.pack_id }, { take: 1 });
-    const price = Number(pack?.price ?? 0);
+    const price = Number(pack?.price);
+    if (!Number.isFinite(price) || price < 0) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'This pack has no valid price and cannot be opened.',
+      );
+    }
     const total = price * input.count;
     if (total === 0) {
       const balance = await packs.creditBalance(input.customer_id);

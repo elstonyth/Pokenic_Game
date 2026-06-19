@@ -100,8 +100,10 @@ describe('buildDexStrip', () => {
   it('throws when winIndex is out of bounds', () => {
     expect(() => buildDexStrip(25, STRIP_LEN, STRIP_LEN)).toThrow(RangeError);
     expect(() => buildDexStrip(25, STRIP_LEN, -1)).toThrow(RangeError);
+    expect(() => buildDexStrip(25, STRIP_LEN, 1.5)).toThrow(RangeError);
   });
   it('throws when length is not a positive integer', () => {
     expect(() => buildDexStrip(25, 0, 0)).toThrow(RangeError);
+    expect(() => buildDexStrip(25, 2.5, 0)).toThrow(RangeError);
   });
 });

@@ -33,6 +33,14 @@ const COOLDOWN_MS = 600;
 // Phase B is single-roll; open-batch / count>1 lands in Phase D.
 const COLUMN_COUNT = 1;
 
+// Neutral reel cell for a won card with no resolvable Pokémon (trainer/energy):
+// a classic Poké Ball. Keeps the reel sprite-themed and never reveals the prize.
+const POKEBALL_PLACEHOLDER =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='#f5f5f5' stroke='#171717' stroke-width='4'/><path d='M5 50a45 45 0 0 1 90 0Z' fill='#ef4444'/><rect x='4' y='46' width='92' height='8' fill='#171717'/><circle cx='50' cy='50' r='13' fill='#f5f5f5' stroke='#171717' stroke-width='4'/></svg>",
+  );
+
 type Phase = 'idle' | 'resolving' | 'spinning' | 'landed';
 
 export default function SlotMachineClient({
@@ -160,15 +168,17 @@ export default function SlotMachineClient({
       card: res.card,
     };
 
-    // Cosmetic mapping (decides nothing): tier color + winner Pokémon (or the
-    // §2/G5 card-art fallback when the card has no resolvable Pokémon).
+    // Cosmetic mapping (decides nothing): tier color + winner Pokémon. The reel
+    // never shows the won card itself — a card with no resolvable Pokémon
+    // (trainer/energy) lands on a neutral Poké Ball placeholder; the real prize
+    // is the slab shown below the reel.
     const tier = priceTier(res.marketValue);
     const mon = pokemonFromCard(res.card.name);
     const winners: ColumnWinner[] = Array.from(
       { length: COLUMN_COUNT },
       () => ({
         dex: mon?.dex ?? null,
-        image: mon ? undefined : res.card.image,
+        image: mon ? undefined : POKEBALL_PLACEHOLDER,
         name: mon?.name ?? res.card.name,
         tier,
       }),
@@ -235,69 +245,73 @@ export default function SlotMachineClient({
         <SlotStatusBar balance={balance} recent={recent} reduced={reduced} />
       </div>
 
-      {/* Center: banner + reel stack + prize */}
+      {/* Center: banner + reel stack + prize. Scrolls if a short viewport can't
+          fit the reveal, so the prize + sell-back are never hidden behind the
+          fixed controls. */}
       <div
-        className="flex flex-1 flex-col items-center justify-center gap-6 px-fluid"
+        className="min-h-0 flex-1 overflow-y-auto px-fluid"
         aria-busy={phase === 'spinning'}
       >
-        <div className="min-h-8 text-center">
-          {won && rgb && tier && (
-            <p
-              className="font-heading text-2xl font-bold tracking-tight"
-              style={{ color: `rgb(${rgb})` }}
-            >
-              YOU WON — {tier.toUpperCase()} · {won.value}
-            </p>
-          )}
-          {phase === 'spinning' && (
-            <p className="font-heading text-lg font-bold tracking-tight text-white/60">
-              SPINNING…
-            </p>
+        <div className="flex min-h-full flex-col items-center justify-center gap-6 py-6">
+          <div className="min-h-8 text-center">
+            {won && rgb && tier && (
+              <p
+                className="font-heading text-2xl font-bold tracking-tight"
+                style={{ color: `rgb(${rgb})` }}
+              >
+                YOU WON — {tier.toUpperCase()} · {won.value}
+              </p>
+            )}
+            {phase === 'spinning' && (
+              <p className="font-heading text-lg font-bold tracking-tight text-white/60">
+                SPINNING…
+              </p>
+            )}
+          </div>
+
+          <SlotReelStack
+            count={COLUMN_COUNT}
+            spinKey={spin?.nonce ?? 'idle'}
+            winners={
+              phase === 'idle' || phase === 'resolving'
+                ? null
+                : (spin?.winners ?? null)
+            }
+            reduced={reduced}
+            baseDurationMs={BASE_SPIN_MS}
+            pulse={phase === 'landed'}
+            onAllSettled={handleSettled}
+          />
+
+          {won && (
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center gap-4">
+                <Image
+                  src={won.image}
+                  alt={won.name}
+                  width={110}
+                  height={154}
+                  className="h-[154px] w-auto rounded-lg object-contain"
+                />
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-white">{won.name}</p>
+                  <p className="text-[13px] text-white/60">
+                    Value{' '}
+                    <span className="font-bold text-white">{won.value}</span>
+                  </p>
+                </div>
+              </div>
+              <SellBackPanel
+                offer={offer}
+                active={phase === 'landed'}
+                reduced={reduced}
+                onSellBack={sellBackPull}
+                onReveal={revealPull}
+                onSold={refreshBalance}
+              />
+            </div>
           )}
         </div>
-
-        <SlotReelStack
-          count={COLUMN_COUNT}
-          spinKey={spin?.nonce ?? 'idle'}
-          winners={
-            phase === 'idle' || phase === 'resolving'
-              ? null
-              : (spin?.winners ?? null)
-          }
-          reduced={reduced}
-          baseDurationMs={BASE_SPIN_MS}
-          pulse={phase === 'landed'}
-          onAllSettled={handleSettled}
-        />
-
-        {won && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-4">
-              <Image
-                src={won.image}
-                alt={won.name}
-                width={110}
-                height={154}
-                className="h-[154px] w-auto rounded-lg object-contain"
-              />
-              <div className="text-left">
-                <p className="text-sm font-semibold text-white">{won.name}</p>
-                <p className="text-[13px] text-white/60">
-                  Value{' '}
-                  <span className="font-bold text-white">{won.value}</span>
-                </p>
-              </div>
-            </div>
-            <SellBackPanel
-              offer={offer}
-              active={phase === 'landed'}
-              reduced={reduced}
-              onSellBack={sellBackPull}
-              onReveal={revealPull}
-              onSold={refreshBalance}
-            />
-          </div>
-        )}
       </div>
 
       {/* Bottom controls */}

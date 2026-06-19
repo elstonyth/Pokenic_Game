@@ -97,6 +97,24 @@
           "default": "true",
           "mappedType": "boolean"
         },
+        "pokemon_dex": {
+          "name": "pokemon_dex",
+          "type": "integer",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "integer"
+        },
+        "sprite_image": {
+          "name": "sprite_image",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
         "raw_market_value": {
           "name": "raw_market_value",
           "type": "jsonb",

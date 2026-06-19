@@ -30,6 +30,13 @@ export const Card = model.define("card", {
   // set to draft. Defaults true so the 51 already-seeded cards (all published as
   // Products) keep matching their live marketplace listings.
   for_sale: model.boolean().default(true),
+  // Pixel-Pokémon avatar (1:1 per card). national-dex number, 1-based. Nullable:
+  // existing cards resolve via name-derivation (pokemonFromCard) until an admin
+  // assigns one. model.number() (NOT bigNumber) — an integer dex, distinct from
+  // the bigNumber money columns above.
+  pokemon_dex: model.number().nullable(),
+  // Optional custom uploaded pixel sprite URL; overrides the dex default gif.
+  sprite_image: model.text().nullable(),
 });
 
 export default Card;

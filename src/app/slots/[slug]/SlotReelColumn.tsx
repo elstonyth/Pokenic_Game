@@ -54,6 +54,11 @@ export function SlotReelColumn({
   const windowRef = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  // True only AFTER a real settle — drives the winner grow+glow. Not derived
+  // from `!spinning`, because the pre-effect mount frame has spinning=false and
+  // would briefly flash the winner (a spoiler + a stray `scale` transition).
+  // The column remounts per spin (keyed by spinKey), so this resets for free.
+  const [done, setDone] = useState(false);
   const settled = useRef(false);
 
   // Keep the latest onSettled in a ref so it isn't an effect dependency — an
@@ -98,6 +103,7 @@ export function SlotReelColumn({
       const id = setTimeout(() => {
         if (!settled.current) {
           settled.current = true;
+          setDone(true);
           onSettledRef.current?.();
         }
       }, 0);
@@ -140,17 +146,24 @@ export function SlotReelColumn({
             '--reel-ease': REEL_EASE,
           } as CSSProperties
         }
-        onTransitionEnd={() => {
+        onTransitionEnd={(e) => {
+          // transitionend bubbles — only the strip's OWN transform scroll may
+          // settle the reel. Ignore bubbled child transitions (a PokemonToken
+          // `scale`, the payline `width`, etc.), which would otherwise fire the
+          // win mid-scroll (win-after-stop violation, spec §4 bug #1).
+          if (e.target !== e.currentTarget || e.propertyName !== 'transform')
+            return;
           if (spinning && !settled.current) {
             settled.current = true;
             setSpinning(false);
+            setDone(true);
             onSettledRef.current?.();
           }
         }}
       >
         {strip.map((dex, i) => {
           const isWinnerCell = i === WIN_INDEX;
-          const landed = isWinnerCell && !spinning && isWin;
+          const landed = isWinnerCell && done;
           return (
             <div
               key={i}

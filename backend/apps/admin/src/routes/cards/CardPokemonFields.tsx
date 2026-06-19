@@ -1,4 +1,10 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from 'react';
 import { Button, Input, Label, Text, clx, toast } from '@medusajs/ui';
 import { POKEDEX_NAMES, pokemonFromCard, spriteGif } from '@acme/pokemon';
 import { useUploadImage } from '../../lib/queries';
@@ -23,6 +29,7 @@ const PICKER_LIMIT = 60;
 
 const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
   const [filter, setFilter] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadImg = useUploadImage();
   const uploading = uploadImg.isPending;
@@ -50,6 +57,35 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
     }
     return out;
   }, [filter]);
+
+  const selectDex = (dex: number) => {
+    onChange({ pokemon_dex: dex });
+    setFilter('');
+    setActiveIndex(0);
+  };
+
+  // Keyboard nav for the search combobox: focus stays on the input (roving via
+  // aria-activedescendant), arrows move the active option, Enter assigns it,
+  // Escape clears the search.
+  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setFilter('');
+      setActiveIndex(0);
+      return;
+    }
+    if (matches.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, matches.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const m = matches[Math.min(activeIndex, matches.length - 1)];
+      if (m) selectDex(m.dex);
+    }
+  };
 
   const handleSprite = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,37 +149,63 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
         </div>
       </div>
 
-      {/* Dex picker — search by name, click to assign */}
+      {/* Dex picker — searchable combobox; arrow keys + Enter to assign */}
       <Input
         placeholder="Search a Pokémon by name to assign…"
+        aria-label="Search a Pokémon by name to assign"
+        role="combobox"
+        aria-expanded={matches.length > 0}
+        aria-controls="dex-picker-listbox"
+        aria-autocomplete="list"
+        aria-activedescendant={
+          matches.length > 0
+            ? `dex-opt-${matches[Math.min(activeIndex, matches.length - 1)].dex}`
+            : undefined
+        }
         value={filter}
-        onChange={(e) => setFilter(e.target.value)}
+        onChange={(e) => {
+          setFilter(e.target.value);
+          setActiveIndex(0);
+        }}
+        onKeyDown={onSearchKeyDown}
       />
       {matches.length > 0 && (
-        <div className="max-h-44 divide-y overflow-y-auto rounded-lg border">
-          {matches.map((m) => (
-            <button
-              key={m.dex}
-              type="button"
-              onClick={() => {
-                onChange({ pokemon_dex: m.dex });
-                setFilter('');
-              }}
-              className={clx(
-                'hover:bg-ui-bg-base-hover flex w-full items-center gap-3 px-4 py-2 text-left',
-                value.pokemon_dex === m.dex && 'bg-ui-bg-base-pressed',
-              )}
-            >
-              <img
-                src={spriteGif(m.dex)}
-                alt=""
-                className="h-8 w-8 shrink-0 bg-white object-contain"
-              />
-              <span className="flex-1 truncate text-sm font-medium">
-                #{m.dex} {m.name}
-              </span>
-            </button>
-          ))}
+        <div
+          id="dex-picker-listbox"
+          role="listbox"
+          aria-label="Pokémon matches"
+          className="max-h-44 divide-y overflow-y-auto rounded-lg border"
+        >
+          {matches.map((m, i) => {
+            const active = i === Math.min(activeIndex, matches.length - 1);
+            const selected = value.pokemon_dex === m.dex;
+            return (
+              <button
+                key={m.dex}
+                id={`dex-opt-${m.dex}`}
+                role="option"
+                aria-selected={selected}
+                type="button"
+                tabIndex={-1}
+                onMouseEnter={() => setActiveIndex(i)}
+                onClick={() => selectDex(m.dex)}
+                className={clx(
+                  'flex w-full items-center gap-3 px-4 py-2 text-left',
+                  active && 'bg-ui-bg-base-hover',
+                  selected && 'bg-ui-bg-base-pressed',
+                )}
+              >
+                <img
+                  src={spriteGif(m.dex)}
+                  alt=""
+                  className="h-8 w-8 shrink-0 bg-white object-contain"
+                />
+                <span className="flex-1 truncate text-sm font-medium">
+                  #{m.dex} {m.name}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 

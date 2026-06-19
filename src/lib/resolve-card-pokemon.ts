@@ -17,7 +17,11 @@ export type ResolvedCardPokemon = {
   sprite: string | null;
 };
 
-const MAX_DEX = POKEDEX_NAMES.length; // derive the bound; never hardcode 1025
+// Derive the bound; never hardcode 1025. NOTE: the backend mirrors this as a
+// hardcoded literal (MAX_DEX = 1025) in
+// backend/packages/api/src/api/admin/cards/validate.ts — keep the two in sync if
+// the dex list grows (that file is the one that won't auto-track this length).
+const MAX_DEX = POKEDEX_NAMES.length;
 
 const validDex = (d: number | null | undefined): d is number =>
   typeof d === 'number' && Number.isInteger(d) && d >= 1 && d <= MAX_DEX;

@@ -45,9 +45,12 @@ const reqNum = (b: Record<string, unknown>, key: string): number => {
   return v as number;
 };
 
-// Pixel-Pokémon avatar fields. dex is a 1-based national-dex int in [1, MAX_DEX];
-// MAX_DEX mirrors POKEDEX_NAMES.length in @acme/pokemon (1025 today). Both are
-// optional → null when omitted/blank (the card then resolves via name-derivation).
+// Pixel-Pokémon avatar fields. dex is a 1-based national-dex int in [1, MAX_DEX].
+// MAX_DEX is a hardcoded mirror of POKEDEX_NAMES.length (1025 today). The
+// storefront derives the same bound dynamically in
+// src/lib/resolve-card-pokemon.ts (MAX_DEX = POKEDEX_NAMES.length); if the dex
+// list ever grows, bump THIS literal to match. Both fields are optional → null
+// when omitted/blank (the card then resolves via name-derivation).
 const MAX_DEX = 1025;
 
 const optDex = (b: Record<string, unknown>): number | null => {

@@ -15,10 +15,25 @@ describe('coerceRegisterCardBody — pixel-pokemon fields', () => {
     expect(out.sprite_image).toBeNull();
   });
 
-  it('rejects an out-of-range dex', () => {
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 99999 })).toThrow();
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 0 })).toThrow();
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 5.5 })).toThrow();
+  it('rejects an out-of-range or non-integer dex with a clear message', () => {
+    const msg = /must be an integer between 1 and 1025/;
+    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 99999 })).toThrow(msg);
+    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 1026 })).toThrow(msg); // first invalid above MAX_DEX
+    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 0 })).toThrow(msg);
+    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: -1 })).toThrow(msg);
+    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 5.5 })).toThrow(msg);
+  });
+
+  it('accepts the boundary dex values 1 and 1025', () => {
+    expect(coerceRegisterCardBody({ ...base, pokemon_dex: 1 }).pokemon_dex).toBe(1);
+    expect(coerceRegisterCardBody({ ...base, pokemon_dex: 1025 }).pokemon_dex).toBe(1025);
+  });
+
+  it('rejects a sprite_image with a bad scheme or non-string with a clear message', () => {
+    const schemeMsg = /http\(s\) URL or a \/storefront path/;
+    expect(() => coerceRegisterCardBody({ ...base, sprite_image: 'javascript:alert(1)' })).toThrow(schemeMsg);
+    expect(() => coerceRegisterCardBody({ ...base, sprite_image: 'ftp://x/y.png' })).toThrow(schemeMsg);
+    expect(() => coerceRegisterCardBody({ ...base, sprite_image: 123 })).toThrow(/must be a string URL/);
   });
 });
 

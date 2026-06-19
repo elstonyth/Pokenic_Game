@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -32,6 +32,7 @@ import {
   type EditRow,
 } from '../../../lib/odds-rows';
 import { resolveImageUrl } from '../../../lib/image-url';
+import { groupRowsByPokemon, groupRollup } from '../../../lib/group-rows';
 
 const PackOddsEditorPage = () => {
   const { t } = useTranslation();
@@ -105,6 +106,22 @@ const PackOddsEditorPage = () => {
     );
     return { result, previewByCard };
   }, [rows]);
+
+  const groups = useMemo(() => groupRowsByPokemon(rows ?? []), [rows]);
+
+  // Collapse is view-only UI state keyed by stable group key — never touches
+  // `rows` or the save buffer. Empty set ⇒ all expanded; a new group key
+  // (absent after a reseed) defaults to expanded automatically.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const expandAll = () => setCollapsed(new Set());
+  const collapseAll = () => setCollapsed(new Set(groups.map((g) => g.key)));
 
   const setRow = (cardId: string, patch: Partial<EditRow>) =>
     setRows(
@@ -186,14 +203,32 @@ const PackOddsEditorPage = () => {
             {t('packs.editor.subtitle')}
           </Text>
         </div>
-        <Button
-          size="small"
-          variant="secondary"
-          onClick={openPool}
-          disabled={rows === null}
-        >
-          {t('packs.pool.manage')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="small"
+            variant="transparent"
+            onClick={expandAll}
+            disabled={rows === null}
+          >
+            {t('packs.editor.group.expandAll')}
+          </Button>
+          <Button
+            size="small"
+            variant="transparent"
+            onClick={collapseAll}
+            disabled={rows === null}
+          >
+            {t('packs.editor.group.collapseAll')}
+          </Button>
+          <Button
+            size="small"
+            variant="secondary"
+            onClick={openPool}
+            disabled={rows === null}
+          >
+            {t('packs.pool.manage')}
+          </Button>
+        </div>
       </div>
 
       {rows === null ? (
@@ -223,86 +258,141 @@ const PackOddsEditorPage = () => {
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {rows.map((r) => {
-                const preview = previewByCard.get(r.card_id) ?? 0;
-                const changed = Math.abs(preview - r.currentPct) >= 0.005;
+              {groups.map((g) => {
+                const rollup = groupRollup(g.rows, previewByCard);
+                const isCollapsed = collapsed.has(g.key);
                 return (
-                  <Table.Row key={r.card_id}>
-                    <Table.Cell>
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={resolveImageUrl(r.image)}
-                          alt=""
-                          className="h-10 w-8 shrink-0 rounded object-contain"
-                        />
-                        <div className="flex flex-col">
-                          <span className="max-w-[18rem] truncate">
-                            {r.name}
+                  <Fragment key={g.key}>
+                    <Table.Row className="bg-ui-bg-subtle">
+                      <Table.HeaderCell colSpan={7}>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(g.key)}
+                            className="text-ui-fg-subtle hover:text-ui-fg-base"
+                            aria-label={g.key}
+                          >
+                            {isCollapsed ? '▸' : '▾'}
+                          </button>
+                          <span className="font-medium">
+                            {g.pokemon
+                              ? g.pokemon.name
+                              : t('packs.editor.group.other')}
                           </span>
-                          {r.stock === 0 && (
-                            <span className="text-ui-tag-orange-text text-xs">
-                              {t('packs.editor.buybackOnly')}
+                          {g.pokemon && (
+                            <span className="text-ui-fg-subtle text-xs tabular-nums">
+                              #{g.pokemon.dex}
                             </span>
                           )}
+                          <span className="text-ui-fg-subtle text-xs">
+                            {t('packs.editor.group.count', { count: rollup.count })}
+                          </span>
+                          <span className="text-ui-fg-subtle ml-auto text-xs tabular-nums">
+                            {t('packs.editor.group.current')}: {fmtPct(rollup.currentPct)}
+                          </span>
+                          <span
+                            className={clx(
+                              'text-xs tabular-nums',
+                              rollup.changed
+                                ? 'text-ui-fg-base font-medium'
+                                : 'text-ui-fg-subtle',
+                            )}
+                          >
+                            {t('packs.editor.group.preview')}: {fmtPct(rollup.previewPct)}
+                          </span>
+                          <span className="text-ui-fg-subtle text-xs tabular-nums">
+                            {t('packs.editor.group.stock')}:{' '}
+                            {rollup.stock === null
+                              ? t('packs.editor.group.untracked')
+                              : rollup.stock}
+                          </span>
                         </div>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Select
-                        size="small"
-                        value={r.rarity}
-                        onValueChange={(v) => setRow(r.card_id, { rarity: v })}
-                      >
-                        <Select.Trigger className="w-32">
-                          <Select.Value />
-                        </Select.Trigger>
-                        <Select.Content>
-                          {RARITIES.map((rarity) => (
-                            <Select.Item key={rarity} value={rarity}>
-                              {rarity}
-                            </Select.Item>
-                          ))}
-                        </Select.Content>
-                      </Select>
-                    </Table.Cell>
-                    <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                      {usd(r.market_value)}
-                    </Table.Cell>
-                    <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                      {fmtPct(r.currentPct)}
-                    </Table.Cell>
-                    <Table.Cell className="text-center">
-                      <Switch
-                        checked={r.locked}
-                        onCheckedChange={() => toggleLock(r)}
-                      />
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.01}
-                        disabled={!r.locked}
-                        value={r.locked ? r.pctInput : ''}
-                        placeholder={r.locked ? '' : 'auto'}
-                        onChange={(e) =>
-                          setRow(r.card_id, { pctInput: e.target.value })
-                        }
-                        className="w-24 tabular-nums"
-                      />
-                    </Table.Cell>
-                    <Table.Cell
-                      className={clx(
-                        'text-right tabular-nums',
-                        changed
-                          ? 'text-ui-fg-base font-medium'
-                          : 'text-ui-fg-subtle',
-                      )}
-                    >
-                      {fmtPct(preview)}
-                    </Table.Cell>
-                  </Table.Row>
+                      </Table.HeaderCell>
+                    </Table.Row>
+                    {!isCollapsed &&
+                      g.rows.map((r) => {
+                        const preview = previewByCard.get(r.card_id) ?? 0;
+                        const changed = Math.abs(preview - r.currentPct) >= 0.005;
+                        return (
+                          <Table.Row key={r.card_id}>
+                            <Table.Cell>
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={resolveImageUrl(r.image)}
+                                  alt=""
+                                  className="h-10 w-8 shrink-0 rounded object-contain"
+                                />
+                                <div className="flex flex-col">
+                                  <span className="max-w-[18rem] truncate">
+                                    {r.name}
+                                  </span>
+                                  {r.stock === 0 && (
+                                    <span className="text-ui-tag-orange-text text-xs">
+                                      {t('packs.editor.buybackOnly')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Select
+                                size="small"
+                                value={r.rarity}
+                                onValueChange={(v) => setRow(r.card_id, { rarity: v })}
+                              >
+                                <Select.Trigger className="w-32">
+                                  <Select.Value />
+                                </Select.Trigger>
+                                <Select.Content>
+                                  {RARITIES.map((rarity) => (
+                                    <Select.Item key={rarity} value={rarity}>
+                                      {rarity}
+                                    </Select.Item>
+                                  ))}
+                                </Select.Content>
+                              </Select>
+                            </Table.Cell>
+                            <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
+                              {usd(r.market_value)}
+                            </Table.Cell>
+                            <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
+                              {fmtPct(r.currentPct)}
+                            </Table.Cell>
+                            <Table.Cell className="text-center">
+                              <Switch
+                                checked={r.locked}
+                                onCheckedChange={() => toggleLock(r)}
+                              />
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.01}
+                                disabled={!r.locked}
+                                value={r.locked ? r.pctInput : ''}
+                                placeholder={r.locked ? '' : 'auto'}
+                                onChange={(e) =>
+                                  setRow(r.card_id, { pctInput: e.target.value })
+                                }
+                                className="w-24 tabular-nums"
+                              />
+                            </Table.Cell>
+                            <Table.Cell
+                              className={clx(
+                                'text-right tabular-nums',
+                                changed
+                                  ? 'text-ui-fg-base font-medium'
+                                  : 'text-ui-fg-subtle',
+                              )}
+                            >
+                              {fmtPct(preview)}
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                  </Fragment>
                 );
               })}
             </Table.Body>

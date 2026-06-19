@@ -83,7 +83,17 @@
       "back": "All packs",
       "loadError": "Could not load pack odds.",
       "flattenWarning": "No cards are locked — saving will reset every card to its rarity-based share. Lock the cards whose exact win rate you want to preserve first.",
-      "buybackOnly": "0 in stock · buyback-only"
+      "buybackOnly": "0 in stock · buyback-only",
+      "group": {
+        "other": "Other / Ungrouped",
+        "count": "{{count}} cards",
+        "current": "Now",
+        "preview": "After save",
+        "stock": "Stock",
+        "untracked": "untracked",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all"
+      }
     }
   },
   "cards": {

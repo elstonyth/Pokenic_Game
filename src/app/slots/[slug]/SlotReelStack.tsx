@@ -40,14 +40,21 @@ export function SlotReelStack({
   onAllSettled?: () => void;
 }) {
   const settledRef = useRef(0);
+  // Latest onAllSettled in a ref so handleColSettled stays stable across parent
+  // re-renders — otherwise an unmemoized parent callback would churn the column
+  // props (harmless in Phase B at count=1, but compounds for Phase D count>1).
+  const onAllSettledRef = useRef(onAllSettled);
+  useEffect(() => {
+    onAllSettledRef.current = onAllSettled;
+  }, [onAllSettled]);
   useEffect(() => {
     settledRef.current = 0;
   }, [spinKey]);
 
   const handleColSettled = useCallback(() => {
     settledRef.current += 1;
-    if (settledRef.current >= count) onAllSettled?.();
-  }, [count, onAllSettled]);
+    if (settledRef.current >= count) onAllSettledRef.current?.();
+  }, [count]);
 
   return (
     <div className="relative flex items-stretch justify-center gap-3 sm:gap-5">
@@ -60,11 +67,15 @@ export function SlotReelStack({
             winnerDex={w ? w.dex : null}
             winnerImage={w?.image}
             winnerName={w?.name}
+            // Idle (winners === null) → tier is irrelevant; the column shows a
+            // looping decoy strip and never glows or settles.
             tier={w ? w.tier : 'common'}
             reduced={reduced}
             durationMs={baseDurationMs + i * STAGGER_MS}
             cellSize={cellSize}
-            onSettled={handleColSettled}
+            // Only spinning columns report settle — idle columns get no callback
+            // so the settled counter can never advance during the idle state.
+            onSettled={winners ? handleColSettled : undefined}
           />
         );
       })}

@@ -1,6 +1,9 @@
 import { cn } from '@/lib/utils';
 
-/** Horizontal payline across the reel stack. `pulse` flashes on win (spec §3.4). */
+/**
+ * Horizontal payline across the reel stack. `pulse` flashes on win (spec §3.4).
+ * Positions its parts absolutely — render inside a `relative` container.
+ */
 export function PaylineRow({
   reduced,
   pulse = false,

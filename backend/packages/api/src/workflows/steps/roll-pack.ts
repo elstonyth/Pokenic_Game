@@ -24,6 +24,8 @@ export type RolledCard = {
   rarity: string;
   market_value: number;
   image: string;
+  pokemon_dex: number | null;
+  sprite_image: string | null;
 };
 
 // roll-pack — read-only step: validate the pack is active, then pick a winner
@@ -95,6 +97,8 @@ export const rollPackStep = createStep(
       rarity: won.rarity,
       market_value: Number(card.market_value),
       image: card.image,
+      pokemon_dex: card.pokemon_dex ?? null,
+      sprite_image: card.sprite_image ?? null,
     };
     return new StepResponse(rolled);
   }

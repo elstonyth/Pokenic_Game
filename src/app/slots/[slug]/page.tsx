@@ -25,15 +25,26 @@ export async function generateMetadata({
 
 export default async function SlotPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ count?: string }>;
 }) {
   const { slug } = await params;
+  const { count: countRaw } = await searchParams;
+  const parsed = Number(countRaw);
+  const count = Number.isInteger(parsed) ? Math.min(3, Math.max(1, parsed)) : 1;
   const [base, recentPulls] = await Promise.all([
     getPackBySlug(slug),
     getRecentPulls(),
   ]);
   if (!base) notFound();
 
-  return <SlotMachineClient pack={base.pack} recentPulls={recentPulls} />;
+  return (
+    <SlotMachineClient
+      pack={base.pack}
+      recentPulls={recentPulls}
+      count={count}
+    />
+  );
 }

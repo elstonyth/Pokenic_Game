@@ -9,7 +9,7 @@ import { usePrefersReducedMotion } from '@/lib/use-reveal';
 import { useChromeInert } from '@/lib/use-chrome-inert';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { openAuth } from '@/components/AuthButton';
-import { openPack, revealPull } from '@/lib/actions/packs';
+import { openBatch, revealPull } from '@/lib/actions/packs';
 import type { WonCard } from '@/lib/actions/packs';
 import { getCreditBalance, sellBackPull } from '@/lib/actions/vault';
 import { useSound } from '@/lib/use-sound';
@@ -30,8 +30,6 @@ import { OddsSheet } from './OddsSheet';
 import { SellBackPanel, type SellBackOffer } from '@/components/SellBackPanel';
 
 const COOLDOWN_MS = 600;
-// Phase B is single-roll; open-batch / count>1 lands in Phase D.
-const COLUMN_COUNT = 1;
 
 // Neutral reel cell for a won card with no resolvable Pokémon (trainer/energy):
 // a classic Poké Ball. Keeps the reel sprite-themed and never reveals the prize.
@@ -46,9 +44,11 @@ type Phase = 'idle' | 'resolving' | 'spinning' | 'landed';
 export default function SlotMachineClient({
   pack,
   recentPulls,
+  count,
 }: {
   pack: ResolvedPack & Pack;
   recentPulls: RecentPull[];
+  count: number;
 }) {
   const reduced = usePrefersReducedMotion();
   // Immersive surface: chrome inert + body scroll locked the whole time mounted.
@@ -57,6 +57,9 @@ export default function SlotMachineClient({
   const { muted, toggleMuted, play, vibrate } = useSound();
 
   const cost = priceNumber(pack.price);
+  // Shrink the cell so multiple reels fit across the viewport.
+  const cellSize = count > 1 ? 76 : 96;
+
   const [balance, setBalance] = useState<number | null>(null);
   const [recent, setRecent] = useState<RecentPull[]>(recentPulls);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -65,22 +68,22 @@ export default function SlotMachineClient({
   const [oddsOpen, setOddsOpen] = useState(false);
   const [cooldown, setCooldown] = useState(false);
 
-  // Won result + a nonce that remounts the reel stack to re-spin.
+  // Won results + a nonce that remounts the reel stack to re-spin.
   const [spin, setSpin] = useState<{
     nonce: number;
-    card: WonCard;
+    cards: WonCard[];
     winners: ColumnWinner[];
-    tier: Tier;
+    tiers: Tier[];
   } | null>(null);
-  // Held until the reel settles (spoiler guard). Carries the won card too, so
+  // Held until the reel settles (spoiler guard). Carries the won cards too, so
   // handleSettled reads the result from this ref (always current) instead of
   // closing over `spin` — the callback stays stable and double-fire-safe.
   const pending = useRef<{
     balance: number | null;
-    offer: SellBackOffer | null;
-    card: WonCard;
+    offers: (SellBackOffer | null)[];
+    cards: WonCard[];
   } | null>(null);
-  const [offer, setOffer] = useState<SellBackOffer | null>(null);
+  const [offers, setOffers] = useState<(SellBackOffer | null)[]>([]);
   const [announce, setAnnounce] = useState('');
   const cooldownTimer = useRef<number | null>(null);
   useEffect(
@@ -110,7 +113,7 @@ export default function SlotMachineClient({
     };
   }, [customer]);
 
-  const canAfford = balance !== null && balance >= cost;
+  const canAfford = balance !== null && balance >= cost * count;
   const spinGuarded = phase === 'resolving' || phase === 'spinning';
 
   async function handleSpin() {
@@ -119,19 +122,19 @@ export default function SlotMachineClient({
       openAuth('login');
       return;
     }
-    if (balance !== null && balance < cost) {
+    if (balance !== null && balance < cost * count) {
       setNeedsTopUp(true);
       setError('Not enough credits to spin.');
       return;
     }
     setError(null);
     setNeedsTopUp(false);
-    setOffer(null);
+    setOffers([]);
     setAnnounce('');
     setPhase('resolving');
     play('spin');
 
-    const res = await openPack(pack.id);
+    const res = await openBatch(pack.id, count);
     if (!res.ok) {
       if (res.needsAuth) openAuth('login');
       else {
@@ -143,54 +146,56 @@ export default function SlotMachineClient({
     }
 
     // Build (but don't yet apply) the post-spin state — spoiler guard.
-    const builtOffer: SellBackOffer | null =
-      res.pullId !== null && res.marketValue !== null
-        ? {
-            pullId: res.pullId,
-            fmv: res.marketValue,
-            cardName: res.card.name,
-            image: res.card.image,
-            percent: res.buyback?.percent ?? FLAT_BUYBACK_PERCENT,
-            amount:
-              res.buyback?.amount ??
-              Math.round(res.marketValue * FLAT_BUYBACK_PERCENT) / 100,
-            vaultPercent: res.buyback?.vaultPercent ?? FLAT_BUYBACK_PERCENT,
-            vaultAmount:
-              res.buyback?.vaultAmount ??
-              Math.round(res.marketValue * FLAT_BUYBACK_PERCENT) / 100,
-            instantDeadlineMs:
-              res.buyback?.instantDeadlineMs ?? Date.now() + 30_000,
-          }
-        : null;
-    pending.current = {
-      balance: res.balance,
-      offer: builtOffer,
-      card: res.card,
-    };
+    // One entry per roll.
+    const builtOffers: (SellBackOffer | null)[] = [];
+    const winners: ColumnWinner[] = [];
+    const cards: WonCard[] = [];
+    const tiers: Tier[] = [];
 
-    // Cosmetic mapping (decides nothing): tier color + winner Pokémon. The reel
-    // never shows the won card itself — a card with no resolvable Pokémon
-    // (trainer/energy) lands on a neutral Poké Ball placeholder; the real prize
-    // is the slab shown below the reel.
-    const tier = priceTier(res.marketValue);
-    const r = resolveCardPokemon(res.card);
-    const custom =
-      res.card.sprite_image && res.card.sprite_image.trim() !== ''
-        ? res.card.sprite_image
-        : null;
-    const winners: ColumnWinner[] = Array.from(
-      { length: COLUMN_COUNT },
-      () => ({
+    for (const roll of res.rolls) {
+      // Build the sell-back offer for this roll.
+      const builtOffer: SellBackOffer | null =
+        roll.pullId !== null
+          ? {
+              pullId: roll.pullId,
+              fmv: roll.marketValue,
+              cardName: roll.card.name,
+              image: roll.card.image,
+              percent: roll.buyback?.percent ?? FLAT_BUYBACK_PERCENT,
+              amount:
+                roll.buyback?.amount ??
+                Math.round(roll.marketValue * FLAT_BUYBACK_PERCENT) / 100,
+              vaultPercent: roll.buyback?.vaultPercent ?? FLAT_BUYBACK_PERCENT,
+              vaultAmount:
+                roll.buyback?.vaultAmount ??
+                Math.round(roll.marketValue * FLAT_BUYBACK_PERCENT) / 100,
+              instantDeadlineMs:
+                roll.buyback?.instantDeadlineMs ?? Date.now() + 30_000,
+            }
+          : null;
+      builtOffers.push(builtOffer);
+
+      // Cosmetic mapping (decides nothing): tier color + winner Pokémon.
+      const tier = priceTier(roll.marketValue);
+      const r = resolveCardPokemon(roll.card);
+      const custom =
+        roll.card.sprite_image && roll.card.sprite_image.trim() !== ''
+          ? roll.card.sprite_image
+          : null;
+      winners.push({
         dex: r.dex,
         // Custom sprite wins; an explicit/derived dex lets the column draw the
-        // gif (image undefined); otherwise the neutral Poké Ball (never card art).
+        // gif (image undefined); otherwise the neutral Poké Ball.
         image: custom ?? (r.dex === null ? POKEBALL_PLACEHOLDER : undefined),
-        name: r.name ?? res.card.name,
+        name: r.name ?? roll.card.name,
         tier,
-      }),
-    );
+      });
+      cards.push(roll.card);
+      tiers.push(tier);
+    }
 
-    setSpin({ nonce: Date.now(), card: res.card, winners, tier });
+    pending.current = { balance: res.balance, offers: builtOffers, cards };
+    setSpin({ nonce: Date.now(), cards, winners, tiers });
     setPhase('spinning');
   }
 
@@ -201,13 +206,14 @@ export default function SlotMachineClient({
     const held = pending.current;
     if (!held) return;
     pending.current = null;
-    const won = held.card;
 
     if (held.balance != null) setBalance(held.balance);
-    setOffer(held.offer);
+    setOffers(held.offers);
 
-    const justPulled: RecentPull = {
-      id: `${won.id}-${Date.now()}`,
+    // Prepend one RecentPull per card won in this batch.
+    const now = Date.now();
+    const justPulled: RecentPull[] = held.cards.map((won, i) => ({
+      id: `${won.id}-${now}-${i}`,
       name: won.name,
       image: won.image,
       value: won.value,
@@ -215,13 +221,20 @@ export default function SlotMachineClient({
       packName: pack.name,
       packIcon: pack.image,
       agoLabel: 'just now',
-    };
-    setRecent((prev) => [justPulled, ...prev].slice(0, 12));
+    }));
+    setRecent((prev) => [...justPulled, ...prev].slice(0, 12));
 
-    const big = won.rarity === 'Epic' || won.rarity === 'Legendary';
+    const big = held.cards.some(
+      (c) => c.rarity === 'Epic' || c.rarity === 'Legendary',
+    );
     play(big ? 'bigwin' : 'win');
     vibrate(big ? [40, 40, 80] : 30);
-    setAnnounce(`Won ${won.name}, ${won.value}`);
+
+    if (held.cards.length === 1) {
+      setAnnounce(`Won ${held.cards[0].name}, ${held.cards[0].value}`);
+    } else {
+      setAnnounce(`Won ${held.cards.length} cards`);
+    }
     setPhase('landed');
 
     setCooldown(true);
@@ -234,9 +247,11 @@ export default function SlotMachineClient({
 
   const refreshBalance = useCallback((b: number) => setBalance(b), []);
 
-  const won = phase === 'landed' ? (spin?.card ?? null) : null;
-  const tier = spin?.tier ?? null;
-  const rgb = won && tier ? TIER_COLOR[tier] : null;
+  const wonCards = phase === 'landed' ? (spin?.cards ?? []) : [];
+  // For single-card banner: use the first card's tier.
+  const firstTier = spin?.tiers[0] ?? null;
+  const firstRgb =
+    wonCards.length === 1 && firstTier ? TIER_COLOR[firstTier] : null;
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-neutral-50">
@@ -260,12 +275,17 @@ export default function SlotMachineClient({
       >
         <div className="flex min-h-full flex-col items-center justify-center gap-6 py-6">
           <div className="min-h-8 text-center">
-            {won && rgb && tier && (
+            {wonCards.length === 1 && firstRgb && firstTier && (
               <p
                 className="font-heading text-2xl font-bold tracking-tight"
-                style={{ color: `rgb(${rgb})` }}
+                style={{ color: `rgb(${firstRgb})` }}
               >
-                YOU WON — {tier.toUpperCase()} · {won.value}
+                YOU WON — {firstTier.toUpperCase()} · {wonCards[0].value}
+              </p>
+            )}
+            {wonCards.length > 1 && (
+              <p className="font-heading text-2xl font-bold tracking-tight text-white">
+                YOU WON {wonCards.length} CARDS
               </p>
             )}
             {phase === 'spinning' && (
@@ -276,7 +296,8 @@ export default function SlotMachineClient({
           </div>
 
           <SlotReelStack
-            count={COLUMN_COUNT}
+            count={count}
+            cellSize={cellSize}
             spinKey={spin?.nonce ?? 'idle'}
             winners={
               phase === 'idle' || phase === 'resolving'
@@ -289,32 +310,43 @@ export default function SlotMachineClient({
             onAllSettled={handleSettled}
           />
 
-          {won && (
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-4">
-                <Image
-                  src={won.image}
-                  alt={won.name}
-                  width={110}
-                  height={154}
-                  className="h-[154px] w-auto rounded-lg object-contain"
-                />
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-white">{won.name}</p>
-                  <p className="text-[13px] text-white/60">
-                    Value{' '}
-                    <span className="font-bold text-white">{won.value}</span>
-                  </p>
+          {wonCards.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-6">
+              {wonCards.map((won, i) => (
+                <div
+                  key={`${won.id}-${i}`}
+                  className="flex flex-col items-center gap-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <Image
+                      src={won.image}
+                      alt={won.name}
+                      width={110}
+                      height={154}
+                      className="h-[154px] w-auto rounded-lg object-contain"
+                    />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-white">
+                        {won.name}
+                      </p>
+                      <p className="text-[13px] text-white/60">
+                        Value{' '}
+                        <span className="font-bold text-white">
+                          {won.value}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <SellBackPanel
+                    offer={offers[i] ?? null}
+                    active={phase === 'landed'}
+                    reduced={reduced}
+                    onSellBack={sellBackPull}
+                    onReveal={revealPull}
+                    onSold={refreshBalance}
+                  />
                 </div>
-              </div>
-              <SellBackPanel
-                offer={offer}
-                active={phase === 'landed'}
-                reduced={reduced}
-                onSellBack={sellBackPull}
-                onReveal={revealPull}
-                onSold={refreshBalance}
-              />
+              ))}
             </div>
           )}
         </div>
@@ -323,7 +355,7 @@ export default function SlotMachineClient({
       {/* Bottom controls */}
       <div className="px-fluid pb-6 pt-2">
         <SlotControls
-          cost={cost}
+          cost={cost * count}
           spinning={phase === 'spinning' || phase === 'resolving'}
           disabled={spinGuarded || cooldown || (customer != null && !canAfford)}
           label={

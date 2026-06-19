@@ -60,9 +60,9 @@ export const openBatchWorkflow = createWorkflow(
     // 2b. Earmark one physical unit per winning pull (best-effort — a 0-stock
     //     card still wins fine; buyback fulfills it). Compensated by +1 per item.
     const stockInput = transform({ cards, pulls }, (d) => ({
-      items: d.cards.map((c, i) => ({
-        card_id: c.handle,
-        pull_id: d.pulls[i].id,
+      items: d.pulls.map((p, i) => ({
+        card_id: d.cards[i].handle,
+        pull_id: p.id,
       })),
     }));
     decrementCardStockBatchStep(stockInput);

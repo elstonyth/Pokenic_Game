@@ -36,3 +36,36 @@ export function groupRowsByPokemon(rows: EditRow[]): PokemonGroup[] {
   if (other.length > 0) groups.push({ pokemon: null, key: 'other', rows: other });
   return groups;
 }
+
+// Per-group rollup for the header row. previewByCard is the editor's existing
+// computeOdds preview map. `changed` mirrors the per-row highlight test
+// (|preview - current| >= 0.005) OR'd across members, so the group highlights
+// iff a visible member row does. `stock` is null when ANY member is untracked
+// (matches the per-row null=untracked convention), else the sum.
+export type GroupRollup = {
+  count: number;
+  currentPct: number;
+  previewPct: number;
+  changed: boolean;
+  stock: number | null;
+};
+
+export function groupRollup(
+  rows: EditRow[],
+  previewByCard: Map<string, number>,
+): GroupRollup {
+  let currentPct = 0;
+  let previewPct = 0;
+  let changed = false;
+  let untracked = false;
+  let stockSum = 0;
+  for (const r of rows) {
+    const preview = previewByCard.get(r.card_id) ?? 0;
+    currentPct += r.currentPct;
+    previewPct += preview;
+    if (Math.abs(preview - r.currentPct) >= 0.005) changed = true;
+    if (r.stock === null) untracked = true;
+    else stockSum += r.stock;
+  }
+  return { count: rows.length, currentPct, previewPct, changed, stock: untracked ? null : stockSum };
+}

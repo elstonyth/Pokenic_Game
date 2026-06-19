@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { EditRow } from './odds-rows';
-import { groupRowsByPokemon } from './group-rows';
+import { groupRowsByPokemon, groupRollup } from './group-rows';
 
 const row = (over: Partial<EditRow> = {}): EditRow => ({
   card_id: 'c',
@@ -46,5 +46,30 @@ describe('groupRowsByPokemon', () => {
     expect(groups.reduce((n, g) => n + g.rows.length, 0)).toBe(3);
     const mew = groups.find((g) => g.pokemon?.name === 'Mew');
     expect(mew?.rows.map((r) => r.card_id)).toEqual(['a', 'c']);
+  });
+});
+
+describe('groupRollup', () => {
+  it('sums current + preview and flags changed when any member crosses 0.005', () => {
+    const rows = [row({ card_id: 'a', currentPct: 10 }), row({ card_id: 'b', currentPct: 20 })];
+    const preview = new Map([
+      ['a', 10],
+      ['b', 25],
+    ]);
+    const r = groupRollup(rows, preview);
+    expect(r.count).toBe(2);
+    expect(r.currentPct).toBe(30);
+    expect(r.previewPct).toBe(35);
+    expect(r.changed).toBe(true);
+  });
+
+  it('is not changed when every member delta is below 0.005', () => {
+    const r = groupRollup([row({ card_id: 'a', currentPct: 10 })], new Map([['a', 10.001]]));
+    expect(r.changed).toBe(false);
+  });
+
+  it('reports null stock when any member is untracked, else the sum', () => {
+    expect(groupRollup([row({ stock: 5 }), row({ stock: 3 })], new Map()).stock).toBe(8);
+    expect(groupRollup([row({ stock: null }), row({ stock: 3 })], new Map()).stock).toBeNull();
   });
 });

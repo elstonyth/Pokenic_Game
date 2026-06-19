@@ -23,6 +23,8 @@ export type RegisterCardInput = {
   grader: string;
   grade: string;
   market_value: number; // USD FMV — a decimal, never cents
+  pokemon_dex: number | null;
+  sprite_image: string | null;
 };
 
 type CompensateData =
@@ -107,6 +109,8 @@ export const registerCardInvoke = async (
           // marketplace source of truth and is not touched by registration.
           price: null,
           for_sale: product.status === 'published',
+          pokemon_dex: input.pokemon_dex,
+          sprite_image: input.sprite_image,
         },
       ]),
     probeDuplicate: async () => {

@@ -10,10 +10,12 @@ const card = {
   image: '/p.png',
   price: '1.50',
   for_sale: true,
+  pokemon_dex: null as number | null,
+  sprite_image: null as string | null,
 };
 
 describe('toAdminCardDto', () => {
-  it('shapes the 9-field admin card DTO with money-normalized FMV and price', () => {
+  it('shapes the admin card DTO with money-normalized FMV, price, and pixel-pokemon fields', () => {
     expect(toAdminCardDto(card)).toEqual({
       handle: 'pikachu-001',
       name: 'Pikachu',
@@ -24,6 +26,8 @@ describe('toAdminCardDto', () => {
       image: '/p.png',
       price: 1.5,
       for_sale: true,
+      pokemon_dex: null,
+      sprite_image: null,
     });
   });
 

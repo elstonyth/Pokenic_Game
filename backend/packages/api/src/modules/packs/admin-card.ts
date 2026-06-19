@@ -10,6 +10,8 @@ import type { CardLike } from './card-view';
 export type AdminCardLike = CardLike & {
   price: unknown;
   for_sale: boolean;
+  pokemon_dex: number | null;
+  sprite_image: string | null;
 };
 
 export function toAdminCardDto(card: AdminCardLike) {
@@ -23,5 +25,7 @@ export function toAdminCardDto(card: AdminCardLike) {
     image: card.image,
     price: card.price === null ? null : toMoney(card.price),
     for_sale: card.for_sale,
+    pokemon_dex: card.pokemon_dex ?? null,
+    sprite_image: card.sprite_image ?? null,
   };
 }

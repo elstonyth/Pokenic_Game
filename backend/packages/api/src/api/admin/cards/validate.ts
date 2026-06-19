@@ -45,6 +45,32 @@ const reqNum = (b: Record<string, unknown>, key: string): number => {
   return v as number;
 };
 
+// Pixel-Pokémon avatar fields. dex is a 1-based national-dex int in [1, MAX_DEX];
+// MAX_DEX mirrors POKEDEX_NAMES.length in @acme/pokemon (1025 today). Both are
+// optional → null when omitted/blank (the card then resolves via name-derivation).
+const MAX_DEX = 1025;
+
+const optDex = (b: Record<string, unknown>): number | null => {
+  const v = b.pokemon_dex;
+  if (v === undefined || v === null || v === '') return null;
+  const n = typeof v === 'string' ? Number(v) : v;
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > MAX_DEX) {
+    bad(`'pokemon_dex' must be an integer between 1 and ${MAX_DEX}.`);
+  }
+  return n as number;
+};
+
+const optSprite = (b: Record<string, unknown>): string | null => {
+  const v = b.sprite_image;
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'string') bad(`'sprite_image' must be a string URL.`);
+  const s = (v as string).trim();
+  if (s === '') return null;
+  if (s.length > MAX_URL) bad(`'sprite_image' is too long (max ${MAX_URL} chars).`);
+  if (!IMAGE_RE.test(s)) bad(`'sprite_image' must be an http(s) URL or a /storefront path.`);
+  return s;
+};
+
 const asObject = (raw: unknown): Record<string, unknown> => {
   if (!raw || typeof raw !== "object") {
     bad("Body must be an object.");
@@ -64,6 +90,8 @@ export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
     grader: optStr(b, "grader"),
     grade: optStr(b, "grade"),
     market_value: reqNum(b, "market_value"),
+    pokemon_dex: optDex(b),
+    sprite_image: optSprite(b),
   };
 }
 
@@ -95,5 +123,7 @@ export function coerceUpdateCardBody(
     image: imageStr(b, "image"),
     price,
     for_sale: b.for_sale !== false, // default true unless explicitly false
+    pokemon_dex: optDex(b),
+    sprite_image: optSprite(b),
   };
 }

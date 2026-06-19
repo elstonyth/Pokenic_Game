@@ -27,6 +27,8 @@ export type UpdateCardInput = {
   price?: number;
   // Listed on the marketplace (mirrored Product PUBLISHED) vs pack-only (DRAFT).
   for_sale: boolean;
+  pokemon_dex: number | null;
+  sprite_image: string | null;
 };
 
 type CardSnapshot = {
@@ -39,6 +41,8 @@ type CardSnapshot = {
   image: string;
   price: number | null;
   for_sale: boolean;
+  pokemon_dex: number | null;
+  sprite_image: string | null;
 };
 
 type ProductSnapshot = {
@@ -83,6 +87,8 @@ export const updateCardStep = createStep(
       image: card.image,
       price: card.price === null ? null : Number(card.price),
       for_sale: card.for_sale,
+      pokemon_dex: card.pokemon_dex ?? null,
+      sprite_image: card.sprite_image ?? null,
     };
 
     const salePrice = input.price ?? input.market_value;
@@ -100,6 +106,8 @@ export const updateCardStep = createStep(
         // preserved (the Product mirror below still gets a concrete `salePrice`).
         price: input.price ?? null,
         for_sale: input.for_sale,
+        pokemon_dex: input.pokemon_dex,
+        sprite_image: input.sprite_image,
       },
     ]);
 
@@ -213,6 +221,8 @@ export const updateCardStep = createStep(
         image: data.card.image,
         price: data.card.price,
         for_sale: data.card.for_sale,
+        pokemon_dex: data.card.pokemon_dex,
+        sprite_image: data.card.sprite_image,
       },
     ]);
     if (data.product) {

@@ -29,6 +29,8 @@ const INPUT = {
   grader: "PSA",
   grade: "9",
   market_value: 25,
+  pokemon_dex: null as number | null,
+  sprite_image: null as string | null,
 };
 
 const EXISTING_CARD = { id: "card_1", handle: "test-card" };

@@ -416,6 +416,18 @@ export function createPackOpenRateLimit(): MiddlewareHandler {
 }
 
 /**
+ * The pack-open-batch limiter: burst + sustained sliding windows per customer,
+ * Redis-backed (REDIS_URL) with in-memory failover. One batch request = up to
+ * MAX_COUNT opens, so it gets its own independent budget rather than consuming
+ * from the single-open limiter. Env-tunable:
+ * PACK_OPEN_BATCH_RATE_BURST_LIMIT / PACK_OPEN_BATCH_RATE_BURST_WINDOW_MS (default 5/10s)
+ * PACK_OPEN_BATCH_RATE_LIMIT / PACK_OPEN_BATCH_RATE_WINDOW_MS (default 20/60s)
+ */
+export function createPackOpenBatchRateLimit(): MiddlewareHandler {
+  return createEnvRateLimit({ name: "pack-open-batch", defaults: DEFAULTS });
+}
+
+/**
  * The vault-buyback limiter — same construction as pack-open, scoped per
  * customer. A buyback can happen at most once per pull (DB-enforced), so this
  * only throttles hammering. Env-tunable:

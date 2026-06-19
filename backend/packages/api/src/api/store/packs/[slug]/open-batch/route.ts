@@ -1,0 +1,90 @@
+import {
+  AuthenticatedMedusaRequest,
+  MedusaResponse,
+} from '@medusajs/framework/http';
+import { MedusaError } from '@medusajs/framework/utils';
+import { openBatchWorkflow } from '../../../../../workflows/open-batch';
+import { PACKS_MODULE } from '../../../../../modules/packs';
+import type PacksModuleService from '../../../../../modules/packs/service';
+import { toMoney } from '../../../../../modules/packs/money';
+import {
+  FLAT_PERCENT,
+  buybackAmount,
+  instantDeadlineMs,
+} from '../../../../../modules/packs/buyback-rate';
+
+// POST /store/packs/:slug/open-batch — open N packs in one atomic operation:
+// rolls N winners, debits count×price from the credit ledger, and records N
+// pulls. Returns one buyback quote per roll so the multi-reel reveal can show
+// instant sell-back offers for all reels without additional requests.
+//
+// AUTH: authenticated by the '/store/packs/*/open-batch' matcher in
+// middlewares.ts (bearer-only, same as the single-open route). customerId is
+// taken ONLY from the verified token — never from the body/params.
+//
+// count validation lives here (HTTP boundary concern — simple integer range
+// check). Business validation (pack active, odds present, sufficient credit)
+// lives in the workflow steps and surfaces as mapped MedusaErrors.
+
+const MAX_COUNT = 3;
+
+export async function POST(
+  req: AuthenticatedMedusaRequest,
+  res: MedusaResponse,
+): Promise<void> {
+  const customerId = req.auth_context.actor_id;
+  const { slug } = req.params;
+
+  const raw = (req.body as { count?: unknown } | undefined)?.count;
+  const count = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_COUNT) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      `'count' must be an integer between 1 and ${MAX_COUNT}.`,
+    );
+  }
+
+  const { result } = await openBatchWorkflow(req.scope).run({
+    input: { pack_id: slug, customer_id: customerId, count },
+  });
+
+  // Quote a buyback offer for each roll from the same helper the buyback
+  // workflow uses (packsService.quoteBuyback), so the multi-reveal's
+  // "sell on the spot" numbers are authoritative and can never disagree with
+  // what selling actually credits. Mirror the single-open route's per-pull
+  // pattern byte-for-byte: toMoney-wrap market_value before passing it to
+  // quoteBuyback, then attach vault_percent / vault_amount / instant_deadline_ms.
+  const packsService = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
+
+  const rolls = await Promise.all(
+    result.rolls.map(async (card, i) => {
+      const pull = result.pulls[i];
+      const marketValue = toMoney(card.market_value);
+      const buyback = await packsService.quoteBuyback(
+        slug,
+        { rolled_at: pull.rolled_at, revealed_at: pull.revealed_at },
+        marketValue,
+      );
+      return {
+        pull,
+        card,
+        buyback: {
+          ...buyback,
+          vault_percent: FLAT_PERCENT,
+          vault_amount: buybackAmount(marketValue, FLAT_PERCENT),
+          instant_deadline_ms: instantDeadlineMs(
+            pull.rolled_at,
+            pull.revealed_at,
+          ),
+        },
+      };
+    }),
+  );
+
+  res.json({
+    rolls,
+    price: result.price,
+    total_charged: result.total,
+    balance: result.balance,
+  });
+}

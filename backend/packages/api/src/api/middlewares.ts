@@ -10,6 +10,7 @@ import multer from 'multer';
 import {
   createAuthRateLimit,
   createCreditTopupRateLimit,
+  createPackOpenBatchRateLimit,
   createPackOpenRateLimit,
   createProfileReadRateLimit,
   createPullRevealRateLimit,
@@ -125,6 +126,14 @@ export default defineMiddlewares({
       middlewares: [
         authenticate('customer', ['bearer']),
         createPackOpenRateLimit(),
+      ],
+    },
+    {
+      matcher: '/store/packs/*/open-batch',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        createPackOpenBatchRateLimit(),
       ],
     },
     {

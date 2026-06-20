@@ -31,3 +31,26 @@ export const TIER_COLOR: Record<Tier, string> = {
   legendary: '244, 114, 182', // #f472b6 bright pink
   immortal: '251, 146, 60', // #fb923c orange
 };
+
+/** Tiers low→high — drives the tier-glow legend order. */
+export const TIER_ORDER: readonly Tier[] = [
+  'common',
+  'uncommon',
+  'rare',
+  'mythical',
+  'legendary',
+  'immortal',
+];
+
+/**
+ * Human-readable USD band per tier — MUST mirror `priceTier`'s thresholds.
+ * Shown in the odds sheet's tier-glow legend.
+ */
+export const TIER_BAND: Record<Tier, string> = {
+  common: '< $25',
+  uncommon: '$25 – 99',
+  rare: '$100 – 499',
+  mythical: '$500 – 1,999',
+  legendary: '$2,000 – 9,999',
+  immortal: '≥ $10,000',
+};

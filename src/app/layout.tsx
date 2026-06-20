@@ -71,6 +71,12 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-neutral-900 text-neutral-50"
       >
+        <noscript>
+          <div className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-neutral-900">
+            This site needs JavaScript enabled for pack opening and live
+            features.
+          </div>
+        </noscript>
         <AuthProvider>
           <SkipLink />
           <SiteHeader />

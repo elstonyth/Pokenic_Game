@@ -5,6 +5,7 @@ import './globals.css';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import SkipLink from '@/components/SkipLink';
 import { SITE_URL } from '@/lib/site';
 
 const geistSans = Geist({
@@ -70,9 +71,18 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-neutral-900 text-neutral-50"
       >
+        <noscript>
+          <div className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-neutral-900">
+            This site needs JavaScript enabled for pack opening and live
+            features.
+          </div>
+        </noscript>
         <AuthProvider>
+          <SkipLink />
           <SiteHeader />
-          <main className="flex-1">{children}</main>
+          <main id="main" className="flex-1">
+            {children}
+          </main>
           <SiteFooter />
         </AuthProvider>
       </body>

@@ -49,7 +49,8 @@ export function buildStrip(
   const safePool = pool.length > 0 ? pool : [winnerRarity];
   const strip = Array.from(
     { length },
-    (_, i) => safePool[(i * 3 + 1) % safePool.length],
+    // safePool is non-empty (guarded above) so the modulo index always hits
+    (_, i) => safePool[(i * 3 + 1) % safePool.length]!,
   );
   strip[winIndex] = winnerRarity;
   return strip;

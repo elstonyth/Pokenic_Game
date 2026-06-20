@@ -85,7 +85,9 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     activity: profile.recent.map((p, i) => ({
       verb: 'pulled',
       time: relativeTime(p.rolled_at),
-      card: activityCards[i],
+      // activityCards is built from the same profile.recent array — same length,
+      // so index i is always in bounds
+      card: activityCards[i]!,
     })),
   };
 }

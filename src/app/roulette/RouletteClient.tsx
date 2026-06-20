@@ -54,14 +54,16 @@ export default function RouletteClient() {
     () =>
       Array.from(
         { length: 48 },
-        (_, i) => MOCK_CARDS[(i * 5 + 2) % MOCK_CARDS.length],
+        // MOCK_CARDS is non-empty; modulo index always in bounds
+        (_, i) => MOCK_CARDS[(i * 5 + 2) % MOCK_CARDS.length]!,
       ),
     [],
   );
 
   function play() {
     if (phase === 'spinning') return;
-    const winner = strip[WIN_INDEX];
+    // strip has 48 elements; WIN_INDEX = 36 is always in bounds
+    const winner = strip[WIN_INDEX]!;
     if (reduced) {
       setWon(winner);
       setPhase('done');
@@ -124,7 +126,8 @@ export default function RouletteClient() {
             style={{ transform: `translateX(${offset}px)` }}
             onTransitionEnd={() => {
               if (phase === 'spinning') {
-                setWon(strip[WIN_INDEX]);
+                // strip has 48 elements; WIN_INDEX = 36 is always in bounds
+                setWon(strip[WIN_INDEX]!);
                 setPhase('done');
               }
             }}

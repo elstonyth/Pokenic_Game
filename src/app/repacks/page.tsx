@@ -180,7 +180,8 @@ const HERO_SLABS = [
 
 function PackCard({ pack }: { pack: CommunityPack }) {
   const [qty, setQty] = useState(1);
-  const creator = MOCK_USERS[pack.creator % MOCK_USERS.length];
+  // MOCK_USERS is non-empty; modulo index always in bounds
+  const creator = MOCK_USERS[pack.creator % MOCK_USERS.length]!;
   const icon = CAT_BY_ID.get(pack.categoryId)?.icon;
 
   return (

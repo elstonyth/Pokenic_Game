@@ -88,11 +88,11 @@ const rarityFor = (fmv: number): Rarity =>
           : 'Common';
 
 function build(i: number, image: string): MockCard {
-  const subject = SUBJECTS[i % SUBJECTS.length];
-  const set = SETS[i % SETS.length];
-  const grader = GRADERS[i % GRADERS.length];
-  const grade = GRADES[i % GRADES.length];
-  const year = YEARS[i % YEARS.length];
+  const subject = SUBJECTS[i % SUBJECTS.length] ?? SUBJECTS[0]!;
+  const set = SETS[i % SETS.length] ?? SETS[0]!;
+  const grader = GRADERS[i % GRADERS.length] ?? GRADERS[0]!;
+  const grade = GRADES[i % GRADES.length] ?? GRADES[0]!;
+  const year = YEARS[i % YEARS.length] ?? YEARS[0]!;
   const fmv = 40 + ((i * 53) % 960);
   const price = Math.round(fmv * (0.9 + (i % 10) / 50));
   return {
@@ -136,7 +136,8 @@ export function cardOrGeneric(id: string): MockCard {
   const found = findCard(id);
   if (found) return found;
   const h = hash(id);
-  const image = HARVEST[h % HARVEST.length];
+  // HARVEST is a 48-element array; modulo index always in bounds
+  const image: string = HARVEST[h % HARVEST.length] ?? '/cdn/cards/h-001.webp';
   const name = id
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (m) => m.toUpperCase())
@@ -145,15 +146,15 @@ export function cardOrGeneric(id: string): MockCard {
   return {
     id,
     name,
-    set: SETS[h % SETS.length],
-    grader: GRADERS[h % GRADERS.length],
-    grade: GRADES[h % GRADES.length],
+    set: SETS[h % SETS.length] ?? SETS[0]!,
+    grader: GRADERS[h % GRADERS.length] ?? GRADERS[0]!,
+    grade: GRADES[h % GRADES.length] ?? GRADES[0]!,
     rarity: rarityFor(fmv),
     image,
     fmv,
     price: Math.round(fmv * 0.95),
     points: 80 + (h % 21),
-    year: YEARS[h % YEARS.length],
+    year: YEARS[h % YEARS.length] ?? YEARS[0]!,
   };
 }
 

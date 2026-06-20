@@ -512,7 +512,7 @@ export default function AchievementsPage() {
             </thead>
             <tbody>
               {rows.map((a) => {
-                const Cat = CATEGORY_ICON[a.category];
+                const Cat = CATEGORY_ICON[a.category] ?? Sparkles;
                 const rs = RARITY_STYLE[a.rarity];
                 return (
                   <tr

@@ -200,7 +200,7 @@ export default function PackOpenOverlay({
     /\b(PSA|CGC|BGS|SGC)\s*(\d+(?:\.\d+)?)\b/i,
   );
   const gradeLabel = gradeMatch
-    ? `${gradeMatch[1].toUpperCase()} ${gradeMatch[2]}`
+    ? `${gradeMatch[1]!.toUpperCase()} ${gradeMatch[2]!}`
     : null;
   const yearMatch = card.name.match(/\b(19|20)\d{2}\b/);
   const yearLabel = yearMatch ? yearMatch[0] : null;

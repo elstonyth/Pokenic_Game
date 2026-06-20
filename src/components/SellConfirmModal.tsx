@@ -55,8 +55,9 @@ export default function SellConfirmModal({
       if (e.key !== 'Tab' || !panel) return;
       const f = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
       if (f.length === 0) return;
-      const first = f[0];
-      const last = f[f.length - 1];
+      // f.length === 0 is checked above; both indices are in bounds
+      const first = f[0]!;
+      const last = f[f.length - 1]!;
       const active = document.activeElement;
       if (e.shiftKey && (active === first || active === panel)) {
         e.preventDefault();

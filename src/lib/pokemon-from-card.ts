@@ -64,10 +64,10 @@ export function pokemonFromCard(cardName: string): CardPokemon | null {
   const hay = normalize(cardName);
   if (!hay) return null;
   for (const { dex, norm } of INDEX) {
-    if (hay.includes(norm)) return { dex, name: POKEDEX_NAMES[dex - 1] };
+    if (hay.includes(norm)) return { dex, name: POKEDEX_NAMES[dex - 1]! };
   }
   for (const { dex, norm } of BASE_INDEX) {
-    if (hay.includes(norm)) return { dex, name: POKEDEX_NAMES[dex - 1] };
+    if (hay.includes(norm)) return { dex, name: POKEDEX_NAMES[dex - 1]! };
   }
   return null;
 }

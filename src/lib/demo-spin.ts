@@ -35,7 +35,8 @@ export function sampleRarity(odds: PublishedOdd[], roll: number): Rarity {
     cursor -= parseChance(o.chance);
     if (cursor < 0) return o.rarity;
   }
-  return odds[odds.length - 1].rarity;
+  // odds is non-empty (callers guard on pool.length > 0 and a matching odds array)
+  return odds[odds.length - 1]!.rarity;
 }
 
 /**
@@ -63,12 +64,14 @@ export function demoDraw(
   for (const rarity of candidates) {
     const tier = pool.filter((c) => c.rarity === rarity);
     if (tier.length > 0) {
+      // index is clamped to [0, tier.length - 1] so always in bounds
       return tier[
         Math.min(tier.length - 1, Math.floor(cardRoll * tier.length))
-      ];
+      ]!;
     }
   }
   // Pool rarities all outside the published odds (can't happen with the full
   // static ODDS, but keeps the "null only on empty pool" contract honest).
-  return pool[0];
+  // pool.length > 0 is checked at the top of the function
+  return pool[0] ?? null;
 }

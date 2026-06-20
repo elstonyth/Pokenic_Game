@@ -69,8 +69,9 @@ export default function AuthModal() {
         panel.querySelectorAll<HTMLElement>(FOCUSABLE),
       );
       if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
+      // length === 0 is checked above; both indices are in bounds
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
       const active = document.activeElement;
       if (e.shiftKey && (active === first || active === panel)) {
         e.preventDefault();

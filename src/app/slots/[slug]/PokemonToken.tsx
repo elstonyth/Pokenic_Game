@@ -76,7 +76,7 @@ function measureFigure(src: string): Promise<FigureBox | null> {
         let count = 0;
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            if (data[(y * w + x) * 4 + 3] > ALPHA_MIN) {
+            if ((data[(y * w + x) * 4 + 3] ?? 0) > ALPHA_MIN) {
               if (x < minX) minX = x;
               if (x > maxX) maxX = x;
               if (y < minY) minY = y;

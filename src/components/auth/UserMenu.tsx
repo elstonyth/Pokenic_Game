@@ -25,7 +25,7 @@ const menuLinks = (handle: string | null) =>
     : [...MENU_LINKS];
 
 const displayName = (c: AuthCustomer) =>
-  c.first_name?.trim() || c.email.split('@')[0];
+  c.first_name?.trim() || c.email.split('@')[0] || c.email;
 
 /** Logged-in header control: avatar + dropdown (account links + logout). */
 export default function UserMenu({ customer }: { customer: AuthCustomer }) {

@@ -38,7 +38,8 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
     return set.length ? set : []; // may be empty for generic cards
   }, [card]);
   const owner = useMemo(
-    () => MOCK_USERS[(card.points + card.year) % MOCK_USERS.length],
+    // MOCK_USERS is non-empty; modulo index always in bounds
+    () => MOCK_USERS[(card.points + card.year) % MOCK_USERS.length]!,
     [card],
   );
 

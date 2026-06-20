@@ -519,7 +519,7 @@ export default function PackPartyPage() {
             <PartyCard
               party={p}
               ended={ended}
-              ring={RARITY_RINGS[i % RARITY_RINGS.length]}
+              ring={RARITY_RINGS[i % RARITY_RINGS.length]!}
             />
           </Reveal>
         ))}

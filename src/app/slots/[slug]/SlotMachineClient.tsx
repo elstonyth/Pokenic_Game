@@ -281,7 +281,7 @@ export default function SlotMachineClient({
                 className="font-heading text-2xl font-bold tracking-tight"
                 style={{ color: `rgb(${firstRgb})` }}
               >
-                YOU WON — {firstTier.toUpperCase()} · {wonCards[0].value}
+                YOU WON — {firstTier.toUpperCase()} · {wonCards[0]!.value}
               </p>
             )}
             {wonCards.length > 1 && (

@@ -30,9 +30,9 @@ const MARKET = 'Marketplace';
 
 // Mock transaction feed (real-time stream is a backend/Socket.io feed).
 const FEED = MOCK_CARDS.slice(0, 16).map((card, i) => {
-  const type = (['BUY', 'CLAW', 'SALE', 'LIST'] as TxType[])[i % 4];
-  const a = MOCK_USERS[i % MOCK_USERS.length].username;
-  const b = MOCK_USERS[(i + 3) % MOCK_USERS.length].username;
+  const type = (['BUY', 'CLAW', 'SALE', 'LIST'] as TxType[])[i % 4]!;
+  const a = MOCK_USERS[i % MOCK_USERS.length]!.username;
+  const b = MOCK_USERS[(i + 3) % MOCK_USERS.length]!.username;
   const from = type === 'CLAW' ? CLAW : a;
   const to =
     type === 'BUY' ? CLAW : type === 'LIST' ? MARKET : type === 'CLAW' ? a : b;

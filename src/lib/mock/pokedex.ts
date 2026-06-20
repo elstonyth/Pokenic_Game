@@ -34,7 +34,7 @@ export function getGeneration(gen: string): Pokemon[] {
   if (!r) return [];
   const out: Pokemon[] = [];
   for (let dex = r[0]; dex <= r[1] && dex <= POKEDEX_NAMES.length; dex++) {
-    out.push({ dex, name: POKEDEX_NAMES[dex - 1] });
+    out.push({ dex, name: POKEDEX_NAMES[dex - 1]! });
   }
   return out;
 }

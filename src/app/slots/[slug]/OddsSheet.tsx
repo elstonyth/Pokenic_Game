@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ODDS } from '@/app/claw/packs-data';
+import { TIER_COLOR, TIER_BAND, TIER_ORDER } from '@/lib/price-tier';
 
 /** Published rarity-odds list. Never exposes the win-rate lock (PRD §3.7/§8). */
 export function OddsSheet({
@@ -69,6 +70,34 @@ export function OddsSheet({
         <p className="mt-2 px-1 text-[11px] text-white/35">
           Indicative odds — final rates are published by the backend.
         </p>
+
+        {/* Glow tiers: cosmetic, keyed off the card's USD value (not rarity).
+            Explains the colored ring the reel shows on a win. */}
+        <h3 className="mb-2 mt-5 font-heading text-sm font-bold tracking-tight text-white">
+          Glow tiers <span className="text-white/40">· by card value</span>
+        </h3>
+        <ul className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+          {TIER_ORDER.map((t) => (
+            <li
+              key={t}
+              className="flex items-center justify-between border-b border-white/5 px-4 py-3 last:border-b-0"
+            >
+              <span className="flex items-center gap-2.5 text-[13px] font-medium capitalize text-white">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{
+                    background: `rgb(${TIER_COLOR[t]})`,
+                    boxShadow: `0 0 6px 1px rgba(${TIER_COLOR[t]}, 0.7)`,
+                  }}
+                />
+                {t}
+              </span>
+              <span className="text-[13px] tabular-nums text-white/55">
+                {TIER_BAND[t]}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

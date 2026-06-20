@@ -11,6 +11,7 @@ import { money } from './format';
 
 /** Canonical rarity tiers, rarest-first (display + iteration order). */
 export const RARITIES: Rarity[] = [
+  'Immortal',
   'Legendary',
   'Epic',
   'Rare',

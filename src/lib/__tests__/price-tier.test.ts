@@ -1,6 +1,12 @@
 // src/lib/__tests__/price-tier.test.ts
 import { describe, it, expect } from 'vitest';
-import { priceTier, TIER_COLOR, type Tier } from '../price-tier';
+import {
+  priceTier,
+  TIER_COLOR,
+  TIER_BAND,
+  TIER_ORDER,
+  type Tier,
+} from '../price-tier';
 
 describe('priceTier', () => {
   it('buckets each band by upper-exclusive boundary', () => {
@@ -36,5 +42,27 @@ describe('priceTier', () => {
     for (const t of tiers) {
       expect(TIER_COLOR[t]).toMatch(/^\d{1,3}, \d{1,3}, \d{1,3}$/);
     }
+  });
+
+  it('TIER_ORDER lists all six tiers low→high', () => {
+    expect(TIER_ORDER).toEqual([
+      'common',
+      'uncommon',
+      'rare',
+      'mythical',
+      'legendary',
+      'immortal',
+    ]);
+  });
+
+  it('TIER_BAND mirrors the priceTier thresholds exactly', () => {
+    expect(TIER_BAND).toEqual({
+      common: '< $25',
+      uncommon: '$25 – 99',
+      rare: '$100 – 499',
+      mythical: '$500 – 1,999',
+      legendary: '$2,000 – 9,999',
+      immortal: '≥ $10,000',
+    });
   });
 });

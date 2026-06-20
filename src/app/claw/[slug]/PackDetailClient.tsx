@@ -37,6 +37,7 @@ import {
 import PackOpenOverlay from './PackOpenOverlay';
 
 const RARITY_RING: Record<PackCard['rarity'], string> = {
+  Immortal: '251, 146, 60',
   Legendary: '234, 179, 8',
   Epic: '217, 70, 239',
   Rare: '56, 189, 248',

@@ -22,6 +22,7 @@ import {
 } from '@/lib/data/schemas';
 
 export type ProfileRarity =
+  | 'Immortal'
   | 'Legendary'
   | 'Epic'
   | 'Rare'

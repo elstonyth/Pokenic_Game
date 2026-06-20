@@ -16,7 +16,7 @@ export const PackOdds = model
     // Drives the default weight split for unlocked rows (see @acme/odds-math) and the
     // storefront tier badge. Default keeps legacy/diff-created rows valid.
     rarity: model
-      .enum(['Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'])
+      .enum(['Immortal', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'])
       .default('Common'),
     // Relative pull weight: roll chance = weight / Σ(weights in the pack), so the
     // roll is scale-invariant (the seed ships rarity-relative weights that need

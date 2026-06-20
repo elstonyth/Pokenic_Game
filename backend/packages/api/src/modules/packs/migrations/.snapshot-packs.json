@@ -927,6 +927,7 @@
           "nullable": false,
           "default": "'Common'",
           "enumItems": [
+            "Immortal",
             "Legendary",
             "Epic",
             "Rare",

@@ -15,7 +15,9 @@ export const TOTAL_BPS = 10000;
 
 // Per-pack rarity tiers, rarest first. Rarity belongs to the pack↔card link
 // (PackOdds), not the card — the same card can be a different tier per pack.
+// `Immortal` is the apex tier (rarer than Legendary).
 export const RARITIES = [
+  'Immortal',
   'Legendary',
   'Epic',
   'Rare',
@@ -28,6 +30,7 @@ export type OddsRarity = (typeof RARITIES)[number];
 // Relative pull weight per tier (rarest = smallest). Choosing a rarity directly
 // sets the unlocked card's default win chance; locking a % still overrides it.
 export const RARITY_WEIGHT: Record<OddsRarity, number> = {
+  Immortal: 1,
   Legendary: 5,
   Epic: 45,
   Rare: 150,

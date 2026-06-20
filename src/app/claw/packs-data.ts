@@ -193,7 +193,13 @@ export function priceNumber(price: string): number {
 // MOCK card pool / odds (layout only — real data comes from the backend).
 // ---------------------------------------------------------------------------
 
-export type Rarity = 'Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common';
+export type Rarity =
+  | 'Immortal'
+  | 'Legendary'
+  | 'Epic'
+  | 'Rare'
+  | 'Uncommon'
+  | 'Common';
 export type PackCard = {
   id: string;
   name: string;

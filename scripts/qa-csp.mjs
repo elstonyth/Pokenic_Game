@@ -10,7 +10,15 @@ const page = await browser.newPage();
 const violations = [];
 page.on('console', (msg) => {
   const t = msg.text();
-  if (/Content Security Policy|Refused to/i.test(t)) violations.push(t);
+  if (/Content Security Policy|Refused to|CSP-VIOLATION/i.test(t))
+    violations.push(t);
+});
+await page.addInitScript(() => {
+  document.addEventListener('securitypolicyviolation', (e) => {
+    console.error(
+      `CSP-VIOLATION ${e.effectiveDirective || e.violatedDirective} blocked ${e.blockedURI}`,
+    );
+  });
 });
 
 for (const route of ROUTES) {

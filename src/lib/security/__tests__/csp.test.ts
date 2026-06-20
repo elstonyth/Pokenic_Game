@@ -31,4 +31,9 @@ describe('buildCsp', () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
   });
+
+  it('includes self in connect-src', () => {
+    const csp = buildCsp('n');
+    expect(csp).toMatch(/connect-src[^;]*'self'/);
+  });
 });

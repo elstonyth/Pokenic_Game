@@ -53,6 +53,21 @@ describe("foldLedgerRow + totalsToUsd (external-funded)", () => {
     expect(t.externalFundedSpendCents).toBe(1000);
   });
 
+  // Regression (restored from the pre-1b suite): a POSITIVE adjustment is a
+  // credit to balance only — never a top-up, a spend, or external funding.
+  it("treats a positive adjustment as a credit but not a top-up, spend, or external", () => {
+    const t = foldLedgerRow(EMPTY_TOTALS, {
+      amount: 5,
+      reason: "adjustment",
+      externalFundedCents: 0,
+    });
+    expect(t.balanceCents).toBe(500);
+    expect(t.topupCents).toBe(0);
+    expect(t.spendCents).toBe(0);
+    expect(t.externalBalanceCents).toBe(0);
+    expect(t.externalFundedSpendCents).toBe(0);
+  });
+
   it("the invariant externalSpend + externalBalance == external-in holds", () => {
     const rows = [
       { amount: 60, reason: "topup", externalFundedCents: 6000 },

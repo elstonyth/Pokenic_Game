@@ -148,9 +148,15 @@ class PacksModuleService extends MedusaService({
       `credit:${input.customerId}`,
     ]);
 
-    // 2) Re-read the balance in cents inside the lock (exact; soft-delete aware).
-    const rows = await em.execute<{ balance_cents: string | null }[]>(
-      'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents ' +
+    // 2) Re-read the balance AND the external-funded balance in cents inside the
+    //    lock, in ONE scan (exact; soft-delete aware). external_funded_cents is
+    //    only consumed by pack_open, but folding it into the existing balance
+    //    scan avoids a second O(n) pass over the customer's ledger per open.
+    const rows = await em.execute<
+      { balance_cents: string | null; ext_cents: string | null }[]
+    >(
+      'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents, ' +
+        'COALESCE(SUM(external_funded_cents), 0)::bigint AS ext_cents ' +
         'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
       [input.customerId],
     );
@@ -158,21 +164,16 @@ class PacksModuleService extends MedusaService({
     const deltaCents = Math.round(input.amount * 100);
     const floorCents = Math.round((input.floor ?? 0) * 100);
 
-    // 2b) External-funded snapshot (Phase 1b) — computed inside the SAME lock so
-    // the consume is race-safe against concurrent top-ups/opens. A top-up adds
-    // its full amount as external money in; a pack_open consumes min(price,
-    // external balance) and snapshots the NEGATIVE consumed sen; buyback /
-    // adjustment never touch the external counter (0).
+    // 2b) External-funded snapshot (Phase 1b) — uses the external balance from
+    // the SAME locked read above, so the consume is race-safe against concurrent
+    // top-ups/opens. A top-up adds its full amount as external money in; a
+    // pack_open consumes min(price, external balance) and snapshots the NEGATIVE
+    // consumed sen; buyback / adjustment never touch the external counter (0).
     let externalFundedCents = 0;
     if (input.reason === 'topup' && deltaCents > 0) {
       externalFundedCents = deltaCents;
     } else if (input.reason === 'pack_open' && deltaCents < 0) {
-      const extRows = await em.execute<{ ext_cents: string | null }[]>(
-        'SELECT COALESCE(SUM(external_funded_cents), 0)::bigint AS ext_cents ' +
-          'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
-        [input.customerId],
-      );
-      const externalBalanceSen = Number(extRows[0]?.ext_cents ?? 0);
+      const externalBalanceSen = Number(rows[0]?.ext_cents ?? 0);
       externalFundedCents = -consumeExternalSen(-deltaCents, externalBalanceSen);
     }
 

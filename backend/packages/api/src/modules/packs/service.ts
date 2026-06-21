@@ -14,6 +14,7 @@ import CreditTransaction from './models/credit-transaction';
 import DeliveryOrder from './models/delivery-order';
 import DeliveryOrderItem from './models/delivery-order-item';
 import VipLevel from './models/vip-level';
+import RewardsSettings from './models/rewards-settings';
 import {
   resolveBuybackRate,
   buybackAmount,
@@ -99,7 +100,31 @@ class PacksModuleService extends MedusaService({
   DeliveryOrder,
   DeliveryOrderItem,
   VipLevel,
+  RewardsSettings,
 }) {
+  // Commission engine globals. Reads the singleton row; falls back to defaults
+  // when absent. COMMISSION_COOLDOWN_DAYS env override forces the demo (0) and
+  // lets integration tests pin maturity deterministically without a DB write.
+  async rewardsSettings(): Promise<{
+    commissionCooldownDays: number;
+    teamOverridePct: number;
+    overrideGenerationCap: number;
+  }> {
+    const [row] = await this.listRewardsSettings({}, { take: 1 });
+    const envCooldown = process.env.COMMISSION_COOLDOWN_DAYS;
+    const commissionCooldownDays =
+      envCooldown !== undefined && envCooldown !== ''
+        ? Math.max(0, Math.trunc(Number(envCooldown)))
+        : row
+          ? Number(row.commission_cooldown_days)
+          : 3;
+    return {
+      commissionCooldownDays,
+      teamOverridePct: row ? Number(row.team_override_pct) : 0.2,
+      overrideGenerationCap: row ? Number(row.override_generation_cap) : 100,
+    };
+  }
+
   // The instant/flat sell-back offer for a pull, composed from the SAME pure
   // helpers the buyback workflow credits with — so the reveal quote, the vault
   // quote, and the credit can never disagree. Removes the listPacks +

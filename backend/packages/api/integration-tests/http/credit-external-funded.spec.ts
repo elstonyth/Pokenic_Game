@@ -52,5 +52,89 @@ medusaIntegrationTestRunner({
         expect(ext == null ? 0 : Number(ext)).toBe(0);
       });
     });
+
+    describe("mutateCreditAtomic external-funded stamping", () => {
+      it("stamps a top-up with the full external sen", async () => {
+        const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+        const cust = "cus_mca_topup";
+        await packs.mutateCreditAtomic({
+          customerId: cust,
+          amount: 100,
+          reason: "topup",
+          reference: "mock_a",
+        });
+        const summary = await packs.creditSummary(cust);
+        expect(summary.externalFundedSpendTotal).toBe(0); // nothing consumed yet
+        const [row] = await packs.listCreditTransactions(
+          { customer_id: cust },
+          { take: 1, order: { created_at: "DESC" } },
+        );
+        expect(
+          Number(
+            (row as { external_funded_cents?: number | null })
+              .external_funded_cents,
+          ),
+        ).toBe(10000);
+      });
+
+      it("a pack_open consumes min(price, external balance) and snapshots −consumed", async () => {
+        const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+        const cust = "cus_mca_open";
+        await packs.mutateCreditAtomic({
+          customerId: cust,
+          amount: 100,
+          reason: "topup",
+          reference: "mock_b",
+        });
+        // Add internal (buyback) credit OUTSIDE the external counter.
+        await packs.createCreditTransactions([
+          {
+            customer_id: cust,
+            amount: 100,
+            reason: "buyback" as const,
+            pull_id: "pull_mca_open",
+            reference: null,
+          },
+        ]);
+        // Open RM150: 100 external available, so consume 10000 sen, leaving 0.
+        await packs.mutateCreditAtomic({
+          customerId: cust,
+          amount: -150,
+          reason: "pack_open",
+          floor: 0,
+        });
+        const summary = await packs.creditSummary(cust);
+        expect(summary.externalFundedSpendTotal).toBe(100); // only the 100 external
+        // Second open RM40 funded purely by leftover buyback credit → 0 external.
+        await packs.mutateCreditAtomic({
+          customerId: cust,
+          amount: -40,
+          reason: "pack_open",
+          floor: 0,
+        });
+        const after = await packs.creditSummary(cust);
+        expect(after.externalFundedSpendTotal).toBe(100); // still capped at top-ups
+      });
+
+      it("an adjustment stamps 0 external (internal grant never raises VIP basis)", async () => {
+        const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+        const cust = "cus_mca_adjust";
+        await packs.mutateCreditAtomic({
+          customerId: cust,
+          amount: 500,
+          reason: "adjustment",
+          reference: "comp",
+        });
+        const summary = await packs.creditSummary(cust);
+        expect(summary.externalFundedSpendTotal).toBe(0);
+        const [row] = await packs.listCreditTransactions(
+          { customer_id: cust },
+          { take: 1, order: { created_at: "DESC" } },
+        );
+        const ext = (row as { external_funded_cents?: number | null })
+          .external_funded_cents;
+        expect(ext == null ? 0 : Number(ext)).toBe(0);
+      });
+    });
   },
 });

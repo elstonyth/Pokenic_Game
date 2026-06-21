@@ -20,6 +20,10 @@ export const CreditTransaction = model
     // Payment-gateway reference (top-up rows only; null for buybacks). Today
     // the mock gateway's fake reference; the real gateway's charge id later.
     reference: model.text().nullable(),
+    // Phase 1b — external-funded sen this row added (top-up, +) or consumed
+    // (pack_open, −). 0 for buyback/adjustment. NULL on pre-1b rows (read as 0,
+    // forward-only). Signed integer sen; the VIP basis = Σ(−this) over opens.
+    external_funded_cents: model.number().nullable(),
   })
   // Balance Σ + credits feed + admin gacha all read by customer_id ordered by
   // created_at; composite serves the filter + ORDER BY (+ pagination) in one scan.

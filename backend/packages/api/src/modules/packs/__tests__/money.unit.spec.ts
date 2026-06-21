@@ -33,6 +33,10 @@ describe("toSen", () => {
   it("handles signed amounts (spend is negative)", () => {
     expect(toSen(-1.5)).toBe(-150);
   });
+
+  it("rounds negative half-sen away from zero (matches Postgres ROUND)", () => {
+    expect(toSen(-0.005)).toBe(-1); // not -0 like bare Math.round
+  });
 });
 
 describe("fromSen", () => {

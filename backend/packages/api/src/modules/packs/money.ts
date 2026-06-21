@@ -13,9 +13,14 @@ export function toMoney(value: unknown): number {
 // credit-summary.ts) so a single place pins the rounding rule. Money is 2dp at the
 // boundary; compute in sen to avoid float drift.
 
-/** USD/MYR decimal (number | numeric string | BigNumber) -> integer sen, half-up. */
+/**
+ * USD/MYR decimal (number | numeric string | BigNumber) -> integer sen.
+ * Rounds half away from zero so negatives are symmetric (Math.round alone sends
+ * -0.5 toward +inf), matching Postgres ROUND(amount * 100) used by the ledger.
+ */
 export function toSen(value: unknown): number {
-  return Math.round(Number(value) * 100);
+  const scaled = Number(value) * 100;
+  return scaled >= 0 ? Math.round(scaled) : -Math.round(-scaled);
 }
 
 /** Integer sen -> 2dp decimal. */

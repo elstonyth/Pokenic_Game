@@ -19,6 +19,11 @@ medusaIntegrationTestRunner({
         const RING = ["cus_ring_a", "cus_ring_b", "cus_ring_c"];
 
         for (const cust of RING) {
+          // NOTE: credit is strictly per-customer — this system has NO inter-account
+          // transfer primitive, so a "ring" here is each account self-recycling
+          // (open → buyback → open). That IS the complete wash threat surface today;
+          // if an inter-account transfer is ever added, this gate must be extended.
+
           // 1) Fixed external top-up.
           await packs.mutateCreditAtomic({
             customerId: cust,
@@ -56,7 +61,7 @@ medusaIntegrationTestRunner({
           expect(summary.externalFundedSpendTotal).toBeLessThanOrEqual(TOPUP);
           // Net credit (balance) never exceeds external money in.
           expect(summary.balance).toBeLessThanOrEqual(TOPUP);
-          // Invariant: external spent + external remaining == external in.
+          // Concrete, non-circular assertions (the loop is deterministic):
           // Re-derive external balance from the ledger to assert it directly.
           const rows = await packs.listCreditTransactions(
             { customer_id: cust },
@@ -86,10 +91,12 @@ medusaIntegrationTestRunner({
               ),
             0,
           );
-          const extSpentCents = Math.round(
-            summary.externalFundedSpendTotal * 100,
-          );
-          expect(extSpentCents + extBalanceCents).toBe(extInCents);
+          // The single top-up stamped the full external-in...
+          expect(extInCents).toBe(TOPUP * 100); // 10000 sen
+          // ...every sen of it was consumed by opens (external balance drained)...
+          expect(extBalanceCents).toBe(0);
+          // ...so the VIP basis equals exactly the external top-up — the cap binds.
+          expect(summary.externalFundedSpendTotal).toBe(TOPUP);
         }
       });
     });

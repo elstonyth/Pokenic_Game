@@ -15,6 +15,7 @@ import DeliveryOrder from './models/delivery-order';
 import DeliveryOrderItem from './models/delivery-order-item';
 import VipLevel from './models/vip-level';
 import RewardsSettings from './models/rewards-settings';
+import ReferralRelationship from './models/referral-relationship';
 import {
   resolveBuybackRate,
   buybackAmount,
@@ -101,6 +102,7 @@ class PacksModuleService extends MedusaService({
   DeliveryOrderItem,
   VipLevel,
   RewardsSettings,
+  ReferralRelationship,
 }) {
   // Commission engine globals. Reads the singleton row; falls back to defaults
   // when absent. COMMISSION_COOLDOWN_DAYS env override forces the demo (0) and
@@ -482,6 +484,73 @@ class PacksModuleService extends MedusaService({
       points: Number(r.points),
       volume: Number(r.volume_cents) / 100,
     }));
+  }
+
+  // Insert a recruit→sponsor edge with the fraud guards (spec §7). Under ONE
+  // transaction holding advisory locks on BOTH customer ids (sorted, so two
+  // concurrent inserts can't deadlock), it: rejects self-referral; rejects a
+  // cycle via a WITH RECURSIVE ancestor walk from the proposed sponsor; relies on
+  // the unique customer_id index for immutability (a second link throws). The
+  // route layer binds recruitId to the authenticated actor (Task 11) so a sponsor
+  // can't insert recruits under themselves.
+  @InjectTransactionManager()
+  async linkSponsor(
+    input: { recruitId: string; sponsorId: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ id: string }> {
+    if (input.recruitId === input.sponsorId) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        'A customer cannot refer themselves.',
+      );
+    }
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    // Lock both ids in a stable (sorted) order to avoid deadlocks with a
+    // concurrent reciprocal insert.
+    const [lo, hi] = [input.recruitId, input.sponsorId].sort();
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [`referral:${lo}`]);
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [`referral:${hi}`]);
+
+    // Cycle check: walk the proposed sponsor's upline; if the recruit appears,
+    // linking would close a loop. customer_id is unique so the upline is a simple
+    // path (no diamonds) — the recursion terminates.
+    const ancestors = await em.execute<{ sponsor_id: string }[]>(
+      `WITH RECURSIVE up AS (
+         SELECT sponsor_id FROM referral_relationship
+           WHERE customer_id = ? AND deleted_at IS NULL
+         UNION ALL
+         SELECT r.sponsor_id FROM referral_relationship r
+           JOIN up ON r.customer_id = up.sponsor_id
+           WHERE r.deleted_at IS NULL
+       )
+       SELECT sponsor_id FROM up WHERE sponsor_id = ? LIMIT 1`,
+      [input.sponsorId, input.recruitId],
+    );
+    if (ancestors.length > 0) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        'This referral would create a cycle in the sponsor tree.',
+      );
+    }
+
+    // Immutability: the unique customer_id index rejects a second link. Surface a
+    // clean error rather than a raw constraint violation.
+    const existing = await this.listReferralRelationships(
+      { customer_id: input.recruitId },
+      { take: 1 },
+    );
+    if (existing.length > 0) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'This customer already has a sponsor.',
+      );
+    }
+
+    const [rel] = await this.createReferralRelationships(
+      [{ customer_id: input.recruitId, sponsor_id: input.sponsorId }],
+      sharedContext,
+    );
+    return { id: rel.id };
   }
 
   // Stamp the first-seen time for a pull so the 30s instant window counts from

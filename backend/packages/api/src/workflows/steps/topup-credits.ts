@@ -44,25 +44,22 @@ export const topUpCreditsStep = createStep(
     }
 
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
-    const [txn] = await packs.createCreditTransactions([
-      {
-        customer_id: input.customer_id,
-        amount,
-        reason: "topup" as const,
-        pull_id: null,
-        reference: charge.reference,
-      },
-    ]);
-
-    // New balance = paged Σ ledger (append-only; exact at any ledger size).
-    const balance = await packs.creditBalance(input.customer_id);
+    // Phase 1b: route through the locked mutation so the row is serialized with
+    // pack-opens AND stamped with external_funded_cents = +amount (external
+    // money in). Returns the post-write balance — no separate Σ-ledger read.
+    const { id, balance } = await packs.mutateCreditAtomic({
+      customerId: input.customer_id,
+      amount,
+      reason: "topup",
+      reference: charge.reference,
+    });
 
     const result: TopUpResult = {
       amount,
       reference: charge.reference,
       balance,
     };
-    return new StepResponse(result, { creditTransactionId: txn.id });
+    return new StepResponse(result, { creditTransactionId: id });
   },
   async (data: { creditTransactionId: string } | undefined, { container }) => {
     if (!data) return;

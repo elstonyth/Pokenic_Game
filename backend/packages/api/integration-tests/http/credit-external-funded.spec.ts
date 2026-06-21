@@ -53,6 +53,33 @@ medusaIntegrationTestRunner({
       });
     });
 
+    describe("topUpCreditsStep external-funded wiring", () => {
+      it("a real top-up workflow run stamps external_funded_cents", async () => {
+        const { topUpCreditsWorkflow } = await import(
+          "../../src/workflows/topup-credits"
+        );
+        const cust = "cus_topup_wf";
+        const { result } = await topUpCreditsWorkflow(getContainer()).run({
+          input: { customer_id: cust, amount: 80 },
+        });
+        expect(result.balance).toBe(80);
+
+        const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+        const summary = await packs.creditSummary(cust);
+        expect(summary.topupTotal).toBe(80);
+        const [row] = await packs.listCreditTransactions(
+          { customer_id: cust },
+          { take: 1, order: { created_at: "DESC" } },
+        );
+        expect(
+          Number(
+            (row as { external_funded_cents?: number | null })
+              .external_funded_cents,
+          ),
+        ).toBe(8000);
+      });
+    });
+
     describe("mutateCreditAtomic external-funded stamping", () => {
       it("stamps a top-up with the full external sen", async () => {
         const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);

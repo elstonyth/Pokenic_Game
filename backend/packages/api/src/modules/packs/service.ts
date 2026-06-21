@@ -687,6 +687,46 @@ class PacksModuleService extends MedusaService({
     return { id: rel.id };
   }
 
+  // Delete-guard (spec §3 invariant 1): money rows backing a commission are
+  // append-only — never hard-deleted. Compensation MUST use
+  // reverseCreditTransaction. This refuses an accidental delete of any row a
+  // commission lifecycle record points at.
+  //
+  // Named `deleteCreditTransactionsGuarded` rather than overriding
+  // `deleteCreditTransactions` because MedusaService defines the base as an
+  // **instance member property** (arrow-function assigned in the constructor), not
+  // a class method. TypeScript TS2425 prevents overriding a property with a method.
+  // Casting `this` to call its own `deleteCreditTransactions` would be infinite
+  // recursion, so a distinct name is the correct pattern (brief §fallback).
+  //
+  // NOTE: selector-form (Record) deletes fall through without the guard — realistic
+  // accidental deletes are by id. If selector-form bypasses matter, the caller must
+  // use list → id-form to make the guard run.
+  async deleteCreditTransactionsGuarded(
+    idOrSelector: string | string[] | Record<string, unknown>,
+  ): Promise<void> {
+    const ids =
+      typeof idOrSelector === 'string'
+        ? [idOrSelector]
+        : Array.isArray(idOrSelector)
+          ? idOrSelector
+          : null;
+    if (ids && ids.length > 0) {
+      const deps = await this.listCommissions(
+        { credit_transaction_id: ids },
+        { take: 1 },
+      );
+      if (deps.length > 0) {
+        throw new MedusaError(
+          MedusaError.Types.NOT_ALLOWED,
+          'Cannot delete a credit transaction that backs a commission — reverse it instead.',
+        );
+      }
+    }
+    // Delegate to the MedusaService-generated base (property, not overridable).
+    await this.deleteCreditTransactions(idOrSelector as never);
+  }
+
   // Stamp the first-seen time for a pull so the 30s instant window counts from
   // the reveal, not the pull. Idempotent: only the first call writes revealed_at;
   // later calls return the same deadline. Ownership enforced (a foreign/unknown

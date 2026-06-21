@@ -18,6 +18,13 @@ export class Migration20260622160000 extends Migration {
   }
 
   override async down(): Promise<void> {
+    // Never drop the commission ledger if it holds rows — money history is
+    // append-only. Operators must reverse, not destroy.
+    this.addSql(
+      `DO $$ BEGIN IF EXISTS (SELECT 1 FROM "commission" WHERE deleted_at IS NULL) THEN ` +
+        `RAISE EXCEPTION 'refusing to drop commission: % live rows exist', ` +
+        `(SELECT count(*) FROM "commission" WHERE deleted_at IS NULL); END IF; END $$;`,
+    );
     this.addSql(`drop table if exists "commission" cascade;`);
 
     this.addSql(`alter table if exists "credit_transaction" drop column if exists "generation";`);

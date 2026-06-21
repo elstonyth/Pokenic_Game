@@ -14,6 +14,7 @@ import {
   createPackOpenRateLimit,
   createProfileReadRateLimit,
   createPullRevealRateLimit,
+  createReferralRecruitRateLimit,
   createStoreReadRateLimit,
   createVaultBuybackRateLimit,
 } from './utils/rate-limit';
@@ -134,6 +135,16 @@ export default defineMiddlewares({
       middlewares: [
         authenticate('customer', ['bearer']),
         createPackOpenBatchRateLimit(),
+      ],
+    },
+    {
+      // The recruit calls this to set their sponsor. recruitId is taken from the
+      // bearer token (auth_context.actor_id) — never from the body.
+      matcher: '/store/referral',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        createReferralRecruitRateLimit(),
       ],
     },
     {

@@ -66,8 +66,16 @@ export type LedgerTotals = {
   topups: number;
   /** Σ adjustment — net operator grants/clawbacks. */
   adjustments: number;
-  /** revenue − payouts — the gacha margin before fulfillment costs. */
+  /** revenue − payouts − commission — the gacha margin after commission bleed. */
   net: number;
+  /** Σ direct_referral — commission paid to direct sponsors (outflow). */
+  directReferral: number;
+  /** Σ team_override — override commission paid up the tree (outflow, Phase 2b). */
+  teamOverride: number;
+  /** Σ commission_reversal — clawed-back commission (signed; negative = recovered). */
+  commissionReversal: number;
+  /** Σ cashout — customer withdrawals (balance move, not P&L). */
+  cashout: number;
 };
 
 /** Lifetime ledger totals bucketed by reason (exact cent math). */
@@ -76,6 +84,10 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
   let buybackCents = 0;
   let topupCents = 0;
   let adjustmentCents = 0;
+  let directReferralCents = 0;
+  let teamOverrideCents = 0;
+  let commissionReversalCents = 0;
+  let cashoutCents = 0;
 
   for (const row of rows) {
     if (!Number.isFinite(row.amount)) continue;
@@ -84,6 +96,13 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
     else if (row.reason === 'buyback') buybackCents += cents;
     else if (row.reason === 'topup') topupCents += cents;
     else if (row.reason === 'adjustment') adjustmentCents += cents;
+    else if (row.reason === 'direct_referral') directReferralCents += cents;
+    else if (row.reason === 'team_override') teamOverrideCents += cents;
+    else if (row.reason === 'commission_reversal') commissionReversalCents += cents;
+    else if (row.reason === 'cashout') cashoutCents += cents;
+    // No silent drop: an unrecognized reason means the ledger grew a concept the
+    // economy report doesn't account for — fail loud so profit can't be wrong.
+    else throw new Error(`unknown ledger reason: ${row.reason}`);
   }
 
   // Negation, not abs: if the pack_open bucket ever nets positive (a
@@ -96,6 +115,16 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
     payouts,
     topups: topupCents / 100,
     adjustments: adjustmentCents / 100,
-    net: (-openCents - buybackCents) / 100 || 0,
+    directReferral: directReferralCents / 100,
+    teamOverride: teamOverrideCents / 100,
+    commissionReversal: commissionReversalCents / 100,
+    cashout: cashoutCents / 100,
+    // Margin AFTER commission bleed. Commission credits are positive rows, so
+    // subtract them; commission_reversal recovers margin (its rows are negative,
+    // so subtracting a negative adds back). Cashout is a balance move, excluded.
+    net:
+      (-openCents - buybackCents - directReferralCents - teamOverrideCents -
+        commissionReversalCents) /
+        100 || 0,
   };
 }

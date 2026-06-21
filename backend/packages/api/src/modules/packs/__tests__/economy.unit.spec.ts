@@ -72,7 +72,11 @@ describe('ledgerTotals', () => {
       payouts: 11.61,
       topups: 100,
       adjustments: 2.5,
-      net: 13.69, // revenue - payouts
+      net: 13.69, // revenue - payouts (no commission rows, so unchanged)
+      directReferral: 0,
+      teamOverride: 0,
+      commissionReversal: 0,
+      cashout: 0,
     });
   });
 
@@ -83,15 +87,36 @@ describe('ledgerTotals', () => {
       topups: 0,
       adjustments: 0,
       net: 0,
+      directReferral: 0,
+      teamOverride: 0,
+      commissionReversal: 0,
+      cashout: 0,
     });
   });
 
-  it('skips unknown reasons and non-finite amounts', () => {
-    const rows = [
-      { reason: 'mystery', amount: 999 },
-      { reason: 'topup', amount: NaN },
-      { reason: 'topup', amount: 10 },
-    ];
-    expect(ledgerTotals(rows).topups).toBe(10);
+  it("throws on an unknown ledger reason (no silent drop)", () => {
+    expect(() =>
+      ledgerTotals([{ reason: "mystery", amount: 999 }]),
+    ).toThrow(/unknown ledger reason/i);
+  });
+
+  it("buckets commission reasons and subtracts them from net", () => {
+    const t = ledgerTotals([
+      { reason: "pack_open", amount: -100 }, // RM100 revenue
+      { reason: "buyback", amount: 20 }, // RM20 payout
+      { reason: "direct_referral", amount: 5 }, // RM5 commission out
+      { reason: "team_override", amount: 1 }, // RM1 commission out
+      { reason: "commission_reversal", amount: -2 }, // RM2 clawed back (net + )
+      { reason: "cashout", amount: -10 }, // RM10 withdrawn
+    ]);
+    expect(t.revenue).toBe(100);
+    expect(t.payouts).toBe(20);
+    expect(t.directReferral).toBe(5);
+    expect(t.teamOverride).toBe(1);
+    expect(t.commissionReversal).toBe(-2);
+    expect(t.cashout).toBe(-10);
+    // net = revenue - payouts - directReferral - teamOverride - commissionReversal
+    //     = 100 - 20 - 5 - 1 - (-2) = 76. Cashout is a balance move, not P&L.
+    expect(t.net).toBe(76);
   });
 });

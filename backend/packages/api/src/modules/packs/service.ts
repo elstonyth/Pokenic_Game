@@ -442,8 +442,21 @@ class PacksModuleService extends MedusaService({
       ]);
     }
 
-    // 3) Per-row append-only compensation, idempotent on reference `reversal:${id}`.
+    // 3a) Snapshot committed raw balance per touched customer BEFORE writes (MikroORM
+    //     UoW buffers ORM inserts; a raw em.execute read inside the same txn only sees
+    //     committed rows — projection must use pre-snapshot + per-row delta).
+    const preBalCents = new Map<string, number>();
+    for (const cid of customerIds) {
+      const [row] = await em.execute<{ b: string | null }[]>(
+        'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS b FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+        [cid],
+      );
+      preBalCents.set(cid, Number(row?.b ?? 0));
+    }
+
+    // 3b) Per-row append-only compensation, idempotent on reference `reversal:${id}`.
     let reversed = 0;
+    const deltaMap = new Map<string, number>(); // per-customer reversal delta in cents
     for (const original of originals) {
       const [existing] = await this.listCreditTransactions(
         { reference: `reversal:${original.id}` },
@@ -481,9 +494,257 @@ class PacksModuleService extends MedusaService({
           [rev.id, original.id],
         );
       }
+      deltaMap.set(
+        original.customer_id,
+        (deltaMap.get(original.customer_id) ?? 0) +
+          Math.round(Number(original.amount) * 100),
+      );
       reversed++;
     }
+
+    // Phase 3a: auto-freeze any customer whose projected balance after the reversal
+    // is negative. Projection avoids re-reading (ORM UoW not yet flushed).
+    for (const cid of customerIds) {
+      const projectedCents =
+        (preBalCents.get(cid) ?? 0) - (deltaMap.get(cid) ?? 0);
+      if (projectedCents < 0) {
+        await this.freezeAccountIfNotAlready(
+          cid,
+          'auto',
+          `clawback:${sourceTransactionId}`,
+          sharedContext,
+        );
+      }
+    }
+
     return { reversed };
+  }
+
+  // If the customer's raw balance is now negative (a clawback drove it under),
+  // freeze them (cause='auto') so available=0 until repaid. A manual freeze is
+  // left as-is (sticky). Returns true if the account is frozen afterward.
+  private async setAutoFreezeIfNegative(
+    customerId: string,
+    reason: string,
+    sharedContext: Context,
+  ): Promise<boolean> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+    const [bal] = await em.execute<{ b: string | null }[]>(
+      'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS b FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+      [customerId],
+    );
+    if (Number(bal?.b ?? 0) >= 0) return false;
+    const [existing] = await this.listCustomerAccountStates(
+      { customer_id: customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (existing) {
+      if (existing.frozen) return true; // already frozen (manual stays sticky)
+      await this.updateCustomerAccountStates(
+        {
+          selector: { id: existing.id },
+          data: {
+            frozen: true,
+            cause: 'auto',
+            frozen_reason: reason,
+            frozen_by: null,
+            frozen_at: new Date(),
+            unfrozen_at: null,
+            unfreeze_cause: null,
+          },
+        },
+        sharedContext,
+      );
+    } else {
+      await this.createCustomerAccountStates(
+        [
+          {
+            customer_id: customerId,
+            frozen: true,
+            cause: 'auto',
+            frozen_reason: reason,
+          },
+        ],
+        sharedContext,
+      );
+    }
+    return true;
+  }
+
+  // Freeze the account unconditionally (caller has already determined the balance
+  // is projected negative). Returns true if the account ends up frozen (or was
+  // already frozen). Used by reverseOpen / reverseCommission after they compute
+  // the post-reversal balance from a pre-reversal snapshot + delta.
+  private async freezeAccountIfNotAlready(
+    customerId: string,
+    cause: 'auto' | 'manual',
+    reason: string,
+    sharedContext: Context,
+  ): Promise<boolean> {
+    const [existing] = await this.listCustomerAccountStates(
+      { customer_id: customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (existing) {
+      if (existing.frozen) return true; // already frozen (manual stays sticky)
+      await this.updateCustomerAccountStates(
+        {
+          selector: { id: existing.id },
+          data: {
+            frozen: true,
+            cause,
+            frozen_reason: reason,
+            frozen_by: null,
+            frozen_at: new Date(),
+            unfrozen_at: null,
+            unfreeze_cause: null,
+          },
+        },
+        sharedContext,
+      );
+    } else {
+      await this.createCustomerAccountStates(
+        [{ customer_id: customerId, frozen: true, cause, frozen_reason: reason }],
+        sharedContext,
+      );
+    }
+    return true;
+  }
+
+  // Admin commission-scoped reversal (Phase 3a). Claws back EVERY commission row
+  // for the target's open (all generations) but leaves the recruit's pack_open
+  // debit intact — unlike reverseOpen, which also refunds the recruit. Same
+  // sorted credit: lock + per-row reversal:${id} idempotency discipline as
+  // reverseOpen (2b §3.1). Writes one audit row in the same txn.
+  @InjectTransactionManager()
+  async reverseCommission(
+    input: { commissionId: string; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ reversed: number; froze: string[] }> {
+    const em =
+      sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const [target] = await this.listCommissions(
+      { id: input.commissionId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!target) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Commission '${input.commissionId}' not found.`,
+      );
+    }
+    const open = target.source_transaction_id;
+
+    // All commission CREDIT rows for this open (every generation). Fetch all
+    // rows for the open and filter to commission reasons — same pattern as
+    // reverseOpen (no array-filter reliance on MedusaService list).
+    const allRows = await this.listCreditTransactions(
+      { source_transaction_id: open },
+      { take: 1000, order: { created_at: 'ASC', id: 'ASC' } },
+    );
+    const credits = allRows.filter(
+      (r) =>
+        (r.reason === 'direct_referral' || r.reason === 'team_override') &&
+        !String(
+          (r as { reference?: string | null }).reference ?? '',
+        ).startsWith('reversal:'),
+    );
+    if (credits.length === 0) return { reversed: 0, froze: [] };
+
+    // Sorted credit: locks across every touched beneficiary (deadlock-safe).
+    const beneficiaries = [
+      ...new Set(credits.map((c) => c.customer_id)),
+    ].sort();
+    for (const cid of beneficiaries) {
+      await em.execute(
+        'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
+        [`credit:${cid}`],
+      );
+    }
+
+    // Snapshot the committed raw balance for each beneficiary BEFORE writing any
+    // reversals. MikroORM's UoW buffers ORM inserts until flush, so a raw-SQL
+    // read inside the same txn would NOT see ORM-created rows — we must compute
+    // the projected post-reversal balance from the committed snapshot + the delta.
+    const preBalanceCentsMap = new Map<string, number>();
+    for (const cid of beneficiaries) {
+      const [row] = await em.execute<{ b: string | null }[]>(
+        'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS b FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+        [cid],
+      );
+      preBalanceCentsMap.set(cid, Number(row?.b ?? 0));
+    }
+
+    let reversed = 0;
+    const reversedCentsMap = new Map<string, number>(); // per-beneficiary delta (positive = clawed back)
+    for (const original of credits) {
+      const [existing] = await this.listCreditTransactions(
+        { reference: `reversal:${original.id}` },
+        { take: 1 },
+        sharedContext,
+      );
+      if (existing) continue; // idempotent no-op
+      const [rev] = await this.createCreditTransactions(
+        [
+          {
+            customer_id: original.customer_id,
+            amount: -Number(original.amount),
+            reason: 'commission_reversal',
+            pull_id: null,
+            reference: `reversal:${original.id}`,
+            external_funded_cents: 0, // commissions carry no external basis
+            source_transaction_id: open,
+          },
+        ],
+        sharedContext,
+      );
+      await em.execute(
+        `UPDATE commission SET status = 'reversed', reversal_transaction_id = ?, updated_at = now()
+          WHERE credit_transaction_id = ? AND status <> 'reversed' AND deleted_at IS NULL`,
+        [rev.id, original.id],
+      );
+      // Accumulate per-beneficiary reversal amount (in cents).
+      const prevDelta = reversedCentsMap.get(original.customer_id) ?? 0;
+      reversedCentsMap.set(
+        original.customer_id,
+        prevDelta + Math.round(Number(original.amount) * 100),
+      );
+      reversed++;
+    }
+
+    // Auto-freeze any beneficiary whose projected post-reversal balance is negative.
+    // We pass projectedCents to avoid a raw-SQL re-read that cannot see the ORM-buffered
+    // reversal rows (MikroORM UoW flushes lazily; raw em.execute reads committed state only).
+    const froze: string[] = [];
+    for (const cid of beneficiaries) {
+      const preCents = preBalanceCentsMap.get(cid) ?? 0;
+      const deltaCents = reversedCentsMap.get(cid) ?? 0; // amount clawed back (positive)
+      const projectedCents = preCents - deltaCents;
+      if (projectedCents < 0) {
+        if (await this.freezeAccountIfNotAlready(cid, 'auto', `clawback:${open}`, sharedContext))
+          froze.push(cid);
+      }
+    }
+
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'commission',
+          entity_id: input.commissionId,
+          action: 'reverse_commission',
+          before: { source_transaction_id: open, reversed_rows: reversed },
+          after: { froze },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return { reversed, froze };
   }
 
   // The atomic open settlement — the ONLY place an open debit (and, Phase 2a,

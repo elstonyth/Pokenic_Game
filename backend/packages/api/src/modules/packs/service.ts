@@ -1531,6 +1531,43 @@ class PacksModuleService extends MedusaService({
       instant_deadline_ms: instantDeadlineMs(pull.rolled_at, pull.revealed_at),
     };
   }
+  // Atomic credit adjustment + audit: writes the ledger row AND the
+  // admin_action_audit row in the same transaction so both commit or neither
+  // does. adminId comes from the session (auth_context.actor_id) — never from
+  // the request body — and is stamped on the audit row. before/after record the
+  // balance values bracketing the adjustment so the row is self-explanatory.
+  @InjectTransactionManager()
+  async adminAdjustCredit(
+    input: { customerId: string; amount: number; note: string; adminId: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ id: string; amount: number; balance: number }> {
+    const { id, balance } = await this.mutateCreditAtomic(
+      {
+        customerId: input.customerId,
+        amount: input.amount,
+        reason: 'adjustment',
+        reference: input.note,
+        floor: 0,
+      },
+      sharedContext,
+    );
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'credit',
+          entity_id: id,
+          action: 'adjust_credit',
+          before: { balance: Number((balance - input.amount).toFixed(2)) },
+          after: { balance },
+          reason: input.note,
+        },
+      ],
+      sharedContext,
+    );
+    return { id, amount: input.amount, balance };
+  }
+
   // Admin edit of the rewards-settings singleton — clamped, audited, upserted.
   // Public method is named `editRewardsSettings` to avoid shadowing the
   // MedusaService-generated `updateRewardsSettings` CRUD method, which is called

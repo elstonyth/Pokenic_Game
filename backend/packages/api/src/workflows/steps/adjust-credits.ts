@@ -12,6 +12,8 @@ export type AdjustCreditsInput = {
   /** Raw body values — validated HERE so the rules live with the money logic. */
   amount: unknown;
   note: unknown;
+  /** Server-derived actor id from req.auth_context.actor_id — never from body. */
+  admin_id: string;
 };
 
 export type AdjustCreditsResult = {
@@ -43,15 +45,15 @@ export const adjustCreditsStep = createStep(
 
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
-    // Serialized write: the $0-floor check + ledger insert happen under the same
-    // per-customer lock as a pack-open, so two deducts (or a deduct racing an
-    // open) can't both pass the floor and push the balance negative (#4).
-    const { id, balance } = await packs.mutateCreditAtomic({
+    // Atomic write: the credit ledger row AND an admin_action_audit row are
+    // written together in the same transaction inside adminAdjustCredit, so
+    // both commit or neither does. The advisory-lock serialisation from
+    // mutateCreditAtomic is preserved (adminAdjustCredit calls it internally).
+    const { id, balance } = await packs.adminAdjustCredit({
       customerId: input.customer_id,
       amount,
-      reason: 'adjustment',
-      reference: note,
-      floor: 0,
+      note,
+      adminId: input.admin_id,
     });
 
     const result: AdjustCreditsResult = { amount, balance };
@@ -59,9 +61,10 @@ export const adjustCreditsStep = createStep(
   },
   async (data: { creditTransactionId: string } | undefined, { container }) => {
     if (!data) return;
-    // The ledger row is the only mutation, so undo is a single delete.
+    // adjustment rows are never commission-backed, so the guarded path is safe
+    // and removes the last caller of the raw base-delete (Task 11 seals it).
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
-    await packs.deleteCreditTransactions([data.creditTransactionId]);
+    await packs.deleteCreditTransactionsGuarded([data.creditTransactionId]);
   },
 );
 

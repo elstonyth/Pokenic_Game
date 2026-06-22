@@ -64,7 +64,12 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     }),
   );
 
-  const activityCards: ProfileViewCard[] = profile.recent.map((p) => ({
+  // Guard `recent` by SHAPE (not just nullishness): the schema is intentionally
+  // loose, so a regressed field could be absent OR a non-array (object/string),
+  // either of which would crash the `.map()`s below. Array.isArray handles both.
+  // Both .map()s read this SAME array so their indices stay aligned.
+  const recent = Array.isArray(profile.recent) ? profile.recent : [];
+  const activityCards: ProfileViewCard[] = recent.map((p) => ({
     id: p.card.handle,
     name: p.card.name,
     image: p.card.image,
@@ -82,10 +87,10 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     volume: profile.stats.volume,
     joined: joinedYear(profile.joined_at),
     collection: collectionCards,
-    activity: profile.recent.map((p, i) => ({
+    activity: recent.map((p, i) => ({
       verb: 'pulled',
       time: relativeTime(p.rolled_at),
-      // activityCards is built from the same profile.recent array — same length,
+      // activityCards is built from the same `recent` array — same length,
       // so index i is always in bounds
       card: activityCards[i]!,
     })),

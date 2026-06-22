@@ -110,11 +110,28 @@ export const CreditsSchema = z.looseObject({
   spend_total: finite,
 });
 
+/** Every reason the backend `credit_transaction` ledger emits (keep in sync with
+ *  backend models/credit-transaction.ts). The single storefront source of truth:
+ *  the schema enum, the `CreditTxn.reason` type, and the `REASON_LABEL` map all
+ *  derive from this list, so a newly-added backend reason can't be silently
+ *  dropped by `parseList` (it would just need a label, which TS then demands). */
+export const CREDIT_REASONS = [
+  'buyback',
+  'topup',
+  'pack_open',
+  'adjustment',
+  'direct_referral',
+  'team_override',
+  'commission_reversal',
+  'cashout',
+] as const;
+export type CreditReason = (typeof CREDIT_REASONS)[number];
+
 /** GET /store/credits transaction row. `amount` is signed (credit +, spend −). */
 export const CreditTransactionSchema = z.looseObject({
   id: z.string(),
   amount: finite,
-  reason: z.enum(['buyback', 'topup', 'pack_open', 'adjustment']),
+  reason: z.enum(CREDIT_REASONS),
   created_at: z.string(),
 });
 

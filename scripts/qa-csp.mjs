@@ -9,6 +9,14 @@ const OUT_DIR = 'docs/research/csp';
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+
+/** Print the lines, close the browser, and exit non-zero. */
+const fail = async (...lines) => {
+  lines.forEach((l) => console.error(l));
+  await browser.close();
+  process.exit(1);
+};
+
 const violations = [];
 page.on('console', (msg) => {
   const t = msg.text();
@@ -46,15 +54,11 @@ for (const route of ROUTES) {
       timeout: 30_000,
     });
   } catch (err) {
-    console.error(`${route} — navigation failed: ${err.message}`);
-    await browser.close();
-    process.exit(1);
+    await fail(`${route} — navigation failed: ${err.message}`);
   }
   // A 404/500 would otherwise let the scan pass on a (CSP-clean) error page.
   if (!resp || !resp.ok()) {
-    console.error(`${route} — bad response: ${resp ? resp.status() : 'none'}`);
-    await browser.close();
-    process.exit(1);
+    await fail(`${route} — bad response: ${resp ? resp.status() : 'none'}`);
   }
   await page.waitForTimeout(2000);
   const loadMs = Date.now() - startedAt;
@@ -65,10 +69,10 @@ for (const route of ROUTES) {
     JSON.stringify({ route, loadMs, violations }, null, 2),
   );
   if (violations.length) {
-    console.error(`CSP violations on ${route}:`);
-    violations.forEach((v) => console.error('  ' + v));
-    await browser.close();
-    process.exit(1);
+    await fail(
+      `CSP violations on ${route}:`,
+      ...violations.map((v) => '  ' + v),
+    );
   }
   console.log(`OK ${route}`);
 }

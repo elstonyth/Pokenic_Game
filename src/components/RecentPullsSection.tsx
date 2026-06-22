@@ -193,7 +193,7 @@ export default function RecentPullsSection({
       <div className="mx-auto w-full">
         {/* Header */}
         <div className="mx-auto mb-10 flex max-w-2xl flex-col items-center text-center">
-          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-white/45">
+          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-white/50">
             Live from the claw
           </p>
           <h2 className="font-heading mt-1.5 bg-gradient-to-b from-white to-neutral-400 bg-clip-text text-2xl font-bold leading-tight tracking-tight text-transparent md:text-3xl">
@@ -204,8 +204,13 @@ export default function RecentPullsSection({
           </p>
         </div>
 
-        {/* Horizontally-scrollable row of pulled-card cards */}
+        {/* Horizontally-scrollable row of pulled-card cards. tabIndex + label so
+            keyboard users can focus and arrow-scroll it (a11y: scrollable regions
+            must be keyboard-reachable). */}
         <div
+          role="group"
+          aria-label="Recent pulls"
+          tabIndex={0}
           className={cn(
             'flex gap-4 overflow-x-auto pb-4',
             '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',

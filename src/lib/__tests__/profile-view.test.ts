@@ -20,4 +20,18 @@ describe('toProfileView — tolerates a missing recent array', () => {
     expect(view.activity).toEqual([]);
     expect(view.username).toBe('Ash');
   });
+
+  it('does not throw when recent is present but NOT an array (loose-payload regression)', () => {
+    const profile = {
+      name: 'Ash',
+      seed: 1,
+      joined_at: '2026-01-01T00:00:00Z',
+      stats: { points: 0, pulls: 0, volume: 0 },
+      collection: [],
+      recent: {}, // regressed to a non-array — Array.isArray guard must catch it
+    } as unknown as PublicProfile;
+
+    const view = toProfileView(profile);
+    expect(view.activity).toEqual([]);
+  });
 });

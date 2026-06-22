@@ -64,10 +64,11 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     }),
   );
 
-  // Guard `recent` like `collection` above: a regressed/absent field must not
-  // crash this server component (the schema is intentionally loose), and both
-  // .map()s below must read the SAME array so their indices stay aligned.
-  const recent = profile.recent ?? [];
+  // Guard `recent` by SHAPE (not just nullishness): the schema is intentionally
+  // loose, so a regressed field could be absent OR a non-array (object/string),
+  // either of which would crash the `.map()`s below. Array.isArray handles both.
+  // Both .map()s read this SAME array so their indices stay aligned.
+  const recent = Array.isArray(profile.recent) ? profile.recent : [];
   const activityCards: ProfileViewCard[] = recent.map((p) => ({
     id: p.card.handle,
     name: p.card.name,

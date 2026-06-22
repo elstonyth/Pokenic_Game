@@ -16,7 +16,9 @@ export type ChargePackOpenResult = {
   balance: number;
 };
 
-type CompensateData = { creditTransactionId: string; open_id: string } | undefined;
+// open_id is the authoritative key for compensation: reverseOpen(open_id) cascades
+// the debit + every commission. (The debit row id is not needed here.)
+type CompensateData = { open_id: string } | undefined;
 
 // charge-pack-open — the PAYMENT SEAM made real (Task A2): debit the pack
 // price from the credit ledger before the pull is recorded, so a failed
@@ -64,7 +66,7 @@ export const chargePackOpenStep = createStep(
     // Serialized debit through settleOpen — the single locked transaction that
     // (Phase 2a) also pays commission. Behaviorally identical to the old
     // mutateCreditAtomic debit for a no-referral customer.
-    const { id, balance } = await packs.settleOpen({
+    const { balance } = await packs.settleOpen({
       customerId: input.customer_id,
       amount: -price,
       sourceTransactionId: input.open_id,
@@ -72,7 +74,7 @@ export const chargePackOpenStep = createStep(
 
     return new StepResponse(
       { price, balance } satisfies ChargePackOpenResult,
-      { creditTransactionId: id, open_id: input.open_id } satisfies CompensateData,
+      { open_id: input.open_id } satisfies CompensateData,
     );
   },
   async (data: CompensateData, { container }) => {

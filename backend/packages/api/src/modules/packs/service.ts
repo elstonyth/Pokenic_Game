@@ -391,13 +391,23 @@ class PacksModuleService extends MedusaService({
   ): Promise<{ reversed: number }> {
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
 
-    // 1) Collect the originals for this open. Exclude compensating rows from a
-    //    prior run: the debit reversal also carries reason 'pack_open', so filter
-    //    on the reference prefix, not reason alone.
-    const all = await this.listCreditTransactions(
+    // 1) Collect ALL originals for this open, PAGED — a full compensation must
+    //    never silently truncate (a single capped fetch could leave commissions
+    //    unreversed). Exclude compensating rows from a prior run: the debit
+    //    reversal also carries reason 'pack_open', so filter on the reference
+    //    prefix, not reason alone.
+    const PAGE = 1000;
+    let all = await this.listCreditTransactions(
       { source_transaction_id: sourceTransactionId },
-      { take: 1000 },
+      { skip: 0, take: PAGE, order: { created_at: 'ASC' } },
     );
+    for (let skip = PAGE; all.length === skip; skip += PAGE) {
+      const next = await this.listCreditTransactions(
+        { source_transaction_id: sourceTransactionId },
+        { skip, take: PAGE, order: { created_at: 'ASC' } },
+      );
+      all = all.concat(next);
+    }
     const originals = all.filter((r) => {
       const ref = String((r as { reference?: string | null }).reference ?? '');
       if (ref.startsWith('reversal:')) return false;

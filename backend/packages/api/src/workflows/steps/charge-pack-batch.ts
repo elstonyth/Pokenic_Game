@@ -19,7 +19,9 @@ export type ChargePackBatchResult = {
   balance: number;
 };
 
-type CompensateData = { creditTransactionId: string; open_id: string } | undefined;
+// open_id is the authoritative key for compensation: reverseOpen(open_id) cascades
+// the debit + every commission. (The debit row id is not needed here.)
+type CompensateData = { open_id: string } | undefined;
 
 export const chargePackBatchStep = createStep<
   ChargePackBatchInput,
@@ -51,12 +53,12 @@ export const chargePackBatchStep = createStep<
         undefined as CompensateData,
       );
     }
-    const { id, balance } = await packs.settleOpen({
+    const { balance } = await packs.settleOpen({
       customerId: input.customer_id, amount: -total, sourceTransactionId: input.open_id,
     });
     return new StepResponse(
       { price, total, balance } satisfies ChargePackBatchResult,
-      { creditTransactionId: id, open_id: input.open_id } satisfies CompensateData,
+      { open_id: input.open_id } satisfies CompensateData,
     );
   },
   async (data: CompensateData, { container }) => {

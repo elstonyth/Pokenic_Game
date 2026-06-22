@@ -84,7 +84,7 @@ medusaIntegrationTestRunner({
         // Further opens blocked while negative.
         await expect(
           packs.settleOpen({ customerId: s1, amount: -1, sourceTransactionId: "open_neg_blocked" }),
-        ).rejects.toThrow();
+        ).rejects.toThrow(/not enough credits/i); // the available-floor rejection, not just any throw
       });
     });
   },

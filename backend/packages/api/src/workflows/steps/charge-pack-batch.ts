@@ -19,7 +19,7 @@ export type ChargePackBatchResult = {
   balance: number;
 };
 
-type CompensateData = { creditTransactionId: string } | undefined;
+type CompensateData = { creditTransactionId: string; open_id: string } | undefined;
 
 export const chargePackBatchStep = createStep<
   ChargePackBatchInput,
@@ -56,13 +56,18 @@ export const chargePackBatchStep = createStep<
     });
     return new StepResponse(
       { price, total, balance } satisfies ChargePackBatchResult,
-      { creditTransactionId: id } satisfies CompensateData,
+      { creditTransactionId: id, open_id: input.open_id } satisfies CompensateData,
     );
   },
   async (data: CompensateData, { container }) => {
-    if (!data?.creditTransactionId) return;
+    if (!data) return; // free-batch wrote no debit -> nothing to reverse
+    // The batch open is append-only: undo it with cascading compensating rows,
+    // NOT a delete. reverseOpen reverses the recruit's debit AND claws back
+    // every commission (direct + override) paid for this open_id, so a failure
+    // after settleOpen committed can never leave the recruit refunded but
+    // sponsors overpaid (Phase 2b go-live blocker).
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
-    await packs.reverseCreditTransaction(data.creditTransactionId);
+    await packs.reverseOpen(data.open_id);
   },
 );
 

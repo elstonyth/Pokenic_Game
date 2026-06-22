@@ -33,8 +33,9 @@ import { consumeExternalSen } from './external-funded';
 import { directReferralPctForLevel, directCommissionSen } from './referral-commission';
 import { levelForSpend } from './vip-ladder';
 
-// Postgres unique-violation detector (SQLSTATE 23505), used to make a replayed
-// open's commission insert an idempotent no-op rather than an error.
+// Postgres unique-violation detector (SQLSTATE 23505) for the commission
+// idempotency index. See settleOpen's commission catch for the exact semantics
+// — a 23505 there rejects the whole duplicate open; it does NOT silently no-op.
 function isUniqueViolation(e: unknown): boolean {
   const code = (e as { code?: string })?.code;
   return code === '23505';
@@ -470,8 +471,8 @@ class PacksModuleService extends MedusaService({
               ? new Date(0)
               : new Date(Date.now() + settings.commissionCooldownDays * 86_400_000);
           // Insert the commission credit row. The partial-unique index
-          // (source_transaction_id, reason, customer_id, generation) makes a
-          // replayed open throw here — caught so a retry is a clean no-op.
+          // (source_transaction_id, reason, customer_id, generation) rejects a
+          // duplicate open_id here with a 23505 (see the catch for semantics).
           try {
             const [credit] = await this.createCreditTransactions(
               [
@@ -511,8 +512,17 @@ class PacksModuleService extends MedusaService({
               matured: settings.commissionCooldownDays === 0,
             });
           } catch (e) {
-            // Unique-index violation ⇒ this open's commission was already paid
-            // (idempotent retry). Re-throw anything else.
+            // A 23505 means this open_id already paid its commission. Swallowing
+            // the JS error does NOT make settleOpen a clean no-op: the 23505 has
+            // already aborted THIS transaction (Postgres 25P02), so the outer
+            // commit fails and the duplicate open's DEBIT rolls back too. That is
+            // intentional and correct — the debit is not separately
+            // idempotency-keyed, so aborting the whole settleOpen is what stops a
+            // replayed open_id from double-debiting the recruit. Do NOT wrap this
+            // insert in a SAVEPOINT to "keep the open": that would let the
+            // duplicate debit commit (double-charge). Normal opens mint a fresh
+            // open_id (open-pack workflow), so this path is defense-in-depth.
+            // Re-throw anything that isn't a 23505.
             if (!isUniqueViolation(e)) throw e;
           }
         }

@@ -100,6 +100,15 @@ describe('ledgerTotals', () => {
     ).toThrow(/unknown ledger reason/i);
   });
 
+  it("skips a non-finite amount rather than bucketing or throwing it", () => {
+    // Guards the `Number.isFinite(row.amount)` continue in ledgerTotals: a NaN
+    // amount must not poison a bucket or the net (a known reason with NaN is
+    // skipped, not thrown).
+    const t = ledgerTotals([{ reason: "topup", amount: NaN }]);
+    expect(t.topups).toBe(0);
+    expect(t.net).toBe(0);
+  });
+
   it("buckets commission reasons and subtracts them from net", () => {
     const t = ledgerTotals([
       { reason: "pack_open", amount: -100 }, // RM100 revenue

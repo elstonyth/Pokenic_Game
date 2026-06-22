@@ -33,14 +33,14 @@ medusaIntegrationTestRunner({
         const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
         await expect(
           packs.settleOpen({ customerId: "cus_bad", amount: 5, sourceTransactionId: "x" }),
-        ).rejects.toThrow();
+        ).rejects.toThrow(/less than 0/);
       });
 
       it("enforces the floor (no overdraft)", async () => {
         const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
         await expect(
           packs.settleOpen({ customerId: "cus_broke", amount: -10, sourceTransactionId: "y" }),
-        ).rejects.toThrow();
+        ).rejects.toThrow(/Not enough credits/);
       });
     });
   },

@@ -164,6 +164,54 @@ medusaIntegrationTestRunner({
           }),
         ).rejects.toThrow();
       });
+
+      it("suspendCommission rejects an already-suspended commission (no phantom audit row)", async () => {
+        const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+        await seedLadder(packs);
+        const recruit = "cust_su4_recruit";
+        const sponsor = "cust_su4_sponsor";
+        await packs.mutateCreditAtomic({
+          customerId: recruit,
+          amount: 100,
+          reason: "topup",
+        });
+        await packs.linkSponsor({ recruitId: recruit, sponsorId: sponsor });
+        await packs.settleOpen({
+          customerId: recruit,
+          amount: -50,
+          sourceTransactionId: "open_su_4",
+        });
+        const [comm] = await packs.listCommissions(
+          { source_transaction_id: "open_su_4", beneficiary: sponsor },
+          { take: 1 },
+        );
+        // First suspend — must succeed.
+        await packs.suspendCommission({
+          commissionId: comm.id,
+          adminId: "admin_x",
+          reason: "first review",
+        });
+        // Count audit rows after the first suspend.
+        const auditsBefore = await packs.listAdminActionAudits(
+          { entity_id: comm.id, action: "suspend_commission" },
+          {},
+        );
+        expect(auditsBefore.length).toBe(1);
+        // Second suspend on an already-suspended commission — must be rejected.
+        await expect(
+          packs.suspendCommission({
+            commissionId: comm.id,
+            adminId: "admin_x",
+            reason: "duplicate",
+          }),
+        ).rejects.toThrow(/already suspended/i);
+        // No phantom audit row must have been written.
+        const auditsAfter = await packs.listAdminActionAudits(
+          { entity_id: comm.id, action: "suspend_commission" },
+          {},
+        );
+        expect(auditsAfter.length).toBe(1);
+      });
     });
   },
 });

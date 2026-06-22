@@ -766,6 +766,9 @@ class PacksModuleService extends MedusaService({
         'A reversed commission cannot be suspended.',
       );
     }
+    if (c.status === 'suspended') {
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, 'Commission is already suspended.');
+    }
     await em.execute(
       'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
       [`credit:${c.beneficiary}`],
@@ -837,7 +840,7 @@ class PacksModuleService extends MedusaService({
           entity_type: 'commission',
           entity_id: c.id,
           action: 'unsuspend_commission',
-          before: { status: 'suspended' },
+          before: { status: c.status },
           after: { status: next },
           reason: input.reason,
         },

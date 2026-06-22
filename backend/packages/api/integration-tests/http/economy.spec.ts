@@ -1,7 +1,7 @@
-import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
-import { PACKS_MODULE } from "../../src/modules/packs";
-import type PacksModuleService from "../../src/modules/packs/service";
-import { mintSuperAdmin, unwrapResponse } from "./utils";
+import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
+import { PACKS_MODULE } from '../../src/modules/packs';
+import type PacksModuleService from '../../src/modules/packs/service';
+import { mintSuperAdmin, unwrapResponse } from './utils';
 
 jest.setTimeout(240 * 1000);
 
@@ -12,65 +12,65 @@ jest.setTimeout(240 * 1000);
 medusaIntegrationTestRunner({
   inApp: true,
   testSuite: ({ api, getContainer }) => {
-    describe("admin economy report", () => {
+    describe('admin economy report', () => {
       let adminToken: string;
 
       beforeEach(async () => {
         adminToken = await mintSuperAdmin(
           getContainer(),
           api,
-          "economy-admin@test.dev",
-          "economy-test-password-1",
+          'economy-admin@test.dev',
+          'economy-test-password-1',
         );
       });
 
       const economy = (headers: Record<string, string>) =>
-        unwrapResponse(api.get("/admin/economy", { headers }));
+        unwrapResponse(api.get('/admin/economy', { headers }));
 
-      it("rejects an unauthenticated read with 401", async () => {
+      it('rejects an unauthenticated read with 401', async () => {
         expect((await economy({})).status).toBe(401);
       });
 
-      it("reports exact totals, liability, and per-pack RTP", async () => {
+      it('reports exact totals, liability, and per-pack RTP', async () => {
         const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
 
         // Ledger: $100 topup, two opens (-$25, -$25), one buyback (+$11.61),
         // one adjustment (+$5) → revenue 50, payouts 11.61, net 38.39.
         await packs.createCreditTransactions([
           {
-            customer_id: "cus_a",
+            customer_id: 'cus_a',
             amount: 100,
-            reason: "topup" as const,
+            reason: 'topup' as const,
             pull_id: null,
-            reference: "ref",
+            reference: 'ref',
           },
           {
-            customer_id: "cus_a",
+            customer_id: 'cus_a',
             amount: -25,
-            reason: "pack_open" as const,
+            reason: 'pack_open' as const,
             pull_id: null,
             reference: null,
           },
           {
-            customer_id: "cus_a",
+            customer_id: 'cus_a',
             amount: -25,
-            reason: "pack_open" as const,
+            reason: 'pack_open' as const,
             pull_id: null,
             reference: null,
           },
           {
-            customer_id: "cus_a",
+            customer_id: 'cus_a',
             amount: 11.61,
-            reason: "buyback" as const,
+            reason: 'buyback' as const,
             pull_id: null,
             reference: null,
           },
           {
-            customer_id: "cus_a",
+            customer_id: 'cus_a',
             amount: 5,
-            reason: "adjustment" as const,
+            reason: 'adjustment' as const,
             pull_id: null,
-            reference: "grant",
+            reference: 'grant',
           },
         ]);
 
@@ -78,44 +78,44 @@ medusaIntegrationTestRunner({
         // (liability 20) and one bought-back (excluded).
         await packs.createCards([
           {
-            handle: "eco-low",
-            name: "Eco Low",
-            set: "QA",
-            grader: "PSA",
-            grade: "9",
+            handle: 'eco-low',
+            name: 'Eco Low',
+            set: 'QA',
+            grader: 'PSA',
+            grade: '9',
             market_value: 10,
-            image: "/qa.png",
+            image: '/qa.png',
           },
           {
-            handle: "eco-high",
-            name: "Eco High",
-            set: "QA",
-            grader: "PSA",
-            grade: "10",
+            handle: 'eco-high',
+            name: 'Eco High',
+            set: 'QA',
+            grader: 'PSA',
+            grade: '10',
             market_value: 30,
-            image: "/qa.png",
+            image: '/qa.png',
           },
         ]);
         await packs.createPulls([
           {
-            customer_id: "cus_a",
-            pack_id: "eco-pack",
-            card_id: "eco-low",
-            status: "vaulted" as const,
+            customer_id: 'cus_a',
+            pack_id: 'eco-pack',
+            card_id: 'eco-low',
+            status: 'vaulted' as const,
             rolled_at: new Date(),
           },
           {
-            customer_id: "cus_a",
-            pack_id: "eco-pack",
-            card_id: "eco-low",
-            status: "vaulted" as const,
+            customer_id: 'cus_a',
+            pack_id: 'eco-pack',
+            card_id: 'eco-low',
+            status: 'vaulted' as const,
             rolled_at: new Date(),
           },
           {
-            customer_id: "cus_a",
-            pack_id: "eco-pack",
-            card_id: "eco-high",
-            status: "bought_back" as const,
+            customer_id: 'cus_a',
+            pack_id: 'eco-pack',
+            card_id: 'eco-high',
+            status: 'bought_back' as const,
             buyback_amount: 27,
             rolled_at: new Date(),
           },
@@ -125,36 +125,36 @@ medusaIntegrationTestRunner({
         // pack must NOT appear in the table.
         await packs.createPacks([
           {
-            slug: "eco-pack",
-            title: "Eco Pack",
-            category: "pokemon",
+            slug: 'eco-pack',
+            title: 'Eco Pack',
+            category: 'pokemon',
             price: 25,
-            image: "/qa.png",
-            status: "active" as const,
+            image: '/qa.png',
+            status: 'active' as const,
             rank: 0,
           },
           {
-            slug: "eco-draft",
-            title: "Eco Draft",
-            category: "pokemon",
+            slug: 'eco-draft',
+            title: 'Eco Draft',
+            category: 'pokemon',
             price: 25,
-            image: "/qa.png",
-            status: "draft" as const,
+            image: '/qa.png',
+            status: 'draft' as const,
             rank: 1,
           },
         ]);
         await packs.createPackOdds([
           {
-            pack_id: "eco-pack",
-            card_id: "eco-low",
-            rarity: "Common" as const,
+            pack_id: 'eco-pack',
+            card_id: 'eco-low',
+            rarity: 'Common' as const,
             weight: 5000,
             locked: false,
           },
           {
-            pack_id: "eco-pack",
-            card_id: "eco-high",
-            rarity: "Rare" as const,
+            pack_id: 'eco-pack',
+            card_id: 'eco-high',
+            rarity: 'Rare' as const,
             weight: 5000,
             locked: false,
           },
@@ -168,6 +168,10 @@ medusaIntegrationTestRunner({
           payouts: 11.61,
           topups: 100,
           adjustments: 5,
+          directReferral: 0,
+          teamOverride: 0,
+          commissionReversal: 0,
+          cashout: 0,
           net: 38.39,
         });
 
@@ -175,7 +179,7 @@ medusaIntegrationTestRunner({
 
         expect(res.data.packs).toHaveLength(1);
         expect(res.data.packs[0]).toMatchObject({
-          slug: "eco-pack",
+          slug: 'eco-pack',
           price: 25,
           ev: 20,
           rtp_pct: 80,

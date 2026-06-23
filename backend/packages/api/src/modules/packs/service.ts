@@ -126,6 +126,11 @@ type LedgerSqlManager = {
   execute<T = unknown>(query: string, params?: unknown[]): Promise<T>;
 };
 
+// Defensive depth bound for referralSummary's downward fan-out CTE. linkSponsor
+// already rejects cycles, so a real tree terminates well before this; the cap
+// is belt-and-suspenders against a corrupted edge so COUNT(*) can never loop.
+const DOWNSTREAM_DEPTH_CAP = 100;
+
 class PacksModuleService extends MedusaService({
   Pack,
   Card,
@@ -1613,6 +1618,117 @@ class PacksModuleService extends MedusaService({
       sharedContext,
     );
     return { id: rel.id };
+  }
+
+  // Privacy-bounded referral summary for ONE customer (spec §7 / Task 5).
+  // Returns ONLY the caller's own earnings and their gen-1 (direct) recruits —
+  // NEVER an identity below generation 1. The route (Task 6) maps each returned
+  // `customerId` to a public handle; resolving the customer module is kept OUT
+  // of this service because PacksModuleService deliberately talks to Postgres
+  // through raw SQL only (LedgerSqlManager) and does not import other Medusa
+  // modules — the leaderboard route owns the no-N+1 handle batch (route.ts).
+  //
+  // Three reads, all read-only (@InjectManager, so a caller may thread a txn):
+  //   1. directRecruits  — gen-1 edges (sponsor_id = me) + per-recruit DIRECT
+  //      contribution. The commission ledger row has no source-customer column;
+  //      provenance is its source_transaction_id (= the open_id). So the
+  //      contribution is a TWO-HOP join: my 'direct_referral' rows -> match
+  //      source_transaction_id to the recruit's 'pack_open' row -> that row's
+  //      customer_id IS the recruit. Override ('team_override') rows are
+  //      excluded by the reason filter, so a gen-2 override never leaks into a
+  //      gen-1 recruit's "contribution".
+  //   2. downstreamCount — ALL generations under me via a NEW bounded DOWNWARD
+  //      recursive CTE (anchor sponsor_id = me, recurse on r.sponsor_id =
+  //      down.customer_id), UNION de-dups, an explicit depth cap guarantees
+  //      termination. COUNT only — no identities cross the boundary.
+  //   3. totalEarned    — Σ my commission ledger rows (direct + override);
+  //      negative 'commission_reversal' rows net automatically.
+  @InjectManager()
+  async referralSummary(
+    customerId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{
+    directRecruits: { customerId: string; contribution: number }[];
+    downstreamCount: number;
+    totalEarned: number;
+  }> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+
+    // 1) Gen-1 recruits (indexed by sponsor_id).
+    const directRows = await em.execute<{ customer_id: string }[]>(
+      `SELECT customer_id FROM referral_relationship
+         WHERE sponsor_id = ? AND deleted_at IS NULL`,
+      [customerId],
+    );
+    const recruitIds = directRows.map((r) => r.customer_id);
+
+    // Contribution per direct recruit = Σ my DIRECT commission whose source open
+    // belongs to that recruit. Two-hop: my 'direct_referral' rows -> their
+    // source_transaction_id -> the recruit's 'pack_open' row's customer_id.
+    // `IN (?, ?, ...)` not `= ANY(?)`: MikroORM's em.execute expands a JS array
+    // into positional binds, so `ANY(?)` would emit `ANY('a','b')` (a syntax
+    // error). recruitIds come from our own DB and each id is still bound (not
+    // interpolated), so this stays injection-safe.
+    const recruitPlaceholders = recruitIds.map(() => '?').join(', ');
+    const contribRows = recruitIds.length
+      ? await em.execute<{ recruit_id: string; contribution: string }[]>(
+          `SELECT po.customer_id AS recruit_id,
+                  COALESCE(SUM(mine.amount), 0)::float8 AS contribution
+             FROM credit_transaction mine
+             JOIN credit_transaction po
+               ON po.source_transaction_id = mine.source_transaction_id
+              AND po.reason = 'pack_open'
+              AND po.deleted_at IS NULL
+            WHERE mine.customer_id = ?
+              AND mine.reason = 'direct_referral'
+              AND mine.deleted_at IS NULL
+              AND po.customer_id IN (${recruitPlaceholders})
+            GROUP BY po.customer_id`,
+          [customerId, ...recruitIds],
+        )
+      : [];
+    const contribById = new Map<string, number>(
+      contribRows.map((r) => [r.recruit_id, Number(r.contribution)]),
+    );
+
+    // 2) Downstream headcount, ALL generations, via a bounded DOWNWARD walk.
+    //    The explicit depth cap + UNION (de-dup) guarantee termination even if a
+    //    cycle somehow escaped linkSponsor's guard. Count only — no identities.
+    const downRows = await em.execute<{ cnt: number }[]>(
+      `WITH RECURSIVE down AS (
+         SELECT customer_id, 1 AS depth FROM referral_relationship
+           WHERE sponsor_id = ? AND deleted_at IS NULL
+         UNION
+         SELECT r.customer_id, d.depth + 1
+           FROM referral_relationship r
+           JOIN down d ON r.sponsor_id = d.customer_id
+          WHERE r.deleted_at IS NULL AND d.depth < ?
+       )
+       SELECT COUNT(*)::int AS cnt FROM down`,
+      [customerId, DOWNSTREAM_DEPTH_CAP],
+    );
+    const downstreamCount = Number(downRows[0]?.cnt ?? 0);
+
+    // 3) Total earned = Σ my commission ledger rows (direct + override); negative
+    //    'commission_reversal' rows net automatically.
+    const totalRows = await em.execute<{ total: string }[]>(
+      `SELECT COALESCE(SUM(amount), 0)::float8 AS total
+         FROM credit_transaction
+        WHERE customer_id = ? AND deleted_at IS NULL
+          AND reason IN ('direct_referral', 'team_override', 'commission_reversal')`,
+      [customerId],
+    );
+    const totalEarned = Number(totalRows[0]?.total ?? 0);
+
+    return {
+      directRecruits: recruitIds.map((id) => ({
+        customerId: id,
+        contribution: contribById.get(id) ?? 0,
+      })),
+      downstreamCount,
+      totalEarned,
+    };
   }
 
   // Delete-guard (spec §3 invariant 1): money rows backing a commission are

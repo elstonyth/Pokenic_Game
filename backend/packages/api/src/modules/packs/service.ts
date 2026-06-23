@@ -40,6 +40,7 @@ import {
   teamOverrideSchedule,
 } from './referral-commission';
 import { levelForSpend } from './vip-ladder';
+import { levelsToGrant, rewardsForLevel } from './vip-rewards';
 import { fromSen } from './money';
 import {
   validateRewardsPatch,
@@ -1776,6 +1777,130 @@ class PacksModuleService extends MedusaService({
     for (const row of customers) {
       await this.rebuildVipMemberState(row.customer_id, sharedContext);
     }
+  }
+
+  // Grant ladder rewards for every newly-crossed VIP level (Phase 3b §E).
+  //
+  // Monotonic-grant invariant: derives the trigger level from the MONOTONIC
+  // lifetime counter (lifetimeExternalSenFor → fromSen → levelForSpend) so
+  // a clawback+respend can never re-grant rewards already earned. The high-water
+  // mark (highest_level_ever) is read from the existing state row (default L1)
+  // and drives levelsToGrant — L1 is never granted (levelsToGrant enforces L2 floor).
+  //
+  // Grant insert idempotency: uses raw INSERT … ON CONFLICT (customer_id, level, kind)
+  // WHERE deleted_at IS NULL DO NOTHING so a replayed event with the same
+  // (customerId, openId) simply skips existing rows without raising a 23505. A
+  // try/catch around the ORM's createVipRewardGrants would poison the enclosing
+  // txn (Postgres 25P02) on the first duplicate — raw DO NOTHING avoids this
+  // entirely. The partial WHERE clause must match the UQ_vip_reward_grant_customer_level_kind
+  // partial index (defined in vip-reward-grant.ts with `where: 'deleted_at IS NULL'`).
+  //
+  // currentLevel uses the NET basis (creditSummary.externalFundedSpendTotal) so
+  // it may drop below highest_level_ever after a clawback — that's by design.
+  @InjectManager()
+  async grantLevelUpRewards(
+    customerId: string,
+    openId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ gained: number[] }> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+
+    // 1) Recompute from ledger so redelivery is always idempotent.
+    const lifetimeSen = await this.lifetimeExternalSenFor(
+      customerId,
+      sharedContext,
+    );
+    // UNIT TRAP: lifetimeSen is integer sen, levelForSpend expects MYR. Convert.
+    const lifetimeMyr = fromSen(lifetimeSen);
+
+    // 2) Net basis for display-level (separate axis from grant trigger).
+    const netBasisMyr = (await this.creditSummary(customerId))
+      .externalFundedSpendTotal;
+
+    // 3) Load the full ladder for both level derivation and reward lookup.
+    const ladderRows = await this.listVipLevels(
+      {},
+      {
+        select: [
+          'level',
+          'spend_threshold',
+          'voucher_amount',
+          'box_tier',
+          'frame_unlock',
+        ],
+        take: 1000,
+      },
+    );
+    const thresholdRows = ladderRows.map((r) => ({
+      level: r.level,
+      spend_threshold: Number(r.spend_threshold),
+    }));
+    const byLevel = new Map(ladderRows.map((r) => [r.level, r]));
+
+    // 4) High-water mark from existing state row (default L1 if no row yet).
+    const [existingState] = await this.listVipMemberStates(
+      { customer_id: customerId },
+      { take: 1 },
+    );
+    const highestEver = existingState
+      ? Number(existingState.highest_level_ever)
+      : 1;
+
+    // 5) Derive the new monotonic level. Clawback keeps lifetime unchanged,
+    //    so newLevel never regresses even after reverseOpen.
+    const newLevel = levelForSpend(lifetimeMyr, thresholdRows);
+
+    // 6) Grant rewards for each newly-crossed level (L2+).
+    const gained: number[] = [];
+    for (const L of levelsToGrant(highestEver, newLevel)) {
+      const row = byLevel.get(L);
+      if (!row) continue;
+      const rewards = rewardsForLevel({
+        level: row.level,
+        voucher_amount: Number(row.voucher_amount),
+        box_tier: row.box_tier,
+        frame_unlock: row.frame_unlock,
+      });
+      for (const reward of rewards) {
+        // Raw INSERT … ON CONFLICT … DO NOTHING — avoids 23505 poisoning the txn
+        // (Postgres 25P02). The ON CONFLICT predicate MUST match the partial index
+        // UQ_vip_reward_grant_customer_level_kind (where: 'deleted_at IS NULL').
+        // Deterministic id: vrg_<customerId>_<level>_<kind> for deduplication.
+        const grantId = `vrg_${customerId}_${L}_${reward.kind}`;
+        await em.execute(
+          `INSERT INTO vip_reward_grant
+             (id, customer_id, level, kind, payload, status, source_open_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?::jsonb, 'granted', ?, now(), now())
+           ON CONFLICT (customer_id, level, kind) WHERE deleted_at IS NULL DO NOTHING`,
+          [
+            grantId,
+            customerId,
+            L,
+            reward.kind,
+            JSON.stringify(reward.payload),
+            openId,
+          ],
+        );
+      }
+      gained.push(L);
+    }
+
+    // 7) Upsert state: GREATEST guard in upsertVipMemberState ensures
+    //    highest_level_ever never regresses even under concurrent rebuilds.
+    const newHighest = Math.max(highestEver, newLevel);
+    const currentLevel = levelForSpend(netBasisMyr, thresholdRows);
+    await this.upsertVipMemberState(
+      {
+        customerId,
+        lifetimeSen,
+        highestLevelEver: newHighest,
+        currentLevel,
+      },
+      sharedContext,
+    );
+
+    return { gained };
   }
 }
 

@@ -79,6 +79,14 @@ export const openPackWorkflow = createWorkflow(
     }));
     emitEventStep({ eventName: "pack.opened", data: eventData });
 
+    // Emit vip.spend_settled for VIP level-up reward processing (Phase 3b).
+    // ONE event per open, carrying the customer_id and open_id.
+    const vipEvent = transform({ input, charged }, (d) => ({
+      customer_id: d.input.customer_id,
+      open_id: d.charged.open_id,
+    }));
+    emitEventStep({ eventName: "vip.spend_settled", data: vipEvent });
+
     const result = transform({ card, pull, charge }, (d) => ({
       pull: d.pull,
       card: d.card,

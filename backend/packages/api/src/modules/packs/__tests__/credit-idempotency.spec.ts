@@ -33,6 +33,8 @@ import ReferralRelationship from '../models/referral-relationship';
 import Commission from '../models/commission';
 import CustomerAccountState from '../models/customer-account-state';
 import AdminActionAudit from '../models/admin-action-audit';
+import VipMemberState from '../models/vip-member-state';
+import VipRewardGrant from '../models/vip-reward-grant';
 
 jest.setTimeout(300 * 1000);
 
@@ -53,6 +55,8 @@ moduleIntegrationTestRunner<PacksModuleService>({
     Commission,
     CustomerAccountState,
     AdminActionAudit,
+    VipMemberState,
+    VipRewardGrant,
   ],
   testSuite: ({ service }) => {
     const rowsFor = (customerId: string) =>

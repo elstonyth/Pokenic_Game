@@ -1,0 +1,32 @@
+import { model } from '@medusajs/framework/utils';
+
+// admin_action_audit — append-only record of every admin money mutation
+// (Phase 3a). admin_id is server-derived (auth_context.actor_id), reason is
+// mandatory. No update/delete route — append-only by convention. The
+// framework-added deleted_at column is never used.
+export const AdminActionAudit = model
+  .define('admin_action_audit', {
+    id: model.id().primaryKey(),
+    admin_id: model.text(),
+    entity_type: model.enum(['customer', 'commission', 'rewards_settings', 'credit']),
+    entity_id: model.text(),
+    action: model.enum([
+      'freeze',
+      'unfreeze',
+      'reverse_commission',
+      'suspend_commission',
+      'unsuspend_commission',
+      'adjust_credit',
+      'edit_rewards_settings',
+    ]),
+    before: model.json().nullable(),
+    after: model.json().nullable(),
+    reason: model.text(),
+  })
+  .indexes([
+    { name: 'IDX_admin_action_audit_admin_id', on: ['admin_id'], where: 'deleted_at IS NULL' },
+    { name: 'IDX_admin_action_audit_entity', on: ['entity_type', 'entity_id'], where: 'deleted_at IS NULL' },
+    { name: 'IDX_admin_action_audit_created_at', on: ['created_at'], where: 'deleted_at IS NULL' },
+  ]);
+
+export default AdminActionAudit;

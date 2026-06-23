@@ -78,13 +78,23 @@ medusaIntegrationTestRunner({
 
         // Reverse the recruit's open -> claws back s1's spent RM1 -> s1 goes negative.
         await packs.reverseOpen("open_neg");
-        expect(await packs.creditBalance(s1)).toBe(-1);
-        expect(await packs.availableBalance(s1)).toBe(-1);
+        expect(await packs.creditBalance(s1)).toBe(-1); // raw ledger sum is negative
 
-        // Further opens blocked while negative.
+        // Phase 3a: reverseOpen auto-freezes a beneficiary whose balance goes negative.
+        const [frozenState] = await packs.listCustomerAccountStates(
+          { customer_id: s1, frozen: true },
+          { take: 1 },
+        );
+        expect(frozenState).toBeTruthy();
+        expect(frozenState.cause).toBe("auto");
+
+        // Frozen account: availableBalance must return 0 (Phase 3a gate).
+        expect(await packs.availableBalance(s1)).toBe(0);
+
+        // Further opens blocked — now because the account is frozen (not just low credit).
         await expect(
           packs.settleOpen({ customerId: s1, amount: -1, sourceTransactionId: "open_neg_blocked" }),
-        ).rejects.toThrow(/not enough credits/i); // the available-floor rejection, not just any throw
+        ).rejects.toThrow(/frozen/i); // Phase 3a freeze gate fires before the credit-floor check
       });
     });
   },

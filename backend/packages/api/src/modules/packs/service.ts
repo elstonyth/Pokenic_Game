@@ -17,6 +17,8 @@ import VipLevel from './models/vip-level';
 import RewardsSettings from './models/rewards-settings';
 import ReferralRelationship from './models/referral-relationship';
 import Commission from './models/commission';
+import CustomerAccountState from './models/customer-account-state';
+import AdminActionAudit from './models/admin-action-audit';
 import {
   resolveBuybackRate,
   buybackAmount,
@@ -36,6 +38,11 @@ import {
   teamOverrideSchedule,
 } from './referral-commission';
 import { levelForSpend } from './vip-ladder';
+import {
+  validateRewardsPatch,
+  type RewardsSettingsPatch,
+  type RewardsSettingsView,
+} from './rewards-settings-validate';
 
 // Postgres unique-violation detector (SQLSTATE 23505) for the commission
 // idempotency index. See settleOpen's commission catch for the exact semantics
@@ -117,6 +124,8 @@ class PacksModuleService extends MedusaService({
   RewardsSettings,
   ReferralRelationship,
   Commission,
+  CustomerAccountState,
+  AdminActionAudit,
 }) {
   // Commission engine globals. Reads the singleton row; falls back to defaults
   // when absent. COMMISSION_COOLDOWN_DAYS env override forces the demo (0) and
@@ -124,21 +133,25 @@ class PacksModuleService extends MedusaService({
   // sharedContext lets Task 14 (settleOpen) call this inside its advisory-locked
   // transaction so the list runs on the same connection.
   @InjectManager()
-  async rewardsSettings(
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<{
+  async rewardsSettings(@MedusaContext() sharedContext: Context = {}): Promise<{
     commissionCooldownDays: number;
     teamOverridePct: number;
     overrideGenerationCap: number;
   }> {
-    const [row] = await this.listRewardsSettings({}, { take: 1 }, sharedContext);
+    const [row] = await this.listRewardsSettings(
+      {},
+      { take: 1 },
+      sharedContext,
+    );
     const envCooldown = process.env.COMMISSION_COOLDOWN_DAYS;
     // Parse first; fall through to row-or-default when the value is not a
     // finite number (e.g. "abc" → NaN) so maturity arithmetic is never
     // corrupted by an invalid env var (CodeRabbit review fix).
     const parsedEnv = Math.trunc(Number(envCooldown));
     const commissionCooldownDays =
-      envCooldown !== undefined && envCooldown !== '' && Number.isFinite(parsedEnv)
+      envCooldown !== undefined &&
+      envCooldown !== '' &&
+      Number.isFinite(parsedEnv)
         ? Math.max(0, parsedEnv)
         : row
           ? Number(row.commission_cooldown_days)
@@ -269,7 +282,10 @@ class PacksModuleService extends MedusaService({
       externalFundedCents = deltaCents;
     } else if (input.reason === 'pack_open' && deltaCents < 0) {
       const externalBalanceSen = Number(rows[0]?.ext_cents ?? 0);
-      externalFundedCents = -consumeExternalSen(-deltaCents, externalBalanceSen);
+      externalFundedCents = -consumeExternalSen(
+        -deltaCents,
+        externalBalanceSen,
+      );
     }
 
     // 3) Floor check — covers both "enough credit to open" and "no overdraft".
@@ -305,6 +321,18 @@ class PacksModuleService extends MedusaService({
       ],
       sharedContext,
     );
+
+    // Auto-clear an AUTO freeze if this inflow repays the debt. projectedBalance
+    // is computed from the committed snapshot (beforeCents) + the just-inserted
+    // delta — never re-read after the insert (MikroORM UoW buffers until flush,
+    // so a raw SELECT inside the same txn would NOT see the new row).
+    if (deltaCents > 0) {
+      await this.maybeAutoUnfreeze(
+        input.customerId,
+        beforeCents + deltaCents,
+        sharedContext,
+      );
+    }
 
     return { id: txn.id, balance: (beforeCents + deltaCents) / 100 };
   }
@@ -422,15 +450,30 @@ class PacksModuleService extends MedusaService({
     // 2) Lock every touched customer in a stable (sorted) order on the credit:
     //    keyspace — deadlock-safe with concurrent opens/reversals. (linkSponsor's
     //    sorted-lock technique, on the credit: keyspace used by the ledger path.)
-    const customerIds = [...new Set(originals.map((r) => r.customer_id))].sort();
+    const customerIds = [
+      ...new Set(originals.map((r) => r.customer_id)),
+    ].sort();
     for (const cid of customerIds) {
       await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
         `credit:${cid}`,
       ]);
     }
 
-    // 3) Per-row append-only compensation, idempotent on reference `reversal:${id}`.
+    // 3a) Snapshot committed raw balance per touched customer BEFORE writes (MikroORM
+    //     UoW buffers ORM inserts; a raw em.execute read inside the same txn only sees
+    //     committed rows — projection must use pre-snapshot + per-row delta).
+    const preBalCents = new Map<string, number>();
+    for (const cid of customerIds) {
+      const [row] = await em.execute<{ b: string | null }[]>(
+        'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS b FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+        [cid],
+      );
+      preBalCents.set(cid, Number(row?.b ?? 0));
+    }
+
+    // 3b) Per-row append-only compensation, idempotent on reference `reversal:${id}`.
     let reversed = 0;
+    const deltaMap = new Map<string, number>(); // per-customer reversal delta in cents
     for (const original of originals) {
       const [existing] = await this.listCreditTransactions(
         { reference: `reversal:${original.id}` },
@@ -438,7 +481,8 @@ class PacksModuleService extends MedusaService({
       );
       if (existing) continue; // already reversed — no-op
       const isCommission =
-        original.reason === 'direct_referral' || original.reason === 'team_override';
+        original.reason === 'direct_referral' ||
+        original.reason === 'team_override';
       const originalExt = Number(
         (original as { external_funded_cents?: number | null })
           .external_funded_cents ?? 0,
@@ -467,9 +511,465 @@ class PacksModuleService extends MedusaService({
           [rev.id, original.id],
         );
       }
+      deltaMap.set(
+        original.customer_id,
+        (deltaMap.get(original.customer_id) ?? 0) +
+          Math.round(Number(original.amount) * 100),
+      );
       reversed++;
     }
+
+    // Phase 3a: auto-freeze any customer whose projected balance after the reversal
+    // is negative. Projection avoids re-reading (ORM UoW not yet flushed).
+    for (const cid of customerIds) {
+      const projectedCents =
+        (preBalCents.get(cid) ?? 0) - (deltaMap.get(cid) ?? 0);
+      if (projectedCents < 0) {
+        await this.freezeAccountIfNotAlready(
+          cid,
+          'auto',
+          `clawback:${sourceTransactionId}`,
+          sharedContext,
+        );
+      }
+    }
+
     return { reversed };
+  }
+
+  // Freeze the account unconditionally (caller has already determined the balance
+  // is projected negative). Returns true if the account ends up frozen (or was
+  // already frozen). Used by reverseOpen / reverseCommission after they compute
+  // the post-reversal balance from a pre-reversal snapshot + delta.
+  private async freezeAccountIfNotAlready(
+    customerId: string,
+    cause: 'auto' | 'manual',
+    reason: string,
+    sharedContext: Context,
+  ): Promise<boolean> {
+    const [existing] = await this.listCustomerAccountStates(
+      { customer_id: customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (existing) {
+      if (existing.frozen) return true; // already frozen (manual stays sticky)
+      await this.updateCustomerAccountStates(
+        {
+          selector: { id: existing.id },
+          data: {
+            frozen: true,
+            cause,
+            frozen_reason: reason,
+            frozen_by: null,
+            frozen_at: new Date(),
+            unfrozen_at: null,
+            unfreeze_cause: null,
+          },
+        },
+        sharedContext,
+      );
+    } else {
+      await this.createCustomerAccountStates(
+        [{ customer_id: customerId, frozen: true, cause, frozen_reason: reason }],
+        sharedContext,
+      );
+    }
+    return true;
+  }
+
+  // Auto-clear an AUTO freeze once a repaying inflow brings the projected balance
+  // back to >= 0. projectedBalanceCents = committed snapshot + just-inserted delta
+  // (never re-read after insert — MikroORM UoW buffers until flush, so a raw SQL
+  // read inside the same txn would NOT see the new row). A MANUAL freeze is never
+  // auto-lifted. SYSTEM event — recorded on the state row, NOT in admin_action_audit.
+  private async maybeAutoUnfreeze(
+    customerId: string,
+    projectedBalanceCents: number,
+    sharedContext: Context,
+  ): Promise<void> {
+    if (projectedBalanceCents < 0) return;
+    const [state] = await this.listCustomerAccountStates(
+      { customer_id: customerId, frozen: true, cause: 'auto' },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!state) return;
+    await this.updateCustomerAccountStates(
+      {
+        selector: { id: state.id },
+        data: {
+          frozen: false,
+          unfrozen_at: new Date(),
+          unfreeze_cause: 'repaid',
+        },
+      },
+      sharedContext,
+    );
+  }
+
+  // Admin commission-scoped reversal (Phase 3a). Claws back EVERY commission row
+  // for the target's open (all generations) but leaves the recruit's pack_open
+  // debit intact — unlike reverseOpen, which also refunds the recruit. Same
+  // sorted credit: lock + per-row reversal:${id} idempotency discipline as
+  // reverseOpen (2b §3.1). Writes one audit row in the same txn.
+  @InjectTransactionManager()
+  async reverseCommission(
+    input: { commissionId: string; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ reversed: number; froze: string[] }> {
+    const em =
+      sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const [target] = await this.listCommissions(
+      { id: input.commissionId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!target) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Commission '${input.commissionId}' not found.`,
+      );
+    }
+    const open = target.source_transaction_id;
+
+    // All commission CREDIT rows for this open (every generation). Fetch all
+    // rows for the open and filter to commission reasons — same pattern as
+    // reverseOpen (no array-filter reliance on MedusaService list).
+    const allRows = await this.listCreditTransactions(
+      { source_transaction_id: open },
+      { take: 1000, order: { created_at: 'ASC', id: 'ASC' } },
+    );
+    const credits = allRows.filter(
+      (r) =>
+        (r.reason === 'direct_referral' || r.reason === 'team_override') &&
+        !String(
+          (r as { reference?: string | null }).reference ?? '',
+        ).startsWith('reversal:'),
+    );
+    if (credits.length === 0) return { reversed: 0, froze: [] };
+
+    // Sorted credit: locks across every touched beneficiary (deadlock-safe).
+    const beneficiaries = [
+      ...new Set(credits.map((c) => c.customer_id)),
+    ].sort();
+    for (const cid of beneficiaries) {
+      await em.execute(
+        'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
+        [`credit:${cid}`],
+      );
+    }
+
+    // Snapshot the committed raw balance for each beneficiary BEFORE writing any
+    // reversals. MikroORM's UoW buffers ORM inserts until flush, so a raw-SQL
+    // read inside the same txn would NOT see ORM-created rows — we must compute
+    // the projected post-reversal balance from the committed snapshot + the delta.
+    const preBalanceCentsMap = new Map<string, number>();
+    for (const cid of beneficiaries) {
+      const [row] = await em.execute<{ b: string | null }[]>(
+        'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS b FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+        [cid],
+      );
+      preBalanceCentsMap.set(cid, Number(row?.b ?? 0));
+    }
+
+    let reversed = 0;
+    const reversedCentsMap = new Map<string, number>(); // per-beneficiary delta (positive = clawed back)
+    for (const original of credits) {
+      const [existing] = await this.listCreditTransactions(
+        { reference: `reversal:${original.id}` },
+        { take: 1 },
+        sharedContext,
+      );
+      if (existing) continue; // idempotent no-op
+      const [rev] = await this.createCreditTransactions(
+        [
+          {
+            customer_id: original.customer_id,
+            amount: -Number(original.amount),
+            reason: 'commission_reversal',
+            pull_id: null,
+            reference: `reversal:${original.id}`,
+            external_funded_cents: 0, // commissions carry no external basis
+            source_transaction_id: open,
+          },
+        ],
+        sharedContext,
+      );
+      await em.execute(
+        `UPDATE commission SET status = 'reversed', reversal_transaction_id = ?, updated_at = now()
+          WHERE credit_transaction_id = ? AND status <> 'reversed' AND deleted_at IS NULL`,
+        [rev.id, original.id],
+      );
+      // Accumulate per-beneficiary reversal amount (in cents).
+      const prevDelta = reversedCentsMap.get(original.customer_id) ?? 0;
+      reversedCentsMap.set(
+        original.customer_id,
+        prevDelta + Math.round(Number(original.amount) * 100),
+      );
+      reversed++;
+    }
+
+    // Auto-freeze any beneficiary whose projected post-reversal balance is negative.
+    // We pass projectedCents to avoid a raw-SQL re-read that cannot see the ORM-buffered
+    // reversal rows (MikroORM UoW flushes lazily; raw em.execute reads committed state only).
+    const froze: string[] = [];
+    for (const cid of beneficiaries) {
+      const preCents = preBalanceCentsMap.get(cid) ?? 0;
+      const deltaCents = reversedCentsMap.get(cid) ?? 0; // amount clawed back (positive)
+      const projectedCents = preCents - deltaCents;
+      if (projectedCents < 0) {
+        if (await this.freezeAccountIfNotAlready(cid, 'auto', `clawback:${open}`, sharedContext))
+          froze.push(cid);
+      }
+    }
+
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'commission',
+          entity_id: input.commissionId,
+          action: 'reverse_commission',
+          before: { source_transaction_id: open, reversed_rows: reversed },
+          after: { froze },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return { reversed, froze };
+  }
+
+  // Admin per-commission status flip: available|pending → suspended.
+  // The suspended status is counted as locked in lockedCommissionCents, so
+  // the beneficiary's availableBalance drops automatically without any
+  // additional balance-mutation step. Takes the per-beneficiary advisory lock
+  // to serialise concurrent balance reads, then flips the status and writes an
+  // audit row in the same transaction.
+  @InjectTransactionManager()
+  async suspendCommission(
+    input: { commissionId: string; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ status: 'suspended' }> {
+    const em =
+      sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const [c] = await this.listCommissions(
+      { id: input.commissionId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!c) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Commission '${input.commissionId}' not found.`,
+      );
+    }
+    if (c.status === 'reversed') {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'A reversed commission cannot be suspended.',
+      );
+    }
+    if (c.status === 'suspended') {
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, 'Commission is already suspended.');
+    }
+    await em.execute(
+      'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
+      [`credit:${c.beneficiary}`],
+    );
+    await this.updateCommissions(
+      { selector: { id: c.id }, data: { status: 'suspended' } },
+      sharedContext,
+    );
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'commission',
+          entity_id: c.id,
+          action: 'suspend_commission',
+          before: { status: c.status },
+          after: { status: 'suspended' },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return { status: 'suspended' };
+  }
+
+  // Admin per-commission status flip: suspended → pending|available.
+  // The restored status is determined by the authoritative maturity predicate
+  // (matures_at <= now() → available, else pending) rather than a stored prior
+  // value, so a commission that matured while suspended comes back as available.
+  @InjectTransactionManager()
+  async unsuspendCommission(
+    input: { commissionId: string; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ status: 'pending' | 'available' }> {
+    const em =
+      sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const [c] = await this.listCommissions(
+      { id: input.commissionId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!c) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Commission '${input.commissionId}' not found.`,
+      );
+    }
+    if (c.status !== 'suspended') {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'Only a suspended commission can be unsuspended.',
+      );
+    }
+    // Restore from the authoritative read-predicate, not a stored prior value.
+    const next: 'pending' | 'available' =
+      new Date(c.matures_at).getTime() <= Date.now() ? 'available' : 'pending';
+    await em.execute(
+      'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
+      [`credit:${c.beneficiary}`],
+    );
+    await this.updateCommissions(
+      { selector: { id: c.id }, data: { status: next } },
+      sharedContext,
+    );
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'commission',
+          entity_id: c.id,
+          action: 'unsuspend_commission',
+          before: { status: c.status },
+          after: { status: next },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return { status: next };
+  }
+
+  // Admin-initiated MANUAL account freeze. A manual freeze is STICKY: it
+  // overrides any existing AUTO freeze (sets cause='manual', frozen_by=adminId)
+  // and will NOT be lifted by maybeAutoUnfreeze (which only touches cause='auto').
+  // Takes the per-customer credit: advisory lock to serialise with the auto-freeze
+  // / auto-unfreeze paths, then list-then-create-or-update the state row, and
+  // writes an admin_action_audit row in the same transaction.
+  @InjectTransactionManager()
+  async setManualFreeze(
+    input: { customerId: string; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ frozen: true }> {
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${input.customerId}`,
+    ]);
+    const [existing] = await this.listCustomerAccountStates(
+      { customer_id: input.customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    const before = existing ? { frozen: existing.frozen, cause: existing.cause } : null;
+    if (existing) {
+      await this.updateCustomerAccountStates(
+        {
+          selector: { id: existing.id },
+          data: {
+            frozen: true,
+            cause: 'manual',
+            frozen_reason: input.reason,
+            frozen_by: input.adminId,
+            frozen_at: new Date(),
+            unfrozen_at: null,
+            unfreeze_cause: null,
+          },
+        },
+        sharedContext,
+      );
+    } else {
+      await this.createCustomerAccountStates(
+        [
+          {
+            customer_id: input.customerId,
+            frozen: true,
+            cause: 'manual',
+            frozen_reason: input.reason,
+            frozen_by: input.adminId,
+            frozen_at: new Date(),
+          },
+        ],
+        sharedContext,
+      );
+    }
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'customer',
+          entity_id: input.customerId,
+          action: 'freeze',
+          before,
+          after: { frozen: true, cause: 'manual' },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return { frozen: true };
+  }
+
+  // Admin-initiated MANUAL account unfreeze. Clears the freeze regardless of
+  // whether it was AUTO or MANUAL — an admin explicitly deciding to lift the
+  // freeze overrides both. Takes the same credit: advisory lock, updates the
+  // state row (frozen=false, unfreeze_cause='admin'), and writes an audit row.
+  @InjectTransactionManager()
+  async clearManualFreeze(
+    input: { customerId: string; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ frozen: false }> {
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${input.customerId}`,
+    ]);
+    const [existing] = await this.listCustomerAccountStates(
+      { customer_id: input.customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (existing) {
+      await this.updateCustomerAccountStates(
+        {
+          selector: { id: existing.id },
+          data: {
+            frozen: false,
+            unfrozen_at: new Date(),
+            unfreeze_cause: 'admin',
+          },
+        },
+        sharedContext,
+      );
+    }
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'customer',
+          entity_id: input.customerId,
+          action: 'unfreeze',
+          before: existing ? { frozen: existing.frozen } : null,
+          after: { frozen: false },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return { frozen: false };
   }
 
   // The atomic open settlement — the ONLY place an open debit (and, Phase 2a,
@@ -506,6 +1006,12 @@ class PacksModuleService extends MedusaService({
       `credit:${input.customerId}`,
     ]);
 
+    // 1a) Freeze gate — must run inside the lock so a concurrent unfreeze can't
+    //     race past this check before the debit lands.
+    if (await this.isFrozen(input.customerId, sharedContext)) {
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, 'This account is frozen.');
+    }
+
     // 2) Locked balance + external read (one scan), exact + soft-delete aware.
     const rows = await em.execute<
       { balance_cents: string | null; ext_cents: string | null }[]
@@ -517,7 +1023,10 @@ class PacksModuleService extends MedusaService({
     );
     const beforeCents = Number(rows[0]?.balance_cents ?? 0);
     const externalBalanceSen = Number(rows[0]?.ext_cents ?? 0);
-    const externalFundedCents = -consumeExternalSen(-deltaCents, externalBalanceSen);
+    const externalFundedCents = -consumeExternalSen(
+      -deltaCents,
+      externalBalanceSen,
+    );
 
     // 3) Floor check against the AVAILABLE balance (raw − locked commission).
     //    Every open debit is locked-aware — there is no raw-balance opt-out, so a
@@ -571,7 +1080,10 @@ class PacksModuleService extends MedusaService({
         const sponsorSummary = await this.creditSummary(sponsorId);
         const ladderRows = await this.listVipLevels(
           {},
-          { select: ['level', 'spend_threshold', 'direct_referral_pct'], take: 1000 },
+          {
+            select: ['level', 'spend_threshold', 'direct_referral_pct'],
+            take: 1000,
+          },
         );
         const levelLadder = ladderRows.map((r) => ({
           level: r.level,
@@ -596,7 +1108,9 @@ class PacksModuleService extends MedusaService({
           // definitively false even if JS clock lags Postgres transaction now().
           const maturesAt = matured
             ? new Date(0)
-            : new Date(Date.now() + settings.commissionCooldownDays * 86_400_000);
+            : new Date(
+                Date.now() + settings.commissionCooldownDays * 86_400_000,
+              );
 
           // Pay one beneficiary: the credit row + its 1:1 lifecycle row, in the
           // SAME locked txn. The partial-unique index (source_transaction_id,
@@ -615,7 +1129,8 @@ class PacksModuleService extends MedusaService({
                 {
                   customer_id: beneficiary,
                   amount: amountSen / 100,
-                  reason: kind === 'direct' ? 'direct_referral' : 'team_override',
+                  reason:
+                    kind === 'direct' ? 'direct_referral' : 'team_override',
                   pull_id: null,
                   reference: null,
                   external_funded_cents: 0, // commission is internal, not external
@@ -642,6 +1157,12 @@ class PacksModuleService extends MedusaService({
               sharedContext,
             );
             commissions.push({ beneficiary, amountSen, matured });
+            // NOTE: a frozen sponsor repaid only by a downline commission lifts
+            // on their next direct inflow (mutateCreditAtomic holds their lock)
+            // — we do NOT auto-unfreeze here: settleOpen holds only the
+            // recruit's lock, so unfreezing a beneficiary would be a TOCTOU
+            // race (and taking the beneficiary lock here risks deadlock vs the
+            // sorted-lock reversal paths).
           };
 
           try {
@@ -658,7 +1179,9 @@ class PacksModuleService extends MedusaService({
               settings.overrideGenerationCap,
             );
             if (schedule.length > 0) {
-              const byDepth = new Map(schedule.map((s) => [s.generation, s.amountSen]));
+              const byDepth = new Map(
+                schedule.map((s) => [s.generation, s.amountSen]),
+              );
               const maxDepth = schedule[schedule.length - 1].generation;
               // Ordered ancestors ABOVE the direct sponsor, each with its absolute
               // tree depth (direct sponsor = depth 1). A NEW recursive CTE — the
@@ -684,16 +1207,28 @@ class PacksModuleService extends MedusaService({
               for (const anc of ancestors) {
                 const amountSen = byDepth.get(Number(anc.depth));
                 if (!amountSen) continue; // beyond self-termination -> no override
-                await payCommission(anc.ancestor_id, amountSen, Number(anc.depth), 'override', overridePct);
+                await payCommission(
+                  anc.ancestor_id,
+                  amountSen,
+                  Number(anc.depth),
+                  'override',
+                  overridePct,
+                );
               }
               // Defensive: a real schedule self-terminates long before the cap.
               // Reaching it is an anomaly (escaped cycle / data corruption) — log,
               // do NOT abort the recruit's open.
-              if (schedule[schedule.length - 1].generation === settings.overrideGenerationCap) {
+              if (
+                schedule[schedule.length - 1].generation ===
+                settings.overrideGenerationCap
+              ) {
                 // eslint-disable-next-line no-console
                 console.warn(
                   `[settleOpen] override schedule reached override_generation_cap=${settings.overrideGenerationCap}`,
-                  { source_transaction_id: input.sourceTransactionId, recruit_id: input.customerId },
+                  {
+                    source_transaction_id: input.sourceTransactionId,
+                    recruit_id: input.customerId,
+                  },
                 );
               }
             }
@@ -736,6 +1271,20 @@ class PacksModuleService extends MedusaService({
   // in the raw balance (locking it too would double-subtract). Maturity is a
   // read-time predicate on 'pending' — no scheduler can make spend wrong by
   // lagging (a matured-but-not-yet-flipped 'pending' row reads as available).
+  // True if the customer is currently frozen. Read on the caller's connection so
+  // it participates in the same advisory-locked transaction as the debit gate.
+  private async isFrozen(
+    customerId: string,
+    sharedContext: Context,
+  ): Promise<boolean> {
+    const [row] = await this.listCustomerAccountStates(
+      { customer_id: customerId, frozen: true },
+      { take: 1 },
+      sharedContext,
+    );
+    return !!row;
+  }
+
   private async lockedCommissionCents(
     customerId: string,
     em: LedgerSqlManager,
@@ -769,6 +1318,7 @@ class PacksModuleService extends MedusaService({
         'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
       [customerId],
     );
+    if (await this.isFrozen(customerId, sharedContext)) return 0; // Phase 3a freeze
     const balanceCents = Number(rows[0]?.balance_cents ?? 0);
     const lockedCents = await this.lockedCommissionCents(customerId, em);
     return (balanceCents - lockedCents) / 100;
@@ -847,8 +1397,12 @@ class PacksModuleService extends MedusaService({
     // Lock both ids in a stable (sorted) order to avoid deadlocks with a
     // concurrent reciprocal insert.
     const [lo, hi] = [input.recruitId, input.sponsorId].sort();
-    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [`referral:${lo}`]);
-    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [`referral:${hi}`]);
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `referral:${lo}`,
+    ]);
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `referral:${hi}`,
+    ]);
 
     // Cycle check: walk the proposed sponsor's upline; if the recruit appears,
     // linking would close a loop. customer_id is unique so the upline is a simple
@@ -896,6 +1450,15 @@ class PacksModuleService extends MedusaService({
   // append-only — never hard-deleted. Compensation MUST use
   // reverseCreditTransaction. This refuses an accidental delete of any row a
   // commission lifecycle record points at.
+  //
+  // *** THIS IS THE ONLY PERMITTED DELETE PATH FOR credit_transaction ROWS. ***
+  // Never call the base `deleteCreditTransactions` directly from workflow steps,
+  // routes, or any new code — always go through this guard. The base is an
+  // internal delegation detail only (see the single call below). The source-scan
+  // seal test (`delete-guard-seal.unit.spec.ts`) enforces this: it reads the
+  // entire src/ tree and asserts that the only occurrence of a bare
+  // `.deleteCreditTransactions(` call (i.e. not `deleteCreditTransactionsGuarded`)
+  // is the single delegation inside this method. Adding a new raw caller breaks CI.
   //
   // Named `deleteCreditTransactionsGuarded` rather than overriding
   // `deleteCreditTransactions` because MedusaService defines the base as an
@@ -968,6 +1531,96 @@ class PacksModuleService extends MedusaService({
     return {
       instant_deadline_ms: instantDeadlineMs(pull.rolled_at, pull.revealed_at),
     };
+  }
+  // Atomic credit adjustment + audit: writes the ledger row AND the
+  // admin_action_audit row in the same transaction so both commit or neither
+  // does. adminId comes from the session (auth_context.actor_id) — never from
+  // the request body — and is stamped on the audit row. before/after record the
+  // balance values bracketing the adjustment so the row is self-explanatory.
+  @InjectTransactionManager()
+  async adminAdjustCredit(
+    input: { customerId: string; amount: number; note: string; adminId: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ id: string; amount: number; balance: number }> {
+    const { id, balance } = await this.mutateCreditAtomic(
+      {
+        customerId: input.customerId,
+        amount: input.amount,
+        reason: 'adjustment',
+        reference: input.note,
+        floor: 0,
+      },
+      sharedContext,
+    );
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'credit',
+          entity_id: id,
+          action: 'adjust_credit',
+          before: { balance: Number((balance - input.amount).toFixed(2)) },
+          after: { balance },
+          reason: input.note,
+        },
+      ],
+      sharedContext,
+    );
+    return { id, amount: input.amount, balance };
+  }
+
+  // Admin edit of the rewards-settings singleton — validates+clamps the patch,
+  // upserts the singleton, and writes an audit row. Public method is named
+  // `editRewardsSettings` to avoid shadowing the MedusaService-generated
+  // `updateRewardsSettings` CRUD method, which is called internally for the
+  // upsert.
+  @InjectTransactionManager()
+  async editRewardsSettings(
+    input: { patch: RewardsSettingsPatch; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<RewardsSettingsView> {
+    const patch = validateRewardsPatch(input.patch);
+    const [row] = await this.listRewardsSettings({}, { take: 1 }, sharedContext);
+    const before: RewardsSettingsView = {
+      commissionCooldownDays: row ? Number(row.commission_cooldown_days) : 3,
+      teamOverridePct: row ? Number(row.team_override_pct) : 0.2,
+      overrideGenerationCap: row ? Number(row.override_generation_cap) : 100,
+    };
+    const data = {
+      commission_cooldown_days:
+        patch.commissionCooldownDays ?? before.commissionCooldownDays,
+      team_override_pct: patch.teamOverridePct ?? before.teamOverridePct,
+      override_generation_cap:
+        patch.overrideGenerationCap ?? before.overrideGenerationCap,
+    };
+    if (row) {
+      await this.updateRewardsSettings(
+        { selector: { id: row.id }, data },
+        sharedContext,
+      );
+    } else {
+      await this.createRewardsSettings([data], sharedContext);
+    }
+    const after: RewardsSettingsView = {
+      commissionCooldownDays: data.commission_cooldown_days,
+      teamOverridePct: data.team_override_pct,
+      overrideGenerationCap: data.override_generation_cap,
+    };
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'rewards_settings',
+          entity_id: row?.id ?? 'singleton',
+          action: 'edit_rewards_settings',
+          before,
+          after,
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return after;
   }
 }
 

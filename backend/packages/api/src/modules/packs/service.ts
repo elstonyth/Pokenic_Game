@@ -84,6 +84,15 @@ export type CreditMutationInput = {
   floor?: number;
   /** The open's stable id (open_id), stamped on pack_open charge rows. */
   sourceTransactionId?: string | null;
+  /**
+   * When set, the insert is IDEMPOTENT on this reference under the per-customer
+   * advisory lock: if a row already carries it, that row is returned unchanged
+   * instead of appending a second credit (top-up replay protection — security
+   * audit 2026-06-23). The stored `reference` becomes this value. Mirrors the
+   * `reversal:${id}` locked-dedupe used by reverseCreditTransaction; no DB
+   * unique needed — the lock serializes check-then-insert per customer.
+   */
+  idempotencyReference?: string | null;
 };
 
 export type SettleOpenInput = {
@@ -231,13 +240,52 @@ class PacksModuleService extends MedusaService({
   async mutateCreditAtomic(
     input: CreditMutationInput,
     @MedusaContext() sharedContext: Context = {},
-  ): Promise<{ id: string; balance: number }> {
+  ): Promise<{
+    id: string;
+    balance: number;
+    amount: number;
+    replayed: boolean;
+  }> {
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
 
     // 1) Serialize all credit mutations for THIS customer on the locked txn.
     await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
       `credit:${input.customerId}`,
     ]);
+
+    // 1a) Idempotent replay (top-up): under the lock, if a row already carries
+    // this idempotency reference the request already applied — return it as a
+    // no-op rather than appending a second credit. The lock makes the
+    // check-then-insert atomic per customer, so concurrent identical-key
+    // requests can't both insert (same guarantee as reverseCreditTransaction's
+    // `reversal:` dedupe — no DB unique required).
+    if (input.idempotencyReference) {
+      // Scope the dedupe to THIS customer: the advisory lock above is per
+      // customer, so the check-then-insert is only atomic within one customer.
+      // customer_id also makes the lookup index-assisted (IDX_credit_transaction
+      // _customer_id_created_at) instead of a full ledger scan, and removes the
+      // reliance on `reference` being globally unique across customers.
+      const [existing] = await this.listCreditTransactions(
+        {
+          customer_id: input.customerId,
+          reference: input.idempotencyReference,
+        },
+        { take: 1 },
+      );
+      if (existing) {
+        const balRows = await em.execute<{ balance_cents: string | null }[]>(
+          'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents ' +
+            'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+          [input.customerId],
+        );
+        return {
+          id: existing.id,
+          balance: Number(balRows[0]?.balance_cents ?? 0) / 100,
+          amount: Number(existing.amount),
+          replayed: true,
+        };
+      }
+    }
 
     // 2) Re-read the balance AND the external-funded balance in cents inside the
     //    lock, in ONE scan (exact; soft-delete aware). external_funded_cents is
@@ -314,7 +362,9 @@ class PacksModuleService extends MedusaService({
           amount: deltaCents / 100,
           reason: input.reason,
           pull_id: input.pullId ?? null,
-          reference: input.reference ?? null,
+          // The idempotency reference (when present) is the stored anchor a
+          // replay dedupes on; otherwise the plain reference (gateway ref/note).
+          reference: input.idempotencyReference ?? input.reference ?? null,
           external_funded_cents: externalFundedCents,
           source_transaction_id: input.sourceTransactionId ?? null,
         },
@@ -334,7 +384,12 @@ class PacksModuleService extends MedusaService({
       );
     }
 
-    return { id: txn.id, balance: (beforeCents + deltaCents) / 100 };
+    return {
+      id: txn.id,
+      balance: (beforeCents + deltaCents) / 100,
+      amount: deltaCents / 100,
+      replayed: false,
+    };
   }
 
   // Append-only reversal of a single ledger row (the open-saga compensation).
@@ -571,7 +626,14 @@ class PacksModuleService extends MedusaService({
       );
     } else {
       await this.createCustomerAccountStates(
-        [{ customer_id: customerId, frozen: true, cause, frozen_reason: reason }],
+        [
+          {
+            customer_id: customerId,
+            frozen: true,
+            cause,
+            frozen_reason: reason,
+          },
+        ],
         sharedContext,
       );
     }
@@ -618,8 +680,7 @@ class PacksModuleService extends MedusaService({
     input: { commissionId: string; adminId: string; reason: string },
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ reversed: number; froze: string[] }> {
-    const em =
-      sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
     const [target] = await this.listCommissions(
       { id: input.commissionId },
       { take: 1 },
@@ -654,10 +715,9 @@ class PacksModuleService extends MedusaService({
       ...new Set(credits.map((c) => c.customer_id)),
     ].sort();
     for (const cid of beneficiaries) {
-      await em.execute(
-        'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
-        [`credit:${cid}`],
-      );
+      await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+        `credit:${cid}`,
+      ]);
     }
 
     // Snapshot the committed raw balance for each beneficiary BEFORE writing any
@@ -719,7 +779,14 @@ class PacksModuleService extends MedusaService({
       const deltaCents = reversedCentsMap.get(cid) ?? 0; // amount clawed back (positive)
       const projectedCents = preCents - deltaCents;
       if (projectedCents < 0) {
-        if (await this.freezeAccountIfNotAlready(cid, 'auto', `clawback:${open}`, sharedContext))
+        if (
+          await this.freezeAccountIfNotAlready(
+            cid,
+            'auto',
+            `clawback:${open}`,
+            sharedContext,
+          )
+        )
           froze.push(cid);
       }
     }
@@ -752,8 +819,7 @@ class PacksModuleService extends MedusaService({
     input: { commissionId: string; adminId: string; reason: string },
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ status: 'suspended' }> {
-    const em =
-      sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
     const [c] = await this.listCommissions(
       { id: input.commissionId },
       { take: 1 },
@@ -772,12 +838,14 @@ class PacksModuleService extends MedusaService({
       );
     }
     if (c.status === 'suspended') {
-      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, 'Commission is already suspended.');
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'Commission is already suspended.',
+      );
     }
-    await em.execute(
-      'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
-      [`credit:${c.beneficiary}`],
-    );
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${c.beneficiary}`,
+    ]);
     await this.updateCommissions(
       { selector: { id: c.id }, data: { status: 'suspended' } },
       sharedContext,
@@ -808,8 +876,7 @@ class PacksModuleService extends MedusaService({
     input: { commissionId: string; adminId: string; reason: string },
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ status: 'pending' | 'available' }> {
-    const em =
-      sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
     const [c] = await this.listCommissions(
       { id: input.commissionId },
       { take: 1 },
@@ -830,10 +897,9 @@ class PacksModuleService extends MedusaService({
     // Restore from the authoritative read-predicate, not a stored prior value.
     const next: 'pending' | 'available' =
       new Date(c.matures_at).getTime() <= Date.now() ? 'available' : 'pending';
-    await em.execute(
-      'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
-      [`credit:${c.beneficiary}`],
-    );
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${c.beneficiary}`,
+    ]);
     await this.updateCommissions(
       { selector: { id: c.id }, data: { status: next } },
       sharedContext,
@@ -875,7 +941,9 @@ class PacksModuleService extends MedusaService({
       { take: 1 },
       sharedContext,
     );
-    const before = existing ? { frozen: existing.frozen, cause: existing.cause } : null;
+    const before = existing
+      ? { frozen: existing.frozen, cause: existing.cause }
+      : null;
     if (existing) {
       await this.updateCustomerAccountStates(
         {
@@ -1009,7 +1077,10 @@ class PacksModuleService extends MedusaService({
     // 1a) Freeze gate — must run inside the lock so a concurrent unfreeze can't
     //     race past this check before the debit lands.
     if (await this.isFrozen(input.customerId, sharedContext)) {
-      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, 'This account is frozen.');
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'This account is frozen.',
+      );
     }
 
     // 2) Locked balance + external read (one scan), exact + soft-delete aware.
@@ -1539,7 +1610,12 @@ class PacksModuleService extends MedusaService({
   // balance values bracketing the adjustment so the row is self-explanatory.
   @InjectTransactionManager()
   async adminAdjustCredit(
-    input: { customerId: string; amount: number; note: string; adminId: string },
+    input: {
+      customerId: string;
+      amount: number;
+      note: string;
+      adminId: string;
+    },
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ id: string; amount: number; balance: number }> {
     const { id, balance } = await this.mutateCreditAtomic(
@@ -1580,7 +1656,11 @@ class PacksModuleService extends MedusaService({
     @MedusaContext() sharedContext: Context = {},
   ): Promise<RewardsSettingsView> {
     const patch = validateRewardsPatch(input.patch);
-    const [row] = await this.listRewardsSettings({}, { take: 1 }, sharedContext);
+    const [row] = await this.listRewardsSettings(
+      {},
+      { take: 1 },
+      sharedContext,
+    );
     const before: RewardsSettingsView = {
       commissionCooldownDays: row ? Number(row.commission_cooldown_days) : 3,
       teamOverridePct: row ? Number(row.team_override_pct) : 0.2,

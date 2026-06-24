@@ -20,6 +20,8 @@ export const CreditTransaction = model
       "team_override",
       "commission_reversal",
       "cashout",
+      "voucher_claim",
+      "reward_credit",
     ]),
     // The pull this credit came from (buyback rows only; null for top-ups).
     // UNIQUE — the DB itself guarantees a pull can never be credited twice,

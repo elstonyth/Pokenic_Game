@@ -76,6 +76,8 @@ export type LedgerTotals = {
   commissionReversal: number;
   /** Σ cashout — customer withdrawals (balance move, not P&L). */
   cashout: number;
+  /** Σ voucher_claim + reward_credit — promo credits granted; excluded from net/revenue. */
+  rewardPromo: number;
 };
 
 /** Lifetime ledger totals bucketed by reason (exact cent math). */
@@ -88,6 +90,7 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
   let teamOverrideCents = 0;
   let commissionReversalCents = 0;
   let cashoutCents = 0;
+  let rewardPromoCents = 0;
 
   for (const row of rows) {
     if (!Number.isFinite(row.amount)) continue;
@@ -100,6 +103,9 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
     else if (row.reason === 'team_override') teamOverrideCents += cents;
     else if (row.reason === 'commission_reversal') commissionReversalCents += cents;
     else if (row.reason === 'cashout') cashoutCents += cents;
+    else if (row.reason === 'voucher_claim' || row.reason === 'reward_credit') {
+      rewardPromoCents += cents; continue;
+    }
     // No silent drop: an unrecognized reason means the ledger grew a concept the
     // economy report doesn't account for — fail loud so profit can't be wrong.
     else throw new Error(`unknown ledger reason: ${row.reason}`);
@@ -119,9 +125,12 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
     teamOverride: teamOverrideCents / 100,
     commissionReversal: commissionReversalCents / 100,
     cashout: cashoutCents / 100,
+    // Promo grants: excluded from net/revenue (operator-funded, not customer cash).
+    rewardPromo: rewardPromoCents / 100,
     // Margin AFTER commission bleed. Commission credits are positive rows, so
     // subtract them; commission_reversal recovers margin (its rows are negative,
     // so subtracting a negative adds back). Cashout is a balance move, excluded.
+    // rewardPromo is also excluded (it's operator cost tracked separately).
     net:
       (-openCents - buybackCents - directReferralCents - teamOverrideCents -
         commissionReversalCents) /

@@ -77,6 +77,7 @@ describe('ledgerTotals', () => {
       teamOverride: 0,
       commissionReversal: 0,
       cashout: 0,
+      rewardPromo: 0,
     });
   });
 
@@ -91,6 +92,7 @@ describe('ledgerTotals', () => {
       teamOverride: 0,
       commissionReversal: 0,
       cashout: 0,
+      rewardPromo: 0,
     });
   });
 

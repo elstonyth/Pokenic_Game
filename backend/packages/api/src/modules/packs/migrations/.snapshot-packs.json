@@ -614,7 +614,9 @@
             "direct_referral",
             "team_override",
             "commission_reversal",
-            "cashout"
+            "cashout",
+            "voucher_claim",
+            "reward_credit"
           ],
           "mappedType": "enum"
         },

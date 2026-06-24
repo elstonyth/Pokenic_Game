@@ -75,7 +75,9 @@ export type CreditMutationReason =
   | 'direct_referral'
   | 'team_override'
   | 'commission_reversal'
-  | 'cashout';
+  | 'cashout'
+  | 'voucher_claim'
+  | 'reward_credit';
 
 export type CreditMutationInput = {
   customerId: string;

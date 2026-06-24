@@ -64,6 +64,28 @@ medusaIntegrationTestRunner({
 
     // Task 9 appends `describe('GET /admin/customers/:id/audit', ...)` here.
 
+    describe('GET /admin/customers/:id/audit', () => {
+      it('3-way union surfaces freeze + reverse_commission + adjust_credit', async () => {
+        const sponsorId = await registerCustomer('c360-aud-sponsor@test.dev');
+        const recruitId = await registerCustomer('c360-aud-recruit@test.dev');
+        const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+        await seedLadder(packs);                  // REQUIRED before settleOpen
+        await packs.linkSponsor({ recruitId, sponsorId });
+        await packs.mutateCreditAtomic({ customerId: recruitId, amount: 30, reason: 'topup' });
+        await packs.settleOpen({ customerId: recruitId, amount: -20, sourceTransactionId: 'c360_aud_open' });
+        const [comm] = await packs.listCommissions({ beneficiary: sponsorId }, { take: 1 });
+        await packs.reverseCommission({ commissionId: comm.id, adminId: 'adm_c360', reason: 'test' });    // commission-keyed
+        await packs.setManualFreeze({ customerId: sponsorId, adminId: 'adm_c360', reason: 'test freeze' }); // customer-keyed
+        await packs.adminAdjustCredit({ customerId: sponsorId, amount: 5, note: 'test', adminId: 'adm_c360' }); // credit-keyed
+
+        const res = await unwrapResponse(api.get(`/admin/customers/${sponsorId}/audit`, { headers: adminHeaders() }));
+        expect(res.status).toBe(200);
+        const actions = res.data.actions.map((a: any) => a.action);
+        expect(actions).toEqual(expect.arrayContaining(['freeze', 'reverse_commission', 'adjust_credit']));
+        expect(res.data.account_state.frozen).toBe(true);
+      });
+    });
+
     describe('GET /admin/customers/:id/commissions', () => {
       it('shows the direct commission (opener = recruit), then status reversed after reverseOpen', async () => {
         const sponsorId = await registerCustomer('c360-sponsor@test.dev');

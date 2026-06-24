@@ -27,6 +27,9 @@ export const DeliveryOrder = model
     shipping_fee: model.bigNumber().nullable(),
     shipped_at: model.dateTime().nullable(),
     delivered_at: model.dateTime().nullable(),
+    // True when this shipment fulfils a reward-economy prize (Pull.source='reward').
+    // Used by recordRewardWithdrawal for the daily withdrawal cap COUNT.
+    is_reward: model.boolean().default(false),
   })
   .indexes([
     {

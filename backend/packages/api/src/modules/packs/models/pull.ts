@@ -38,6 +38,11 @@ export const Pull = model
     buyback_at: model.dateTime().nullable(),
     // Profile showcase opt-in: customer chose to display this pull publicly.
     showcased: model.boolean().default(false),
+    // Origin of this pull: 'pack' (standard open) or 'reward' (daily reward draw).
+    // For reward pulls, card_id holds the product_handle sentinel.
+    // Model-owned CHECK (pull_source_check) emitted by db:generate — do NOT
+    // hand-write a separate CHECK (would collide → 42710).
+    source: model.enum(["pack", "reward"]).default("pack"),
   })
   .indexes([
     // vault + public profile + admin gacha: filter customer_id, order rolled_at.

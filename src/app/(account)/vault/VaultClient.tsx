@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Star } from 'lucide-react';
 import { AccountHeader, StatCards } from '@/components/account/ui';
 import { AddCreditsPanel } from '@/components/account/AddCreditsPanel';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 import {
   sellBackPull,
   toggleShowcase,
@@ -126,9 +126,9 @@ export default function VaultClient({
       />
       <StatCards
         items={[
-          { label: 'Credit balance', value: usd(balance) },
+          { label: 'Credit balance', value: rm(balance) },
           { label: 'Cards in vault', value: String(items.length) },
-          { label: 'Vault value (FMV)', value: usd(vaultValue) },
+          { label: 'Vault value (FMV)', value: rm(vaultValue) },
         ]}
       />
 
@@ -247,7 +247,7 @@ export default function VaultClient({
                     {item.card.rarity}
                   </span>
                   <span className="font-bold text-white">
-                    {usd(item.card.marketValue)}
+                    {rm(item.card.marketValue)}
                   </span>
                 </div>
                 <p
@@ -266,7 +266,7 @@ export default function VaultClient({
                     >
                       {sellingId === item.pullId
                         ? 'Selling…'
-                        : `Sell for ${usd(item.buyback.amount)} (${item.buyback.percent}%)`}
+                        : `Sell for ${rm(item.buyback.amount)} (${item.buyback.percent}%)`}
                     </button>
                     <button
                       type="button"

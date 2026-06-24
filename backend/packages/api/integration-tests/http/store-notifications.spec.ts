@@ -174,6 +174,74 @@ medusaIntegrationTestRunner({
           expect(bIds.has(id)).toBe(false);
         }
       });
+
+      it('mark-read: owner can mark own, read_at populates, idempotent, unread_count decrements', async () => {
+        // GET list first to establish baseline unread_count.
+        const listRes = await unwrapResponse(
+          api.get('/store/notifications', { headers: authed(tokenA) }),
+        );
+        expect(listRes.status).toBe(200);
+        const { notifications: beforeList, unread_count: beforeCount } = listRes.data as {
+          notifications: Array<{ id: string; read_at: string | null }>;
+          unread_count: number;
+        };
+        expect(beforeList.length).toBeGreaterThan(0);
+        const id = beforeList[0].id;
+        // Initially all unread.
+        expect(beforeCount).toBe(beforeList.length);
+
+        // Mark read.
+        const markRes = await unwrapResponse(
+          api.post(`/store/notifications/${id}/read`, {}, { headers: authed(tokenA) }),
+        );
+        expect(markRes.status).toBe(200);
+        expect(markRes.data.id).toBe(id);
+        expect(markRes.data.read_at).toBeTruthy();
+
+        // Idempotent: second mark must not throw.
+        const mark2Res = await unwrapResponse(
+          api.post(`/store/notifications/${id}/read`, {}, { headers: authed(tokenA) }),
+        );
+        expect(mark2Res.status).toBe(200);
+        expect(mark2Res.data.read_at).toBeTruthy();
+
+        // GET after: read_at set on the row, unread_count decremented.
+        const afterRes = await unwrapResponse(
+          api.get('/store/notifications', { headers: authed(tokenA) }),
+        );
+        expect(afterRes.status).toBe(200);
+        const { notifications: afterList, unread_count: afterCount } = afterRes.data as {
+          notifications: Array<{ id: string; read_at: string | null }>;
+          unread_count: number;
+        };
+        expect(afterList.find((n) => n.id === id)?.read_at).toBeTruthy();
+        expect(afterCount).toBe(beforeCount - 1);
+      });
+
+      it('mark-read IDOR: A cannot mark B\'s notification → 404', async () => {
+        // Get B's notification id directly from the module.
+        const container = getContainer();
+        const notif = container.resolve(Modules.NOTIFICATION);
+        const bRows = await notif.listNotifications(
+          { receiver_id: customerIdB, channel: 'feed' },
+          { take: 1 },
+        );
+        expect(bRows.length).toBeGreaterThan(0);
+        const bId = bRows[0].id;
+
+        // A attempts to mark B's notification → must get 404 (no existence leak).
+        const res = await unwrapResponse(
+          api.post(`/store/notifications/${bId}/read`, {}, { headers: authed(tokenA) }),
+        );
+        expect(res.status).toBe(404);
+      });
+
+      it('mark-read (unauth): no bearer → 401', async () => {
+        const res = await unwrapResponse(
+          api.post(`/store/notifications/${notifIdA}/read`, {}, { headers: storeHeaders }),
+        );
+        expect(res.status).toBe(401);
+      });
     });
   },
 });

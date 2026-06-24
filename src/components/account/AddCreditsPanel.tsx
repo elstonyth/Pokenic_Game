@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { usd } from '@/lib/format';
+import { rm, rm0 } from '@/lib/format';
 import { topUpCredits } from '@/lib/actions/vault';
 
 const PRESETS = [10, 25, 50, 100];
@@ -39,7 +39,7 @@ export function AddCreditsPanel({
         setError(res.error);
         return;
       }
-      setSuccess(`${usd(res.amount)} added to your balance.`);
+      setSuccess(`${rm(res.amount)} added to your balance.`);
       onToppedUp(res.balance, res.amount);
     } catch {
       // A transport-level throw must still surface feedback, not fail silently.
@@ -87,17 +87,17 @@ export function AddCreditsPanel({
                 : 'border-white/15 bg-white/[0.02] text-white/70 hover:bg-white/[0.06]'
             }`}
           >
-            ${preset}
+            {rm0(preset)}
           </button>
         ))}
         <label className="flex items-center gap-1.5 text-[13px] text-white/70">
-          <span>$</span>
+          <span>RM</span>
           <input
             type="text"
             inputMode="decimal"
             value={amountText}
             onChange={(e) => setAmountText(e.target.value)}
-            aria-label="Top-up amount in USD"
+            aria-label="Top-up amount in RM"
             className="h-9 w-24 rounded-lg border border-white/15 bg-white/[0.02] px-2.5 text-[13px] font-semibold text-white outline-none focus:border-emerald-400/60"
           />
         </label>
@@ -146,7 +146,7 @@ export function AddCreditsPanel({
           {submitting
             ? 'Processing…'
             : amountValid
-              ? `Add ${usd(amount)}`
+              ? `Add ${rm(amount)}`
               : 'Enter an amount'}
         </button>
         <button

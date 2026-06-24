@@ -47,9 +47,9 @@ interface BackendPack {
   in_stock?: boolean;
 }
 
-// Pack prices are whole-dollar USD; render as "$1,000" to match the live site.
+// Pack prices are in RM; render as "RM 1,000".
 const formatPrice = (price: number): string =>
-  money(Math.round(price), { decimals: 0 });
+  money(Math.round(price), { decimals: 0, prefix: 'RM ' });
 
 const toPack = (p: BackendPack): Pack => ({
   id: p.slug,

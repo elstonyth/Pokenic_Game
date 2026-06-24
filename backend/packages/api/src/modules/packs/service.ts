@@ -21,6 +21,7 @@ import CustomerAccountState from './models/customer-account-state';
 import AdminActionAudit from './models/admin-action-audit';
 import VipMemberState from './models/vip-member-state';
 import VipRewardGrant from './models/vip-reward-grant';
+import NotificationRead from './models/notification-read';
 import {
   resolveBuybackRate,
   buybackAmount,
@@ -125,6 +126,11 @@ type LedgerSqlManager = {
   execute<T = unknown>(query: string, params?: unknown[]): Promise<T>;
 };
 
+// Defensive depth bound for referralSummary's downward fan-out CTE. linkSponsor
+// already rejects cycles, so a real tree terminates well before this; the cap
+// is belt-and-suspenders against a corrupted edge so COUNT(*) can never loop.
+const DOWNSTREAM_DEPTH_CAP = 100;
+
 class PacksModuleService extends MedusaService({
   Pack,
   Card,
@@ -141,6 +147,7 @@ class PacksModuleService extends MedusaService({
   AdminActionAudit,
   VipMemberState,
   VipRewardGrant,
+  NotificationRead,
 }) {
   // Commission engine globals. Reads the singleton row; falls back to defaults
   // when absent. COMMISSION_COOLDOWN_DAYS env override forces the demo (0) and
@@ -1423,6 +1430,74 @@ class PacksModuleService extends MedusaService({
     return (balanceCents - lockedCents) / 100;
   }
 
+  // Wallet summary: raw balance, available (freeze-aware), locked (pending-
+  // unmatured + suspended commissions), and the earliest pending maturity
+  // tranche (date + amount). All amounts in MYR (USD equivalents). Amounts in
+  // MYR = amounts as stored (the ledger is already in MYR decimals).
+  // available = isFrozen ? 0 : balance − locked  (matches availableBalance).
+  @InjectManager()
+  async walletSummary(
+    customerId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{
+    balance: number;
+    available: number;
+    locked: number;
+    isFrozen: boolean;
+    nextUnlock: { amount: number; date: string } | null;
+  }> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+
+    // Raw balance = Σ(amount) over the append-only ledger, summed in integer
+    // cents to avoid float drift (matches availableBalance pattern, spec §8).
+    const balRows = await em.execute<{ balance_cents: string | null }[]>(
+      'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents ' +
+        'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+      [customerId],
+    );
+    const balance = Number(balRows[0]?.balance_cents ?? 0) / 100;
+
+    // Locked = positive commission credits that are pending-unmatured OR
+    // suspended. Reversed/available commissions are excluded (mirroring
+    // lockedCommissionCents in availableBalance).
+    const lockedCents = await this.lockedCommissionCents(customerId, em);
+    const locked = lockedCents / 100;
+
+    // Next unlock = earliest pending maturity in the future + sum of all
+    // commission credits maturing at exactly that date for this customer.
+    const nextRows = await em.execute<{ date: string | null; amount_cents: string | null }[]>(
+      `WITH nxt AS (
+         SELECT MIN(c.matures_at) AS d
+           FROM credit_transaction ct
+           JOIN commission c ON c.credit_transaction_id = ct.id AND c.deleted_at IS NULL
+          WHERE ct.customer_id = ? AND c.status = 'pending' AND c.matures_at > now()
+            AND ct.deleted_at IS NULL
+       )
+       SELECT nxt.d AS date,
+              COALESCE(SUM(ROUND(ct.amount * 100)), 0)::bigint AS amount_cents
+         FROM nxt
+         LEFT JOIN commission c ON c.matures_at = nxt.d AND c.status = 'pending' AND c.deleted_at IS NULL
+         LEFT JOIN credit_transaction ct ON ct.id = c.credit_transaction_id
+                   AND ct.customer_id = ? AND ct.deleted_at IS NULL AND ct.amount > 0
+        GROUP BY nxt.d`,
+      [customerId, customerId],
+    );
+    const nextRow = nextRows[0];
+    const nextUnlock =
+      nextRow?.date != null
+        ? {
+            amount: Number(nextRow.amount_cents ?? 0) / 100,
+            date: new Date(nextRow.date).toISOString(),
+          }
+        : null;
+
+    const frozen = await this.isFrozen(customerId, sharedContext);
+    const available = frozen ? 0 : balance - locked;
+
+    return { balance, available, locked, isFrozen: frozen, nextUnlock };
+  }
+
   // Top-N leaderboard computed in the DB (GROUP BY + ORDER BY + LIMIT), so it's
   // correct at any pull volume — replaces the old route that fetched an UNORDERED
   // 20k slice and ranked it in memory (wrong/jittery once pulls passed ~20k, #7).
@@ -1543,6 +1618,133 @@ class PacksModuleService extends MedusaService({
       sharedContext,
     );
     return { id: rel.id };
+  }
+
+  // Privacy-bounded referral summary for ONE customer (spec §7 / Task 5).
+  // Returns ONLY the caller's own earnings and their gen-1 (direct) recruits —
+  // NEVER an identity below generation 1. The route (Task 6) maps each returned
+  // `customerId` to a public handle; resolving the customer module is kept OUT
+  // of this service because PacksModuleService deliberately talks to Postgres
+  // through raw SQL only (LedgerSqlManager) and does not import other Medusa
+  // modules — the leaderboard route owns the no-N+1 handle batch (route.ts).
+  //
+  // Three reads, all read-only (@InjectManager, so a caller may thread a txn):
+  //   1. directRecruits  — gen-1 edges (sponsor_id = me) + per-recruit DIRECT
+  //      contribution. The commission ledger row has no source-customer column;
+  //      provenance is its source_transaction_id (= the open_id). So the
+  //      contribution is a TWO-HOP join: my 'direct_referral' rows -> match
+  //      source_transaction_id to the recruit's 'pack_open' row -> that row's
+  //      customer_id IS the recruit. Override ('team_override') rows are
+  //      excluded by the reason filter, so a gen-2 override never leaks into a
+  //      gen-1 recruit's "contribution".
+  //   2. downstreamCount — ALL generations under me via a NEW bounded DOWNWARD
+  //      recursive CTE (anchor sponsor_id = me, recurse on r.sponsor_id =
+  //      down.customer_id), UNION de-dups, an explicit depth cap guarantees
+  //      termination. COUNT only — no identities cross the boundary.
+  //   3. totalEarned    — Σ my commission ledger rows (direct + override);
+  //      negative 'commission_reversal' rows net automatically.
+  @InjectManager()
+  async referralSummary(
+    customerId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{
+    directRecruits: { customerId: string; contribution: number }[];
+    downstreamCount: number;
+    totalEarned: number;
+  }> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+
+    // 1) Gen-1 recruits (indexed by sponsor_id).
+    const directRows = await em.execute<{ customer_id: string }[]>(
+      `SELECT customer_id FROM referral_relationship
+         WHERE sponsor_id = ? AND deleted_at IS NULL`,
+      [customerId],
+    );
+    const recruitIds = directRows.map((r) => r.customer_id);
+
+    // Contribution per direct recruit = Σ my DIRECT commission (net of clawbacks)
+    // whose source open belongs to that recruit. Two-hop: my 'direct_referral' /
+    // 'commission_reversal' rows -> their source_transaction_id -> the recruit's
+    // ORIGINAL 'pack_open' debit's customer_id.
+    // `IN (?, ?, ...)` not `= ANY(?)`: MikroORM's em.execute expands a JS array
+    // into positional binds, so `ANY(?)` would emit `ANY('a','b')` (a syntax
+    // error). recruitIds come from our own DB and each id is still bound (not
+    // interpolated), so this stays injection-safe.
+    //
+    // `AND po.amount < 0` is load-bearing: reverseOpen appends a COMPENSATING
+    // POSITIVE 'pack_open' refund row carrying the SAME source_transaction_id as
+    // the original (negative) debit. Without this guard, one `mine` row would join
+    // BOTH pack_open rows and SUM(mine.amount) would double-count that recruit.
+    // Filtering `po` to the original debit keeps exactly one join row per open.
+    //
+    // mine.reason IN ('direct_referral','commission_reversal') NETS the clawback:
+    // reverseOpen's commission_reversal row carries the SAME source_transaction_id
+    // (= open_id) as the direct_referral it reverses, so the negative reversal
+    // cancels the positive credit for that recruit's open — contribution then
+    // reflects reversals exactly like totalEarned does. Override reversals point
+    // at deeper opens (gen-2+ recruits, never in recruitIds), so the
+    // po.customer_id IN (recruitIds) filter naturally excludes them.
+    const recruitPlaceholders = recruitIds.map(() => '?').join(', ');
+    const contribRows = recruitIds.length
+      ? await em.execute<{ recruit_id: string; contribution_cents: string }[]>(
+          `SELECT po.customer_id AS recruit_id,
+                  COALESCE(SUM(ROUND(mine.amount * 100)), 0)::bigint AS contribution_cents
+             FROM credit_transaction mine
+             JOIN credit_transaction po
+               ON po.source_transaction_id = mine.source_transaction_id
+              AND po.reason = 'pack_open'
+              AND po.amount < 0
+              AND po.deleted_at IS NULL
+            WHERE mine.customer_id = ?
+              AND mine.reason IN ('direct_referral', 'commission_reversal')
+              AND mine.deleted_at IS NULL
+              AND po.customer_id IN (${recruitPlaceholders})
+            GROUP BY po.customer_id`,
+          [customerId, ...recruitIds],
+        )
+      : [];
+    const contribById = new Map<string, number>(
+      contribRows.map((r) => [r.recruit_id, Number(r.contribution_cents) / 100]),
+    );
+
+    // 2) Downstream headcount, ALL generations, via a bounded DOWNWARD walk.
+    //    The explicit depth cap + UNION (de-dup) guarantee termination even if a
+    //    cycle somehow escaped linkSponsor's guard. Count only — no identities.
+    const downRows = await em.execute<{ cnt: number }[]>(
+      `WITH RECURSIVE down AS (
+         SELECT customer_id, 1 AS depth FROM referral_relationship
+           WHERE sponsor_id = ? AND deleted_at IS NULL
+         UNION
+         SELECT r.customer_id, d.depth + 1
+           FROM referral_relationship r
+           JOIN down d ON r.sponsor_id = d.customer_id
+          WHERE r.deleted_at IS NULL AND d.depth < ?
+       )
+       SELECT COUNT(*)::int AS cnt FROM down`,
+      [customerId, DOWNSTREAM_DEPTH_CAP],
+    );
+    const downstreamCount = Number(downRows[0]?.cnt ?? 0);
+
+    // 3) Total earned = Σ my commission ledger rows (direct + override); negative
+    //    'commission_reversal' rows net automatically.
+    const totalRows = await em.execute<{ total_cents: string }[]>(
+      `SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS total_cents
+         FROM credit_transaction
+        WHERE customer_id = ? AND deleted_at IS NULL
+          AND reason IN ('direct_referral', 'team_override', 'commission_reversal')`,
+      [customerId],
+    );
+    const totalEarned = Number(totalRows[0]?.total_cents ?? 0) / 100;
+
+    return {
+      directRecruits: recruitIds.map((id) => ({
+        customerId: id,
+        contribution: contribById.get(id) ?? 0,
+      })),
+      downstreamCount,
+      totalEarned,
+    };
   }
 
   // Delete-guard (spec §3 invariant 1): money rows backing a commission are

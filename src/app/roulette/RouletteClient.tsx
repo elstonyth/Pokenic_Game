@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Sparkles, RotateCcw, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePrefersReducedMotion } from '@/lib/use-reveal';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 import {
   MOCK_CARDS,
   RARITY_RGB,
@@ -152,7 +152,7 @@ export default function RouletteClient() {
             className="text-sm"
             style={{ color: `rgb(${RARITY_RGB[won.rarity]})` }}
           >
-            {won.rarity} · {usd(won.price)}
+            {won.rarity} · {rm(won.price)}
           </p>
           <div className="mt-3 flex gap-2">
             <button

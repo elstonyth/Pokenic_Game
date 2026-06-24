@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SELL_COUNTDOWN_SECS, sellSecondsLeft } from '@/lib/sell-countdown';
 import SellConfirmModal from '@/components/SellConfirmModal';
+import { rm } from '@/lib/format';
 
 export type SellBackOffer = {
   pullId: string;
@@ -33,12 +34,6 @@ export type SellBackFn = (
 export type RevealFn = (
   pullId: string,
 ) => Promise<{ ok: true; instantDeadlineMs: number } | { ok: false }>;
-
-const money = (n: number) =>
-  n.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 
 export function SellBackPanel({
   offer,
@@ -145,7 +140,7 @@ export function SellBackPanel({
     <div className="flex w-full max-w-[340px] flex-col items-center gap-2">
       {sell.phase === 'sold' ? (
         <p className="flex h-12 w-full items-center justify-center rounded-xl border border-emerald-400/50 bg-emerald-400/10 text-sm font-bold text-emerald-300">
-          +${money(sell.amount)} credited · balance ${money(sell.balance)}
+          +{rm(sell.amount)} credited · balance {rm(sell.balance)}
         </p>
       ) : (
         <>
@@ -158,8 +153,8 @@ export function SellBackPanel({
             {sell.phase === 'selling'
               ? 'Selling…'
               : sellExpired
-                ? `Sell for $${money(offer.vaultAmount)} (${offer.vaultPercent}%)`
-                : `Sell back for $${money(offer.amount)} (${offer.percent}%) · ${secondsLeft}s`}
+                ? `Sell for ${rm(offer.vaultAmount)} (${offer.vaultPercent}%)`
+                : `Sell back for ${rm(offer.amount)} (${offer.percent}%) · ${secondsLeft}s`}
           </button>
           {/* Draining bar — decorative; the countdown text is the SR source. */}
           {!sellExpired && (

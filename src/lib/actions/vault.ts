@@ -83,7 +83,7 @@ const VAULT_RULES: ErrorRule[] = [
     /declined/i,
     'Payment declined by the demo gateway — amounts ending in .13 always decline.',
   ],
-  [/amount/i, 'Enter a valid amount (up to $10,000, whole cents).'],
+  [/amount/i, 'Enter a valid amount (up to RM 10,000, whole cents).'],
   [/already sold/i, 'This card was already sold back.'],
   [/not found|404/i, 'This card is no longer in your vault.'],
 ];

@@ -25,7 +25,7 @@ const RARITY_SET = new Set<string>(RARITIES);
 export const isRarity = (r: string): r is Rarity => RARITY_SET.has(r);
 
 /**
- * Card market value -> "$39.80" (USD, always 2 decimals). Values are decimals,
+ * Card market value -> "RM 39.80" (MYR, always 2 decimals). Values are decimals,
  * never cents — formatted as-is.
  */
-export const formatValue = (mv: number): string => money(mv);
+export const formatValue = (mv: number): string => money(mv, { prefix: 'RM ' });

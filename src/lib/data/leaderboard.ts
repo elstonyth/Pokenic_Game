@@ -13,7 +13,7 @@
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
 import { avatarForSeed } from '@/lib/profile-view';
-import { money } from '@/lib/format';
+import { rm } from '@/lib/format';
 import { parseList, LeaderboardEntrySchema } from '@/lib/data/schemas';
 
 export type LeaderboardPeriod = 'weekly' | 'alltime';
@@ -27,7 +27,7 @@ export interface LeaderboardEntry {
    * the row then keeps the legacy name link (mock-pool fallback).
    */
   handle?: string | null;
-  /** Formatted USD winnings, e.g. "US$8,173,374.26". */
+  /** Formatted MYR winnings, e.g. "RM 8,173,374.26". */
   volume: string;
   pulls: string;
   points: string;
@@ -48,8 +48,6 @@ interface BackendEntry {
 // Avatar mapping is shared with the profile page (lib/profile-view.ts) so the
 // same PII-safe seed renders the same avatar on both surfaces.
 
-const fmtUsd = (n: number): string => money(n, { prefix: 'US$' });
-
 // Static fallback — real data + avatars extracted verbatim from phygitals.com's
 // homepage "Weekly Leaderboard". Keeps the page populated and on-brand when the
 // backend is down or the ledger is empty.
@@ -57,7 +55,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 1,
     name: 'FightingProdigy3098',
-    volume: 'US$8,173,374.26',
+    volume: 'RM 8,173,374.26',
     pulls: '1403',
     points: '812,296,655',
     avatar: '/images/pfps/pfp-30.webp',
@@ -65,7 +63,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 2,
     name: 'love',
-    volume: 'US$4,293,513.36',
+    volume: 'RM 4,293,513.36',
     pulls: '232',
     points: '428,287,429',
     avatar: '/images/pfps/pfp-81.webp',
@@ -73,7 +71,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 3,
     name: 'PsychicGuardian5685',
-    volume: 'US$1,399,630.64',
+    volume: 'RM 1,399,630.64',
     pulls: '723',
     points: '139,937,985',
     avatar: '/images/pfps/pfp-71.webp',
@@ -81,7 +79,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 4,
     name: 'HyperResearcher7463',
-    volume: 'US$1,189,685.65',
+    volume: 'RM 1,189,685.65',
     pulls: '360',
     points: '118,968,718',
     avatar: '/images/pfps/pfp-58.webp',
@@ -89,7 +87,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 5,
     name: 'PrinceOfDragons',
-    volume: 'US$469,126.15',
+    volume: 'RM 469,126.15',
     pulls: '827',
     points: '46,912,908',
     avatar: '/images/pfps/pfp-31.webp',
@@ -97,7 +95,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 6,
     name: 'AncientMaster2024',
-    volume: 'US$392,343.09',
+    volume: 'RM 392,343.09',
     pulls: '41',
     points: '39,234,328',
     avatar: '/images/pfps/pfp-60.webp',
@@ -105,7 +103,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 7,
     name: 'RapidDefender3371',
-    volume: 'US$358,774.38',
+    volume: 'RM 358,774.38',
     pulls: '120',
     points: '35,737,514',
     avatar: '/images/pfps/pfp-1.webp',
@@ -113,7 +111,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 8,
     name: 'EnergyProdigy7233',
-    volume: 'US$298,032.28',
+    volume: 'RM 298,032.28',
     pulls: '33',
     points: '29,803,240',
     avatar: '/images/pfps/pfp-76.webp',
@@ -121,7 +119,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 9,
     name: 'RockHunter9181',
-    volume: 'US$230,400',
+    volume: 'RM 230,400',
     pulls: '12',
     points: '23,040,000',
     avatar: '/images/pfps/pfp-66.webp',
@@ -129,7 +127,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     rank: 10,
     name: 'AquaCatcher6841',
-    volume: 'US$214,782.06',
+    volume: 'RM 214,782.06',
     pulls: '82',
     points: '21,478,238',
     avatar: '/images/pfps/pfp-28.webp',
@@ -157,7 +155,7 @@ export async function getLeaderboard(
       rank: i + 1,
       name: e.name,
       handle: typeof e.handle === 'string' ? e.handle : null,
-      volume: fmtUsd(e.volume),
+      volume: rm(e.volume),
       pulls: String(e.pulls),
       points: Math.round(e.points).toLocaleString('en-US'),
       avatar: avatarForSeed(e.seed),

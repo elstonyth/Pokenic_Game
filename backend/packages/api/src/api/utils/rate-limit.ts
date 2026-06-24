@@ -592,6 +592,27 @@ export function createStoreReadRateLimit(): MiddlewareHandler {
 }
 
 /**
+ * The notification-read limiter (POST /store/notifications/:id/read). This is
+ * a lightweight idempotent write (upsert of a read-state row), so the budget
+ * is more generous than credit mutations but tighter than the read limiter.
+ * Env-tunable:
+ * NOTIFICATION_READ_RATE_BURST_LIMIT / NOTIFICATION_READ_RATE_BURST_WINDOW_MS (default 20/10s)
+ * NOTIFICATION_READ_RATE_LIMIT / NOTIFICATION_READ_RATE_WINDOW_MS (default 100/60s)
+ */
+export function createNotificationReadRateLimit(): MiddlewareHandler {
+  return createEnvRateLimit({
+    name: 'notification-read',
+    message: 'Too many mark-read requests.',
+    defaults: {
+      burstLimit: 20,
+      burstWindowMs: 10_000,
+      limit: 100,
+      windowMs: 60_000,
+    },
+  });
+}
+
+/**
  * Rate-limiter for admin money-mutation routes (freeze/unfreeze, commission
  * reverse/suspend/unsuspend, rewards-settings, credit-adjust). Admins are
  * trusted operators, so the budget is deliberately generous — this is

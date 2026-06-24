@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { rm0 } from '@/lib/format';
 import Reveal from '@/components/Reveal';
 
 // ---------------------------------------------------------------------------
@@ -223,7 +224,7 @@ const HEADER_SLABS = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-const fmt = (n: number) => `$${n}`;
+const fmt = (n: number) => rm0(n);
 
 // Rarity ring colors extracted from the live pack-party cards — Tailwind *-500.
 // Each card gets a gradient ring border (purple cards also glow), cycled by index

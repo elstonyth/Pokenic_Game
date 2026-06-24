@@ -25,12 +25,12 @@ const STEPS = [
   },
   {
     icon: Gamepad2,
-    title: 'Try our $1 claw machine risk free',
+    title: 'Try our RM 1 claw machine risk free',
     body: 'Rip your first pack and reveal a real graded card.',
   },
   {
     icon: Banknote,
-    title: 'Keep or sell back for up to $500',
+    title: 'Keep or sell back for up to RM 500',
     body: 'Hold it, ship it, or sell back instantly at 85–90%.',
   },
 ];

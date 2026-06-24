@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 const STATS = [
   { value: '1.9M', label: 'Transactions' },
-  { value: '$167.9M', label: 'Volume traded' },
+  { value: 'RM 167.9M', label: 'Volume traded' },
   { value: '24K', label: 'Active listings' },
 ];
 

@@ -12,6 +12,7 @@ import {
   createAuthRateLimit,
   createCreditTopupRateLimit,
   createDeliveryWriteRateLimit,
+  createNotificationReadRateLimit,
   createPackOpenBatchRateLimit,
   createPackOpenRateLimit,
   createProfileReadRateLimit,
@@ -158,6 +159,16 @@ export default defineMiddlewares({
       ],
     },
     {
+      // Referral summary (GET /store/referral) — separate entry because the
+      // existing POST entry above pins method:'POST'; omitting method here
+      // would protect both verbs with one entry, but method:'GET' keeps the
+      // rate-limiting tiers clean: writes use the recruit limiter, reads share
+      // the storeReadRateLimit budget with vault/credits/vip/notifications.
+      matcher: '/store/referral',
+      method: 'GET',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
       // The customer's vault list (GET /store/vault).
       matcher: '/store/vault',
       middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
@@ -228,12 +239,30 @@ export default defineMiddlewares({
       middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
     },
     {
+      // The customer's own VIP level, progress, and next-rung reward (GET /store/vip).
+      matcher: '/store/vip',
+      method: 'GET',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
       // The customer's in-app notification feed (GET /store/notifications).
       // receiver_id is scoped to the verified bearer token in the route handler —
       // never from query/body — so this entry is the auth + rate-limit gate only.
       matcher: '/store/notifications',
       method: 'GET',
       middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
+      // Mark a feed notification as read (POST /store/notifications/:id/read).
+      // IDOR guard runs in the route handler (owner-scoped listNotifications before
+      // any write). Glob uses * (not :id) as Medusa middleware matchers are path
+      // globs, not express params.
+      matcher: '/store/notifications/*/read',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        createNotificationReadRateLimit(),
+      ],
     },
     {
       // The customer's own profile handle (GET /store/profiles/me) — lazily

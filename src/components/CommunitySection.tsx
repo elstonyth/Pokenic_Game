@@ -15,7 +15,7 @@ const POSTS: CommunityPost[] = [
   {
     link: 'https://x.com/pominik/status/1960039317956620617',
     img: '/social/tweets/1960039317956620617_media-1.webp',
-    text: 'I got this from a $25 pack\nAMA',
+    text: 'I got this from a RM 25 pack\nAMA',
     name: 'pominik',
     avatar: '/social/pfp/pominik-400x400.jpg',
   },

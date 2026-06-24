@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { money, usd, num, relativeTime } from '../format';
+import { money, rm, rm0, num, relativeTime } from '../format';
 
 describe('money', () => {
   it('defaults to $ + 2dp', () => {
@@ -26,20 +26,16 @@ describe('money', () => {
   });
 });
 
-// Lock the delegating aliases to their ORIGINAL output.
-describe('aliases stay byte-identical', () => {
-  it('usd == old currency-style', () => {
-    for (const n of [0, 9.99, 312, 1284.5, 18420.75]) {
-      expect(usd(n)).toBe(
-        n.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }),
-      );
-    }
+describe('rm / rm0 — MYR helpers', () => {
+  it('rm formats with RM prefix and 2dp', () => {
+    expect(rm(1234.5)).toBe('RM 1,234.50');
   });
+  it('rm0 formats with RM prefix and 0dp (rounds)', () => {
+    expect(rm0(1234.5)).toBe('RM 1,235');
+  });
+});
+
+describe('num', () => {
   it('num unchanged', () => {
     expect(num(48250)).toBe((48250).toLocaleString('en-US'));
   });

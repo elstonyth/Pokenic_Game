@@ -26,6 +26,7 @@ import { openAuth } from './AuthButton';
 import { useAuth } from './auth/AuthProvider';
 import UserMenu from './auth/UserMenu';
 import { logout } from '@/lib/actions/auth';
+import NotificationBell from './NotificationBell';
 
 type NavItem = {
   label: string;
@@ -240,8 +241,11 @@ export default function SiteHeader() {
             <HelpCircle className="h-4 w-4 text-neutral-400" aria-hidden />
           </a>
           {customer ? (
-            <div className="hidden lg:block">
-              <UserMenu customer={customer} />
+            <div className="flex items-center gap-1.5">
+              <NotificationBell />
+              <div className="hidden lg:block">
+                <UserMenu customer={customer} />
+              </div>
             </div>
           ) : (
             <>

@@ -24,9 +24,8 @@ export function money(
   );
 }
 
-export const usd = (n: number) => money(n, { currency: true });
-
-export const usd0 = (n: number) => money(n, { currency: true, decimals: 0 });
+export const rm = (n: number) => money(n, { prefix: 'RM ' });
+export const rm0 = (n: number) => money(n, { prefix: 'RM ', decimals: 0 });
 
 export const compact = (n: number) =>
   n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 });

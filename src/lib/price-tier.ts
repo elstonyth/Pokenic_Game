@@ -47,10 +47,10 @@ export const TIER_ORDER: readonly Tier[] = [
  * Shown in the odds sheet's tier-glow legend.
  */
 export const TIER_BAND: Record<Tier, string> = {
-  common: '< $25',
-  uncommon: '$25 – 99',
-  rare: '$100 – 499',
-  mythical: '$500 – 1,999',
-  legendary: '$2,000 – 9,999',
-  immortal: '≥ $10,000',
+  common: '< RM 25',
+  uncommon: 'RM 25 – 99',
+  rare: 'RM 100 – 499',
+  mythical: 'RM 500 – 1,999',
+  legendary: 'RM 2,000 – 9,999',
+  immortal: '≥ RM 10,000',
 };

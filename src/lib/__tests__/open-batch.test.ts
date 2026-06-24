@@ -192,9 +192,9 @@ describe('mapBatchRoll — field mapping', () => {
     expect(mapBatchRoll(roll)!.marketValue).toBe(99.5);
   });
 
-  it('maps card.value to a formatted USD string', () => {
+  it('maps card.value to a formatted RM string', () => {
     const roll = rawRoll({ market_value: 9.99 });
-    expect(mapBatchRoll(roll)!.card.value).toMatch(/\$9\.99/);
+    expect(mapBatchRoll(roll)!.card.value).toMatch(/RM 9\.99/);
   });
 
   it('maps pokemon_dex and sprite_image', () => {

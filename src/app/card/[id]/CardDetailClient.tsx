@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import Reveal from '@/components/Reveal';
 import { features } from '@/lib/features';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { openAuth } from '@/components/AuthButton';
 import { type MockCard, RARITY_RGB, moreFromSet } from '@/lib/mock/cards';
@@ -133,7 +133,7 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
                 Price
               </p>
               <p className="font-heading text-3xl font-bold text-white">
-                {usd(card.price)}
+                {rm(card.price)}
               </p>
             </div>
             <div>
@@ -141,12 +141,12 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
                 Fair Market Value
               </p>
               <p className="text-lg font-semibold text-white/80">
-                {usd(card.fmv)}
+                {rm(card.fmv)}
               </p>
             </div>
             <div className="flex items-center gap-1 text-[13px] font-medium text-emerald-400">
               <TrendingUp className="h-4 w-4" aria-hidden /> Buyback{' '}
-              {usd(Math.round(card.fmv * 0.88))}
+              {rm(Math.round(card.fmv * 0.88))}
             </div>
           </div>
 
@@ -221,7 +221,7 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
             </svg>
             <div className="mt-2 flex justify-between text-[11px] text-white/40">
               <span>24 sales</span>
-              <span>Last: {usd(card.fmv)}</span>
+              <span>Last: {rm(card.fmv)}</span>
             </div>
           </div>
         </Reveal>
@@ -254,7 +254,7 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
                       {c.grader} {c.grade}
                     </p>
                     <p className="text-sm font-bold text-white">
-                      {usd(c.price)}
+                      {rm(c.price)}
                     </p>
                   </div>
                 </Link>

@@ -685,8 +685,8 @@ export default function PackOpenOverlay({
                       {sell.phase === 'selling'
                         ? 'Selling…'
                         : sellExpired
-                          ? `Sell for $${buyback.vaultAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${buyback.vaultPercent}%)`
-                          : `Sell back for $${buyback.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${buyback.percent}%) · ${secondsLeft}s`}
+                          ? `Sell for RM ${buyback.vaultAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${buyback.vaultPercent}%)`
+                          : `Sell back for RM ${buyback.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${buyback.percent}%) · ${secondsLeft}s`}
                     </button>
                     <p className="max-w-[300px] text-center text-[11px] text-white/50">
                       {sellExpired
@@ -697,12 +697,12 @@ export default function PackOpenOverlay({
                 )}
                 {sell.phase === 'sold' && (
                   <p className="flex h-12 w-[300px] items-center justify-center rounded-xl border border-emerald-400/50 bg-emerald-400/10 text-sm font-bold text-emerald-300">
-                    +$
+                    +RM{' '}
                     {sell.amount.toLocaleString('en-US', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}{' '}
-                    credited · balance $
+                    credited · balance RM{' '}
                     {sell.balance.toLocaleString('en-US', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,

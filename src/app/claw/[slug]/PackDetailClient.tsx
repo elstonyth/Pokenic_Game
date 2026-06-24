@@ -15,7 +15,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 import { usePrefersReducedMotion } from '@/lib/use-reveal';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { openAuth } from '@/components/AuthButton';
@@ -493,7 +493,7 @@ export default function PackDetailClient({
               <p className="mt-2 text-center text-[11px] text-white/35">
                 {customer && balance !== null ? (
                   <>
-                    Each open costs {usd(priceNum)} in site credits — your
+                    Each open costs {rm(priceNum)} in site credits — your
                     balance:{' '}
                     <span
                       className={cn(
@@ -501,7 +501,7 @@ export default function PackDetailClient({
                         balance < priceNum ? 'text-red-300' : 'text-white/70',
                       )}
                     >
-                      {usd(balance)}
+                      {rm(balance)}
                     </span>
                   </>
                 ) : (

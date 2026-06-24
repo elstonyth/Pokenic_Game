@@ -46,7 +46,7 @@ const MERCHANTS: Merchant[] = [
     rating: 4.9,
     ago: '30m ago',
     blurb: "America's trusted source for Pokémon cards and gaming supplies.",
-    badges: ['Free Shipping $75+', 'Same Day Processing'],
+    badges: ['Free Shipping RM 75+', 'Same Day Processing'],
   },
   {
     name: 'TCGPlayer',
@@ -57,7 +57,7 @@ const MERCHANTS: Merchant[] = [
     ago: '1h ago',
     blurb:
       'The largest online marketplace for Pokémon singles in North America.',
-    badges: ['Free Shipping $35+', 'Express Available'],
+    badges: ['Free Shipping RM 35+', 'Express Available'],
   },
   {
     name: 'Troll and Toad',
@@ -68,7 +68,7 @@ const MERCHANTS: Merchant[] = [
     ago: '3h ago',
     blurb:
       'One of the largest online card stores, serving collectors since 1991.',
-    badges: ['Free Shipping $50+'],
+    badges: ['Free Shipping RM 50+'],
   },
   {
     name: 'CoolStuffInc',
@@ -78,7 +78,7 @@ const MERCHANTS: Merchant[] = [
     rating: 4.7,
     ago: '1h ago',
     blurb: 'Pokémon singles and supplies with fast, reliable fulfillment.',
-    badges: ['Free Shipping $99+', 'Same Day Processing'],
+    badges: ['Free Shipping RM 99+', 'Same Day Processing'],
   },
   {
     name: '401 Games',
@@ -88,7 +88,7 @@ const MERCHANTS: Merchant[] = [
     rating: 4.6,
     ago: '5h ago',
     blurb: "Canada's largest game store with deep Pokémon singles inventory.",
-    badges: ['Free Shipping $75+'],
+    badges: ['Free Shipping RM 75+'],
   },
   {
     name: "Dave & Adam's",
@@ -99,7 +99,7 @@ const MERCHANTS: Merchant[] = [
     ago: '2h ago',
     blurb:
       'Pokémon singles, boxes, and collectibles with a 100% satisfaction guarantee.',
-    badges: ['Free Shipping $50+', 'Express Available'],
+    badges: ['Free Shipping RM 50+', 'Express Available'],
   },
   {
     name: 'Blowout Cards',
@@ -109,7 +109,7 @@ const MERCHANTS: Merchant[] = [
     rating: 4.5,
     ago: '4h ago',
     blurb: 'Sealed Pokémon product at case-break-friendly prices.',
-    badges: ['Free Shipping $99+'],
+    badges: ['Free Shipping RM 99+'],
   },
   {
     name: 'Chaos Cards',

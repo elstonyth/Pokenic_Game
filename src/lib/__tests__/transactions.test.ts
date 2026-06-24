@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reasonLabel, signedUsd } from '@/lib/transactions';
+import { reasonLabel, signedRm } from '@/lib/transactions';
 
 describe('reasonLabel', () => {
   it('maps each reason to a human label', () => {
@@ -16,10 +16,10 @@ describe('reasonLabel', () => {
   });
 });
 
-describe('signedUsd', () => {
+describe('signedRm', () => {
   it('prefixes a sign and formats the magnitude', () => {
-    expect(signedUsd(48)).toBe('+$48.00');
-    expect(signedUsd(-25)).toBe('-$25.00');
-    expect(signedUsd(0)).toBe('$0.00');
+    expect(signedRm(48)).toBe('+RM 48.00');
+    expect(signedRm(-25)).toBe('-RM 25.00');
+    expect(signedRm(0)).toBe('RM 0.00');
   });
 });

@@ -35,7 +35,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MarketplaceCard, MarketplaceCategory } from '@/lib/data/products';
-import { money } from '@/lib/format';
+import { rm } from '@/lib/format';
 
 // Marketplace catalog data (cards + category tabs) now lives in the data seam,
 // passed in as props from the server page. See @/lib/data/products.
@@ -245,11 +245,9 @@ function MarketCard({ card }: { card: MarketplaceCard }) {
           {card.title}
         </Link>
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-bold text-white">
-            {money(card.price)}
-          </span>
+          <span className="text-sm font-bold text-white">{rm(card.price)}</span>
           <span className="text-[11px] font-medium text-white/50">
-            FMV {money(card.fmv)}
+            FMV {rm(card.fmv)}
           </span>
         </div>
       </div>

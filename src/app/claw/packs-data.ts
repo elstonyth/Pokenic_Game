@@ -53,7 +53,7 @@ export const CATEGORIES: PackCategory[] = [
       {
         id: 'pokemon-black',
         name: 'Black Pack',
-        price: '$2,500',
+        price: 'RM 2,500',
         image: '/images/claw/black-pack-icon.webp',
         boost: true,
         buybackPercent: 92,
@@ -61,7 +61,7 @@ export const CATEGORIES: PackCategory[] = [
       {
         id: 'pokemon-diamond',
         name: 'Diamond Pack',
-        price: '$5,000',
+        price: 'RM 5,000',
         image: '/images/claw/diamond-pack-icon.webp',
         boost: true,
         buybackPercent: 92,
@@ -69,40 +69,40 @@ export const CATEGORIES: PackCategory[] = [
       {
         id: 'pokemon-mythic',
         name: 'Mythic Pack',
-        price: '$1,000',
+        price: 'RM 1,000',
         image: '/images/claw/mythic-pack-icon.webp',
         boost: true,
       },
       {
         id: 'pokemon-legend',
         name: 'Legend Pack',
-        price: '$250',
+        price: 'RM 250',
         image: '/images/claw/legend-pack-icon.webp',
         boost: true,
       },
       {
         id: 'pokemon-elite',
         name: 'Elite Pack',
-        price: '$50',
+        price: 'RM 50',
         image: '/images/claw/elite-pack-icon.webp',
       },
       {
         id: 'pokemon-platinum',
         name: 'Platinum Pack',
-        price: '$500',
+        price: 'RM 500',
         image: '/images/claw/platinum-pack-icon.webp',
         boost: true,
       },
       {
         id: 'pokemon-rookie',
         name: 'Rookie Pack',
-        price: '$25',
+        price: 'RM 25',
         image: '/images/claw/rookie-pack-icon.webp',
       },
       {
         id: 'pokemon-trainer',
         name: 'Trainer Pack',
-        price: '$10',
+        price: 'RM 10',
         image: '/images/claw/trainer-pack-icon.webp',
         inStock: false,
       },
@@ -184,9 +184,9 @@ export function clawMachine(pack: Pack): { webp: string; anim?: string } {
   };
 }
 
-/** Numeric price, e.g. "$1,000" -> 1000. */
+/** Numeric price, e.g. "RM 1,000" -> 1000. */
 export function priceNumber(price: string): number {
-  return parseFloat(price.replace(/[$,]/g, '')) || 0;
+  return parseFloat(price.replace(/^RM\s*/, '').replace(/,/g, '')) || 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,49 +216,49 @@ export const CARD_POOL: PackCard[] = [
     id: 'celebi',
     name: 'Jet-Black Spirit Celebi V CGC 10',
     image: cardImg('FQEYWuGiKTkJpZSG6XqGHDBmH6EmxctEqk1kAT2MYzHc'),
-    value: '$912.00',
+    value: 'RM 912.00',
     rarity: 'Legendary',
   },
   {
     id: 'mewtwo',
     name: 'Rocket Gang Mewtwo ex CGC 10',
     image: cardImg('9kRLkdbbvzm335GBvraQrWrNVs72gzEzynvP1RPvftTx'),
-    value: '$540.00',
+    value: 'RM 540.00',
     rarity: 'Epic',
   },
   {
     id: 'darkrai',
     name: 'Crown Zenith Darkrai VSTAR PSA 10',
     image: cardImg('4h13RDtFX4MWNYjvgMPeBS1hcL4AewupiFzDvyFUUTkd'),
-    value: '$318.00',
+    value: 'RM 318.00',
     rarity: 'Epic',
   },
   {
     id: 'jolteon',
     name: 'Terastal Fest Jolteon ex CGC 10',
     image: cardImg('BEnddEeBXBHyL5qWXCg6sKS5VmUbUtZaKJ1aVB8yCWHN'),
-    value: '$156.00',
+    value: 'RM 156.00',
     rarity: 'Rare',
   },
   {
     id: 'rapidash',
     name: 'Mega Start Deck Rapidash CGC 10',
     image: cardImg('FFbo5jfXHHQWN8bmc88UDYSDP5QzYCCj6RwUkiWYyffC'),
-    value: '$84.50',
+    value: 'RM 84.50',
     rarity: 'Uncommon',
   },
   {
     id: 'hooh',
     name: 'Incandescent Arcana Ho-Oh V CGC 10',
     image: cardImg('FjAJZ7en585MpnoLUGbuALHEmbBAPd61EZCefQzFMmRX'),
-    value: '$213.00',
+    value: 'RM 213.00',
     rarity: 'Rare',
   },
   {
     id: 'gengar',
     name: 'Scarlet & Violet 151 Gengar CGC 10',
     image: cardImg('6noxMybjBLtLqicAUTrG63VhWG2FgWzDBsQGnnZEyNCG'),
-    value: '$299.00',
+    value: 'RM 299.00',
     rarity: 'Epic',
   },
 ];

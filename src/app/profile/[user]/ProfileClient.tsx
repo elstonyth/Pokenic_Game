@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
-import { usd, num, compact } from '@/lib/format';
+import { rm, num, compact } from '@/lib/format';
 import { type ProfileViewUser } from '@/lib/profile-view';
 
 const TABS = ['Collection', 'Activity', 'Achievements'] as const;
@@ -39,7 +39,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
     },
     { icon: Star, label: 'Points', value: compact(user.points) },
     { icon: Layers, label: 'Pulls', value: num(user.pulls) },
-    { icon: TrendingUp, label: 'Volume', value: usd(user.volume) },
+    { icon: TrendingUp, label: 'Volume', value: rm(user.volume) },
   ];
   // Real profiles ship their pull activity; the mock pool derives a synthetic
   // feed from the collection (unchanged legacy behavior).
@@ -174,7 +174,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                       {c.grader} {c.grade}
                     </p>
                     <p className="text-sm font-bold text-white">
-                      {usd(c.price)}
+                      {rm(c.price)}
                     </p>
                   </div>
                 </Link>
@@ -207,7 +207,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                 </Link>
               </p>
               <span className="shrink-0 text-[12px] tabular-nums text-white/50">
-                {usd(a.card.price)}
+                {rm(a.card.price)}
               </span>
               <span className="hidden shrink-0 text-[11px] text-white/35 sm:inline">
                 {a.time}

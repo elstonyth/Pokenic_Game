@@ -169,12 +169,12 @@ export default function StepInfoPill({
               <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-white/60">Card FMV</span>
-                  <span className="font-semibold text-white">$100.00</span>
+                  <span className="font-semibold text-white">RM 100.00</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span className="text-white/60">Instant buyback</span>
                   <span className="font-semibold text-emerald-400">
-                    $85.00 - $90.00
+                    RM 85.00 - RM 90.00
                   </span>
                 </div>
               </div>

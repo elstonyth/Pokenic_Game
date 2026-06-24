@@ -18,12 +18,13 @@ export async function GET(
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerId = req.auth_context.actor_id;
 
-  const [summary, transactions] = await Promise.all([
+  const [summary, transactions, wallet] = await Promise.all([
     packs.creditSummary(customerId),
     packs.listCreditTransactions(
       { customer_id: customerId },
       { order: { created_at: "DESC" }, take: RECENT_TRANSACTIONS }
     ),
+    packs.walletSummary(customerId),
   ]);
 
   res.json({
@@ -37,5 +38,14 @@ export async function GET(
       pull_id: t.pull_id,
       created_at: t.created_at,
     })),
+    wallet: {
+      balance: wallet.balance,
+      available: wallet.available,
+      locked: wallet.locked,
+      is_frozen: wallet.isFrozen,
+      next_unlock: wallet.nextUnlock
+        ? { amount: wallet.nextUnlock.amount, date: wallet.nextUnlock.date }
+        : null,
+    },
   });
 }

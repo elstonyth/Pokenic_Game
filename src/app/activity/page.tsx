@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import Reveal from '@/components/Reveal';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 import { MOCK_CARDS } from '@/lib/mock/cards';
 import { MOCK_USERS, findUser } from '@/lib/mock/users';
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const STATS = [
   { value: '2.6M', label: 'transactions' },
-  { value: '$322.7MM', label: 'volume' },
+  { value: 'RM 322.7MM', label: 'volume' },
   { value: '19.8K', label: 'listings' },
 ];
 
@@ -145,7 +145,7 @@ export default function ActivityPage() {
                   </Link>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 font-semibold text-white">
-                  {usd(row.price)}
+                  {rm(row.price)}
                 </td>
                 <td className="px-4 py-2.5">
                   <span

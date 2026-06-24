@@ -2,7 +2,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 import type { RecentPull } from '@/lib/data/packs';
 
 export function SlotStatusBar({
@@ -23,7 +23,7 @@ export function SlotStatusBar({
               Credit
             </p>
             <p className="font-heading text-lg font-bold tabular-nums text-white">
-              {usd(balance)}
+              {rm(balance)}
             </p>
           </div>
         )}

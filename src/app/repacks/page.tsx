@@ -18,7 +18,7 @@ import { Plus, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
 import QtyStepper from '@/components/QtyStepper';
-import { usd0 } from '@/lib/format';
+import { rm0 } from '@/lib/format';
 import { MOCK_USERS } from '@/lib/mock/users';
 import { CATEGORIES } from '../claw/packs-data';
 
@@ -225,7 +225,7 @@ function PackCard({ pack }: { pack: CommunityPack }) {
           {pack.name}
         </span>
         <span className="shrink-0 text-[13px] font-semibold text-white/90 sm:text-sm">
-          {usd0(pack.price)}
+          {rm0(pack.price)}
         </span>
       </div>
 

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { X } from 'lucide-react';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -125,7 +125,7 @@ export default function SellConfirmModal({
         <dl className="mt-5 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm">
           <div className="flex justify-between">
             <dt className="text-white/55">Market value</dt>
-            <dd className="text-white/85">{usd(fmv)}</dd>
+            <dd className="text-white/85">{rm(fmv)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-white/55">
@@ -135,7 +135,7 @@ export default function SellConfirmModal({
           </div>
           <div className="flex justify-between border-t border-white/10 pt-2">
             <dt className="font-semibold text-white">You receive</dt>
-            <dd className="font-bold text-emerald-300">{usd(netCredit)}</dd>
+            <dd className="font-bold text-emerald-300">{rm(netCredit)}</dd>
           </div>
         </dl>
 
@@ -162,7 +162,7 @@ export default function SellConfirmModal({
             disabled={busy}
             className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-amber-400 text-sm font-bold text-neutral-950 transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            {busy ? 'Selling…' : `Sell for ${usd(netCredit)}`}
+            {busy ? 'Selling…' : `Sell for ${rm(netCredit)}`}
           </button>
         </div>
       </div>

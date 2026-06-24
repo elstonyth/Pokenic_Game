@@ -2,7 +2,7 @@
 'use client';
 
 import { Sparkles, Info, Volume2, VolumeX } from 'lucide-react';
-import { usd } from '@/lib/format';
+import { rm } from '@/lib/format';
 
 export function SlotControls({
   cost,
@@ -59,7 +59,7 @@ export function SlotControls({
         </button>
       </div>
       <p className="text-[12px] text-white/50">
-        Cost <span className="font-semibold text-white/80">{usd(cost)}</span> /
+        Cost <span className="font-semibold text-white/80">{rm(cost)}</span> /
         spin
       </p>
     </div>

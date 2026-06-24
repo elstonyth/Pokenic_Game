@@ -4,6 +4,8 @@ import {
 } from '@medusajs/framework/http';
 import { Modules } from '@medusajs/framework/utils';
 import type { INotificationModuleService } from '@medusajs/framework/types';
+import { PACKS_MODULE } from '../../../modules/packs';
+import type PacksModuleService from '../../../modules/packs/service';
 
 // GET /store/notifications — the authenticated customer's own in-app feed.
 //
@@ -12,10 +14,14 @@ import type { INotificationModuleService } from '@medusajs/framework/types';
 // so one customer cannot list another customer's notifications (IDOR prevention).
 //
 // Auth + rate-limit middleware is registered in src/api/middlewares.ts.
-// This route is read-only; mark-read (write) is deferred to Phase 5.
 //
-// read_at: the base Notification Module does not track read state (Phase 5);
-// it is returned as null for all rows until mark-read is implemented.
+// read_at: sourced from the notification_read packs side-table (Task 1).
+// Rows that have no entry in that table are returned with read_at: null.
+//
+// unread_count: page-scoped count of rows in the returned page whose read_at is
+// null (limited to RECENT_NOTIFICATIONS items), NOT the total unread across all
+// notifications for this customer.
+//
 // Most-recent feed page size (mirrors RECENT_TRANSACTIONS in store/credits).
 const RECENT_NOTIFICATIONS = 50;
 
@@ -34,14 +40,33 @@ export async function GET(
     { take: RECENT_NOTIFICATIONS, order: { created_at: 'DESC' } },
   );
 
+  // Batch-fetch read state for this page from the packs side-table.
+  const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
+  const notifIds = notifications.map((n) => n.id);
+  const reads =
+    notifIds.length > 0
+      ? await packs.listNotificationReads(
+          { customer_id: receiverId, notification_id: notifIds },
+          { take: notifIds.length },
+        )
+      : [];
+  const readAtById = new Map(
+    reads.map((r: { notification_id: string; read_at: Date | null }) => [
+      r.notification_id,
+      r.read_at,
+    ]),
+  );
+
+  const mapped = notifications.map((n) => ({
+    id: n.id,
+    template: n.template,
+    data: n.data,
+    created_at: n.created_at,
+    read_at: readAtById.get(n.id) ?? null,
+  }));
+
   res.json({
-    notifications: notifications.map((n) => ({
-      id: n.id,
-      template: n.template,
-      data: n.data,
-      created_at: n.created_at,
-      // read_at is not tracked by the base Notification Module (Phase 5).
-      read_at: null,
-    })),
+    notifications: mapped,
+    unread_count: mapped.filter((n) => !n.read_at).length,
   });
 }

@@ -182,21 +182,16 @@ export const OpenBuybackSchema = z.looseObject({
 
 // --- actions/wallet.ts ------------------------------------------------------
 
-/** GET /store/credits — full wallet block used by getWallet().
- *  Note: the backend does NOT nest this under a `wallet` key; the fields are
- *  returned directly on the response object alongside `transactions`.
- *  `available` = balance − locked (no backend field); we derive it client-side.
- *  `is_frozen` / `next_unlock` are not yet emitted by the credits route
- *  (Phase 5+ extension), so they are optional with safe defaults. */
+/** GET /store/credits — nested `wallet` block used by getWallet().
+ *  The backend returns `{ wallet: { balance, available, locked, is_frozen,
+ *  next_unlock }, transactions: [...] }`. getWallet() extracts
+ *  `(raw as { wallet? }).wallet` and parses it with this schema. */
 export const WalletSchema = z.looseObject({
   balance: finite,
-  topup_total: finite.optional(),
-  spend_total: finite.optional(),
-  is_frozen: z.boolean().optional(),
-  next_unlock: z
-    .looseObject({ amount: finite, date: z.string() })
-    .nullable()
-    .optional(),
+  available: finite,
+  locked: finite,
+  is_frozen: z.boolean(),
+  next_unlock: z.looseObject({ amount: finite, date: z.string() }).nullable(),
 });
 
 // --- actions/vip.ts ---------------------------------------------------------

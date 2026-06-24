@@ -4,16 +4,10 @@
  * Wallet server action — reads the full credit balance + freeze/unlock state.
  *
  * Backend route: GET /store/credits
- * Wire shape (flat, no nested `wallet` key):
- *   { balance, topup_total, spend_total, transactions: [...] }
+ * Wire shape: { wallet: { balance, available, locked, is_frozen, next_unlock }, transactions: [...] }
  *
- * The brief described a `wallet` block — the REAL route emits all fields at the
- * top level alongside `transactions`. We read the root object directly.
- *
- * `is_frozen` and `next_unlock` are Phase 5+ extensions not yet emitted by the
- * credits route; they are optional in WalletSchema and default to safe values.
- * `available` (balance minus locked) is not a backend field either — we derive
- * it here as `balance − locked` (both default to 0 when absent).
+ * The nested `wallet` block is extracted before parsing so WalletSchema only
+ * needs to validate the inner object (not the outer envelope).
  */
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
@@ -58,8 +52,8 @@ export async function getWallet(): Promise<WalletResult> {
       cache: 'no-store',
     });
 
-    // The credits route returns fields at the root level (no nested `wallet` key).
-    const w = parseOne(WalletSchema, raw);
+    // Extract the nested wallet block then validate it.
+    const w = parseOne(WalletSchema, (raw as { wallet?: unknown }).wallet);
     if (!w) {
       return {
         ok: false,
@@ -67,14 +61,13 @@ export async function getWallet(): Promise<WalletResult> {
       };
     }
 
-    const locked = 0; // not yet emitted by the credits route
     return {
       ok: true,
       wallet: {
         balance: w.balance,
-        available: w.balance - locked,
-        locked,
-        isFrozen: w.is_frozen ?? false,
+        available: w.available,
+        locked: w.locked,
+        isFrozen: w.is_frozen,
         nextUnlock: w.next_unlock
           ? { amount: w.next_unlock.amount, date: w.next_unlock.date }
           : null,

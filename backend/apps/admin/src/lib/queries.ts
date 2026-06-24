@@ -18,16 +18,23 @@ import {
   adjustCustomerCredits,
   deleteCard,
   deletePack,
+  freezeCustomer,
+  getCustomerAudit,
   getCustomerGacha,
   getCustomerCommissions,
   getEconomyReport,
   getReferralTree,
   listDeliveryOrders,
   listEligibleProducts,
+  reverseCommission,
+  suspendCommission,
+  unfreezeCustomer,
+  unsuspendCommission,
   updateDeliveryOrder,
   uploadImage,
   type AdminCommissionRow,
   type AdminDeliveryOrder,
+  type CustomerAudit,
   type CustomerGacha,
   type DeliveryStatus,
   type EconomyReport,
@@ -107,6 +114,16 @@ export const useCustomerCommissions = (
   useQuery({
     queryKey: qk.customerCommissions(id ?? '', page),
     queryFn: () => getCustomerCommissions(id!, page),
+    enabled: !!id,
+  });
+
+export const useCustomerAudit = (
+  id: string | null,
+  page = 0,
+): UseQueryResult<CustomerAudit> =>
+  useQuery({
+    queryKey: qk.customerAudit(id ?? '', page),
+    queryFn: () => getCustomerAudit(id!, page),
     enabled: !!id,
   });
 
@@ -214,8 +231,70 @@ export const useAdjustCredits = () => {
   return useMutation({
     mutationFn: (vars: { id: string; amount: number; note: string }) =>
       adjustCustomerCredits(vars.id, vars.amount, vars.note),
-    onSuccess: (_data, vars) =>
-      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.id, 'audit'] });
+    },
+  });
+};
+
+export const useFreezeCustomer = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; reason: string }) =>
+      freezeCustomer(vars.id, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.id, 'audit'] });
+    },
+  });
+};
+
+export const useUnfreezeCustomer = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; reason: string }) =>
+      unfreezeCustomer(vars.id, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.id, 'audit'] });
+    },
+  });
+};
+
+export const useReverseCommission = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
+      reverseCommission(vars.commId, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'audit'] });
+    },
+  });
+};
+
+export const useSuspendCommission = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
+      suspendCommission(vars.commId, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'audit'] });
+    },
+  });
+};
+
+export const useUnsuspendCommission = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
+      unsuspendCommission(vars.commId, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'audit'] });
+    },
   });
 };
 

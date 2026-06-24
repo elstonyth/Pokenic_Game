@@ -11,6 +11,7 @@ export const qk = {
   customerGacha: (id: string) => ['admin', 'customer', id, 'gacha'] as const,
   referralTree: (id: string, d: number) => ['admin', 'customer', id, 'referral-tree', d] as const,
   customerCommissions: (id: string, page: number) => ['admin', 'customer', id, 'commissions', page] as const,
+  customerAudit: (id: string, page: number) => ['admin', 'customer', id, 'audit', page] as const,
   deliveryOrders: (status?: string) =>
     ['admin', 'delivery-orders', status ?? 'all'] as const,
   deliveryOrder: (id: string) => ['admin', 'delivery-order', id] as const,

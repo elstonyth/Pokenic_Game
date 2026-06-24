@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Badge,
+  Button,
   Container,
   Heading,
   StatusBadge,
@@ -10,9 +11,16 @@ import {
 } from '@medusajs/ui';
 import { ArrowLeft } from '@medusajs/icons';
 import {
+  useAdjustCredits,
+  useCustomerAudit,
   useCustomerGacha,
+  useFreezeCustomer,
   useReferralTree,
   useCustomerCommissions,
+  useReverseCommission,
+  useSuspendCommission,
+  useUnfreezeCustomer,
+  useUnsuspendCommission,
 } from '../../../lib/queries';
 import { usd } from '../../../lib/format';
 import type { ReferralTreeNode } from '../../../lib/admin-rest';
@@ -38,10 +46,68 @@ const Customer360Page = () => {
   const { data: view } = useCustomerGacha(customerId);
   const { data: tree } = useReferralTree(customerId);
   const { data: commissionsData } = useCustomerCommissions(customerId);
+  const { data: auditData } = useCustomerAudit(customerId);
+
+  const freeze = useFreezeCustomer();
+  const unfreeze = useUnfreezeCustomer();
+  const adjustCredits = useAdjustCredits();
+  const reverseComm = useReverseCommission();
+  const suspendComm = useSuspendCommission();
+  const unsuspendComm = useUnsuspendCommission();
 
   const commissionsLoading = !commissionsData;
   const commissions = commissionsData?.commissions ?? [];
   const nodes: ReferralTreeNode[] = tree ? [tree.root, ...tree.nodes] : [];
+  const auditActions = auditData?.actions ?? [];
+  const accountState = auditData?.account_state ?? null;
+  const isFrozen = accountState?.frozen ?? false;
+
+  function promptReason(label: string): string | null {
+    return window.prompt(label) ?? null;
+  }
+
+  function handleFreeze() {
+    if (!customerId) return;
+    const reason = promptReason('Reason for freeze (required):');
+    if (!reason?.trim()) return;
+    freeze.mutate({ id: customerId, reason });
+  }
+
+  function handleUnfreeze() {
+    if (!customerId) return;
+    const reason = promptReason('Reason for unfreeze (required):');
+    if (!reason?.trim()) return;
+    unfreeze.mutate({ id: customerId, reason });
+  }
+
+  function handleAdjustCredits() {
+    if (!customerId) return;
+    const raw = promptReason('Amount (e.g. 5 or -5):');
+    if (!raw?.trim()) return;
+    const amount = parseFloat(raw);
+    if (isNaN(amount)) { alert('Invalid amount'); return; }
+    const note = promptReason('Note (required for audit trail):');
+    if (!note?.trim()) return;
+    adjustCredits.mutate({ id: customerId, amount, note });
+  }
+
+  function handleCommAction(
+    action: 'reverse' | 'suspend' | 'unsuspend',
+    commId: string,
+  ) {
+    if (!customerId) return;
+    const label = action === 'reverse'
+      ? 'Reason for reversal (required):'
+      : action === 'suspend'
+        ? 'Reason for suspension (required):'
+        : 'Reason for unsuspending (required):';
+    const reason = promptReason(label);
+    if (!reason?.trim()) return;
+    const vars = { commId, customerId, reason };
+    if (action === 'reverse') reverseComm.mutate(vars);
+    else if (action === 'suspend') suspendComm.mutate(vars);
+    else unsuspendComm.mutate(vars);
+  }
 
   return (
     <div className="flex flex-col gap-y-3">
@@ -66,6 +132,11 @@ const Customer360Page = () => {
                   {t('customer360.vipLevel', { level: view.vip.level })}
                 </Badge>
               )}
+              {isFrozen && (
+                <Badge size="small" color="red">
+                  {t('customer360.frozen')}
+                </Badge>
+              )}
             </div>
             {view?.customer.created_at && (
               <Text className="text-ui-fg-subtle mt-1" size="small">
@@ -74,6 +145,35 @@ const Customer360Page = () => {
                 })}
               </Text>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            {isFrozen ? (
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={handleUnfreeze}
+                isLoading={unfreeze.isPending}
+              >
+                {t('customer360.btnUnfreeze')}
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={handleFreeze}
+                isLoading={freeze.isPending}
+              >
+                {t('customer360.btnFreeze')}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={handleAdjustCredits}
+              isLoading={adjustCredits.isPending}
+            >
+              {t('customer360.btnAdjustCredits')}
+            </Button>
           </div>
         </div>
 
@@ -227,6 +327,7 @@ const Customer360Page = () => {
                 <Table.HeaderCell className="text-right">{t('customer360.commAmount')}</Table.HeaderCell>
                 <Table.HeaderCell>{t('customer360.commOpener')}</Table.HeaderCell>
                 <Table.HeaderCell>{t('customer360.commMatures')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('customer360.commActions')}</Table.HeaderCell>
               </Table.Row>
             </Table.Header>
             <Table.Body>
@@ -253,6 +354,120 @@ const Customer360Page = () => {
                     {c.matures_at
                       ? new Date(c.matures_at).toLocaleDateString('en-US')
                       : '—'}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <div className="flex items-center gap-1">
+                      {c.status !== 'reversed' && (
+                        <button
+                          type="button"
+                          className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
+                          onClick={() => handleCommAction('reverse', c.id)}
+                        >
+                          {t('customer360.commReverse')}
+                        </button>
+                      )}
+                      {c.status === 'available' && (
+                        <button
+                          type="button"
+                          className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
+                          onClick={() => handleCommAction('suspend', c.id)}
+                        >
+                          {t('customer360.commSuspend')}
+                        </button>
+                      )}
+                      {c.status === 'suspended' && (
+                        <button
+                          type="button"
+                          className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
+                          onClick={() => handleCommAction('unsuspend', c.id)}
+                        >
+                          {t('customer360.commUnsuspend')}
+                        </button>
+                      )}
+                    </div>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table>
+        )}
+      </Container>
+
+      {/* ── Audit timeline ──────────────────────────────────────── */}
+      <Container className="p-0">
+        <div className="px-6 py-4">
+          <Heading level="h2">{t('customer360.auditTitle')}</Heading>
+          <Text className="text-ui-fg-subtle mt-1" size="small">
+            {t('customer360.auditSubtitle')}
+          </Text>
+        </div>
+
+        {/* Account state panel */}
+        {accountState && (
+          <div className="border-t px-6 py-4">
+            <Text size="small" className="text-ui-fg-subtle mb-2">
+              {t('customer360.accountStateTitle')}
+            </Text>
+            <div className="flex items-center gap-3">
+              {accountState.frozen ? (
+                <Badge size="small" color="red">
+                  {t('customer360.accountStateFrozen')}
+                </Badge>
+              ) : (
+                <Badge size="small" color="green">
+                  {t('customer360.accountStateActive')}
+                </Badge>
+              )}
+              {accountState.freeze_cause && (
+                <Text size="small" className="text-ui-fg-subtle">
+                  {t('customer360.accountStateCause')}: {accountState.freeze_cause}
+                </Text>
+              )}
+              {accountState.frozen_at && (
+                <Text size="small" className="text-ui-fg-subtle">
+                  {t('customer360.accountStateSince', {
+                    date: new Date(accountState.frozen_at).toLocaleDateString('en-US'),
+                  })}
+                </Text>
+              )}
+            </div>
+            {accountState.freeze_reason && (
+              <Text size="small" className="text-ui-fg-subtle mt-1">
+                &ldquo;{accountState.freeze_reason}&rdquo;
+              </Text>
+            )}
+          </div>
+        )}
+
+        {!auditData ? (
+          <div className="border-t px-6 py-6">
+            <Text className="text-ui-fg-subtle">…</Text>
+          </div>
+        ) : auditActions.length === 0 ? (
+          <div className="border-t px-6 py-6">
+            <Text className="text-ui-fg-subtle">{t('customer360.auditEmpty')}</Text>
+          </div>
+        ) : (
+          <Table>
+            <Table.Header>
+              <Table.Row>
+                <Table.HeaderCell>{t('customer360.auditWhen')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('customer360.auditAction')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('customer360.auditReason')}</Table.HeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {auditActions.map((row) => (
+                <Table.Row key={row.id}>
+                  <Table.Cell className="text-ui-fg-subtle tabular-nums whitespace-nowrap">
+                    {new Date(row.created_at).toLocaleString('en-US')}
+                  </Table.Cell>
+                  <Table.Cell>
+                    {/* ponytail: t() falls back to raw action key if label missing */}
+                    {t(`customer360.action.${row.action}`, row.action)}
+                  </Table.Cell>
+                  <Table.Cell className="text-ui-fg-subtle">
+                    {row.reason ?? '—'}
                   </Table.Cell>
                 </Table.Row>
               ))}

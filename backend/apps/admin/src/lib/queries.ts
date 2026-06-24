@@ -272,7 +272,7 @@ export const useReverseCommission = () => {
     mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
       reverseCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
+      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
@@ -285,7 +285,7 @@ export const useSuspendCommission = () => {
     mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
       suspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
+      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
@@ -298,7 +298,7 @@ export const useUnsuspendCommission = () => {
     mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
       unsuspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
+      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),

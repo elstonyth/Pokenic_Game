@@ -158,7 +158,7 @@ export const getReferralTree = (id: string, maxDepth = 6) =>
 export interface AdminCommissionRow {
   id: string; generation: number; kind: 'direct' | 'override';
   status: 'pending' | 'available' | 'suspended' | 'reversed';
-  amount: string; reason: string; matures_at: string | null;
+  amount: string; reason: string; matures_at: string;
   reversal_transaction_id: string | null; source_transaction_id: string;
   opener: { customer_id: string | null; handle: string | null }; created_at: string;
 }

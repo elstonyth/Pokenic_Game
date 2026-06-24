@@ -12,6 +12,8 @@ export const qk = {
   referralTree: (id: string, d: number) => ['admin', 'customer', id, 'referral-tree', d] as const,
   customerCommissions: (id: string, page: number) => ['admin', 'customer', id, 'commissions', page] as const,
   customerAudit: (id: string, page: number) => ['admin', 'customer', id, 'audit', page] as const,
+  // 4-segment prefix — invalidates ALL pages of a customer's commissions in one call
+  customerCommissionsKey: (id: string) => ['admin', 'customer', id, 'commissions'] as const,
   // 4-segment prefix — invalidates ALL pages of a customer's audit in one call
   customerAuditKey: (id: string) => ['admin', 'customer', id, 'audit'] as const,
   deliveryOrders: (status?: string) =>

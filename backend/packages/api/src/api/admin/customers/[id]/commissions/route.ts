@@ -3,7 +3,7 @@ import { Modules } from '@medusajs/framework/utils';
 import type { ICustomerModuleService } from '@medusajs/framework/types';
 import { PACKS_MODULE } from '../../../../../modules/packs';
 import type PacksModuleService from '../../../../../modules/packs/service';
-import { HANDLE_RE } from '../../../../../utils/profile-handle';
+import { enrichCustomers } from '../../../../../utils/enrich-customers';
 
 export async function GET(req: MedusaRequest, res: MedusaResponse): Promise<void> {
   const { id } = req.params;
@@ -15,13 +15,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse): Promise<void
 
   const openerIds = [...new Set(rows.map((r) => r.opener_customer_id).filter(Boolean) as string[])];
   const customerService = req.scope.resolve<ICustomerModuleService>(Modules.CUSTOMER);
-  const customers = openerIds.length
-    ? await customerService.listCustomers({ id: openerIds }, { take: openerIds.length })
-    : [];
-  const handleById = new Map(customers.map((c) => {
-    const h = (c.metadata ?? {})['handle'];
-    return [c.id, typeof h === 'string' && HANDLE_RE.test(h) ? h : null];
-  }));
+  const idMap = await enrichCustomers(openerIds, customerService);
 
   res.json({
     commissions: rows.map((r) => ({
@@ -31,7 +25,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse): Promise<void
       source_transaction_id: r.source_transaction_id,
       opener: {
         customer_id: r.opener_customer_id,
-        handle: r.opener_customer_id ? (handleById.get(r.opener_customer_id) ?? null) : null,
+        handle: r.opener_customer_id ? (idMap.get(r.opener_customer_id)?.handle ?? null) : null,
       },
       created_at: r.created_at,
     })),

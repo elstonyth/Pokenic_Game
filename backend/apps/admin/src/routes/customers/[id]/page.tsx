@@ -69,7 +69,6 @@ const Customer360Page = () => {
   const suspendComm = useSuspendCommission();
   const unsuspendComm = useUnsuspendCommission();
 
-  const commissionsLoading = !commissionsData;
   const commissions = commissionsData?.commissions ?? [];
   const nodes: ReferralTreeNode[] = tree ? [tree.root, ...tree.nodes] : [];
   const auditActions = (auditData?.actions ?? [])
@@ -425,7 +424,7 @@ const Customer360Page = () => {
           </Text>
         </div>
 
-        {commissionsLoading ? (
+        {!commissionsData ? (
           <div className="border-t px-6 py-6">
             <Text className="text-ui-fg-subtle">…</Text>
           </div>

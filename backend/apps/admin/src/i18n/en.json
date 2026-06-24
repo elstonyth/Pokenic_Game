@@ -223,7 +223,6 @@
     "treeTitle": "Referral tree",
     "treeSubtitle": "Direct recruits and their downline — up to 6 levels deep.",
     "treeTruncated": "Tree exceeds 1 000 nodes — showing the first 1 000. Open a subtree to explore deeper.",
-    "treeEmpty": "No referrals found.",
     "treeHandle": "Handle / email",
     "treeDepth": "Depth",
     "treeRecruits": "Direct recruits",

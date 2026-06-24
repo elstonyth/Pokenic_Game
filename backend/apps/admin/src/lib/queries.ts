@@ -4,6 +4,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { toast } from '@medusajs/ui';
 import {
   packsApi,
   type AdminCard,
@@ -233,8 +234,9 @@ export const useAdjustCredits = () => {
       adjustCustomerCredits(vars.id, vars.amount, vars.note),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.id, 'audit'] });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 
@@ -245,8 +247,9 @@ export const useFreezeCustomer = () => {
       freezeCustomer(vars.id, vars.reason),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.id, 'audit'] });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 
@@ -257,8 +260,9 @@ export const useUnfreezeCustomer = () => {
       unfreezeCustomer(vars.id, vars.reason),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.id, 'audit'] });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 
@@ -269,8 +273,9 @@ export const useReverseCommission = () => {
       reverseCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'audit'] });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 
@@ -281,8 +286,9 @@ export const useSuspendCommission = () => {
       suspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'audit'] });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 
@@ -293,8 +299,9 @@ export const useUnsuspendCommission = () => {
       unsuspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'commissions'] });
-      qc.invalidateQueries({ queryKey: ['admin', 'customer', vars.customerId, 'audit'] });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -5,9 +6,13 @@ import {
   Button,
   Container,
   Heading,
+  Input,
+  Label,
+  Prompt,
   StatusBadge,
   Table,
   Text,
+  toast,
 } from '@medusajs/ui';
 import { ArrowLeft } from '@medusajs/icons';
 import {
@@ -37,6 +42,15 @@ const COMMISSION_STATUS_COLOR: Record<
   reversed: 'grey',
 };
 
+// Which modal is open. null = none.
+type ModalKind =
+  | 'freeze'
+  | 'unfreeze'
+  | 'credits'
+  | 'reverse'
+  | 'suspend'
+  | 'unsuspend';
+
 const Customer360Page = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -58,56 +72,96 @@ const Customer360Page = () => {
   const commissionsLoading = !commissionsData;
   const commissions = commissionsData?.commissions ?? [];
   const nodes: ReferralTreeNode[] = tree ? [tree.root, ...tree.nodes] : [];
-  const auditActions = auditData?.actions ?? [];
+  const auditActions = (auditData?.actions ?? [])
+    // ponytail: belt-and-suspenders — backend already orders DESC; sort client-side to guarantee newest-first regardless of fetch order
+    .slice()
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const accountState = auditData?.account_state ?? null;
   const isFrozen = accountState?.frozen ?? false;
 
-  function promptReason(label: string): string | null {
-    return window.prompt(label) ?? null;
-  }
+  // ── Modal state ─────────────────────────────────────────────────────────────
+  const [modal, setModal] = useState<ModalKind | null>(null);
+  // shared reason field (freeze / unfreeze / reverse / suspend / unsuspend)
+  const [reason, setReason] = useState('');
+  // credits-specific fields
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditNote, setCreditNote] = useState('');
+  // target commission id for commission actions
+  const [targetCommId, setTargetCommId] = useState('');
 
-  function handleFreeze() {
-    if (!customerId) return;
-    const reason = promptReason('Reason for freeze (required):');
-    if (!reason?.trim()) return;
+  function openModal(kind: ModalKind, commId = '') {
+    setReason('');
+    setCreditAmount('');
+    setCreditNote('');
+    setTargetCommId(commId);
+    setModal(kind);
+  }
+  function closeModal() { setModal(null); }
+
+  // ── Action handlers (called from Prompt.Action) ──────────────────────────
+  function applyFreeze() {
+    if (!customerId || !reason.trim()) return;
+    closeModal();
     freeze.mutate({ id: customerId, reason });
   }
 
-  function handleUnfreeze() {
-    if (!customerId) return;
-    const reason = promptReason('Reason for unfreeze (required):');
-    if (!reason?.trim()) return;
+  function applyUnfreeze() {
+    if (!customerId || !reason.trim()) return;
+    closeModal();
     unfreeze.mutate({ id: customerId, reason });
   }
 
-  function handleAdjustCredits() {
+  function applyAdjustCredits() {
     if (!customerId) return;
-    const raw = promptReason('Amount (e.g. 5 or -5):');
-    if (!raw?.trim()) return;
-    const amount = parseFloat(raw);
-    if (isNaN(amount)) { alert('Invalid amount'); return; }
-    const note = promptReason('Note (required for audit trail):');
-    if (!note?.trim()) return;
-    adjustCredits.mutate({ id: customerId, amount, note });
+    const amount = Number(creditAmount.trim());
+    if (!Number.isFinite(amount)) {
+      toast.error(t('support.adjustInvalid'));
+      return;
+    }
+    if (!creditNote.trim()) return;
+    closeModal();
+    adjustCredits.mutate({ id: customerId, amount, note: creditNote });
   }
 
-  function handleCommAction(
-    action: 'reverse' | 'suspend' | 'unsuspend',
-    commId: string,
-  ) {
-    if (!customerId) return;
-    const label = action === 'reverse'
-      ? 'Reason for reversal (required):'
-      : action === 'suspend'
-        ? 'Reason for suspension (required):'
-        : 'Reason for unsuspending (required):';
-    const reason = promptReason(label);
-    if (!reason?.trim()) return;
-    const vars = { commId, customerId, reason };
-    if (action === 'reverse') reverseComm.mutate(vars);
-    else if (action === 'suspend') suspendComm.mutate(vars);
-    else unsuspendComm.mutate(vars);
+  function applyCommAction() {
+    if (!customerId || !targetCommId || !reason.trim()) return;
+    const vars = { commId: targetCommId, customerId, reason };
+    closeModal();
+    if (modal === 'reverse') reverseComm.mutate(vars);
+    else if (modal === 'suspend') suspendComm.mutate(vars);
+    else if (modal === 'unsuspend') unsuspendComm.mutate(vars);
   }
+
+  // ── Prompt titles / descriptions per modal kind ──────────────────────────
+  const MODAL_TITLE: Record<ModalKind, string> = {
+    freeze:    t('customer360.modalFreezeTitle'),
+    unfreeze:  t('customer360.modalUnfreezeTitle'),
+    credits:   t('customer360.modalCreditsTitle'),
+    reverse:   t('customer360.modalReverseTitle'),
+    suspend:   t('customer360.modalSuspendTitle'),
+    unsuspend: t('customer360.modalUnsuspendTitle'),
+  };
+
+  const MODAL_DESC: Record<ModalKind, string> = {
+    freeze:    t('customer360.modalFreezeDesc'),
+    unfreeze:  t('customer360.modalUnfreezeDesc'),
+    credits:   t('customer360.modalCreditsDesc'),
+    reverse:   t('customer360.modalReverseDesc'),
+    suspend:   t('customer360.modalSuspendDesc'),
+    unsuspend: t('customer360.modalUnsuspendDesc'),
+  };
+
+  function handleConfirm() {
+    if (modal === 'freeze')     applyFreeze();
+    else if (modal === 'unfreeze')   applyUnfreeze();
+    else if (modal === 'credits')    applyAdjustCredits();
+    else applyCommAction();
+  }
+
+  const confirmDisabled =
+    modal === 'credits'
+      ? !creditAmount.trim() || !creditNote.trim()
+      : !reason.trim();
 
   return (
     <div className="flex flex-col gap-y-3">
@@ -151,7 +205,7 @@ const Customer360Page = () => {
               <Button
                 variant="secondary"
                 size="small"
-                onClick={handleUnfreeze}
+                onClick={() => openModal('unfreeze')}
                 isLoading={unfreeze.isPending}
               >
                 {t('customer360.btnUnfreeze')}
@@ -160,7 +214,7 @@ const Customer360Page = () => {
               <Button
                 variant="secondary"
                 size="small"
-                onClick={handleFreeze}
+                onClick={() => openModal('freeze')}
                 isLoading={freeze.isPending}
               >
                 {t('customer360.btnFreeze')}
@@ -169,7 +223,7 @@ const Customer360Page = () => {
             <Button
               variant="secondary"
               size="small"
-              onClick={handleAdjustCredits}
+              onClick={() => openModal('credits')}
               isLoading={adjustCredits.isPending}
             >
               {t('customer360.btnAdjustCredits')}
@@ -214,6 +268,66 @@ const Customer360Page = () => {
           </div>
         )}
       </Container>
+
+      {/* ── Prompt modal — single instance, content varies by modal kind ─── */}
+      <Prompt open={modal !== null} onOpenChange={(open) => { if (!open) closeModal(); }}>
+        <Prompt.Content>
+          <Prompt.Header>
+            <Prompt.Title>{modal ? MODAL_TITLE[modal] : ''}</Prompt.Title>
+            <Prompt.Description>{modal ? MODAL_DESC[modal] : ''}</Prompt.Description>
+          </Prompt.Header>
+
+          <div className="flex flex-col gap-3 px-6 pb-2">
+            {modal === 'credits' ? (
+              <>
+                <div>
+                  <Label htmlFor="c360-amount" size="small">
+                    {t('support.adjustAmount')}
+                  </Label>
+                  <Input
+                    id="c360-amount"
+                    value={creditAmount}
+                    placeholder={t('support.adjustAmount')}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="c360-note" size="small">
+                    {t('support.adjustNote')}
+                  </Label>
+                  <Input
+                    id="c360-note"
+                    value={creditNote}
+                    placeholder={t('support.adjustNote')}
+                    onChange={(e) => setCreditNote(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <Label htmlFor="c360-reason" size="small">
+                  {t('customer360.modalReasonLabel')}
+                </Label>
+                <Input
+                  id="c360-reason"
+                  value={reason}
+                  placeholder={t('customer360.modalReasonPlaceholder')}
+                  onChange={(e) => setReason(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            )}
+          </div>
+
+          <Prompt.Footer>
+            <Prompt.Cancel>{t('support.adjustCancel')}</Prompt.Cancel>
+            <Prompt.Action onClick={handleConfirm} disabled={confirmDisabled}>
+              {t('support.adjustConfirm')}
+            </Prompt.Action>
+          </Prompt.Footer>
+        </Prompt.Content>
+      </Prompt>
 
       {/* ── Referral tree ───────────────────────────────────────── */}
       <Container className="p-0">
@@ -361,7 +475,7 @@ const Customer360Page = () => {
                         <button
                           type="button"
                           className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
-                          onClick={() => handleCommAction('reverse', c.id)}
+                          onClick={() => openModal('reverse', c.id)}
                         >
                           {t('customer360.commReverse')}
                         </button>
@@ -370,7 +484,7 @@ const Customer360Page = () => {
                         <button
                           type="button"
                           className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
-                          onClick={() => handleCommAction('suspend', c.id)}
+                          onClick={() => openModal('suspend', c.id)}
                         >
                           {t('customer360.commSuspend')}
                         </button>
@@ -379,7 +493,7 @@ const Customer360Page = () => {
                         <button
                           type="button"
                           className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
-                          onClick={() => handleCommAction('unsuspend', c.id)}
+                          onClick={() => openModal('unsuspend', c.id)}
                         >
                           {t('customer360.commUnsuspend')}
                         </button>

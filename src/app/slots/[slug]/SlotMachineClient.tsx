@@ -259,7 +259,7 @@ export default function SlotMachineClient({
       {/* Top bar */}
       <div className="flex items-center justify-between gap-4 px-fluid py-4">
         <Link
-          href="/slots"
+          href={`/slots/${pack.id}`}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white/55 transition-colors hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Exit

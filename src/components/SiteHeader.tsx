@@ -43,7 +43,7 @@ type NavItem = {
 // Pack Party collapses to a non-clickable "Coming Soon" tab. Flip the env vars
 // (see src/lib/features.ts) to restore the real links.
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Packs', href: '/claw', icon: Layers, badge: 'NEW' },
+  { label: 'Packs', href: '/slots', icon: Layers, badge: 'NEW' },
   features.packParty
     ? { label: 'Pack Party', href: '/pack-party', icon: PartyPopper }
     : {

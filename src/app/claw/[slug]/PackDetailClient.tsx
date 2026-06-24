@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   ArrowLeft,
@@ -74,6 +75,7 @@ export default function PackDetailClient({
   siblings,
   detail,
   recentPulls,
+  mode = 'claw',
 }: {
   pack: ResolvedPack;
   siblings: Pack[];
@@ -81,9 +83,14 @@ export default function PackDetailClient({
   detail: PackDetail | null;
   /** Live pull ledger feed; empty array when there are no pulls / backend down. */
   recentPulls: RecentPull[];
+  /** 'claw' (default): "Open Pack" reveals in-place via PackOpenOverlay. 'slots':
+   *  "Open Pack" navigates to the slot-machine reel (/slots/[slug]/spin), which
+   *  performs the single charge on spin — this screen never charges. */
+  mode?: 'claw' | 'slots';
 }) {
   const reduced = usePrefersReducedMotion();
   const { customer } = useAuth();
+  const router = useRouter();
   const [active, setActive] = useState<Pack>(pack);
   const [qty, setQty] = useState(1);
   // `opening` guards the async server round-trip; `openError` surfaces a friendly
@@ -155,7 +162,10 @@ export default function PackDetailClient({
   );
   const topHits = detail?.topHits ?? mockTopHits;
 
-  const setQ = (n: number) => setQty(Math.min(99, Math.max(1, n)));
+  // The reel (openBatch) caps a single open at 3 packs; the /claw overlay flow
+  // keeps the live site's cosmetic up-to-99 framing.
+  const maxQty = mode === 'slots' ? 3 : 99;
+  const setQ = (n: number) => setQty(Math.min(maxQty, Math.max(1, n)));
 
   // Free demo spin — a client-side WEIGHTED sample over the published odds
   // drives the same reveal overlay. Pure theater: no backend call, no Pull row,
@@ -232,6 +242,26 @@ export default function PackDetailClient({
     }
   }
 
+  // Slots mode: do NOT open/charge here — navigate to the reel, which performs
+  // the single charge via openBatch when the user pulls the lever. Auth + balance
+  // are pre-checked so we don't drop into the immersive reel only to bounce to
+  // login or a credit shortfall. (Deliberately navigate-then-lever, not
+  // auto-spin, so a reel page refresh can never re-charge.)
+  function handleGoToReel() {
+    if (!customer) {
+      openAuth('login');
+      return;
+    }
+    if (balance !== null && balance < priceNum * qty) {
+      setNeedsTopUp(true);
+      setOpenError('Not enough credits to open.');
+      return;
+    }
+    setOpenError(null);
+    setNeedsTopUp(false);
+    router.push(`/slots/${active.id}/spin?count=${qty}`);
+  }
+
   function reset() {
     setReveal(null);
     setOpenError(null);
@@ -242,7 +272,7 @@ export default function PackDetailClient({
     <div className="mx-auto w-full px-fluid py-4">
       {/* Back link */}
       <Link
-        href="/claw"
+        href={mode === 'slots' ? '/slots' : '/claw'}
         className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-white/55 transition-colors hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -436,7 +466,7 @@ export default function PackDetailClient({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setQ(99)}
+                  onClick={() => setQ(maxQty)}
                   className="flex h-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-[12px] font-bold uppercase tracking-wide text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                 >
                   Max
@@ -448,7 +478,7 @@ export default function PackDetailClient({
             <div className="border-t border-white/10 p-4">
               <button
                 type="button"
-                onClick={handleOpenPack}
+                onClick={mode === 'slots' ? handleGoToReel : handleOpenPack}
                 disabled={opening}
                 className="flex h-12 w-full items-center justify-between rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 px-5 text-sm font-bold text-white shadow-lg shadow-emerald-900/30 transition-opacity hover:opacity-95 disabled:opacity-60"
               >

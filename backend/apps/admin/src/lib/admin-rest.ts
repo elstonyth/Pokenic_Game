@@ -143,6 +143,102 @@ export async function getCustomerGacha(id: string): Promise<CustomerGacha> {
   );
 }
 
+// ── Customer 360: referral tree + commissions (Phase 4 P4.1) ─────────────────
+
+export interface ReferralTreeNode {
+  customer_id: string; depth: number; sponsor_id: string | null;
+  vip_level: number | null; lifetime_external_spend_sen: string;
+  frozen: boolean; direct_recruit_count: number; has_more_depth: boolean;
+  handle: string | null; email: string | null; created_at: string | null;
+}
+export interface ReferralTree { root: ReferralTreeNode; nodes: ReferralTreeNode[]; maxDepth: number; truncated: boolean; }
+export const getReferralTree = (id: string, maxDepth = 6) =>
+  getJson<ReferralTree>(`/admin/customers/${encodeURIComponent(id)}/referral-tree?maxDepth=${maxDepth}`);
+
+export interface AdminCommissionRow {
+  id: string; generation: number; kind: 'direct' | 'override';
+  status: 'pending' | 'available' | 'suspended' | 'reversed';
+  amount: string; reason: string; matures_at: string;
+  reversal_transaction_id: string | null; source_transaction_id: string;
+  opener: { customer_id: string | null; handle: string | null }; created_at: string;
+}
+export const getCustomerCommissions = (id: string, page = 0, limit = 50) =>
+  getJson<{ commissions: AdminCommissionRow[] }>(`/admin/customers/${encodeURIComponent(id)}/commissions?limit=${limit}&offset=${page * limit}`);
+
+// ── Phase 4 P4.2 — audit timeline ───────────────────────────────────────────
+
+export interface AuditRow {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  before: unknown;
+  after: unknown;
+  reason: string | null;
+  created_at: string;
+  admin_id: string;
+}
+
+export interface AccountState {
+  frozen: boolean;
+  freeze_reason: string | null;
+  freeze_cause: string | null;
+  frozen_at: string | null;
+}
+
+export interface CustomerAudit {
+  account_state: AccountState | null;
+  actions: AuditRow[];
+}
+
+export const getCustomerAudit = (id: string, page = 0, limit = 50) =>
+  getJson<CustomerAudit>(
+    `/admin/customers/${encodeURIComponent(id)}/audit?limit=${limit}&offset=${page * limit}`,
+  );
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${__BACKEND_URL__}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res));
+  }
+  return (await res.json()) as T;
+}
+
+export const freezeCustomer = (id: string, reason: string) =>
+  postJson<{ frozen: boolean }>(
+    `/admin/customers/${encodeURIComponent(id)}/freeze`,
+    { reason },
+  );
+
+export const unfreezeCustomer = (id: string, reason: string) =>
+  postJson<{ frozen: boolean }>(
+    `/admin/customers/${encodeURIComponent(id)}/unfreeze`,
+    { reason },
+  );
+
+export const reverseCommission = (commId: string, reason: string) =>
+  postJson<{ reversed: boolean }>(
+    `/admin/commissions/${encodeURIComponent(commId)}/reverse`,
+    { reason },
+  );
+
+export const suspendCommission = (commId: string, reason: string) =>
+  postJson<{ suspended: boolean }>(
+    `/admin/commissions/${encodeURIComponent(commId)}/suspend`,
+    { reason },
+  );
+
+export const unsuspendCommission = (commId: string, reason: string) =>
+  postJson<{ suspended: boolean }>(
+    `/admin/commissions/${encodeURIComponent(commId)}/unsuspend`,
+    { reason },
+  );
+
 // Operator credit adjustment: signed amount, required audit note. The backend
 // enforces the $0 balance floor and returns the fresh balance.
 export async function adjustCustomerCredits(

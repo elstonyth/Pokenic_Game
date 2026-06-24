@@ -120,6 +120,46 @@ export type SettleOpenResult = {
   commissions: CommissionPaid[];
 };
 
+/** Phase 4 P4.1 — Admin referral tree node (read-only, zero migrations). */
+export type PacksTreeNode = {
+  customer_id: string;
+  depth: number;                        // root = 0; direct recruits = 1
+  sponsor_id: string | null;
+  vip_level: number | null;
+  lifetime_external_spend_sen: string;
+  frozen: boolean;
+  direct_recruit_count: number;
+  has_more_depth: boolean;              // depth === maxDepth && direct_recruit_count > 0
+};
+
+/** Phase 4 P4.1 — commission row returned by commissionsForBeneficiary (read-only). */
+export type CommissionRow = {
+  id: string;
+  generation: number;
+  kind: 'direct' | 'override';
+  status: 'pending' | 'available' | 'suspended' | 'reversed';
+  amount: string;
+  reason: 'direct_referral' | 'team_override';
+  matures_at: string;
+  reversal_transaction_id: string | null;
+  source_transaction_id: string;
+  opener_customer_id: string | null;
+  created_at: string;
+};
+
+/** Phase 4 P4.2 — admin audit timeline row (read-only, zero migrations). */
+export type AuditRow = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  before: any;
+  after: any;
+  reason: string | null;
+  created_at: string;
+  admin_id: string;
+};
+
 /** The transactional MikroORM manager surface we use for the advisory lock +
  *  the Σ-ledger read. `?` placeholders are inlined by MikroORM's formatQuery. */
 type LedgerSqlManager = {
@@ -1745,6 +1785,186 @@ class PacksModuleService extends MedusaService({
       downstreamCount,
       totalEarned,
     };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Phase 4 P4.1 — Admin Observability: referral tree
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Downward recursive CTE: walks DESCENDANTS (children) of customerId, never
+  // ancestors. Join direction: r.sponsor_id = t.node_id (DOWN, opposite of the
+  // two existing upward CTEs in this file at ~1298 and ~1510).
+  @InjectManager()
+  async referralTreeFor(
+    customerId: string,
+    maxDepth: number,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ root: PacksTreeNode; nodes: PacksTreeNode[]; maxDepth: number; truncated: boolean }> {
+    const depth = Math.max(1, Math.min(10, Math.floor(Number(maxDepth)) || 6));
+    const em = (sharedContext.transactionManager ?? sharedContext.manager) as unknown as LedgerSqlManager;
+
+    // ponytail: LIMIT 1001 → detect >1000 without fetching more rows
+    const rows = await em.execute<{ node_id: string; sponsor_id: string; depth: number }[]>(
+      `WITH RECURSIVE tree AS (
+         SELECT customer_id AS node_id, sponsor_id, 1 AS depth
+           FROM referral_relationship
+           WHERE sponsor_id = ? AND deleted_at IS NULL
+         UNION ALL
+         SELECT r.customer_id, r.sponsor_id, t.depth + 1
+           FROM referral_relationship r
+           JOIN tree t ON r.sponsor_id = t.node_id
+           WHERE r.deleted_at IS NULL AND t.depth < ?
+       )
+       SELECT node_id, sponsor_id, depth FROM tree ORDER BY depth, node_id LIMIT 1001`,
+      [customerId, depth],
+    );
+    const truncated = rows.length > 1000;
+    const trimmed = truncated ? rows.slice(0, 1000) : rows;
+
+    const allIds = [customerId, ...trimmed.map((r) => r.node_id)];
+    const enrich = await this.enrichReferralNodes(allIds, em);
+
+    const root: PacksTreeNode = {
+      customer_id: customerId,
+      depth: 0,
+      sponsor_id: enrich.sponsorOf.get(customerId) ?? null,
+      vip_level: enrich.vipLevel.get(customerId) ?? null,
+      lifetime_external_spend_sen: enrich.lifetimeSen.get(customerId) ?? '0',
+      frozen: enrich.frozen.get(customerId) ?? false,
+      direct_recruit_count: enrich.recruitCount.get(customerId) ?? 0,
+      has_more_depth: false,
+    };
+    const nodes: PacksTreeNode[] = trimmed.map((r) => ({
+      customer_id: r.node_id,
+      depth: r.depth,
+      sponsor_id: r.sponsor_id ?? null,
+      vip_level: enrich.vipLevel.get(r.node_id) ?? null,
+      lifetime_external_spend_sen: enrich.lifetimeSen.get(r.node_id) ?? '0',
+      frozen: enrich.frozen.get(r.node_id) ?? false,
+      direct_recruit_count: enrich.recruitCount.get(r.node_id) ?? 0,
+      has_more_depth: r.depth === depth && (enrich.recruitCount.get(r.node_id) ?? 0) > 0,
+    }));
+
+    return { root, nodes, maxDepth: depth, truncated };
+  }
+
+  @InjectManager()
+  async commissionsForBeneficiary(
+    customerId: string,
+    opts: { limit: number; offset: number },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<CommissionRow[]> {
+    const em = (sharedContext.transactionManager ?? sharedContext.manager) as unknown as LedgerSqlManager;
+    const limit = Math.max(1, Math.min(200, Math.floor(opts.limit ?? 50)));
+    const offset = Math.max(0, Math.floor(opts.offset) || 0);
+
+    const rows = await em.execute<any[]>(
+      `SELECT c.id, c.generation, c.kind, c.status, c.matures_at,
+              c.source_transaction_id, c.reversal_transaction_id, c.created_at,
+              ct.amount, ct.reason
+         FROM commission c
+         JOIN credit_transaction ct ON ct.id = c.credit_transaction_id AND ct.deleted_at IS NULL
+         WHERE c.beneficiary = ? AND c.deleted_at IS NULL
+         ORDER BY c.created_at DESC, c.id DESC
+         LIMIT ? OFFSET ?`,
+      [customerId, limit, offset],
+    );
+    if (rows.length === 0) return [];
+
+    // opener provenance: source_transaction_id → the ORIGINAL pack_open debit (amount<0)
+    // ponytail: amount<0 guard — reverseOpen appends a compensating POSITIVE pack_open row
+    // sharing the same source_transaction_id; without this filter the join double-counts.
+    const openIds = [...new Set(rows.map((r) => r.source_transaction_id))];
+    const ph = openIds.map(() => '?').join(',');
+    const opens = await em.execute<{ source_transaction_id: string; customer_id: string }[]>(
+      `SELECT source_transaction_id, customer_id FROM credit_transaction
+         WHERE source_transaction_id IN (${ph})
+           AND reason = 'pack_open' AND amount < 0 AND deleted_at IS NULL`,
+      openIds,
+    );
+    const openerOf = new Map(opens.map((o) => [o.source_transaction_id, o.customer_id]));
+
+    return rows.map((r) => ({
+      id: r.id,
+      generation: Number(r.generation),
+      kind: r.kind,
+      status: r.status,
+      amount: String(r.amount),
+      reason: r.reason,
+      matures_at: r.matures_at,
+      reversal_transaction_id: r.reversal_transaction_id ?? null,
+      source_transaction_id: r.source_transaction_id,
+      opener_customer_id: openerOf.get(r.source_transaction_id) ?? null,
+      created_at: r.created_at,
+    }));
+  }
+
+  /** Phase 4 P4.2 — 3-way audit union for a customer.
+   *
+   *  Covers all three entity_type keys used by admin_action_audit:
+   *    (a) entity_type='customer'   keyed by customerId          (freeze/unfreeze)
+   *    (b) entity_type='commission' keyed by commission.id       (reverse/suspend/unsuspend)
+   *    (c) entity_type='credit'     keyed by credit_transaction.id (adjust_credit)
+   *
+   *  A single entity_id=customerId filter silently drops (b) and (c).
+   *  "before"/"after" are double-quoted — reserved words in SQL.
+   */
+  @InjectManager()
+  async auditForCustomer(
+    customerId: string,
+    opts: { limit: number; offset: number },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ account_state: any | null; actions: AuditRow[] }> {
+    const em = (sharedContext.transactionManager ?? sharedContext.manager) as unknown as LedgerSqlManager;
+    const limit = Math.max(1, Math.min(200, Math.floor(opts.limit) || 50));
+    const offset = Math.max(0, Math.floor(opts.offset) || 0);
+
+    const actions = await em.execute<AuditRow[]>(
+      `SELECT id, entity_type, entity_id, action, "before", "after", reason, created_at, admin_id
+         FROM admin_action_audit
+         WHERE deleted_at IS NULL AND (
+           (entity_type = 'customer' AND entity_id = ?)
+           OR (entity_type = 'commission' AND entity_id IN
+                (SELECT id FROM commission WHERE beneficiary = ? AND deleted_at IS NULL))
+           OR (entity_type = 'credit' AND entity_id IN
+                (SELECT id FROM credit_transaction WHERE customer_id = ? AND reason = 'adjustment' AND deleted_at IS NULL))
+         )
+         ORDER BY created_at DESC
+         LIMIT ? OFFSET ?`,
+      [customerId, customerId, customerId, limit, offset],
+    );
+    const [state] = await this.listCustomerAccountStates({ customer_id: customerId }, { take: 1 }, sharedContext);
+    return { account_state: state ?? null, actions };
+  }
+
+  // Batched enrichment for referral tree nodes — packs-owned tables only
+  // (no cross-module calls at the service level; customer identity resolved at route).
+  private async enrichReferralNodes(ids: string[], em: LedgerSqlManager) {
+    const sponsorOf = new Map<string, string>();
+    const vipLevel = new Map<string, number>();
+    const lifetimeSen = new Map<string, string>();
+    const frozen = new Map<string, boolean>();
+    const recruitCount = new Map<string, number>();
+    if (ids.length === 0) return { sponsorOf, vipLevel, lifetimeSen, frozen, recruitCount };
+
+    const ph = ids.map(() => '?').join(',');
+    // Sequential to avoid concurrent queries on the shared injected EntityManager.
+    const rels = await em.execute<{ customer_id: string; sponsor_id: string }[]>(
+      `SELECT customer_id, sponsor_id FROM referral_relationship WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids);
+    const vms = await em.execute<{ customer_id: string; current_level: number; lifetime_external_spend_sen: string }[]>(
+      `SELECT customer_id, current_level, lifetime_external_spend_sen FROM vip_member_state WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids);
+    const cas = await em.execute<{ customer_id: string; frozen: boolean }[]>(
+      `SELECT customer_id, frozen FROM customer_account_state WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids);
+    const counts = await em.execute<{ sponsor_id: string; n: string }[]>(
+      `SELECT sponsor_id, COUNT(*) AS n FROM referral_relationship WHERE sponsor_id IN (${ph}) AND deleted_at IS NULL GROUP BY sponsor_id`, ids);
+    for (const r of rels) sponsorOf.set(r.customer_id, r.sponsor_id);
+    for (const r of vms) {
+      vipLevel.set(r.customer_id, Number(r.current_level));
+      lifetimeSen.set(r.customer_id, String(r.lifetime_external_spend_sen));
+    }
+    for (const r of cas) frozen.set(r.customer_id, Boolean(r.frozen));
+    for (const r of counts) recruitCount.set(r.sponsor_id, Number(r.n));
+    return { sponsorOf, vipLevel, lifetimeSen, frozen, recruitCount };
   }
 
   // Delete-guard (spec §3 invariant 1): money rows backing a commission are

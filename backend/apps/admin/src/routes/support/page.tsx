@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Badge,
@@ -27,6 +28,7 @@ export const config: RouteConfig = {
 
 const SupportPage = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SupportCustomer[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -94,8 +96,8 @@ const SupportPage = () => {
       // Invalidation (in the hook) refetches the customer view → fresh ledger row.
       setAmount("");
       setNote("");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+    } catch {
+      // onError in useAdjustCredits already toasts; suppress double toast here.
     }
   };
 
@@ -179,13 +181,22 @@ const SupportPage = () => {
                   })}
                 </Text>
               </div>
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={() => setSelectedId(null)}
-              >
-                {t("support.back")}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => navigate('/customers/' + view.customer.id)}
+                >
+                  {t("customer360.viewButton")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => setSelectedId(null)}
+                >
+                  {t("support.back")}
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-px border-t bg-ui-border-base md:grid-cols-3">
               <div className="bg-ui-bg-subtle px-6 py-4">

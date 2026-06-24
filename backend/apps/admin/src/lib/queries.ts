@@ -4,6 +4,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { toast } from '@medusajs/ui';
 import {
   packsApi,
   type AdminCard,
@@ -18,17 +19,28 @@ import {
   adjustCustomerCredits,
   deleteCard,
   deletePack,
+  freezeCustomer,
+  getCustomerAudit,
   getCustomerGacha,
+  getCustomerCommissions,
   getEconomyReport,
+  getReferralTree,
   listDeliveryOrders,
   listEligibleProducts,
+  reverseCommission,
+  suspendCommission,
+  unfreezeCustomer,
+  unsuspendCommission,
   updateDeliveryOrder,
   uploadImage,
+  type AdminCommissionRow,
   type AdminDeliveryOrder,
+  type CustomerAudit,
   type CustomerGacha,
   type DeliveryStatus,
   type EconomyReport,
   type EligibleProduct,
+  type ReferralTree,
 } from './admin-rest';
 import type { OddsInput } from '@acme/odds-math';
 import { qk } from './query-keys';
@@ -83,6 +95,36 @@ export const useCustomerGacha = (
   useQuery({
     queryKey: qk.customerGacha(id ?? ''),
     queryFn: () => getCustomerGacha(id as string),
+    enabled: !!id,
+  });
+
+export const useReferralTree = (
+  id: string | null,
+  maxDepth = 6,
+): UseQueryResult<ReferralTree> =>
+  useQuery({
+    queryKey: qk.referralTree(id ?? '', maxDepth),
+    queryFn: () => getReferralTree(id!, maxDepth),
+    enabled: !!id,
+  });
+
+export const useCustomerCommissions = (
+  id: string | null,
+  page = 0,
+): UseQueryResult<{ commissions: AdminCommissionRow[] }> =>
+  useQuery({
+    queryKey: qk.customerCommissions(id ?? '', page),
+    queryFn: () => getCustomerCommissions(id!, page),
+    enabled: !!id,
+  });
+
+export const useCustomerAudit = (
+  id: string | null,
+  page = 0,
+): UseQueryResult<CustomerAudit> =>
+  useQuery({
+    queryKey: qk.customerAudit(id ?? '', page),
+    queryFn: () => getCustomerAudit(id!, page),
     enabled: !!id,
   });
 
@@ -190,8 +232,78 @@ export const useAdjustCredits = () => {
   return useMutation({
     mutationFn: (vars: { id: string; amount: number; note: string }) =>
       adjustCustomerCredits(vars.id, vars.amount, vars.note),
-    onSuccess: (_data, vars) =>
-      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export const useFreezeCustomer = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; reason: string }) =>
+      freezeCustomer(vars.id, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.referralTreeKey(vars.id) });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export const useUnfreezeCustomer = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; reason: string }) =>
+      unfreezeCustomer(vars.id, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.referralTreeKey(vars.id) });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export const useReverseCommission = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
+      reverseCommission(vars.commId, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export const useSuspendCommission = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
+      suspendCommission(vars.commId, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export const useUnsuspendCommission = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
+      unsuspendCommission(vars.commId, vars.reason),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
+      qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 

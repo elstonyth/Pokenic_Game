@@ -43,10 +43,12 @@ medusaIntegrationTestRunner({
     describe('GET /admin/customers/:id/referral-tree', () => {
       it('200 with root + descendant nodes carrying handle/email keys', async () => {
         const rootId = await registerCustomer('c360-root@test.dev');
+        const childId = await registerCustomer('c360-child@test.dev');
+        const grandchildId = await registerCustomer('c360-grandchild@test.dev');
         const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
         await seedLadder(packs);
-        await packs.linkSponsor({ recruitId: 'c360_b', sponsorId: rootId });
-        await packs.linkSponsor({ recruitId: 'c360_c', sponsorId: 'c360_b' });
+        await packs.linkSponsor({ recruitId: childId, sponsorId: rootId });
+        await packs.linkSponsor({ recruitId: grandchildId, sponsorId: childId });
 
         const res = await unwrapResponse(
           api.get(`/admin/customers/${rootId}/referral-tree?maxDepth=2`, { headers: adminHeaders() }));
@@ -54,10 +56,9 @@ medusaIntegrationTestRunner({
         expect(res.data.root.customer_id).toBe(rootId);
         expect(res.data.maxDepth).toBe(2);
         const ids = res.data.nodes.map((n: any) => n.customer_id).sort();
-        expect(ids).toEqual(['c360_b', 'c360_c']);
+        expect(ids).toEqual([childId, grandchildId].sort());
         for (const n of res.data.nodes) {
-          expect(n).toHaveProperty('handle');   // route-merged identity keys (null when no real customer)
-          expect(n).toHaveProperty('email');
+          expect(n.email).not.toBeNull();   // real customers — enrichment must populate email
         }
       });
     });

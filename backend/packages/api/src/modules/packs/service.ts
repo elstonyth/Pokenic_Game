@@ -1865,7 +1865,7 @@ class PacksModuleService extends MedusaService({
          FROM commission c
          JOIN credit_transaction ct ON ct.id = c.credit_transaction_id AND ct.deleted_at IS NULL
          WHERE c.beneficiary = ? AND c.deleted_at IS NULL
-         ORDER BY c.created_at DESC
+         ORDER BY c.created_at DESC, c.id DESC
          LIMIT ? OFFSET ?`,
       [customerId, limit, offset],
     );
@@ -1933,7 +1933,7 @@ class PacksModuleService extends MedusaService({
          LIMIT ? OFFSET ?`,
       [customerId, customerId, customerId, limit, offset],
     );
-    const [state] = await this.listCustomerAccountStates({ customer_id: customerId }, { take: 1 });
+    const [state] = await this.listCustomerAccountStates({ customer_id: customerId }, { take: 1 }, sharedContext);
     return { account_state: state ?? null, actions };
   }
 
@@ -1948,16 +1948,15 @@ class PacksModuleService extends MedusaService({
     if (ids.length === 0) return { sponsorOf, vipLevel, lifetimeSen, frozen, recruitCount };
 
     const ph = ids.map(() => '?').join(',');
-    const [rels, vms, cas, counts] = await Promise.all([
-      em.execute<{ customer_id: string; sponsor_id: string }[]>(
-        `SELECT customer_id, sponsor_id FROM referral_relationship WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids),
-      em.execute<{ customer_id: string; current_level: number; lifetime_external_spend_sen: string }[]>(
-        `SELECT customer_id, current_level, lifetime_external_spend_sen FROM vip_member_state WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids),
-      em.execute<{ customer_id: string; frozen: boolean }[]>(
-        `SELECT customer_id, frozen FROM customer_account_state WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids),
-      em.execute<{ sponsor_id: string; n: string }[]>(
-        `SELECT sponsor_id, COUNT(*) AS n FROM referral_relationship WHERE sponsor_id IN (${ph}) AND deleted_at IS NULL GROUP BY sponsor_id`, ids),
-    ]);
+    // Sequential to avoid concurrent queries on the shared injected EntityManager.
+    const rels = await em.execute<{ customer_id: string; sponsor_id: string }[]>(
+      `SELECT customer_id, sponsor_id FROM referral_relationship WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids);
+    const vms = await em.execute<{ customer_id: string; current_level: number; lifetime_external_spend_sen: string }[]>(
+      `SELECT customer_id, current_level, lifetime_external_spend_sen FROM vip_member_state WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids);
+    const cas = await em.execute<{ customer_id: string; frozen: boolean }[]>(
+      `SELECT customer_id, frozen FROM customer_account_state WHERE customer_id IN (${ph}) AND deleted_at IS NULL`, ids);
+    const counts = await em.execute<{ sponsor_id: string; n: string }[]>(
+      `SELECT sponsor_id, COUNT(*) AS n FROM referral_relationship WHERE sponsor_id IN (${ph}) AND deleted_at IS NULL GROUP BY sponsor_id`, ids);
     for (const r of rels) sponsorOf.set(r.customer_id, r.sponsor_id);
     for (const r of vms) {
       vipLevel.set(r.customer_id, Number(r.current_level));

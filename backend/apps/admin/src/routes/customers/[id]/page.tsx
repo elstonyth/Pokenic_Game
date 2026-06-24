@@ -200,35 +200,37 @@ const Customer360Page = () => {
               </Text>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {isFrozen ? (
+          {view && (
+            <div className="flex items-center gap-2">
+              {isFrozen ? (
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => openModal('unfreeze')}
+                  isLoading={unfreeze.isPending}
+                >
+                  {t('customer360.btnUnfreeze')}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => openModal('freeze')}
+                  isLoading={freeze.isPending}
+                >
+                  {t('customer360.btnFreeze')}
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="small"
-                onClick={() => openModal('unfreeze')}
-                isLoading={unfreeze.isPending}
+                onClick={() => openModal('credits')}
+                isLoading={adjustCredits.isPending}
               >
-                {t('customer360.btnUnfreeze')}
+                {t('customer360.btnAdjustCredits')}
               </Button>
-            ) : (
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={() => openModal('freeze')}
-                isLoading={freeze.isPending}
-              >
-                {t('customer360.btnFreeze')}
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={() => openModal('credits')}
-              isLoading={adjustCredits.isPending}
-            >
-              {t('customer360.btnAdjustCredits')}
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
 
         {view && (

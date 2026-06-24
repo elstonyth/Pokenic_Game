@@ -339,7 +339,7 @@ try {
       await reasonInput.fill('playwright-qa-round-trip');
 
       // Prompt.Action confirm button — text "Confirm" (support.adjustConfirm)
-      const confirmBtn = page.getByRole('button', { name: 'Confirm' });
+      const confirmBtn = page.getByRole('button', { name: 'Apply' });
       await confirmBtn.click();
 
       // ── Step c: wait for frozen Badge to flip ───────────────────────────
@@ -373,7 +373,7 @@ try {
           .catch(() => false);
         if (undoModalOpened) {
           await undoInput.fill('playwright-qa-undo');
-          await page.getByRole('button', { name: 'Confirm' }).click();
+          await page.getByRole('button', { name: 'Apply' }).click();
           // wait for the original action button to come back
           await actionBtn
             .waitFor({ state: 'visible', timeout: 15000 })

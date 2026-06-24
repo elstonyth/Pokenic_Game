@@ -96,8 +96,8 @@ const SupportPage = () => {
       // Invalidation (in the hook) refetches the customer view → fresh ledger row.
       setAmount("");
       setNote("");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+    } catch {
+      // onError in useAdjustCredits already toasts; suppress double toast here.
     }
   };
 

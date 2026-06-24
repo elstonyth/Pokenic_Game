@@ -248,6 +248,7 @@ export const useFreezeCustomer = () => {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.referralTreeKey(vars.id) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
@@ -261,6 +262,7 @@ export const useUnfreezeCustomer = () => {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.referralTreeKey(vars.id) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });

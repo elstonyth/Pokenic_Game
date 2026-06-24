@@ -1,0 +1,35 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Bell } from 'lucide-react';
+import { getUnreadCount } from '@/lib/actions/notifications';
+
+export default function NotificationBell() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+    getUnreadCount().then((n) => {
+      if (live) setCount(n);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  return (
+    <Link
+      href="/notifications"
+      aria-label={`Notifications${count ? `, ${count} unread` : ''}`}
+      className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+    >
+      <Bell className="h-5 w-5" aria-hidden />
+      {count > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-400 px-1 text-[10px] font-bold text-neutral-950">
+          {count > 9 ? '9+' : count}
+        </span>
+      )}
+    </Link>
+  );
+}

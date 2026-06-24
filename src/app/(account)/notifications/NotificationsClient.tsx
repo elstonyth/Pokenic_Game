@@ -35,36 +35,39 @@ export default function NotificationsClient({
 
   return (
     <ul className="mt-4 space-y-2">
-      {items.map((n) => (
-        <li key={n.id}>
-          <button
-            type="button"
-            onClick={() => {
-              if (!n.readAt) void onRead(n.id);
-            }}
-            className={[
-              'flex w-full items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors',
-              n.readAt
-                ? 'cursor-default border-white/10 bg-white/[0.02] opacity-70'
-                : 'border-emerald-400/30 bg-emerald-400/[0.06] hover:bg-emerald-400/10',
-            ].join(' ')}
-          >
+      {items.map((n) => {
+        const inner = (
+          <>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white/90">
                 {TITLES[n.template] ?? n.template}
               </p>
-              {n.data != null && (
-                <p className="mt-0.5 truncate text-xs text-white/50">
-                  {JSON.stringify(n.data)}
-                </p>
-              )}
             </div>
             <span className="shrink-0 whitespace-nowrap text-[11px] text-white/40">
               {relativeTime(n.createdAt)}
             </span>
-          </button>
-        </li>
-      ))}
+          </>
+        );
+        return (
+          <li key={n.id}>
+            {n.readAt ? (
+              <div
+                className="flex w-full items-start justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 opacity-70"
+              >
+                {inner}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void onRead(n.id)}
+                className="flex w-full items-start justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/[0.06] p-3 text-left transition-colors hover:bg-emerald-400/10"
+              >
+                {inner}
+              </button>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

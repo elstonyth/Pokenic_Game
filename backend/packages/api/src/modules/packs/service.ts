@@ -871,6 +871,66 @@ class PacksModuleService extends MedusaService({
     return { reversed, froze };
   }
 
+  // Claim an earned VIP reward grant (B5). Read-then-write under the per-customer
+  // `credit:` advisory lock, in ONE transaction (same discipline as
+  // reverseCommission): re-read the grant under the lock; if it's not owned by
+  // the caller or no longer `granted`, return {claimed:false} (idempotent no-op —
+  // a double-click or replay can't double-credit). A VOUCHER grant credits
+  // +payload.amount_myr via mutateCreditAtomic with reason 'voucher_claim',
+  // external_funded_cents=0 (basis-neutral — never bumps the VIP spend basis),
+  // idempotent on `voucher:<grantId>`, then flips status='fulfilled'. A FRAME
+  // grant flips status only (no payout). mutateCreditAtomic re-acquires the SAME
+  // credit: lock on the threaded sharedContext (re-entrant within this txn).
+  @InjectTransactionManager()
+  async claimReward(
+    customerId: string,
+    grantId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ claimed: boolean; kind: string }> {
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+
+    // Serialize against any concurrent credit mutation for THIS customer; the
+    // re-read below then sees a consistent grant status (no double-claim race).
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${customerId}`,
+    ]);
+
+    // Re-read the grant UNDER the lock, scoped to the owning customer.
+    const [grant] = await this.listVipRewardGrants(
+      { id: grantId, customer_id: customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!grant || grant.status !== 'granted') {
+      return { claimed: false, kind: grant?.kind ?? '' };
+    }
+
+    if (grant.kind === 'voucher') {
+      const amountMyr = Number(
+        (grant.payload as { amount_myr?: number } | null)?.amount_myr ?? 0,
+      );
+      // ext=0 (basis-neutral); idempotent on the grant id so a replay that
+      // somehow reaches the credit step before the status flip still no-ops.
+      await this.mutateCreditAtomic(
+        {
+          customerId,
+          amount: amountMyr,
+          reason: 'voucher_claim',
+          idempotencyReference: `voucher:${grantId}`,
+        },
+        sharedContext,
+      );
+    }
+
+    // Flip the grant to fulfilled in the same txn (voucher + frame both).
+    await this.updateVipRewardGrants(
+      { selector: { id: grantId }, data: { status: 'fulfilled' } },
+      sharedContext,
+    );
+
+    return { claimed: true, kind: grant.kind };
+  }
+
   // Admin per-commission status flip: available|pending → suspended.
   // The suspended status is counted as locked in lockedCommissionCents, so
   // the beneficiary's availableBalance drops automatically without any

@@ -18,7 +18,9 @@ import type PacksModuleService from '../../../modules/packs/service';
 // read_at: sourced from the notification_read packs side-table (Task 1).
 // Rows that have no entry in that table are returned with read_at: null.
 //
-// unread_count: number of rows in the returned page whose read_at is null.
+// unread_count: page-scoped count of rows in the returned page whose read_at is
+// null (limited to RECENT_NOTIFICATIONS items), NOT the total unread across all
+// notifications for this customer.
 //
 // Most-recent feed page size (mirrors RECENT_TRANSACTIONS in store/credits).
 const RECENT_NOTIFICATIONS = 50;

@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Referrals | Pokenic' };
 export default async function ReferralsPage() {
   const [res, handle] = await Promise.all([
     getReferralSummary(),
-    getOwnProfileHandle(),
+    getOwnProfileHandle().catch(() => null),
   ]);
 
   if (!res.ok) {
@@ -27,7 +27,8 @@ export default async function ReferralsPage() {
     );
   }
 
-  const inviteUrl = handle ? `pokenic.com/invite/${handle}` : null;
+  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? 'pokenic.com';
+  const inviteUrl = handle ? `${appDomain}/invite/${handle}` : null;
 
   return (
     <>

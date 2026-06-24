@@ -15,7 +15,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { rm } from '@/lib/format';
+import { rm, rm0 } from '@/lib/format';
 import { usePrefersReducedMotion } from '@/lib/use-reveal';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { openAuth } from '@/components/AuthButton';
@@ -391,7 +391,7 @@ export default function PackDetailClient({
                   <Info className="h-3.5 w-3.5 text-white/30" aria-hidden />
                 </span>
                 <span className="text-sm font-semibold text-white">
-                  ${ev.toLocaleString('en-US')}
+                  {rm0(ev)}
                   <span className="ml-1 text-[11px] font-normal text-white/40">
                     per pack
                   </span>
@@ -463,7 +463,7 @@ export default function PackDetailClient({
                   </span>
                 </span>
                 <span className="flex items-center gap-1.5">
-                  ${(priceNum * qty).toLocaleString('en-US')}
+                  {rm0(priceNum * qty)}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </span>
               </button>

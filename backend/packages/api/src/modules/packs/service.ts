@@ -132,6 +132,21 @@ export type PacksTreeNode = {
   has_more_depth: boolean;              // depth === maxDepth && direct_recruit_count > 0
 };
 
+/** Phase 4 P4.1 — commission row returned by commissionsForBeneficiary (read-only). */
+export type CommissionRow = {
+  id: string;
+  generation: number;
+  kind: 'direct' | 'override';
+  status: 'pending' | 'available' | 'suspended' | 'reversed';
+  amount: string;
+  reason: 'direct_referral' | 'team_override';
+  matures_at: string;
+  reversal_transaction_id: string | null;
+  source_transaction_id: string;
+  opener_customer_id: string | null;
+  created_at: string;
+};
+
 /** The transactional MikroORM manager surface we use for the advisory lock +
  *  the Σ-ledger read. `?` placeholders are inlined by MikroORM's formatQuery. */
 type LedgerSqlManager = {
@@ -1818,6 +1833,57 @@ class PacksModuleService extends MedusaService({
     }));
 
     return { root, nodes, maxDepth: depth, truncated };
+  }
+
+  @InjectManager()
+  async commissionsForBeneficiary(
+    customerId: string,
+    opts: { limit: number; offset: number },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<CommissionRow[]> {
+    const em = (sharedContext.transactionManager ?? sharedContext.manager) as unknown as LedgerSqlManager;
+    const limit = Math.max(1, Math.min(200, Math.floor(opts.limit) || 50));
+    const offset = Math.max(0, Math.floor(opts.offset) || 0);
+
+    const rows = await em.execute<any[]>(
+      `SELECT c.id, c.generation, c.kind, c.status, c.matures_at,
+              c.source_transaction_id, c.reversal_transaction_id, c.created_at,
+              ct.amount, ct.reason
+         FROM commission c
+         JOIN credit_transaction ct ON ct.id = c.credit_transaction_id AND ct.deleted_at IS NULL
+         WHERE c.beneficiary = ? AND c.deleted_at IS NULL
+         ORDER BY c.created_at DESC
+         LIMIT ? OFFSET ?`,
+      [customerId, limit, offset],
+    );
+    if (rows.length === 0) return [];
+
+    // opener provenance: source_transaction_id → the ORIGINAL pack_open debit (amount<0)
+    // ponytail: amount<0 guard — reverseOpen appends a compensating POSITIVE pack_open row
+    // sharing the same source_transaction_id; without this filter the join double-counts.
+    const openIds = [...new Set(rows.map((r) => r.source_transaction_id))];
+    const ph = openIds.map(() => '?').join(',');
+    const opens = await em.execute<{ source_transaction_id: string; customer_id: string }[]>(
+      `SELECT source_transaction_id, customer_id FROM credit_transaction
+         WHERE source_transaction_id IN (${ph})
+           AND reason = 'pack_open' AND amount < 0 AND deleted_at IS NULL`,
+      openIds,
+    );
+    const openerOf = new Map(opens.map((o) => [o.source_transaction_id, o.customer_id]));
+
+    return rows.map((r) => ({
+      id: r.id,
+      generation: Number(r.generation),
+      kind: r.kind,
+      status: r.status,
+      amount: String(r.amount),
+      reason: r.reason,
+      matures_at: r.matures_at,
+      reversal_transaction_id: r.reversal_transaction_id ?? null,
+      source_transaction_id: r.source_transaction_id,
+      opener_customer_id: openerOf.get(r.source_transaction_id) ?? null,
+      created_at: r.created_at,
+    }));
   }
 
   // Batched enrichment for referral tree nodes — packs-owned tables only

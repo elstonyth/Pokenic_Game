@@ -389,3 +389,63 @@ export async function updateDeliveryOrder(
   }
   return (await res.json()) as { order_id: string; status: DeliveryStatus };
 }
+
+// ── Reward pools (VIP reward-box authoring) ──────────────────────────────────
+export interface RewardPoolEntryView {
+  id: string;
+  kind: 'product' | 'credit' | 'nothing';
+  product_handle: string | null;
+  credit_amount: number | null; // decimal MYR (Number()-coerced server-side)
+  weight: number;
+}
+
+export interface RewardPoolResponse {
+  pool: {
+    slug: string;
+    pool_enabled: boolean;
+    draws_per_day: number;
+    status: string;
+  } | null;
+  entries: RewardPoolEntryView[];
+}
+
+export interface RewardPoolBody {
+  entries: {
+    kind: 'product' | 'credit' | 'nothing';
+    product_handle?: string | null;
+    credit_amount?: number | null;
+    weight: number;
+  }[];
+  draws_per_day: number;
+  pool_enabled: boolean;
+}
+
+// POST returns a different shape than GET — callers ignore it and refetch.
+export interface SaveRewardPoolResult {
+  pool: {
+    pack_slug: string;
+    entries_count: number;
+    draws_per_day: number;
+    pool_enabled: boolean;
+  };
+}
+
+// GET the reward_box pool config + entries for a VIP tier. Empty body shape
+// ({ pool: null, entries: [] }) means the tier was never authored.
+export async function getRewardPool(tier: string): Promise<RewardPoolResponse> {
+  return getJson<RewardPoolResponse>(
+    `/admin/reward-pools/${encodeURIComponent(tier)}`,
+  );
+}
+
+// Replace-all the tier's reward pool. Throws Error(message) on a 400 validation
+// failure (errorMessage surfaces the backend MedusaError message).
+export async function saveRewardPool(
+  tier: string,
+  body: RewardPoolBody,
+): Promise<SaveRewardPoolResult> {
+  return postJson<SaveRewardPoolResult>(
+    `/admin/reward-pools/${encodeURIComponent(tier)}`,
+    body,
+  );
+}

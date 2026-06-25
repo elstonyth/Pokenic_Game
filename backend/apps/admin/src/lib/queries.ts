@@ -24,10 +24,12 @@ import {
   getCustomerGacha,
   getCustomerCommissions,
   getEconomyReport,
+  getRewardPool,
   getReferralTree,
   listDeliveryOrders,
   listEligibleProducts,
   reverseCommission,
+  saveRewardPool,
   suspendCommission,
   unfreezeCustomer,
   unsuspendCommission,
@@ -41,6 +43,8 @@ import {
   type EconomyReport,
   type EligibleProduct,
   type ReferralTree,
+  type RewardPoolBody,
+  type RewardPoolResponse,
 } from './admin-rest';
 import type { OddsInput } from '@acme/odds-math';
 import { qk } from './query-keys';
@@ -328,5 +332,25 @@ export const useUpdateDeliveryOrder = () => {
     // Status filters vary, so drop the whole delivery-orders namespace.
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['admin', 'delivery-orders'] }),
+  });
+};
+
+export const useRewardPool = (
+  tier: string,
+): UseQueryResult<RewardPoolResponse> =>
+  useQuery({
+    queryKey: qk.rewardPool(tier),
+    queryFn: () => getRewardPool(tier),
+    enabled: !!tier,
+  });
+
+export const useSaveRewardPool = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { tier: string; body: RewardPoolBody }) =>
+      saveRewardPool(vars.tier, vars.body),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: qk.rewardPool(vars.tier) }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };

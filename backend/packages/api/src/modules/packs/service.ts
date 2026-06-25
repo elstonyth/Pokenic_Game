@@ -49,6 +49,11 @@ import {
   type RewardsSettingsPatch,
   type RewardsSettingsView,
 } from './rewards-settings-validate';
+import type {
+  DrawnPrize,
+  RewardOddsRow,
+} from '../../workflows/steps/draw-prize';
+import type { MedusaContainer } from '@medusajs/framework/types';
 
 // Postgres unique-violation detector (SQLSTATE 23505) for the commission
 // idempotency index. See settleOpen's commission catch for the exact semantics
@@ -929,6 +934,216 @@ class PacksModuleService extends MedusaService({
     );
 
     return { claimed: true, kind: grant.kind };
+  }
+
+  // Settle one daily reward-box draw for a customer (B6). Read-then-write under
+  // the per-customer `credit:` advisory lock, in ONE transaction (same discipline
+  // as settleOpen / claimReward), so concurrent draws at the cap edge serialize:
+  // the lock holds across the COUNT, the payout, AND the reward_draw INSERT, so
+  // two requests can't both pass the cap COUNT and overshoot draws_per_day.
+  //
+  // Flow (all under the lock):
+  //   1. Two-hop tier resolution: vip_member_state.highest_level_ever →
+  //      vip_level.box_tier (floor level when no state row — mirrors
+  //      grantLevelUpRewards' default-L1).
+  //   2. Resolve the reward_box Pack for that tier; pre-check it exists +
+  //      pool_enabled + has reward odds → else 'unavailable' (NO ordinal consumed).
+  //   3. COUNT today's draws; >= draws_per_day → 'capped'.
+  //   4. drawPrize (pure pick + product resolution; writes nothing).
+  //   5. Settle the payout: product → createPulls(source:'reward'); credit →
+  //      mutateCreditAtomic(reason 'reward_credit', ext=0, idem on the
+  //      partial-unique tuple); nothing → no payout.
+  //   6. INSERT reward_draw at ordinal count+1 with the prize snapshot.
+  //
+  // Inventory adjust for product prizes runs in the WORKFLOW after this commits
+  // (never inside the lock — §8). The container (for drawPrize's PRODUCT/INVENTORY
+  // resolution) is supplied by the workflow; defaults to the module container so
+  // credit/nothing pools (which never touch cross-module) work in the module test.
+  @InjectTransactionManager()
+  async settleRewardDraw(
+    customerId: string,
+    container?: MedusaContainer,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{
+    status: 'drawn' | 'unavailable' | 'capped';
+    prize?: DrawnPrize;
+    draw_ordinal?: number;
+  }> {
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const resolveContainer =
+      container ??
+      ((this as unknown as { __container__: MedusaContainer }).__container__);
+
+    // 0) Serialize all credit mutations for THIS customer on the locked txn —
+    //    held across the cap COUNT, the payout, and the INSERT below.
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${customerId}`,
+    ]);
+
+    // 1) Two-hop tier resolution. Default to the floor level (L1) when the
+    //    customer has no state row yet (mirrors grantLevelUpRewards).
+    const [state] = await this.listVipMemberStates(
+      { customer_id: customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    const level = state ? Number(state.highest_level_ever) : 1;
+    const [vipLevel] = await this.listVipLevels(
+      { level },
+      { take: 1 },
+      sharedContext,
+    );
+    const tier = vipLevel?.box_tier ?? '';
+
+    // 2) Resolve the reward_box Pack for this tier; pre-check it exists +
+    //    pool_enabled + has reward odds. Any miss → 'unavailable', NO ordinal
+    //    consumed (no 500 on a missing pool — a tier may simply have no box yet).
+    const rewardPack = await this.resolveRewardBoxPack(tier, sharedContext);
+    if (!rewardPack || !rewardPack.pool_enabled) {
+      return { status: 'unavailable' };
+    }
+    const odds = await this.listPackOdds(
+      { pack_id: rewardPack.slug },
+      { take: 1000 },
+      sharedContext,
+    );
+    const rewardOdds: RewardOddsRow[] = odds
+      .filter((o) => o.kind)
+      .map((o) => ({
+        id: o.id,
+        weight: o.weight,
+        kind: o.kind as 'product' | 'credit' | 'nothing',
+        product_handle: o.product_handle,
+        credit_amount: o.credit_amount == null ? null : Number(o.credit_amount),
+      }));
+    if (rewardOdds.length === 0) {
+      return { status: 'unavailable' };
+    }
+
+    // 3) Daily-cap COUNT under the lock (the partial-unique is the DB backstop;
+    //    the lock makes the COUNT-then-INSERT atomic per customer per day).
+    const drawDay = new Date().toISOString().slice(0, 10);
+    const countRows = await em.execute<{ n: string | null }[]>(
+      `SELECT COUNT(*) AS n FROM reward_draw
+         WHERE customer_id = ? AND draw_day = ? AND deleted_at IS NULL`,
+      [customerId, drawDay],
+    );
+    const count = Number(countRows[0]?.n ?? 0);
+    if (count >= rewardPack.draws_per_day) {
+      return { status: 'capped' };
+    }
+
+    // 4) Pick the prize (pure — writes nothing). drawPrize lives in the
+    //    workflows layer, which transitively imports this module (PACKS_MODULE);
+    //    a top-level value import would form a load-time cycle (service ↔ workflow)
+    //    that breaks module init. A dynamic import deferred to call time sidesteps
+    //    it — by the time settleRewardDraw runs, every module is fully initialized.
+    const { drawPrize } = await import('../../workflows/steps/draw-prize.js');
+    const prize = await drawPrize(resolveContainer, rewardOdds);
+
+    // 5) Settle the payout. The reward_draw ordinal is the NEXT row (count+1) —
+    //    also the idempotency tuple for the credit write.
+    const drawOrdinal = count + 1;
+    let vaultPullId: string | null = null;
+    let creditTxnId: string | null = null;
+
+    if (prize.kind === 'product') {
+      // Only product prizes create a Pull: source='reward', card_id = the
+      // product_handle sentinel, pack_id = the tier's reward_box Pack slug
+      // (consistent with the catalog-exclusion in B2/C1). order_id null.
+      const [pull] = await this.createPulls(
+        [
+          {
+            customer_id: customerId,
+            pack_id: rewardPack.slug,
+            card_id: prize.product_handle,
+            order_id: null,
+            rolled_at: new Date(),
+            source: 'reward',
+          },
+        ],
+        sharedContext,
+      );
+      vaultPullId = pull.id;
+    } else if (prize.kind === 'credit') {
+      // Reward credit: ext=0 (basis-neutral — never bumps the VIP spend basis),
+      // idempotent on the partial-unique tuple (customer:day:ordinal), NOT a
+      // not-yet-created row id. Re-acquires the same credit: lock re-entrantly.
+      const { id } = await this.mutateCreditAtomic(
+        {
+          customerId,
+          amount: prize.amount_myr,
+          reason: 'reward_credit',
+          idempotencyReference: `reward:${customerId}:${drawDay}:${drawOrdinal}`,
+        },
+        sharedContext,
+      );
+      creditTxnId = id;
+    }
+    // 'nothing' → no payout.
+
+    // 6) Record the draw. prize_snapshot per kind (MYR units): product →
+    //    {product_handle,title,image}; credit → {amount_myr,currency:'MYR'};
+    //    nothing → {}.
+    const prizeSnapshot =
+      prize.kind === 'product'
+        ? {
+            product_handle: prize.product_handle,
+            title: prize.title,
+            image: prize.image,
+          }
+        : prize.kind === 'credit'
+          ? { amount_myr: prize.amount_myr, currency: 'MYR' }
+          : {};
+
+    await this.createRewardDraws(
+      [
+        {
+          customer_id: customerId,
+          tier,
+          draw_day: drawDay,
+          draw_ordinal: drawOrdinal,
+          prize_kind: prize.kind,
+          prize_snapshot: prizeSnapshot,
+          vault_pull_id: vaultPullId,
+          credit_txn_id: creditTxnId,
+          status: 'drawn',
+        },
+      ],
+      sharedContext,
+    );
+
+    return { status: 'drawn', prize, draw_ordinal: drawOrdinal };
+  }
+
+  // Resolve the reward_box Pack for a VIP box_tier. The reward_box Pack's slug is
+  // the natural per-tier key; the admin authoring route (E1) creates it as
+  // `reward-box-<tier>`. We match on category + a slug containing the tier so the
+  // demo seed and the admin route can pick their own slug suffix.
+  private async resolveRewardBoxPack(
+    tier: string,
+    sharedContext: Context = {},
+  ): Promise<
+    { slug: string; pool_enabled: boolean; draws_per_day: number } | undefined
+  > {
+    if (!tier) return undefined;
+    const packs = await this.listPacks(
+      { category: 'reward_box' },
+      { take: 1000 },
+      sharedContext,
+    );
+    // Match `reward-box-<tier>` exactly or as the prefix before a `-<suffix>`,
+    // so a tier 'c' box can't be picked up by a tier 'ca' slug (substring trap).
+    const prefix = `reward-box-${tier}`;
+    const match = packs.find(
+      (p) => p.slug === prefix || p.slug.startsWith(`${prefix}-`),
+    );
+    if (!match) return undefined;
+    return {
+      slug: match.slug,
+      pool_enabled: match.pool_enabled,
+      draws_per_day: match.draws_per_day,
+    };
   }
 
   // Admin per-commission status flip: available|pending → suspended.

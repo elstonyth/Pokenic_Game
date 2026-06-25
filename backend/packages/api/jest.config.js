@@ -13,6 +13,13 @@ module.exports = {
     ],
   },
   testEnvironment: 'node',
+  // Node16/NodeNext ESM requires explicit `.js` extensions on relative imports
+  // (tsc rule TS2835), but @swc/jest resolves against the on-disk `.ts` source.
+  // Strip a trailing `.js` from relative specifiers so both agree. No-op for the
+  // existing suites — only the deferred draw-prize import (service.ts) uses one.
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   moduleFileExtensions: ['js', 'ts', 'json'],
   modulePathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/.medusa/'],
   setupFiles: ['./integration-tests/setup.js'],

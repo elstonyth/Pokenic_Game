@@ -892,7 +892,7 @@ class PacksModuleService extends MedusaService({
     customerId: string,
     grantId: string,
     @MedusaContext() sharedContext: Context = {},
-  ): Promise<{ claimed: boolean; kind: string }> {
+  ): Promise<{ claimed: boolean; kind: string; amount_myr?: number; level?: number }> {
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
 
     // Serialize against any concurrent credit mutation for THIS customer; the
@@ -911,8 +911,9 @@ class PacksModuleService extends MedusaService({
       return { claimed: false, kind: grant?.kind ?? '' };
     }
 
+    let amountMyr: number | undefined;
     if (grant.kind === 'voucher') {
-      const amountMyr = Number(
+      amountMyr = Number(
         (grant.payload as { amount_myr?: number } | null)?.amount_myr ?? 0,
       );
       // ext=0 (basis-neutral); idempotent on the grant id so a replay that
@@ -934,7 +935,12 @@ class PacksModuleService extends MedusaService({
       sharedContext,
     );
 
-    return { claimed: true, kind: grant.kind };
+    return {
+      claimed: true,
+      kind: grant.kind,
+      ...(amountMyr !== undefined && { amount_myr: amountMyr }),
+      level: grant.level,
+    };
   }
 
   // Settle one daily reward-box draw for a customer (B6). Read-then-write under

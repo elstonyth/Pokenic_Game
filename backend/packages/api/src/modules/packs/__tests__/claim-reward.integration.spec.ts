@@ -88,7 +88,8 @@ moduleIntegrationTestRunner<PacksModuleService>({
           .externalFundedSpendTotal;
 
         const res = await service.claimReward(customerId, grant.id);
-        expect(res).toEqual({ claimed: true, kind: 'voucher' });
+        // D2: claimReward now includes amount_myr + level for notification routing.
+        expect(res).toEqual({ claimed: true, kind: 'voucher', amount_myr: 5, level: 2 });
 
         expect(await service.creditBalance(customerId)).toBe(5);
 
@@ -154,7 +155,8 @@ moduleIntegrationTestRunner<PacksModuleService>({
         ]);
 
         const res = await service.claimReward(customerId, grant.id);
-        expect(res).toEqual({ claimed: true, kind: 'frame' });
+        // D2: claimReward now includes level in the result for notification routing.
+        expect(res).toEqual({ claimed: true, kind: 'frame', level: 2 });
 
         const [claimed] = await service.listVipRewardGrants(
           { id: grant.id },

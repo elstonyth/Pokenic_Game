@@ -6,6 +6,7 @@ import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../../../../modules/packs';
 import type PacksModuleService from '../../../../../modules/packs/service';
 import { rewardsRedemptionEnabled } from '../../../../../modules/packs/rewards-gate';
+import { notifyFeed } from '../../../../../modules/packs/notify-feed';
 
 // POST /store/rewards/claim/:grantId — claim an earned VIP reward grant (voucher
 // credits site credit; frame flips status only). Idempotent under the per-customer
@@ -40,5 +41,24 @@ export async function POST(
 
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
   const result = await packs.claimReward(customerId, grantId);
+
+  // Emit voucher_claimed feed notification after a successful voucher claim.
+  // Non-fatal: a notification failure must never roll back a committed claim.
+  if (result.claimed && result.kind === 'voucher') {
+    try {
+      await notifyFeed(req.scope, {
+        receiverId: customerId,
+        template: 'voucher_claimed',
+        data: {
+          amount_myr: result.amount_myr ?? 0,
+          level: result.level ?? 0,
+        },
+        idempotencyKey: `voucher_claimed:${grantId}`,
+      });
+    } catch {
+      // Notification failure is non-fatal — the claim is already committed.
+    }
+  }
+
   res.json(result);
 }

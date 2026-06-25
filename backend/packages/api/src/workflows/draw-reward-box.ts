@@ -5,6 +5,7 @@ import {
 } from "@medusajs/framework/workflows-sdk";
 import { settleRewardDrawStep } from "./steps/settle-reward-draw";
 import { adjustRewardInventoryStep } from "./steps/adjust-reward-inventory";
+import { notifyRewardWonStep } from "./steps/notify-reward-won";
 
 export type DrawRewardBoxInput = {
   customer_id: string; // from the authenticated token — NEVER the request body
@@ -33,6 +34,17 @@ export const drawRewardBoxWorkflow = createWorkflow(
           : null,
     }));
     adjustRewardInventoryStep(inventoryInput);
+
+    // Emit a reward_won feed notification (best-effort, non-fatal).
+    // Unique step name avoids the "already defined" collision footgun that
+    // bites when two emitEventStep calls share the default id.
+    const notifyInput = transform({ input, result }, (d) => ({
+      customer_id: d.input.customer_id,
+      status: d.result.status,
+      prize: d.result.prize,
+      draw_ordinal: d.result.draw_ordinal,
+    }));
+    notifyRewardWonStep(notifyInput).config({ name: "notify-reward-won-step" });
 
     return new WorkflowResponse(result);
   }

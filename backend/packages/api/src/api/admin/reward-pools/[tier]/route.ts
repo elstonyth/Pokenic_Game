@@ -21,10 +21,17 @@ export async function GET(
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
 
   const slug = `reward-box-${tier}`;
-  const [pack] = await packs.listPacks({ slug }, { take: 1 });
+  // Scope to category='reward_box': a non-reward_box pack squatting on this slug
+  // must NOT be read (or later edited) as a reward pool. POST enforces the same
+  // guard inside replaceRewardPool.
+  const [pack] = await packs.listPacks(
+    { slug, category: 'reward_box' },
+    { take: 1 },
+  );
   if (!pack) {
-    // Pool not yet authored — return empty rather than 404 so the admin UI
-    // can distinguish "never created" from "does not exist".
+    // Pool not yet authored (or the slug belongs to a non-reward_box pack) —
+    // return empty rather than 404 so the admin UI can distinguish "never
+    // created" from "does not exist".
     res.json({ pool: null, entries: [] });
     return;
   }

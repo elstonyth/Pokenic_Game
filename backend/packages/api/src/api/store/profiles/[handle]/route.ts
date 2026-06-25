@@ -42,15 +42,16 @@ export async function GET(
   }
 
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
-  const pulls = (
-    await packs.listPulls(
-      { customer_id: customer.id },
-      { take: MAX_PULLS, order: { rolled_at: 'DESC' } },
-    )
-  )
-    // C1: exclude reward Pulls from the public profile (leaderboard, collection,
-    // recent feed). They are private vault items only visible in /store/vault.
-    .filter((p) => p.source !== 'reward');
+  // C1: exclude reward Pulls from the public profile (leaderboard, collection,
+  // recent feed) — they are private vault items only visible in /store/vault.
+  // Filter IN the query (source='pack', the positive of source!='reward', which
+  // every non-reward row carries: the column is NOT NULL DEFAULT 'pack'). A
+  // post-`.filter()` would run AFTER the MAX_PULLS cap, so a collector with many
+  // recent reward pulls would lose older real pulls to the truncation.
+  const pulls = await packs.listPulls(
+    { customer_id: customer.id, source: 'pack' },
+    { take: MAX_PULLS, order: { rolled_at: 'DESC' } },
+  );
 
   // Lookup tables, leaderboard-style: card display/value by handle, pack
   // price by slug, per-pack rarity by (pack, card) odds row.

@@ -5,6 +5,7 @@ import type {
 import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../../../modules/packs';
 import type PacksModuleService from '../../../../modules/packs/service';
+import { rewardsRedemptionEnabled } from '../../../../modules/packs/rewards-gate';
 
 // POST /store/rewards/withdraw — ship a vaulted reward-prize Pull as a physical
 // delivery. Body: { pull_id, address: { firstName, lastName, address1, city,
@@ -12,9 +13,11 @@ import type PacksModuleService from '../../../../modules/packs/service';
 // shipment (not a saved-address id). This is the simpler, correct UX: the prize
 // is already theirs, so the address is just where they want it sent.
 //
-// NOT env-gated: a withdrawal is balance-neutral (it ships a prize the customer
-// already owns), so the global redemption gate does NOT apply here — the only
-// limit is the withdrawals_per_day cap enforced inside recordRewardWithdrawal.
+// ENV-GATED (spec §13): like claim + draw, withdraw 403s while the global
+// REWARDS_REDEMPTION_ENABLED flag is off. The economy is dormant until Phase P,
+// and no legitimate prize can exist to ship before launch, so shipping stays
+// dark too. recordRewardWithdrawal re-checks the gate (defense-in-depth); the
+// per-customer withdrawals_per_day cap still applies once redemption is live.
 //
 // OWNERSHIP / SECURITY: the address is the customer's chosen destination for
 // their own prize, so it carries no ownership decision. The real security
@@ -41,6 +44,14 @@ export async function POST(
   const customerId = req.auth_context?.actor_id;
   if (!customerId) {
     throw new MedusaError(MedusaError.Types.UNAUTHORIZED, 'Unauthorized');
+  }
+
+  // Global redemption gate — fail closed while the economy is dormant.
+  if (!rewardsRedemptionEnabled()) {
+    throw new MedusaError(
+      MedusaError.Types.NOT_ALLOWED,
+      'Reward redemption is not enabled yet.',
+    );
   }
 
   const body = req.body as

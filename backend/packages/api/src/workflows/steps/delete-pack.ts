@@ -6,12 +6,25 @@ import type PacksModuleService from '../../modules/packs/service';
 export type DeletePackInput = { slug: string };
 
 // Snapshots ALL of a pack's odds rows for compensation, including reward rows
-// (card_id null) — keep card_id nullable so they round-trip faithfully.
+// (card_id null) — keep card_id/rarity nullable and carry the full payout shape
+// (kind/product_handle/credit_amount) so a deleted reward_box pool round-trips
+// faithfully instead of losing its prize definitions on rollback.
 type OddsSnapshot = {
   pack_id: string;
   card_id: string | null;
+  rarity:
+    | 'Immortal'
+    | 'Legendary'
+    | 'Epic'
+    | 'Rare'
+    | 'Uncommon'
+    | 'Common'
+    | null;
   weight: number;
   locked: boolean;
+  kind: 'product' | 'credit' | 'nothing' | null;
+  product_handle: string | null;
+  credit_amount: number | null;
 };
 
 type CompensateData =
@@ -25,6 +38,9 @@ type CompensateData =
         boost: boolean;
         rank: number;
         status: 'active' | 'draft';
+        // reward_box packs carry pool config — restore it too.
+        pool_enabled: boolean;
+        draws_per_day: number;
       };
       odds: OddsSnapshot[];
     }
@@ -61,12 +77,18 @@ export const deletePackStep = createStep(
         boost: pack.boost,
         rank: pack.rank,
         status: pack.status,
+        pool_enabled: pack.pool_enabled,
+        draws_per_day: pack.draws_per_day,
       },
       odds: oddsRows.map((o) => ({
         pack_id: o.pack_id,
         card_id: o.card_id,
+        rarity: o.rarity,
         weight: o.weight,
         locked: o.locked,
+        kind: o.kind,
+        product_handle: o.product_handle,
+        credit_amount: o.credit_amount != null ? Number(o.credit_amount) : null,
       })),
     };
 

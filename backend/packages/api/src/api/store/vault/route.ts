@@ -111,27 +111,25 @@ export async function GET(
     .filter((e): e is NonNullable<typeof e> => e !== null);
 
   // Reward pull items: title/image from prize_snapshot; no buyback block.
-  // If the reward_draw row is missing (data inconsistency), skip the pull
-  // rather than crashing.
-  const rewardItems = rewardPulls
-    .map((p) => {
-      const draw = drawByPullId.get(p.id);
-      if (!draw) return null;
-      const snap = draw.prize_snapshot as {
-        title?: string;
-        image?: string;
-        product_handle?: string;
-      };
-      return {
-        pull_id: p.id,
-        rolled_at: p.rolled_at,
-        pack_id: p.pack_id,
-        title: snap.title ?? '',
-        image: snap.image ?? '',
-        source: 'reward' as const,
-      };
-    })
-    .filter((e): e is NonNullable<typeof e> => e !== null);
+  // If the reward_draw row is missing (a partial write or orphaned snapshot),
+  // STILL show the pull — it is an owned vault item — as a degraded placeholder
+  // rather than silently dropping the customer's prize from their vault.
+  const rewardItems = rewardPulls.map((p) => {
+    const draw = drawByPullId.get(p.id);
+    const snap = (draw?.prize_snapshot ?? {}) as {
+      title?: string;
+      image?: string;
+      product_handle?: string;
+    };
+    return {
+      pull_id: p.id,
+      rolled_at: p.rolled_at,
+      pack_id: p.pack_id,
+      title: snap.title ?? 'Reward prize',
+      image: snap.image ?? '',
+      source: 'reward' as const,
+    };
+  });
 
   // Merge in rolled_at DESC order (pulls was already ordered DESC; preserve).
   const items = [...normalItems, ...rewardItems].sort(

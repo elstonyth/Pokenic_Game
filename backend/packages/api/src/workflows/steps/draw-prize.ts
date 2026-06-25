@@ -43,12 +43,16 @@ export async function drawPrize(
     .map((r) => r.product_handle as string);
 
   let stockByHandle = new Map<string, number | null>();
+  let stockLookupFailed = false;
   if (productHandles.length > 0) {
-    // best-effort: if the stock check fails, allow the entry through (fail-open
-    // for stock only — the goal is opportunistic gating, not a hard block).
+    // best-effort: if the stock check fails, allow every product entry through
+    // (fail-open for stock only — the goal is opportunistic gating, not a hard
+    // block). The flag is essential: an empty stockByHandle would otherwise make
+    // the `!has(handle)` survivor test below drop EVERY product (fail-CLOSED).
     try {
       stockByHandle = await getCardStockByHandle(container, productHandles);
     } catch {
+      stockLookupFailed = true;
       const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
       logger.warn(
         'draw-prize: stock check failed — treating all product entries as in-stock',
@@ -60,6 +64,8 @@ export async function drawPrize(
     if (r.kind !== 'product') return true;
     const handle = r.product_handle;
     if (!handle) return false;
+    // Stock lookup failed → can't verify; fail-open and let the product through.
+    if (stockLookupFailed) return true;
     // Not in the map = product doesn't exist in catalog; drop it.
     if (!stockByHandle.has(handle)) return false;
     const qty = stockByHandle.get(handle);

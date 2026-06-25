@@ -1170,6 +1170,14 @@ class PacksModuleService extends MedusaService({
     address: Partial<HttpTypes.StoreCustomerAddress>,
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ status: 'requested' | 'capped' | 'invalid' }> {
+    // Defense-in-depth (spec §13): the route 403s when the global gate is off,
+    // but fail closed here too so every present/future caller stays dark until
+    // redemption launches. A withdrawal ships a prize that should not exist while
+    // the economy is dormant, so it is gated alongside claim + draw.
+    if (!rewardsRedemptionEnabled()) {
+      return { status: 'invalid' };
+    }
+
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
 
     // 0) Serialize against any concurrent credit/withdrawal mutation for THIS
@@ -1266,12 +1274,14 @@ class PacksModuleService extends MedusaService({
       { take: 1000 },
       sharedContext,
     );
-    // Match `reward-box-<tier>` exactly or as the prefix before a `-<suffix>`,
-    // so a tier 'c' box can't be picked up by a tier 'ca' slug (substring trap).
+    // Prefer the exact `reward-box-<tier>` slug; only fall back to a
+    // `reward-box-<tier>-<suffix>` variant when no exact match exists. Two passes
+    // (not one order-dependent `find`) so a suffixed pack can never shadow the
+    // canonical one. The `-` boundary keeps tier 'c' clear of a 'ca' slug.
     const prefix = `reward-box-${tier}`;
-    const match = packs.find(
-      (p) => p.slug === prefix || p.slug.startsWith(`${prefix}-`),
-    );
+    const match =
+      packs.find((p) => p.slug === prefix) ??
+      packs.find((p) => p.slug.startsWith(`${prefix}-`));
     if (!match) return undefined;
     return {
       slug: match.slug,
@@ -2955,32 +2965,91 @@ class PacksModuleService extends MedusaService({
     return { flipped };
   }
 
-  // Atomic replace-all of a reward_box tier's reward pool (E1). The three writes
-  // — delete prior reward PackOdds, insert the new set, update the Pack's pool
-  // config — share ONE injected transaction, so a failure after the delete rolls
-  // the delete back too (instead of leaving the tier's odds wiped with no
-  // recovery, the non-atomic version's hazard). All writes pass sharedContext so
-  // they enlist in the same transaction. Caller (saveRewardPoolStep) keeps the
-  // Pack upsert + audit row; this method owns only the odds/pack-config writes.
+  // Atomic replace-all of a reward_box tier's reward pool (E1). EVERY write —
+  // resolve/create the reward_box Pack, delete prior reward PackOdds, insert the
+  // new set, update the Pack's pool config, and write the admin audit row —
+  // shares ONE injected transaction. A failure anywhere rolls the whole thing
+  // back, so the tier can never be left with its odds wiped, a half-created
+  // dormant pack, or a pool change with no matching audit. All writes pass
+  // sharedContext to enlist in the same transaction.
   @InjectTransactionManager()
   async replaceRewardPool(
     input: {
-      slug: string;
-      priorOddsIds: string[];
+      tier: string;
       newEntries: RewardPoolEntry[];
       pool_enabled: boolean;
       draws_per_day: number;
+      admin_id: string;
     },
     @MedusaContext() sharedContext: Context = {},
-  ): Promise<void> {
-    if (input.priorOddsIds.length > 0) {
-      await this.deletePackOdds(input.priorOddsIds, sharedContext);
+  ): Promise<{
+    pack_slug: string;
+    entries_count: number;
+    draws_per_day: number;
+    pool_enabled: boolean;
+  }> {
+    const slug = `reward-box-${input.tier}`;
+
+    // Resolve or create the reward_box Pack for this tier (in-txn).
+    const [existing] = await this.listPacks({ slug }, { take: 1 }, sharedContext);
+    let pack: {
+      id: string;
+      slug: string;
+      category: string;
+      pool_enabled: boolean;
+      draws_per_day: number;
+    };
+    if (existing) {
+      // Never repurpose a non-reward_box pack that happens to own this slug —
+      // the draw/resolve path trusts category, so editing odds on a normal pack
+      // here would silently corrupt it.
+      if ((existing as { category?: string }).category !== 'reward_box') {
+        throw new MedusaError(
+          MedusaError.Types.NOT_ALLOWED,
+          `Pack '${slug}' exists but is not a reward_box.`,
+        );
+      }
+      pack = existing as typeof pack;
+    } else {
+      // Dormant shell; pool_enabled/draws_per_day are set below from the input.
+      const [created] = await this.createPacks(
+        [
+          {
+            slug,
+            title: `VIP Reward Box – Tier ${input.tier.toUpperCase()}`,
+            category: 'reward_box',
+            price: 0,
+            image: '/images/reward-box-placeholder.webp',
+            status: 'active' as const,
+            pool_enabled: false,
+            draws_per_day: 0,
+          },
+        ],
+        sharedContext,
+      );
+      pack = created as typeof pack;
     }
 
+    const priorPoolEnabled = pack.pool_enabled;
+    const priorDrawsPerDay = pack.draws_per_day;
+
+    // Prior reward odds (card_id null) — the replace-all targets only these.
+    const priorOdds = await this.listPackOdds(
+      { pack_id: slug },
+      { take: 10000 },
+      sharedContext,
+    );
+    const priorRewardOddsIds = priorOdds
+      .filter((o) => o.card_id == null)
+      .map((o) => o.id);
+
+    if (priorRewardOddsIds.length > 0) {
+      await this.deletePackOdds(priorRewardOddsIds, sharedContext);
+    }
     if (input.newEntries.length > 0) {
       await this.createPackOdds(
         input.newEntries.map((e) => ({
-          pack_id: input.slug,
+          pack_id: slug,
           card_id: null,
           rarity: null,
           weight: e.weight,
@@ -2992,10 +3061,9 @@ class PacksModuleService extends MedusaService({
         sharedContext,
       );
     }
-
     await this.updatePacks(
       {
-        selector: { slug: input.slug },
+        selector: { slug },
         data: {
           pool_enabled: input.pool_enabled,
           draws_per_day: input.draws_per_day,
@@ -3003,6 +3071,37 @@ class PacksModuleService extends MedusaService({
       },
       sharedContext,
     );
+
+    // Admin audit row — same txn, so it commits iff the pool change commits.
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.admin_id,
+          entity_type: 'reward_pool',
+          entity_id: slug,
+          action: 'edit_reward_pool',
+          before: {
+            pool_enabled: priorPoolEnabled,
+            draws_per_day: priorDrawsPerDay,
+            entries_count: priorRewardOddsIds.length,
+          },
+          after: {
+            pool_enabled: input.pool_enabled,
+            draws_per_day: input.draws_per_day,
+            entries_count: input.newEntries.length,
+          },
+          reason: `Admin updated reward pool for tier ${input.tier}`,
+        },
+      ],
+      sharedContext,
+    );
+
+    return {
+      pack_slug: slug,
+      entries_count: input.newEntries.length,
+      draws_per_day: input.draws_per_day,
+      pool_enabled: input.pool_enabled,
+    };
   }
 }
 

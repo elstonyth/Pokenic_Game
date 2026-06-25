@@ -96,7 +96,12 @@ const REWARDS_RULES: ErrorRule[] = [
     'Please log in to view your rewards.',
   ],
   [/not found|404/i, 'Reward not found.'],
-  [/gate|disabled|forbidden|403/i, 'Reward redemption is not enabled yet.'],
+  // Only the redemption gate's own message — not every 403 (an ownership/forbidden
+  // 403 should fall through to the generic fallback, not claim the gate is off).
+  [
+    /not enabled yet|redemption is not enabled|reward redemption/i,
+    'Reward redemption is not enabled yet.',
+  ],
 ];
 const REWARDS_FALLBACK = 'Something went wrong. Please try again.';
 

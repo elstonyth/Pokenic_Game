@@ -213,8 +213,41 @@ moduleIntegrationTestRunner<PacksModuleService>({
         expect(draws).toHaveLength(0);
       });
 
-      it('POST /rewards/withdraw is NOT gated → maps the free-form address and ships', async () => {
+      it('POST /rewards/withdraw → 403 and the Pull stays vaulted (no ship)', async () => {
         const customerId = 'cus_d1_wd';
+        const pull = await seedRewardPull(customerId);
+
+        const { req, res, captured } = makeReqRes({
+          customerId,
+          body: { pull_id: pull.id, address: ADDRESS },
+        });
+        let threw = false;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await withdrawPOST(req as any, res as any);
+        } catch {
+          threw = true;
+        }
+        // Withdraw is now gated alongside claim + draw: a 403 (thrown NOT_ALLOWED)
+        // before any write — the prize is never shipped while redemption is dark.
+        expect(threw || captured.status === 403).toBe(true);
+        const [after] = await service.listPulls({ id: pull.id }, { take: 1 });
+        expect(after.status).toBe('vaulted');
+      });
+    });
+
+    describe('withdraw with the gate ENABLED', () => {
+      const prev = process.env.REWARDS_REDEMPTION_ENABLED;
+      beforeAll(() => {
+        process.env.REWARDS_REDEMPTION_ENABLED = 'true';
+      });
+      afterAll(() => {
+        if (prev === undefined) delete process.env.REWARDS_REDEMPTION_ENABLED;
+        else process.env.REWARDS_REDEMPTION_ENABLED = prev;
+      });
+
+      it('POST /rewards/withdraw maps the free-form address and ships', async () => {
+        const customerId = 'cus_wd_ok';
         const pull = await seedRewardPull(customerId);
 
         const { req, res, captured } = makeReqRes({
@@ -229,28 +262,29 @@ moduleIntegrationTestRunner<PacksModuleService>({
         expect(after.status).toBe('delivering');
       });
 
-      it('POST /rewards/withdraw rejects an incomplete address (400 INVALID_DATA)', async () => {
-        const customerId = 'cus_d1_wd_badaddr';
+      it('POST /rewards/withdraw rejects an incomplete address (INVALID_DATA) without shipping', async () => {
+        const customerId = 'cus_wd_badaddr';
         const pull = await seedRewardPull(customerId);
 
         const { req, res, captured } = makeReqRes({
           customerId,
           // countryCode missing → required-field validation fails before any write.
-          body: {
-            pull_id: pull.id,
-            address: { ...ADDRESS, countryCode: '' },
-          },
+          body: { pull_id: pull.id, address: { ...ADDRESS, countryCode: '' } },
         });
-        let threw = false;
+        let err: unknown;
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await withdrawPOST(req as any, res as any);
-        } catch {
-          threw = true;
+        } catch (e) {
+          err = e;
         }
-        // A thrown INVALID_DATA MedusaError is the contract; the load-bearing
-        // assertion is that the Pull was NOT shipped.
-        expect(threw || captured.status === 400).toBe(true);
+        // Specifically INVALID_DATA (the address gate) — not the redemption gate
+        // (which is open here) and not a generic throw.
+        if (err) {
+          expect((err as { type?: string }).type).toBe('invalid_data');
+        } else {
+          expect(captured.status).toBe(400);
+        }
         const [after] = await service.listPulls({ id: pull.id }, { take: 1 });
         expect(after.status).toBe('vaulted');
       });

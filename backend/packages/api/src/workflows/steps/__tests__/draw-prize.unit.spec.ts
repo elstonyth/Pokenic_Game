@@ -19,6 +19,8 @@ function buildContainer(overrides?: {
   listInventoryItems?: jest.Mock;
   /** stock map: handle → available qty (null = untracked = infinite) */
   stockByHandle?: Map<string, number | null>;
+  /** override the query.graph stub (e.g. to make the stock lookup throw) */
+  queryGraph?: jest.Mock;
 }): MedusaContainer {
   const listProducts =
     overrides?.listProducts ??
@@ -31,50 +33,16 @@ function buildContainer(overrides?: {
   // Query stub for stock checks: returns data with handle + stock info.
   // If stockByHandle provided, simulate queryStockRows-compatible payload.
   const stockByHandle = overrides?.stockByHandle;
-  const queryGraph = jest
-    .fn()
-    .mockImplementation(
-      ({ filters }: { entity: string; filters: { handle: string[] } }) => {
-        if (!stockByHandle) {
-          // Default: all products have stock
-          return Promise.resolve({
-            data: filters.handle.map((h) => ({
-              handle: h,
-              variants: [
-                {
-                  manage_inventory: true,
-                  inventory_items: [
-                    {
-                      inventory: {
-                        id: `inv_${h}`,
-                        location_levels: [
-                          {
-                            location_id: 'loc_1',
-                            stocked_quantity: 10,
-                            reserved_quantity: 0,
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                },
-              ],
-            })),
-          });
-        }
-        return Promise.resolve({
-          data: filters.handle
-            .filter((h) => stockByHandle.has(h))
-            .map((h) => {
-              const qty = stockByHandle.get(h);
-              if (qty === null) {
-                // untracked = no manage_inventory
-                return {
-                  handle: h,
-                  variants: [{ manage_inventory: false, inventory_items: [] }],
-                };
-              }
-              return {
+  const queryGraph =
+    overrides?.queryGraph ??
+    jest
+      .fn()
+      .mockImplementation(
+        ({ filters }: { entity: string; filters: { handle: string[] } }) => {
+          if (!stockByHandle) {
+            // Default: all products have stock
+            return Promise.resolve({
+              data: filters.handle.map((h) => ({
                 handle: h,
                 variants: [
                   {
@@ -86,7 +54,7 @@ function buildContainer(overrides?: {
                           location_levels: [
                             {
                               location_id: 'loc_1',
-                              stocked_quantity: qty,
+                              stocked_quantity: 10,
                               reserved_quantity: 0,
                             },
                           ],
@@ -95,11 +63,49 @@ function buildContainer(overrides?: {
                     ],
                   },
                 ],
-              };
-            }),
-        });
-      },
-    );
+              })),
+            });
+          }
+          return Promise.resolve({
+            data: filters.handle
+              .filter((h) => stockByHandle.has(h))
+              .map((h) => {
+                const qty = stockByHandle.get(h);
+                if (qty === null) {
+                  // untracked = no manage_inventory
+                  return {
+                    handle: h,
+                    variants: [
+                      { manage_inventory: false, inventory_items: [] },
+                    ],
+                  };
+                }
+                return {
+                  handle: h,
+                  variants: [
+                    {
+                      manage_inventory: true,
+                      inventory_items: [
+                        {
+                          inventory: {
+                            id: `inv_${h}`,
+                            location_levels: [
+                              {
+                                location_id: 'loc_1',
+                                stocked_quantity: qty,
+                                reserved_quantity: 0,
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                };
+              }),
+          });
+        },
+      );
 
   const modules: Record<string, unknown> = {
     [Modules.PRODUCT]: { listProducts },
@@ -197,6 +203,31 @@ describe('drawPrize (B4)', () => {
       product_handle: 'p-y',
       title: 'Untracked Prize',
       image: '/img/p-y.webp',
+    });
+  });
+
+  it('stock lookup FAILS → product entries fail OPEN (passed through, not all dropped)', async () => {
+    // Regression: an empty stockByHandle after a thrown lookup must not make the
+    // `!has(handle)` survivor test drop every product (that would be fail-CLOSED).
+    const listProducts = jest
+      .fn()
+      .mockResolvedValue([
+        { handle: 'p-x', title: 'Prize Card X', thumbnail: '/img/p-x.webp' },
+      ]);
+    const queryGraph = jest
+      .fn()
+      .mockRejectedValue(new Error('stock service down'));
+    const odds: OddsRow[] = [
+      { id: 'o1', weight: 1, kind: 'product', product_handle: 'p-x' },
+    ];
+    const container = buildContainer({ listProducts, queryGraph });
+    const prize = await drawPrize(container, odds);
+    // The lone product survived the failed lookup and was won (not 'nothing').
+    expect(prize).toEqual({
+      kind: 'product',
+      product_handle: 'p-x',
+      title: 'Prize Card X',
+      image: '/img/p-x.webp',
     });
   });
 

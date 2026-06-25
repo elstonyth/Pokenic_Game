@@ -36,7 +36,9 @@ export async function GET(
   const [grantRows, todaysDraws, rewardPulls, stateRow] = await Promise.all([
     packs.listVipRewardGrants(
       { customer_id: customerId, status: 'granted' },
-      { order: { level: 'DESC' }, take: GRANT_LIMIT },
+      // Newest first by grant time. level DESC put a high-level frame above a
+      // just-granted low-level voucher, which reads as out-of-order in the UI.
+      { order: { created_at: 'DESC' }, take: GRANT_LIMIT },
     ),
     packs.listRewardDraws(
       { customer_id: customerId, draw_day: drawDay },
@@ -82,9 +84,12 @@ export async function GET(
       { category: 'reward_box' },
       { take: 1000 },
     );
-    const pack = rewardPacks.find(
-      (p) => p.slug === prefix || p.slug.startsWith(`${prefix}-`),
-    );
+    // Exact slug first, suffixed variant only as fallback (mirrors
+    // service.resolveRewardBoxPack) — a suffixed pack must not shadow the
+    // canonical one.
+    const pack =
+      rewardPacks.find((p) => p.slug === prefix) ??
+      rewardPacks.find((p) => p.slug.startsWith(`${prefix}-`));
     draw_state = {
       draws_today: todaysDraws.length,
       draws_per_day: pack ? (pack.draws_per_day as number) : 0,

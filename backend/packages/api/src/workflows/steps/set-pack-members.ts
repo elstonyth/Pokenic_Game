@@ -66,9 +66,12 @@ export const setPackMembersStep = createStep(
     );
     // Reconcile CARD membership only — reward rows (card_id null) are not cards
     // and must never be flagged for removal by a desired-card-set diff.
+    // Membership is keyed on card_id ONLY — a card row with a null rarity (legacy)
+    // must still reconcile, or it would be re-added as a duplicate. So the guard
+    // narrows card_id (non-null) but NOT rarity; the rare null rarity is defaulted
+    // where it's consumed (the RemovedRow compensation snapshot below).
     const existing = allExisting.filter(
-      (o): o is typeof o & { card_id: string; rarity: OddsRarity } =>
-        o.card_id != null,
+      (o): o is typeof o & { card_id: string } => o.card_id != null,
     );
     const existingCards = new Set(existing.map((o) => o.card_id));
     const desiredSet = new Set(desired);
@@ -98,7 +101,9 @@ export const setPackMembersStep = createStep(
     const removed: RemovedRow[] = toRemove.map((o) => ({
       pack_id: o.pack_id,
       card_id: o.card_id,
-      rarity: o.rarity,
+      // Card rows carry a per-pack tier; default a legacy null to 'Common' so the
+      // compensation re-insert restores a valid, weight-able row.
+      rarity: o.rarity ?? 'Common',
       weight: o.weight,
       locked: o.locked,
     }));

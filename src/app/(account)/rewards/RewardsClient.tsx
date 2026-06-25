@@ -424,7 +424,10 @@ export default function RewardsClient({ initial }: { initial: RewardsResult }) {
   const drawsPerDay = drawState?.drawsPerDay ?? 0;
   const drawsLeft = Math.max(0, drawsPerDay - drawsToday);
   const poolEnabled = drawState?.poolEnabled ?? false;
-  const canDraw = poolEnabled && drawsLeft > 0 && !drawing;
+  // Gate the Open-box CTA on the global redemption flag too: a configured tier
+  // must not show an active draw button while redemption is dark (the backend
+  // would 403). Mirrors the claim buttons.
+  const canDraw = redemptionEnabled && poolEnabled && drawsLeft > 0 && !drawing;
 
   // Vaulted product prizes (awaiting shipping)
   const vaultedPrizes = prizes.filter(
@@ -654,7 +657,15 @@ export default function RewardsClient({ initial }: { initial: RewardsResult }) {
                       ) : (
                         <WithdrawForm
                           pullId={prize.pullId}
-                          onDone={() => setWithdrawing(null)}
+                          onDone={() => {
+                            setWithdrawing(null);
+                            // Refetch so the just-shipped prize drops out of
+                            // vaultedPrizes (derived from data.prizes), like the
+                            // draw path refreshes after a reveal.
+                            void getRewards().then((fresh) => {
+                              if (fresh.ok) setData(fresh);
+                            });
+                          }}
                           onCancel={() => setWithdrawing(null)}
                         />
                       )}

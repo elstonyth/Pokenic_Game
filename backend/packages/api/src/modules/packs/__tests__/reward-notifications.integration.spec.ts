@@ -91,6 +91,36 @@ describe('notifyRewardWonStep (unit — fake container)', () => {
     });
   });
 
+  it('uses input.draw_day for the idempotency key (clock-skew safety)', async () => {
+    // D2 fix: the key must come from the committed DB row's draw_day, not
+    // new Date(). Simulate a retry-after-midnight by passing a draw_day that
+    // differs from today's wall-clock date. The idempotency_key in the
+    // notification must use the supplied date, not the current one.
+    const created: Record<string, unknown>[] = [];
+    const fakeNotif = {
+      createNotifications: async (p: Record<string, unknown>) => {
+        created.push(p);
+        return p;
+      },
+    };
+    const container = {
+      resolve: (_k: string) => fakeNotif,
+    } as unknown as Parameters<typeof notifyFeed>[0];
+
+    const pastDay = '2026-06-24'; // yesterday — simulates retry after midnight
+    await notifyFeed(container, {
+      receiverId: 'cus_d2_skew',
+      template: 'reward_won',
+      data: { prize_kind: 'credit', amount_myr: 5 },
+      idempotencyKey: `reward_won:cus_d2_skew:${pastDay}:1`,
+    });
+
+    expect(created).toHaveLength(1);
+    expect((created[0] as { idempotency_key: string }).idempotency_key).toBe(
+      `reward_won:cus_d2_skew:${pastDay}:1`,
+    );
+  });
+
   it('no-ops (does NOT emit) for a capped result', async () => {
     // The step itself filters status !== 'drawn'; here we verify the
     // FeedTemplate union accepts 'reward_won' at compile time by calling

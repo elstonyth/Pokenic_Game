@@ -7,6 +7,7 @@ export type NotifyRewardWonInput = {
   status: "drawn" | "unavailable" | "capped";
   prize?: DrawnPrize;
   draw_ordinal?: number;
+  draw_day?: string;
 };
 
 // notify-reward-won — best-effort feed notification for a successful reward-box
@@ -30,8 +31,10 @@ export const notifyRewardWonStep = createStep(
 
     // Idempotency key mirrors the partial-unique tuple on reward_draw:
     // (customer_id, draw_day, draw_ordinal) — a workflow retry emits exactly one
-    // notification for a given draw row.
-    const drawDay = new Date().toISOString().slice(0, 10);
+    // notification for a given draw row. draw_day comes from the committed DB row
+    // (threaded from settleRewardDraw) so the key is stable across retries even if
+    // the retry runs after midnight.
+    const drawDay = input.draw_day ?? new Date().toISOString().slice(0, 10);
     const ordinal = input.draw_ordinal ?? 0;
 
     try {

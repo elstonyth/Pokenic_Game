@@ -975,6 +975,7 @@ class PacksModuleService extends MedusaService({
     status: 'drawn' | 'unavailable' | 'capped';
     prize?: DrawnPrize;
     draw_ordinal?: number;
+    draw_day?: string;
   }> {
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
     const resolveContainer =
@@ -1120,7 +1121,7 @@ class PacksModuleService extends MedusaService({
       sharedContext,
     );
 
-    return { status: 'drawn', prize, draw_ordinal: drawOrdinal };
+    return { status: 'drawn', prize, draw_ordinal: drawOrdinal, draw_day: drawDay };
   }
 
   // Ship a vaulted reward-prize Pull as a physical delivery (B7). Mirrors

@@ -43,6 +43,7 @@ export const drawRewardBoxWorkflow = createWorkflow(
       status: d.result.status,
       prize: d.result.prize,
       draw_ordinal: d.result.draw_ordinal,
+      draw_day: d.result.draw_day,
     }));
     notifyRewardWonStep(notifyInput).config({ name: "notify-reward-won-step" });
 

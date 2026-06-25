@@ -67,6 +67,7 @@ export type RewardsResult =
       grants: RewardGrant[];
       drawState: RewardDrawState | null;
       prizes: RewardPrize[];
+      redemptionEnabled: boolean;
     }
   | { ok: false; error: string; needsAuth?: boolean };
 
@@ -117,7 +118,7 @@ export async function getRewards(): Promise<RewardsResult> {
     });
 
     // Validate the outer envelope exists (schema is loose — won't throw on unknown fields)
-    parseOne(RewardsEnvelopeSchema, raw); // just validates shape, doesn't throw
+    const envelope = parseOne(RewardsEnvelopeSchema, raw);
 
     const grants = parseList(
       RewardGrantSchema,
@@ -157,7 +158,9 @@ export async function getRewards(): Promise<RewardsResult> {
       drawDay: p.draw_day,
     }));
 
-    return { ok: true, grants, drawState, prizes };
+    const redemptionEnabled = envelope?.redemption_enabled ?? false;
+
+    return { ok: true, grants, drawState, prizes, redemptionEnabled };
   } catch (error) {
     logger.error('[rewards] load failed:', error);
     return {

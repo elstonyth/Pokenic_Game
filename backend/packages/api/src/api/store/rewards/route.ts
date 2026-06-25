@@ -5,13 +5,15 @@ import type {
 import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../../modules/packs';
 import type PacksModuleService from '../../../modules/packs/service';
+import { rewardsRedemptionEnabled } from '../../../modules/packs/rewards-gate';
 
 // GET /store/rewards — the logged-in customer's reward-economy state in one read:
-//   - grants:  claimable VIP reward grants (status 'granted'), newest first.
-//   - draw:    today's draw progress (drawn_today / draws_per_day) so the UI can
-//              show "x of y boxes opened today" without a second call.
-//   - prizes:  vaulted reward Pulls (source='reward'), rendered from the matching
-//              reward_draw.prize_snapshot (the same shape the vault route emits).
+//   - grants:         claimable VIP reward grants (status 'granted'), newest first.
+//   - draw_state:     today's draw progress + pool config so the UI can render the
+//                     box section without a second call.
+//   - prizes:         vaulted reward Pulls (source='reward') with prize metadata.
+//   - redemption_enabled: mirrors REWARDS_REDEMPTION_ENABLED so the client can
+//                     pre-disable Claim/Draw buttons before hitting a 403.
 //
 // AUTH + RATE LIMIT: registered in api/middlewares.ts (authenticate() then the
 // store-read limiter). The customer id comes ONLY from the verified bearer token,
@@ -31,7 +33,7 @@ export async function GET(
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
   const drawDay = new Date().toISOString().slice(0, 10);
 
-  const [grantRows, todaysDraws, rewardPulls] = await Promise.all([
+  const [grantRows, todaysDraws, rewardPulls, stateRow] = await Promise.all([
     packs.listVipRewardGrants(
       { customer_id: customerId, status: 'granted' },
       { order: { level: 'DESC' }, take: GRANT_LIMIT },
@@ -44,23 +46,59 @@ export async function GET(
       { customer_id: customerId, status: 'vaulted', source: 'reward' },
       { order: { rolled_at: 'DESC' }, take: PRIZE_LIMIT },
     ),
+    packs.listVipMemberStates({ customer_id: customerId }, { take: 1 }).then(
+      ([row]) => row ?? null,
+    ),
   ]);
 
+  // Fix (1): `granted_at` was missing — storefront RewardGrantSchema requires it.
   const grants = grantRows.map((g) => ({
     id: g.id,
     level: g.level,
     kind: g.kind as string,
     payload: g.payload,
     status: g.status as string,
+    granted_at: g.created_at as string,
   }));
 
-  // Draw state: how many boxes the customer opened today. The per-day cap is a
-  // per-pool value resolved against the tier box inside settleRewardDraw — NOT a
-  // global setting — so it's intentionally not surfaced here; the storefront
-  // reads the cap from the draw response when it actually opens a box.
-  // ponytail: drawn_today is the one cheap signal; don't re-resolve the tier box
-  // pack just to echo a cap — add that here only if the UI proves it needs it.
-  const draw = { drawn_today: todaysDraws.length };
+  // Draw state: resolve the customer's tier so the UI can show draws_per_day and
+  // whether the pool is enabled without waiting for a draw attempt.
+  // Fix (2): key renamed draw → draw_state; missing fields added.
+  let draw_state: {
+    draws_today: number;
+    draws_per_day: number;
+    pool_enabled: boolean;
+    tier: string;
+  } | null = null;
+
+  const level = stateRow ? Number(stateRow.highest_level_ever) : 1;
+  const [vipLevel] = await packs.listVipLevels({ level }, { take: 1 });
+  const tier = (vipLevel?.box_tier as string) ?? '';
+
+  if (tier) {
+    // Inline the same slug lookup as service.resolveRewardBoxPack (private).
+    const prefix = `reward-box-${tier}`;
+    const rewardPacks = await packs.listPacks(
+      { category: 'reward_box' },
+      { take: 1000 },
+    );
+    const pack = rewardPacks.find(
+      (p) => p.slug === prefix || p.slug.startsWith(`${prefix}-`),
+    );
+    draw_state = {
+      draws_today: todaysDraws.length,
+      draws_per_day: pack ? (pack.draws_per_day as number) : 0,
+      pool_enabled: pack ? Boolean(pack.pool_enabled) : false,
+      tier,
+    };
+  } else {
+    draw_state = {
+      draws_today: todaysDraws.length,
+      draws_per_day: 0,
+      pool_enabled: false,
+      tier: '',
+    };
+  }
 
   // Vaulted reward prizes, rendered from prize_snapshot (no Card row exists for a
   // reward Pull). Batch-load the matching reward_draw rows keyed by vault_pull_id.
@@ -73,19 +111,22 @@ export async function GET(
     : [];
   const drawByPullId = new Map(drawRows.map((d) => [d.vault_pull_id, d]));
 
+  // Fix (3+4): prizes now emit prize_kind/prize_snapshot/status/draw_day to match
+  // storefront RewardPrizeSchema (was flat title/image — those are inside the snap).
   const prizes = rewardPulls
     .map((p) => {
       const d = drawByPullId.get(p.id);
       if (!d) return null;
-      const snap = d.prize_snapshot as { title?: string; image?: string };
       return {
         pull_id: p.id,
-        rolled_at: p.rolled_at,
-        title: snap.title ?? '',
-        image: snap.image ?? '',
+        prize_kind: d.prize_kind as string,
+        prize_snapshot: d.prize_snapshot,
+        status: d.status as string,
+        draw_day: d.draw_day as string,
       };
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
 
-  res.json({ grants, draw, prizes });
+  // Fix (5): surface the gate flag so the client can pre-disable Claim/Draw.
+  res.json({ grants, draw_state, prizes, redemption_enabled: rewardsRedemptionEnabled() });
 }

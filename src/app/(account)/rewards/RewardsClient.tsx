@@ -411,7 +411,7 @@ export default function RewardsClient({ initial }: { initial: RewardsResult }) {
     );
   }
 
-  const { grants, drawState, prizes } = data;
+  const { grants, drawState, prizes, redemptionEnabled } = data;
 
   // Claimable grants = voucher or frame only (box/prize grants have no Claim button)
   const claimableGrants = grants.filter(
@@ -504,11 +504,15 @@ export default function RewardsClient({ initial }: { initial: RewardsResult }) {
                     ) : (
                       <button
                         type="button"
-                        disabled={isBusy}
+                        disabled={isBusy || !redemptionEnabled}
                         onClick={() => handleClaim(grant)}
                         className="shrink-0 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
                       >
-                        {isBusy ? 'Claiming…' : 'Claim'}
+                        {isBusy
+                          ? 'Claiming…'
+                          : redemptionEnabled
+                            ? 'Claim'
+                            : 'Coming soon'}
                       </button>
                     )}
                   </div>

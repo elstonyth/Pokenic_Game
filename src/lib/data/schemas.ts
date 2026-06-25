@@ -287,6 +287,7 @@ export const RewardsEnvelopeSchema = z.looseObject({
   grants: z.array(z.looseObject({})).optional(),
   draw_state: z.looseObject({}).nullable().optional(),
   prizes: z.array(z.looseObject({})).optional(),
+  redemption_enabled: z.boolean().optional(),
 });
 
 /** POST /store/rewards/claim/:grantId response. */

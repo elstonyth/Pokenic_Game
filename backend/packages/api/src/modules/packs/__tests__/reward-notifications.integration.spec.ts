@@ -200,6 +200,18 @@ moduleIntegrationTestRunner<PacksModuleService>({
   ],
   testSuite: ({ service }) => {
     describe('claimReward — D2 notification fields', () => {
+      // claimReward fails closed when the redemption gate is off (defense in depth
+      // at the mint site). These tests exercise the claim path, so the gate must be
+      // ON; restored afterwards so test order can't leak the flag.
+      const prevGate = process.env.REWARDS_REDEMPTION_ENABLED;
+      beforeAll(() => {
+        process.env.REWARDS_REDEMPTION_ENABLED = 'true';
+      });
+      afterAll(() => {
+        if (prevGate === undefined) delete process.env.REWARDS_REDEMPTION_ENABLED;
+        else process.env.REWARDS_REDEMPTION_ENABLED = prevGate;
+      });
+
       it('returns amount_myr and level on a successful voucher claim', async () => {
         const customerId = 'cus_d2_notif_voucher';
         const [grant] = await service.createVipRewardGrants([

@@ -7,6 +7,7 @@ import {
 } from '@medusajs/framework/utils';
 import type { Context, HttpTypes } from '@medusajs/framework/types';
 import { validateDeliveryRequest, snapshotAddress } from './delivery';
+import { rewardsRedemptionEnabled } from './rewards-gate';
 import Pack from './models/pack';
 import Card from './models/card';
 import PackOdds from './models/pack-odds';
@@ -893,6 +894,12 @@ class PacksModuleService extends MedusaService({
     grantId: string,
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ claimed: boolean; kind: string; amount_myr?: number; level?: number }> {
+    // Defense-in-depth (spec §6): the route already 403s when the gate is off,
+    // but fail closed at the mint site too so every present/future caller is safe.
+    if (!rewardsRedemptionEnabled()) {
+      return { claimed: false, kind: '' };
+    }
+
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
 
     // Serialize against any concurrent credit mutation for THIS customer; the
@@ -977,6 +984,12 @@ class PacksModuleService extends MedusaService({
     draw_ordinal?: number;
     draw_day?: string;
   }> {
+    // Defense-in-depth (spec §6): the route already 403s when the gate is off,
+    // but fail closed at the mint site too so every present/future caller is safe.
+    if (!rewardsRedemptionEnabled()) {
+      return { status: 'unavailable' };
+    }
+
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
     const resolveContainer =
       container ??

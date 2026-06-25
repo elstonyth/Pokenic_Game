@@ -355,5 +355,12 @@ export default defineMiddlewares({
       method: 'POST',
       middlewares: [adminActionRateLimit],
     },
+    {
+      // Daily-box pool config write (POST /admin/reward-pools/:tier) — mutates the
+      // reward economy, so it shares the admin money-mutation budget.
+      matcher: '/admin/reward-pools/*',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
   ],
 });

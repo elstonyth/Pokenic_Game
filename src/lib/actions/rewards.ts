@@ -33,7 +33,7 @@ import { z } from 'zod';
 export type RewardGrant = {
   id: string;
   kind: 'voucher' | 'frame' | 'box' | 'prize';
-  status: 'granted' | 'fulfilled' | 'expired';
+  status: 'granted' | 'fulfilled' | 'revoked';
   payload: Record<string, unknown> | null;
   grantedAt: string;
 };

@@ -135,6 +135,18 @@ moduleIntegrationTestRunner<PacksModuleService>({
       );
 
     describe('settleRewardDraw', () => {
+      // settleRewardDraw fails closed when the redemption gate is off (defense in
+      // depth at the mint site). These tests exercise the settlement logic, so the
+      // gate must be ON; restored afterwards so test order can't leak the flag.
+      const prevGate = process.env.REWARDS_REDEMPTION_ENABLED;
+      beforeAll(() => {
+        process.env.REWARDS_REDEMPTION_ENABLED = 'true';
+      });
+      afterAll(() => {
+        if (prevGate === undefined) delete process.env.REWARDS_REDEMPTION_ENABLED;
+        else process.env.REWARDS_REDEMPTION_ENABLED = prevGate;
+      });
+
       it('draws up to the daily cap then caps, crediting amount_myr each draw', async () => {
         const customerId = 'cus_draw_cap';
         await seedTierPool({

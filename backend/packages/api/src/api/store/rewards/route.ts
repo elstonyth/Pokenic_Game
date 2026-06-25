@@ -111,8 +111,13 @@ export async function GET(
     : [];
   const drawByPullId = new Map(drawRows.map((d) => [d.vault_pull_id, d]));
 
-  // Fix (3+4): prizes now emit prize_kind/prize_snapshot/status/draw_day to match
-  // storefront RewardPrizeSchema (was flat title/image — those are inside the snap).
+  // prizes emit prize_kind/prize_snapshot/draw_day from the reward_draw, but the
+  // STATUS must reflect the PULL's real lifecycle (the storefront filters the
+  // shippable list on status === 'vaulted'). reward_draw.status is only
+  // 'drawn'/'voided', so emitting it left the shippable list permanently empty.
+  // rewardPulls is already filtered to status:'vaulted', so every product prize
+  // here reports 'vaulted'; a withdrawn prize (Pull flipped to 'delivering') drops
+  // out of that query and is excluded from the list entirely.
   const prizes = rewardPulls
     .map((p) => {
       const d = drawByPullId.get(p.id);
@@ -121,7 +126,7 @@ export async function GET(
         pull_id: p.id,
         prize_kind: d.prize_kind as string,
         prize_snapshot: d.prize_snapshot,
-        status: d.status as string,
+        status: p.status as string,
         draw_day: d.draw_day as string,
       };
     })

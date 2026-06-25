@@ -51,23 +51,21 @@ import { GET as rewardsGET } from '../../../api/store/rewards/route';
 import { POST as claimPOST } from '../../../api/store/rewards/claim/[grantId]/route';
 import { POST as drawPOST } from '../../../api/store/rewards/draw/route';
 import { POST as withdrawPOST } from '../../../api/store/rewards/withdraw/route';
-import { Modules } from '@medusajs/framework/utils';
 
 jest.setTimeout(300 * 1000);
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// A complete, snapshot-able shipping address (matches snapshotAddress' required
-// fields). The route resolves this from the customer's address book; here the
-// stubbed CUSTOMER module hands it back keyed by id+customer_id.
+// A complete, free-form shipping address as the storefront POSTs it (camelCase).
+// The withdraw route maps it → the snake_case shape snapshotAddress requires; no
+// address-book lookup happens anymore (the Pull-ownership check is the boundary).
 const ADDRESS = {
-  id: 'addr_d1',
-  first_name: 'Ada',
-  last_name: 'Lovelace',
-  address_1: '1 Analytical Engine Way',
+  firstName: 'Ada',
+  lastName: 'Lovelace',
+  address1: '1 Analytical Engine Way',
   city: 'Kuala Lumpur',
-  postal_code: '50000',
-  country_code: 'my',
+  postalCode: '50000',
+  countryCode: 'my',
 };
 
 moduleIntegrationTestRunner<PacksModuleService>({
@@ -93,15 +91,14 @@ moduleIntegrationTestRunner<PacksModuleService>({
     RewardDraw,
   ],
   testSuite: ({ service }) => {
-    // Build a mock req/res. scope.resolve returns the real packs service for
-    // PACKS_MODULE and a stub CUSTOMER module (the address book) — mirrors the
-    // C3 profile-route test's cross-module stub.
+    // Build a mock req/res. scope.resolve returns the real packs service for every
+    // module token — the reward routes only touch PACKS_MODULE (the withdraw route
+    // no longer resolves the CUSTOMER address book).
     type ResCapture = { status?: number; body?: unknown };
     const makeReqRes = (opts: {
       customerId?: string;
       params?: Record<string, string>;
       body?: unknown;
-      addresses?: Array<Record<string, unknown>>;
     }) => {
       const captured: ResCapture = {};
       const res = {
@@ -114,24 +111,11 @@ moduleIntegrationTestRunner<PacksModuleService>({
           return this;
         },
       };
-      const stubCustomerModule = {
-        listCustomerAddresses: async (
-          selector: { id?: string; customer_id?: string },
-        ) =>
-          (opts.addresses ?? []).filter(
-            (a) =>
-              (!selector.id || a.id === selector.id) &&
-              (!selector.customer_id || a.customer_id === selector.customer_id),
-          ),
-      };
       const req = {
         auth_context: { actor_id: opts.customerId },
         params: opts.params ?? {},
         body: opts.body,
-        scope: {
-          resolve: (name: string) =>
-            name === Modules.CUSTOMER ? stubCustomerModule : service,
-        },
+        scope: { resolve: () => service },
       };
       return { req, res, captured };
     };
@@ -229,14 +213,13 @@ moduleIntegrationTestRunner<PacksModuleService>({
         expect(draws).toHaveLength(0);
       });
 
-      it('POST /rewards/withdraw is NOT gated → ships a vaulted reward Pull', async () => {
+      it('POST /rewards/withdraw is NOT gated → maps the free-form address and ships', async () => {
         const customerId = 'cus_d1_wd';
         const pull = await seedRewardPull(customerId);
 
         const { req, res, captured } = makeReqRes({
           customerId,
-          body: { pull_id: pull.id, address_id: ADDRESS.id },
-          addresses: [{ ...ADDRESS, customer_id: customerId }],
+          body: { pull_id: pull.id, address: ADDRESS },
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await withdrawPOST(req as any, res as any);
@@ -246,15 +229,17 @@ moduleIntegrationTestRunner<PacksModuleService>({
         expect(after.status).toBe('delivering');
       });
 
-      it('POST /rewards/withdraw rejects a foreign / unknown address (404)', async () => {
-        const customerId = 'cus_d1_wd_foreign';
+      it('POST /rewards/withdraw rejects an incomplete address (400 INVALID_DATA)', async () => {
+        const customerId = 'cus_d1_wd_badaddr';
         const pull = await seedRewardPull(customerId);
 
         const { req, res, captured } = makeReqRes({
           customerId,
-          body: { pull_id: pull.id, address_id: ADDRESS.id },
-          // Address belongs to someone else → ownership-scoped lookup misses.
-          addresses: [{ ...ADDRESS, customer_id: 'someone_else' }],
+          // countryCode missing → required-field validation fails before any write.
+          body: {
+            pull_id: pull.id,
+            address: { ...ADDRESS, countryCode: '' },
+          },
         });
         let threw = false;
         try {
@@ -263,16 +248,16 @@ moduleIntegrationTestRunner<PacksModuleService>({
         } catch {
           threw = true;
         }
-        // Either a 404 status or a thrown NOT_FOUND MedusaError is acceptable;
-        // the load-bearing assertion is that the Pull was NOT shipped.
-        expect(threw || captured.status === 404).toBe(true);
+        // A thrown INVALID_DATA MedusaError is the contract; the load-bearing
+        // assertion is that the Pull was NOT shipped.
+        expect(threw || captured.status === 400).toBe(true);
         const [after] = await service.listPulls({ id: pull.id }, { take: 1 });
         expect(after.status).toBe('vaulted');
       });
     });
 
     describe('GET /store/rewards', () => {
-      it('returns claimable grants + draw state + vaulted prizes', async () => {
+      it('returns claimable grants + draw state + a vaulted product prize', async () => {
         const customerId = 'cus_d1_get';
         const grant = await seedVoucherGrant(customerId);
         const pull = await seedRewardPull(customerId);
@@ -283,16 +268,21 @@ moduleIntegrationTestRunner<PacksModuleService>({
 
         const body = captured.body as {
           grants: Array<{ id: string; status: string }>;
-          draw: { drawn_today: number };
-          prizes: Array<{ pull_id: string }>;
+          draw_state: { draws_today: number } | null;
+          prizes: Array<{ pull_id: string; status: string }>;
         };
 
         // Claimable grant present (status 'granted').
         expect(body.grants.some((g) => g.id === grant.id)).toBe(true);
         // Draw state: the one seeded reward_draw counts as today's draw.
-        expect(body.draw.drawn_today).toBe(1);
-        // Vaulted prize rendered from the reward Pull.
-        expect(body.prizes.some((p) => p.pull_id === pull.id)).toBe(true);
+        expect(body.draw_state?.draws_today).toBe(1);
+
+        // B2: the product prize must surface with the PULL's status ('vaulted'),
+        // NOT the reward_draw status ('drawn') — that drift kept the storefront's
+        // "Prizes to ship" list permanently empty.
+        const prize = body.prizes.find((p) => p.pull_id === pull.id);
+        expect(prize).toBeDefined();
+        expect(prize?.status).toBe('vaulted');
       });
     });
   },

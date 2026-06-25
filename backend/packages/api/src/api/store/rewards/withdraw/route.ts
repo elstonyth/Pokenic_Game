@@ -2,26 +2,38 @@ import type {
   AuthenticatedMedusaRequest,
   MedusaResponse,
 } from '@medusajs/framework/http';
-import { MedusaError, Modules } from '@medusajs/framework/utils';
+import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../../../modules/packs';
 import type PacksModuleService from '../../../../modules/packs/service';
 
 // POST /store/rewards/withdraw — ship a vaulted reward-prize Pull as a physical
-// delivery. Body: { pull_id, address_id }.
+// delivery. Body: { pull_id, address: { firstName, lastName, address1, city,
+// postalCode, countryCode } } — a free-form address the customer types for THIS
+// shipment (not a saved-address id). This is the simpler, correct UX: the prize
+// is already theirs, so the address is just where they want it sent.
 //
 // NOT env-gated: a withdrawal is balance-neutral (it ships a prize the customer
 // already owns), so the global redemption gate does NOT apply here — the only
 // limit is the withdrawals_per_day cap enforced inside recordRewardWithdrawal.
 //
-// OWNERSHIP: recordRewardWithdrawal snapshots the address VERBATIM and trusts the
-// route for ownership (mirroring requestDeliveryStep). So this route MUST resolve
-// the address from the CALLER's own address book (id + customer_id scoped) and 404
-// on a miss BEFORE handing it down — otherwise a caller could ship a prize to an
-// address id that isn't theirs. The Pull's ownership + reward-source + vaulted
-// state are re-validated under the lock inside recordRewardWithdrawal.
+// OWNERSHIP / SECURITY: the address is the customer's chosen destination for
+// their own prize, so it carries no ownership decision. The real security
+// boundary is recordRewardWithdrawal, which re-reads the Pull UNDER the lock and
+// rejects it unless owned + source='reward' + 'vaulted'. The route only maps the
+// camelCase body into the snake_case shape snapshotAddress expects and validates
+// the required fields are present (400 INVALID_DATA otherwise).
 //
 // AUTH + RATE LIMIT: registered in api/middlewares.ts. The customer id comes ONLY
 // from the verified bearer token, never the body.
+type WithdrawAddressBody = {
+  firstName?: unknown;
+  lastName?: unknown;
+  address1?: unknown;
+  city?: unknown;
+  postalCode?: unknown;
+  countryCode?: unknown;
+};
+
 export async function POST(
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse,
@@ -32,39 +44,51 @@ export async function POST(
   }
 
   const body = req.body as
-    | { pull_id?: unknown; address_id?: unknown }
+    | { pull_id?: unknown; address?: WithdrawAddressBody }
     | undefined;
   const pullId = body?.pull_id;
-  const addressId = body?.address_id;
-  if (
-    typeof pullId !== 'string' ||
-    pullId.trim() === '' ||
-    typeof addressId !== 'string' ||
-    addressId.trim() === ''
-  ) {
+  if (typeof pullId !== 'string' || pullId.trim() === '') {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
-      '`pull_id` (string) and `address_id` (string) are required.',
+      '`pull_id` (string) is required.',
     );
   }
 
-  // Resolve + ownership-check the address against the caller's own address book.
-  // A foreign or unknown id misses this scoped lookup → 404 (no cross-account
-  // leak). recordRewardWithdrawal snapshots whatever it is handed, so this guard
-  // is the ownership boundary for the shipping address.
-  const customerModule = req.scope.resolve(Modules.CUSTOMER);
-  const [address] = await customerModule.listCustomerAddresses(
-    { id: addressId, customer_id: customerId },
-    { take: 1 },
-  );
-  if (!address) {
+  // Validate every field snapshotAddress requires is a non-empty string, then map
+  // camelCase → the snake_case shape it consumes. A missing field is a bad request
+  // here (recordRewardWithdrawal would otherwise reject it as 'invalid').
+  const addr = body?.address;
+  const fields = {
+    first_name: addr?.firstName,
+    last_name: addr?.lastName,
+    address_1: addr?.address1,
+    city: addr?.city,
+    postal_code: addr?.postalCode,
+    country_code: addr?.countryCode,
+  };
+  if (
+    Object.values(fields).some(
+      (v) => typeof v !== 'string' || v.trim() === '',
+    )
+  ) {
     throw new MedusaError(
-      MedusaError.Types.NOT_FOUND,
-      'Shipping address not found.',
+      MedusaError.Types.INVALID_DATA,
+      '`address` requires firstName, lastName, address1, city, postalCode, and countryCode.',
     );
   }
 
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
-  const result = await packs.recordRewardWithdrawal(customerId, pullId, address);
+  const result = await packs.recordRewardWithdrawal(
+    customerId,
+    pullId,
+    fields as {
+      first_name: string;
+      last_name: string;
+      address_1: string;
+      city: string;
+      postal_code: string;
+      country_code: string;
+    },
+  );
   res.json(result);
 }

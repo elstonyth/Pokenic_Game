@@ -8,6 +8,7 @@ import { rm } from '@/lib/format';
 import {
   claimReward,
   drawBox,
+  getRewards,
   withdrawPrize,
   type RewardsResult,
   type RewardGrant,
@@ -437,8 +438,15 @@ export default function RewardsClient({ initial }: { initial: RewardsResult }) {
           prize={drawResult}
           onClose={() => {
             setDrawResult(null);
-            // Reload page data after reveal so the draw count and prize list refresh
-            setData({ ...data });
+            // Refetch live data after the reveal so the draw count and prize list
+            // reflect the just-settled draw. The optimistic drawsUsed bump above is
+            // only a stop-gap until this resolves; clear it once fresh data lands.
+            void getRewards().then((fresh) => {
+              if (fresh.ok) {
+                setData(fresh);
+                setDrawsUsed(null);
+              }
+            });
           }}
         />
       )}

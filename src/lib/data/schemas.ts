@@ -260,7 +260,7 @@ export const MarkReadSchema = z.looseObject({
 export const RewardGrantSchema = z.looseObject({
   id: z.string(),
   kind: z.enum(['voucher', 'frame', 'box', 'prize']),
-  status: z.enum(['granted', 'fulfilled', 'expired']),
+  status: z.enum(['granted', 'fulfilled', 'revoked']),
   payload: z.looseObject({}).nullable().optional(),
   granted_at: z.string(),
 });

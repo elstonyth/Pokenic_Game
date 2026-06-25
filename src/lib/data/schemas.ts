@@ -130,6 +130,8 @@ export const CREDIT_REASONS = [
   'team_override',
   'commission_reversal',
   'cashout',
+  'voucher_claim',
+  'reward_credit',
 ] as const;
 export type CreditReason = (typeof CREDIT_REASONS)[number];
 

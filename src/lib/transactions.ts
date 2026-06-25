@@ -12,6 +12,8 @@ const REASON_LABEL: Record<CreditTxn['reason'], string> = {
   team_override: 'Team override',
   commission_reversal: 'Commission reversal',
   cashout: 'Cashout',
+  voucher_claim: 'Voucher',
+  reward_credit: 'Reward credit',
 };
 
 export const reasonLabel = (reason: CreditTxn['reason']): string =>

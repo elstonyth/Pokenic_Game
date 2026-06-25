@@ -65,7 +65,11 @@ export async function GET(
 
   const byHandle = cardByHandle(cards);
   const packBySlug = new Map(packRows.map((p) => [p.slug, p]));
-  const rarityOf = makeRarityOf(oddsRows);
+  // Reward rows (card_id null) carry no card rarity — exclude before the lookup.
+  const cardOdds = oddsRows.filter(
+    (o): o is typeof o & { card_id: string } => o.card_id != null,
+  );
+  const rarityOf = makeRarityOf(cardOdds);
 
   // For reward pulls: load matching reward_draw rows keyed by vault_pull_id.
   // ponytail: single batch query; vault is capped at 500 so N is bounded.
@@ -131,8 +135,7 @@ export async function GET(
 
   // Merge in rolled_at DESC order (pulls was already ordered DESC; preserve).
   const items = [...normalItems, ...rewardItems].sort(
-    (a, b) =>
-      new Date(b.rolled_at).getTime() - new Date(a.rolled_at).getTime(),
+    (a, b) => new Date(b.rolled_at).getTime() - new Date(a.rolled_at).getTime(),
   );
 
   res.json({ items });

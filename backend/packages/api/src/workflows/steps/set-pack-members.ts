@@ -60,9 +60,15 @@ export const setPackMembersStep = createStep(
       }
     }
 
-    const existing = await packs.listPackOdds(
+    const allExisting = await packs.listPackOdds(
       { pack_id: input.pack_id },
       { take: 1000 },
+    );
+    // Reconcile CARD membership only — reward rows (card_id null) are not cards
+    // and must never be flagged for removal by a desired-card-set diff.
+    const existing = allExisting.filter(
+      (o): o is typeof o & { card_id: string; rarity: OddsRarity } =>
+        o.card_id != null,
     );
     const existingCards = new Set(existing.map((o) => o.card_id));
     const desiredSet = new Set(desired);

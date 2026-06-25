@@ -54,10 +54,12 @@ export const deleteCardStep = createStep(
       { card_id: input.handle },
       { take: 1000 },
     );
+    // Queried by a single card handle, so every row is a card row: card_id and
+    // rarity are non-null by that invariant (reward rows have card_id null).
     const oddsSnapshot: OddsSnapshot[] = oddsRows.map((o) => ({
       pack_id: o.pack_id,
-      card_id: o.card_id,
-      rarity: o.rarity,
+      card_id: o.card_id!,
+      rarity: o.rarity!,
       weight: o.weight,
       locked: o.locked,
     }));

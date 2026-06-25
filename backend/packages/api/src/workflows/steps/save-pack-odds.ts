@@ -55,9 +55,15 @@ export const savePackOddsStep = createStep(
       );
     }
 
-    const existing = await packs.listPackOdds(
+    const allExisting = await packs.listPackOdds(
       { pack_id: input.pack_id },
       { take: 1000 },
+    );
+    // The win-rate editor only ever touches card rows — reward rows (card_id
+    // null) are managed elsewhere and must not be matched/normalized here.
+    const existing = allExisting.filter(
+      (o): o is typeof o & { card_id: string; rarity: OddsRarity } =>
+        o.card_id != null,
     );
     if (existing.length === 0) {
       throw new MedusaError(

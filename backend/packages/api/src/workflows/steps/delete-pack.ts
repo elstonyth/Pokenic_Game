@@ -1,13 +1,15 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError } from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { MedusaError } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
 
 export type DeletePackInput = { slug: string };
 
+// Snapshots ALL of a pack's odds rows for compensation, including reward rows
+// (card_id null) — keep card_id nullable so they round-trip faithfully.
 type OddsSnapshot = {
   pack_id: string;
-  card_id: string;
+  card_id: string | null;
   weight: number;
   locked: boolean;
 };
@@ -22,7 +24,7 @@ type CompensateData =
         image: string;
         boost: boolean;
         rank: number;
-        status: "active" | "draft";
+        status: 'active' | 'draft';
       };
       odds: OddsSnapshot[];
     }
@@ -32,7 +34,7 @@ type CompensateData =
 // Pull history are kept (cards live independently; the ledger is permanent).
 // Compensation recreates the pack and its odds rows.
 export const deletePackStep = createStep(
-  "delete-pack",
+  'delete-pack',
   async (input: DeletePackInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
@@ -40,13 +42,13 @@ export const deletePackStep = createStep(
     if (!pack) {
       throw new MedusaError(
         MedusaError.Types.NOT_FOUND,
-        `Pack '${input.slug}' not found.`
+        `Pack '${input.slug}' not found.`,
       );
     }
 
     const oddsRows = await packs.listPackOdds(
       { pack_id: input.slug },
-      { take: 1000 }
+      { take: 1000 },
     );
 
     const snapshot: CompensateData = {
@@ -82,7 +84,7 @@ export const deletePackStep = createStep(
     if (data.odds.length) {
       await packs.createPackOdds(data.odds);
     }
-  }
+  },
 );
 
 export default deletePackStep;

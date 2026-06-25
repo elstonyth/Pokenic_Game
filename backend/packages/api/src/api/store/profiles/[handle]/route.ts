@@ -47,9 +47,10 @@ export async function GET(
       { customer_id: customer.id },
       { take: MAX_PULLS, order: { rolled_at: 'DESC' } },
     )
-  // C1: exclude reward Pulls from the public profile (leaderboard, collection,
-  // recent feed). They are private vault items only visible in /store/vault.
-  ).filter((p) => p.source !== 'reward');
+  )
+    // C1: exclude reward Pulls from the public profile (leaderboard, collection,
+    // recent feed). They are private vault items only visible in /store/vault.
+    .filter((p) => p.source !== 'reward');
 
   // Lookup tables, leaderboard-style: card display/value by handle, pack
   // price by slug, per-pack rarity by (pack, card) odds row.
@@ -71,7 +72,11 @@ export async function GET(
 
   const byHandle = cardByHandle(cards);
   const priceBySlug = new Map(packRows.map((p) => [p.slug, p.price]));
-  const rarityOf = makeRarityOf(odds) as (p: string, c: string) => Rarity;
+  // Reward rows (card_id null) carry no card rarity — exclude before the lookup.
+  const cardOdds = odds.filter(
+    (o): o is typeof o & { card_id: string } => o.card_id != null,
+  );
+  const rarityOf = makeRarityOf(cardOdds) as (p: string, c: string) => Rarity;
 
   // Stats over the full pull history (same formulas as the leaderboard:
   // volume = Σ won-card FMV, points = Σ pack price × 100).
@@ -122,7 +127,7 @@ export async function GET(
     .filter(
       (p) =>
         (p as unknown as { showcased: boolean }).showcased &&
-        p.status === "vaulted",
+        p.status === 'vaulted',
     )
     .flatMap((p) => {
       const card = byHandle.get(p.card_id);

@@ -1,14 +1,14 @@
-import { Modules, ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import type { MedusaContainer } from "@medusajs/framework/types";
-import { pickWonRow } from "./roll-pack";
-import { getCardStockByHandle } from "../../modules/packs/card-stock";
+import { Modules, ContainerRegistrationKeys } from '@medusajs/framework/utils';
+import type { MedusaContainer } from '@medusajs/framework/types';
+import { pickWonRow } from './roll-pack';
+import { getCardStockByHandle } from '../../modules/packs/card-stock';
 
 // RewardOddsRow — the subset of PackOdds fields drawPrize reads.
 // Kept minimal so it can be passed from any caller without the full ORM entity.
 export type RewardOddsRow = {
   id: string;
   weight: number;
-  kind: "product" | "credit" | "nothing";
+  kind: 'product' | 'credit' | 'nothing';
   product_handle?: string | null;
   credit_amount?: number | null;
 };
@@ -17,9 +17,9 @@ export type RewardOddsRow = {
 // credit carries amount_myr (decimal MYR, matching PackOdds.credit_amount bigNumber).
 // ponytail: union kept flat — no base interface, no shared fields between variants.
 export type DrawnPrize =
-  | { kind: "product"; product_handle: string; title: string; image: string }
-  | { kind: "credit"; amount_myr: number }
-  | { kind: "nothing" };
+  | { kind: 'product'; product_handle: string; title: string; image: string }
+  | { kind: 'credit'; amount_myr: number }
+  | { kind: 'nothing' };
 
 // drawPrize — pure weighted pick + product resolution. Writes no rows.
 //
@@ -35,11 +35,11 @@ export type DrawnPrize =
 //   nothing → return as-is.
 export async function drawPrize(
   container: MedusaContainer,
-  rewardOdds: RewardOddsRow[]
+  rewardOdds: RewardOddsRow[],
 ): Promise<DrawnPrize> {
   // 1. Stock-gate: filter out 0-stock product entries.
   const productHandles = rewardOdds
-    .filter((r) => r.kind === "product" && r.product_handle)
+    .filter((r) => r.kind === 'product' && r.product_handle)
     .map((r) => r.product_handle as string);
 
   let stockByHandle = new Map<string, number | null>();
@@ -50,12 +50,14 @@ export async function drawPrize(
       stockByHandle = await getCardStockByHandle(container, productHandles);
     } catch {
       const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
-      logger.warn("draw-prize: stock check failed — treating all product entries as in-stock");
+      logger.warn(
+        'draw-prize: stock check failed — treating all product entries as in-stock',
+      );
     }
   }
 
   const survivors = rewardOdds.filter((r) => {
-    if (r.kind !== "product") return true;
+    if (r.kind !== 'product') return true;
     const handle = r.product_handle;
     if (!handle) return false;
     // Not in the map = product doesn't exist in catalog; drop it.
@@ -66,33 +68,33 @@ export async function drawPrize(
   });
 
   // 2. If no survivors (all gated out), return nothing gracefully.
-  if (survivors.length === 0) return { kind: "nothing" };
+  if (survivors.length === 0) return { kind: 'nothing' };
 
   const totalWeight = survivors.reduce((s, r) => s + r.weight, 0);
   const won = pickWonRow(survivors, Math.random() * totalWeight);
 
   // 3. Branch on kind.
-  if (won.kind === "credit") {
-    return { kind: "credit", amount_myr: Number(won.credit_amount ?? 0) };
+  if (won.kind === 'credit') {
+    return { kind: 'credit', amount_myr: Number(won.credit_amount ?? 0) };
   }
 
-  if (won.kind === "nothing") {
-    return { kind: "nothing" };
+  if (won.kind === 'nothing') {
+    return { kind: 'nothing' };
   }
 
   // product — resolve title + thumbnail from Modules.PRODUCT.
   const productModule = container.resolve(Modules.PRODUCT);
   const [product] = await productModule.listProducts(
     { handle: won.product_handle! },
-    { fields: ["title", "thumbnail"] }
+    { select: ['title', 'thumbnail'] },
   );
   // If the product was deleted between the stock check and now, return nothing.
-  if (!product) return { kind: "nothing" };
+  if (!product) return { kind: 'nothing' };
 
   return {
-    kind: "product",
+    kind: 'product',
     product_handle: won.product_handle!,
     title: (product as { title: string }).title,
-    image: (product as { thumbnail?: string }).thumbnail ?? "",
+    image: (product as { thumbnail?: string }).thumbnail ?? '',
   };
 }

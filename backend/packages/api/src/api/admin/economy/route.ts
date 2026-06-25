@@ -1,13 +1,13 @@
-import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { PACKS_MODULE } from "../../../modules/packs";
-import type PacksModuleService from "../../../modules/packs/service";
+import type { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import { PACKS_MODULE } from '../../../modules/packs';
+import type PacksModuleService from '../../../modules/packs/service';
 import {
   ledgerTotals,
   packTheoreticalRtp,
   type LedgerRow,
-} from "../../../modules/packs/economy";
-import { pageAll } from "../../utils/page-all";
-import { toMoney } from "../../../modules/packs/money";
+} from '../../../modules/packs/economy';
+import { pageAll } from '../../utils/page-all';
+import { toMoney } from '../../../modules/packs/money';
 
 // GET /admin/economy — the operator's money report: lifetime ledger totals
 // (revenue / payouts / top-ups / adjustments / net), the outstanding vault
@@ -24,7 +24,7 @@ export async function GET(
   // exact at any ledger size (id tiebreaker: batch inserts share created_at).
   const ledger = await pageAll(
     (opts) => packs.listCreditTransactions({}, opts),
-    { created_at: "ASC", id: "ASC" },
+    { created_at: 'ASC', id: 'ASC' },
   );
   const rows: LedgerRow[] = ledger.map((t) => ({
     reason: t.reason,
@@ -35,7 +35,7 @@ export async function GET(
   // Vault liability: FMV of every card customers still hold. Pull.card_id IS
   // Card.handle (the stable join key, same as the vault route).
   const vaultedPulls = await pageAll((opts) =>
-    packs.listPulls({ status: "vaulted" }, opts),
+    packs.listPulls({ status: 'vaulted' }, opts),
   );
   const vaultedByCard = new Map<string, number>();
   for (const p of vaultedPulls) {
@@ -62,7 +62,7 @@ export async function GET(
   // Per-pack theoretical RTP from current odds (active packs only — drafts
   // aren't sellable, so their RTP is operator-noise).
   const allPacks = await pageAll((opts) =>
-    packs.listPacks({ status: "active" }, opts),
+    packs.listPacks({ status: 'active' }, opts),
   );
   const allOdds = await pageAll((opts) => packs.listPackOdds({}, opts));
   const oddsByPack = new Map<
@@ -70,6 +70,7 @@ export async function GET(
     { weight: number; market_value: number }[]
   >();
   for (const o of allOdds) {
+    if (o.card_id == null) continue; // reward row — not a card, no FMV
     const value = valueByHandle.get(o.card_id);
     if (value === undefined) continue; // orphaned odds row
     const list = oddsByPack.get(o.pack_id) ?? [];

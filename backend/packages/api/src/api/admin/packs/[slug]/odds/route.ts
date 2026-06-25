@@ -44,9 +44,14 @@ export async function GET(
     return;
   }
 
-  const odds = await packsModuleService.listPackOdds(
+  const allOdds = await packsModuleService.listPackOdds(
     { pack_id: slug },
     { take: 1000 },
+  );
+  // This route renders the card-odds form — reward rows (card_id null) have no
+  // Card and must stay invisible here. Narrows card_id to string.
+  const odds = allOdds.filter(
+    (o): o is typeof o & { card_id: string } => o.card_id != null,
   );
 
   const handles = odds.map((o) => o.card_id);
@@ -69,7 +74,7 @@ export async function GET(
       card_id: card.handle,
       name: card.name,
       image: card.image,
-      rarity: o.rarity,
+      rarity: o.rarity ?? 'Common',
       market_value: toMoney(card.market_value),
       stock: stockByHandle.get(card.handle) ?? null,
       weight: o.weight,

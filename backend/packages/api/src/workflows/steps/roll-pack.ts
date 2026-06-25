@@ -1,7 +1,7 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError } from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { MedusaError } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
 
 type RollPackInput = {
   pack_id: string; // = Pack.slug
@@ -28,11 +28,18 @@ export type RolledCard = {
   sprite_image: string | null;
 };
 
+// A PackOdds row narrowed to a card row (card_id non-null). The normal pack
+// draw only ever rolls cards — reward rows are filtered out in fetchPackData.
+type PackOddsRow = Awaited<
+  ReturnType<PacksModuleService['listPackOdds']>
+>[number];
+type CardOddsRow = Omit<PackOddsRow, 'card_id'> & { card_id: string };
+
 // Shared return shape from fetchPackData — carries the static pack/odds state
 // that is safe to fetch once and reuse across N independent draws.
 export type PackData = {
-  pack: Awaited<ReturnType<PacksModuleService["listPacks"]>>[number];
-  odds: Awaited<ReturnType<PacksModuleService["listPackOdds"]>>;
+  pack: Awaited<ReturnType<PacksModuleService['listPacks']>>[number];
+  odds: CardOddsRow[];
   totalWeight: number;
 };
 
@@ -46,14 +53,36 @@ export async function fetchPackData(
   packs: PacksModuleService,
   packId: string,
 ): Promise<PackData> {
-  const [pack] = await packs.listPacks({ slug: packId, status: "active" }, { take: 1 });
-  if (!pack) throw new MedusaError(MedusaError.Types.NOT_FOUND, `Pack '${packId}' is not available.`);
+  const [pack] = await packs.listPacks(
+    { slug: packId, status: 'active' },
+    { take: 1 },
+  );
+  if (!pack)
+    throw new MedusaError(
+      MedusaError.Types.NOT_FOUND,
+      `Pack '${packId}' is not available.`,
+    );
   // reward_box packs are internal draw pools — never openable via the normal pack path (B2).
-  if (pack.category === "reward_box") throw new MedusaError(MedusaError.Types.NOT_FOUND, `Pack '${packId}' is not available.`);
-  const odds = await packs.listPackOdds({ pack_id: packId }, { take: 1000 });
-  if (odds.length === 0) throw new MedusaError(MedusaError.Types.NOT_FOUND, `Pack '${packId}' has no odds configured.`);
+  if (pack.category === 'reward_box')
+    throw new MedusaError(
+      MedusaError.Types.NOT_FOUND,
+      `Pack '${packId}' is not available.`,
+    );
+  const allOdds = await packs.listPackOdds({ pack_id: packId }, { take: 1000 });
+  // Normal pack draw rolls cards only — drop reward rows (card_id null). This
+  // narrows card_id/rarity to string and keeps totalWeight over the card pool.
+  const odds = allOdds.filter((o): o is CardOddsRow => o.card_id != null);
+  if (odds.length === 0)
+    throw new MedusaError(
+      MedusaError.Types.NOT_FOUND,
+      `Pack '${packId}' has no odds configured.`,
+    );
   const totalWeight = odds.reduce((sum, o) => sum + o.weight, 0);
-  if (totalWeight <= 0) throw new MedusaError(MedusaError.Types.NOT_ALLOWED, `Pack '${packId}' has invalid odds.`);
+  if (totalWeight <= 0)
+    throw new MedusaError(
+      MedusaError.Types.NOT_ALLOWED,
+      `Pack '${packId}' has invalid odds.`,
+    );
   return { pack, odds, totalWeight };
 }
 
@@ -61,9 +90,18 @@ export async function fetchPackData(
 // Extracted so the reward-draw engine (B4) can reuse the same algorithm without
 // depending on PacksModuleService or any I/O.
 // ponytail: last-row fallback handles roll >= totalWeight (rounding / float drift).
-export function pickWonRow<T extends { weight: number }>(rows: T[], roll: number): T {
+export function pickWonRow<T extends { weight: number }>(
+  rows: T[],
+  roll: number,
+): T {
   let won = rows[rows.length - 1];
-  for (const r of rows) { roll -= r.weight; if (roll < 0) { won = r; break; } }
+  for (const r of rows) {
+    roll -= r.weight;
+    if (roll < 0) {
+      won = r;
+      break;
+    }
+  }
   return won;
 }
 
@@ -73,16 +111,29 @@ export function pickWonRow<T extends { weight: number }>(rows: T[], roll: number
 // specific card that WAS won — it varies per roll and must stay per-draw.
 export async function drawFromData(
   packs: PacksModuleService,
-  odds: PackData["odds"],
+  odds: PackData['odds'],
   totalWeight: number,
 ): Promise<RolledCard> {
   const won = pickWonRow(odds, Math.random() * totalWeight);
   const [card] = await packs.listCards({ handle: won.card_id }, { take: 1 });
-  if (!card) throw new MedusaError(MedusaError.Types.NOT_FOUND, `Card '${won.card_id}' not found.`);
+  if (!card)
+    throw new MedusaError(
+      MedusaError.Types.NOT_FOUND,
+      `Card '${won.card_id}' not found.`,
+    );
   return {
-    handle: card.handle, name: card.name, set: card.set, grader: card.grader,
-    grade: card.grade, rarity: won.rarity, market_value: Number(card.market_value),
-    image: card.image, pokemon_dex: card.pokemon_dex ?? null, sprite_image: card.sprite_image ?? null,
+    handle: card.handle,
+    name: card.name,
+    set: card.set,
+    grader: card.grader,
+    grade: card.grade,
+    // Card rows always carry a rarity; default to Common to match the lookup
+    // fallback used everywhere else (makeRarityOf) if a row ever lacks one.
+    rarity: won.rarity ?? 'Common',
+    market_value: Number(card.market_value),
+    image: card.image,
+    pokemon_dex: card.pokemon_dex ?? null,
+    sprite_image: card.sprite_image ?? null,
   };
 }
 
@@ -103,11 +154,11 @@ export async function rollOne(
 // draw runs at execution time, so Math.random here is correct (the composition
 // body, which runs at load time, must never contain this logic).
 export const rollPackStep = createStep(
-  "roll-pack",
+  'roll-pack',
   async (input: RollPackInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
     return new StepResponse(await rollOne(packs, input.pack_id));
-  }
+  },
 );
 
 export default rollPackStep;

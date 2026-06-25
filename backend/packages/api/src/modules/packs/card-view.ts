@@ -1,4 +1,4 @@
-import { toMoney } from "./money";
+import { toMoney } from './money';
 
 // The display fields shared by the card-detail responses. Card.market_value is
 // a numeric column; everything else is a plain string. Kept loose (the Card
@@ -17,22 +17,31 @@ export type CardLike = {
 // used by odds rows and pulls). Replaces `new Map(cards.map(c => [c.handle, c]))`
 // repeated across the card routes.
 export function cardByHandle<T extends { handle: string }>(
-  cards: T[]
+  cards: T[],
 ): Map<string, T> {
   return new Map(cards.map((c) => [c.handle, c]));
 }
 
-type OddsRow = { pack_id: string; card_id: string; rarity: string };
+// card_id/rarity are nullable on the row (reward rows have neither); the lookup
+// keys defensively and defaults to "Common", so a reward row passed in here is
+// harmless — it just never matches a real (pack, card) card lookup.
+type OddsRow = {
+  pack_id: string;
+  card_id: string | null;
+  rarity: string | null;
+};
 
 // Per-pack rarity lookup: rarity belongs to the (pack, card) link (PackOdds),
 // not the card. Replaces the hand-built `rarityByPair` Map + `?? "Common"`
 // default duplicated in the vault, recent-pulls, and profile routes. The key
 // separator is internal — callers only see the (packId, cardId) lookup.
 export function makeRarityOf(
-  odds: OddsRow[]
+  odds: OddsRow[],
 ): (packId: string, cardId: string) => string {
-  const byPair = new Map(odds.map((o) => [`${o.pack_id} ${o.card_id}`, o.rarity]));
-  return (packId, cardId) => byPair.get(`${packId} ${cardId}`) ?? "Common";
+  const byPair = new Map(
+    odds.map((o) => [`${o.pack_id} ${o.card_id}`, o.rarity]),
+  );
+  return (packId, cardId) => byPair.get(`${packId} ${cardId}`) ?? 'Common';
 }
 
 // The canonical 8-field public card view, with FMV normalized to a JSON number.

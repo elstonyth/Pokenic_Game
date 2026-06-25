@@ -34,10 +34,15 @@ export async function GET(
     return;
   }
 
-  const odds = await packsModuleService.listPackOdds(
+  const allOdds = await packsModuleService.listPackOdds(
     { pack_id: slug },
     // Explicit take so a framework default can't silently cap the prize pool.
     { take: 1000 },
+  );
+  // Public card-odds view — reward rows (card_id null) are not cards and must
+  // not appear. Narrows card_id to string for the card join below.
+  const odds = allOdds.filter(
+    (o): o is typeof o & { card_id: string } => o.card_id != null,
   );
 
   const cardHandles = odds.map((o) => o.card_id);
@@ -55,7 +60,7 @@ export async function GET(
   const entries = odds
     .map((o) => {
       const card = byHandle.get(o.card_id);
-      return card ? toCardView(card, o.rarity) : null;
+      return card ? toCardView(card, o.rarity ?? 'Common') : null;
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
 

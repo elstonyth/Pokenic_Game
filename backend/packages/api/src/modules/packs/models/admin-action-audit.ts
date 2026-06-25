@@ -8,7 +8,7 @@ export const AdminActionAudit = model
   .define('admin_action_audit', {
     id: model.id().primaryKey(),
     admin_id: model.text(),
-    entity_type: model.enum(['customer', 'commission', 'rewards_settings', 'credit']),
+    entity_type: model.enum(['customer', 'commission', 'rewards_settings', 'credit', 'reward_pool']),
     entity_id: model.text(),
     action: model.enum([
       'freeze',
@@ -18,6 +18,7 @@ export const AdminActionAudit = model
       'unsuspend_commission',
       'adjust_credit',
       'edit_rewards_settings',
+      'edit_reward_pool',
     ]),
     before: model.json().nullable(),
     after: model.json().nullable(),

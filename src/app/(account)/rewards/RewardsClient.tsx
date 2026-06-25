@@ -14,8 +14,8 @@ import {
   type RewardGrant,
   type RewardPrize,
   type DrawPrize,
-  type WithdrawAddressInput,
 } from '@/lib/actions/rewards';
+import type { WithdrawAddressInput } from '@/lib/data/schemas';
 
 // ---- input style shared with the address form ------------------------------
 const INPUT_CLASS =

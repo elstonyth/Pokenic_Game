@@ -254,8 +254,8 @@ export async function drawBox(): Promise<DrawBoxResult> {
 
 // WithdrawAddressSchema + WithdrawAddressInput live in @/lib/data/schemas (the
 // app's sole `zod` importer — eslint no-restricted-imports forbids importing zod
-// here). Re-exported so existing consumers (RewardsClient) keep their import path.
-export type { WithdrawAddressInput };
+// here). Consumers (RewardsClient) import the type straight from schemas; a
+// "use server" file can only export async functions, so it must NOT re-export it.
 
 /** Request shipping for a vaulted prize pull. Not env-gated (balance-neutral). */
 export async function withdrawPrize(

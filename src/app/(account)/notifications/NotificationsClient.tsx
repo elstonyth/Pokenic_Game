@@ -8,6 +8,8 @@ import type { Notification } from '@/lib/actions/notifications';
 const TITLES: Record<string, string> = {
   vip_level_up: 'You leveled up!',
   commission_matured: 'Commission unlocked',
+  reward_won: 'You won a reward!',
+  voucher_claimed: 'Voucher redeemed',
 };
 
 export default function NotificationsClient({

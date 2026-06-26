@@ -1647,12 +1647,14 @@ class PacksModuleService extends MedusaService({
         );
         if (rel?.sponsor_id) {
           const sponsorId = rel.sponsor_id;
-          // Sponsor's effective level, derived live from THEIR external-funded
-          // spend against the current ladder (forward-only config). Note:
-          // creditSummary is @InjectManager (no context param) — the direct path's
-          // level read stays as-is; only flat-20% overrides are added below, which
-          // need no per-ancestor level read.
-          const sponsorSummary = await this.creditSummary(sponsorId);
+          // Sponsor's effective level ranks on their MONOTONIC lifetime external-
+          // funded spend (refund-immune; spec §6 — a refund never lowers VIP level
+          // or the commission tier it sets), NOT the refund-reducible creditSummary
+          // basis (which nets reversed opens to zero). The lifetime counter already
+          // backs VIP display/grants; this aligns the commission tier with it.
+          // lifetimeExternalSenFor is @InjectManager like creditSummary, so the
+          // level read stays off the locked path. (F5)
+          const sponsorLifetimeSen = await this.lifetimeExternalSenFor(sponsorId);
           const ladderRows = await this.listVipLevels(
             {},
             {
@@ -1669,7 +1671,7 @@ class PacksModuleService extends MedusaService({
             direct_referral_pct: Number(r.direct_referral_pct),
           }));
           const sponsorLevel = levelForSpend(
-            sponsorSummary.externalFundedSpendTotal,
+            sponsorLifetimeSen,
             levelLadder,
           );
           const pct = directReferralPctForLevel(sponsorLevel, pctLadder);
@@ -2986,10 +2988,20 @@ class PacksModuleService extends MedusaService({
     draws_per_day: number;
     pool_enabled: boolean;
   }> {
-    const slug = `reward-box-${input.tier}`;
+    const prefix = `reward-box-${input.tier}`;
 
-    // Resolve or create the reward_box Pack for this tier (in-txn).
-    const [existing] = await this.listPacks({ slug }, { take: 1 }, sharedContext);
+    // Resolve the SAME pack the draw/resolve path serves (resolveRewardBoxPack):
+    // exact `reward-box-<tier>` slug first, then a `reward-box-<tier>-<suffix>`
+    // variant. Editing only the exact slug would create a second pack and orphan
+    // a tier whose live pool lives under a suffixed slug (F6).
+    const rewardBoxPacks = await this.listPacks(
+      { category: 'reward_box' },
+      { take: 1000 },
+      sharedContext,
+    );
+    const found =
+      rewardBoxPacks.find((p) => p.slug === prefix) ??
+      rewardBoxPacks.find((p) => p.slug.startsWith(`${prefix}-`));
     let pack: {
       id: string;
       slug: string;
@@ -2997,23 +3009,29 @@ class PacksModuleService extends MedusaService({
       pool_enabled: boolean;
       draws_per_day: number;
     };
-    if (existing) {
-      // Never repurpose a non-reward_box pack that happens to own this slug —
-      // the draw/resolve path trusts category, so editing odds on a normal pack
-      // here would silently corrupt it.
-      if ((existing as { category?: string }).category !== 'reward_box') {
+    if (found) {
+      pack = found as typeof pack;
+    } else {
+      // No reward_box pool yet for this tier — create the canonical exact-slug
+      // shell. Never collide with a non-reward_box pack squatting that slug: the
+      // draw/resolve path trusts category, so writing odds under a normal pack
+      // would silently corrupt it.
+      const [squatter] = await this.listPacks(
+        { slug: prefix },
+        { take: 1 },
+        sharedContext,
+      );
+      if (squatter) {
         throw new MedusaError(
           MedusaError.Types.NOT_ALLOWED,
-          `Pack '${slug}' exists but is not a reward_box.`,
+          `Pack '${prefix}' exists but is not a reward_box.`,
         );
       }
-      pack = existing as typeof pack;
-    } else {
       // Dormant shell; pool_enabled/draws_per_day are set below from the input.
       const [created] = await this.createPacks(
         [
           {
-            slug,
+            slug: prefix,
             title: `VIP Reward Box – Tier ${input.tier.toUpperCase()}`,
             category: 'reward_box',
             price: 0,
@@ -3027,6 +3045,9 @@ class PacksModuleService extends MedusaService({
       );
       pack = created as typeof pack;
     }
+
+    // Every downstream write targets the RESOLVED pack's slug (exact or suffixed).
+    const slug = pack.slug;
 
     const priorPoolEnabled = pack.pool_enabled;
     const priorDrawsPerDay = pack.draws_per_day;

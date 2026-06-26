@@ -742,6 +742,35 @@ class PacksModuleService extends MedusaService({
     );
   }
 
+  // Auto-clear an AUTO freeze after a positive inflow written OUTSIDE
+  // mutateCreditAtomic (the buyback step inserts its credit directly, with a
+  // UNIQUE pull_id duplicate guard + clean error mapping that the generic
+  // mutate path would lose). Takes the SAME per-customer advisory lock and
+  // re-reads the committed balance, so it's race-safe against concurrent
+  // mutations and idempotent — calling it after the credit has committed lifts
+  // an AUTO freeze whose debt is now repaid, the same as mutateCreditAtomic's
+  // inline unfreeze. No-op when not frozen or still negative. (F1)
+  @InjectTransactionManager()
+  async maybeAutoUnfreezeForCustomer(
+    customerId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<void> {
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${customerId}`,
+    ]);
+    const rows = await em.execute<{ balance_cents: string | null }[]>(
+      'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents ' +
+        'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+      [customerId],
+    );
+    await this.maybeAutoUnfreeze(
+      customerId,
+      Number(rows[0]?.balance_cents ?? 0),
+      sharedContext,
+    );
+  }
+
   // Admin commission-scoped reversal (Phase 3a). Claws back EVERY commission row
   // for the target's open (all generations) but leaves the recruit's pack_open
   // debit intact — unlike reverseOpen, which also refunds the recruit. Same

@@ -55,8 +55,8 @@
 
 import { ExecArgs } from '@medusajs/framework/types';
 import { ContainerRegistrationKeys, Modules } from '@medusajs/framework/utils';
-import PacksModuleService from '../modules/packs/service.js';
-import { PACKS_MODULE } from '../modules/packs/index.js';
+import PacksModuleService from '../modules/packs/service';
+import { PACKS_MODULE } from '../modules/packs';
 
 // The first VIP level whose box_tier === 'c' (per vip-levels.data.ts).
 // Setting highest_level_ever to 20 guarantees tier resolution returns 'c'.
@@ -159,8 +159,7 @@ export default async function seedRewardEconomyDemo({
 
   const customerModule = container.resolve(Modules.CUSTOMER);
 
-  const TEST_EMAIL =
-    process.env.TEST_CUSTOMER_EMAIL ?? 'test@pokenic.app';
+  const TEST_EMAIL = process.env.TEST_CUSTOMER_EMAIL ?? 'test@pokenic.app';
 
   const [testCustomer] = await customerModule.listCustomers(
     { email: TEST_EMAIL },
@@ -187,19 +186,19 @@ export default async function seedRewardEconomyDemo({
         `[reward-demo] Customer already at level ${currentHighest} (>= ${TIER_C_LEVEL}), skipping upsert.`,
       );
     } else {
-      await packs.upsertVipMemberState(
-        {
-          customerId: testCustomer.id,
-          lifetimeSen: 0, // ponytail: no real ledger spend needed for demo
-          highestLevelEver: TIER_C_LEVEL,
-          currentLevel: TIER_C_LEVEL,
-        },
-      );
+      await packs.upsertVipMemberState({
+        customerId: testCustomer.id,
+        lifetimeSen: 0, // ponytail: no real ledger spend needed for demo
+        highestLevelEver: TIER_C_LEVEL,
+        currentLevel: TIER_C_LEVEL,
+      });
       logger.info(
         `[reward-demo] Upserted VIP state for "${TEST_EMAIL}" → highest_level_ever = ${TIER_C_LEVEL} (box_tier 'c').`,
       );
     }
   }
 
-  logger.info('[reward-demo] Done. Set REWARDS_REDEMPTION_ENABLED=true to exercise draw/claim routes.');
+  logger.info(
+    '[reward-demo] Done. Set REWARDS_REDEMPTION_ENABLED=true to exercise draw/claim routes.',
+  );
 }

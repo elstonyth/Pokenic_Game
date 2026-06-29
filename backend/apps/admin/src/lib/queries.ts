@@ -20,6 +20,7 @@ import {
   deleteCard,
   deletePack,
   freezeCustomer,
+  getAchievementDefs,
   getCustomerAudit,
   getCustomerGacha,
   getCustomerCommissions,
@@ -33,8 +34,11 @@ import {
   suspendCommission,
   unfreezeCustomer,
   unsuspendCommission,
+  updateAchievementDef,
   updateDeliveryOrder,
   uploadImage,
+  type AchievementDefBody,
+  type AchievementDefDTO,
   type AdminCommissionRow,
   type AdminDeliveryOrder,
   type CustomerAudit,
@@ -351,6 +355,23 @@ export const useSaveRewardPool = () => {
       saveRewardPool(vars.tier, vars.body),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: qk.rewardPool(vars.tier) }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export const useAchievementDefs = (): UseQueryResult<AchievementDefDTO[]> =>
+  useQuery({
+    queryKey: qk.achievements,
+    queryFn: getAchievementDefs,
+  });
+
+export const useUpdateAchievementDef = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { key: string; body: AchievementDefBody }) =>
+      updateAchievementDef(vars.key, vars.body),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: qk.achievements }),
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };

@@ -432,6 +432,59 @@ export interface SaveRewardPoolResult {
 
 // GET the reward_box pool config + entries for a VIP tier. Empty body shape
 // ({ pool: null, entries: [] }) means the tier was never authored.
+// ── Achievements ────────────────────────────────────────────────────────────
+
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${__BACKEND_URL__}${path}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res));
+  }
+  return (await res.json()) as T;
+}
+
+export interface AchievementDefDTO {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  rarity: string;
+  metric: string;
+  xp: number;
+  threshold: number;
+}
+
+export interface AchievementDefBody {
+  name: string;
+  description: string;
+  category: string;
+  rarity: string;
+  metric: string;
+  xp: number;
+  threshold: number;
+}
+
+export async function getAchievementDefs(): Promise<AchievementDefDTO[]> {
+  const r = await getJson<{ defs: AchievementDefDTO[] }>('/admin/achievements');
+  return r.defs;
+}
+
+export async function updateAchievementDef(
+  key: string,
+  body: AchievementDefBody,
+): Promise<AchievementDefDTO> {
+  return putJson<AchievementDefDTO>(
+    `/admin/achievements/${encodeURIComponent(key)}`,
+    body,
+  );
+}
+
+// ── Reward Pools ─────────────────────────────────────────────────────────────
+
 export async function getRewardPool(tier: string): Promise<RewardPoolResponse> {
   return getJson<RewardPoolResponse>(
     `/admin/reward-pools/${encodeURIComponent(tier)}`,

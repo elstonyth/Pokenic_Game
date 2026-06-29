@@ -33,6 +33,7 @@ import { buildCardProductInput } from '../modules/packs/card-product';
 import { HANDLE_RE, deriveHandle } from '../utils/profile-handle';
 import { RARITY_WEIGHT, type OddsRarity } from '@acme/odds-math';
 import { VIP_LEVELS } from './vip-levels.data';
+import { ACHIEVEMENT_DEFS } from './achievement-defs.data';
 
 const updateStoreCurrencies = createWorkflow(
   'update-store-currencies',
@@ -1135,6 +1136,22 @@ export default async function seedDemoData({ container }: ExecArgs) {
       vipLevelsToCreate.map((r) => ({ ...r })),
     );
     logger.info(`Seeded ${vipLevelsToCreate.length} VIP levels.`);
+  }
+
+  // Achievement defs — idempotent upsert-if-absent by `key` (mirrors VIP levels).
+  const existingAchDefs = await packsModuleService.listAchievementDefs(
+    { key: ACHIEVEMENT_DEFS.map((d) => d.key) },
+    { select: ['key'], take: ACHIEVEMENT_DEFS.length },
+  );
+  const haveAchKeys = new Set(existingAchDefs.map((d) => d.key));
+  const achDefsToCreate = ACHIEVEMENT_DEFS.filter((d) => !haveAchKeys.has(d.key));
+  if (achDefsToCreate.length === 0) {
+    logger.info('Achievement defs already exist, skipping.');
+  } else {
+    await packsModuleService.createAchievementDefs(
+      achDefsToCreate.map((d) => ({ ...d })),
+    );
+    logger.info(`Seeded ${achDefsToCreate.length} achievement defs.`);
   }
 
   // Gacha cards + odds (Phase 5a) — the prize pool + weighted table behind the

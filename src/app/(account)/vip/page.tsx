@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { AccountHeader, Panel, StatCards } from '@/components/account/ui';
 import { getVip } from '@/lib/actions/vip';
 import { rm } from '@/lib/format';
+import { getAchievements } from '@/lib/actions/achievements';
+import AchievementsSection from '@/components/account/AchievementsGrid';
 
 export const metadata: Metadata = { title: 'VIP' };
 
@@ -31,6 +33,7 @@ export default async function VipPage() {
     );
   }
   const v = res.vip;
+  const achRes = await getAchievements();
   const pct =
     v.next && v.next.threshold > 0
       ? Math.min(100, Math.round((v.spend / v.next.threshold) * 100))
@@ -80,6 +83,7 @@ export default async function VipPage() {
         </Link>{' '}
         page.
       </p>
+      {achRes.ok && <AchievementsSection data={achRes.data} />}
     </>
   );
 }

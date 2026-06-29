@@ -3,7 +3,7 @@ import { Badge, Container, Heading, Table, Text } from "@medusajs/ui";
 import { CurrencyDollar } from "@medusajs/icons";
 import type { RouteConfig } from "@mercurjs/dashboard-sdk";
 import { useEconomy } from "../../lib/queries";
-import { usd } from "../../lib/format";
+import { rm } from "../../lib/format";
 
 export const config: RouteConfig = {
   label: "Economy",
@@ -17,16 +17,16 @@ const EconomyPage = () => {
 
   const stats: { key: string; value: string; hint?: string }[] = data
     ? [
-        { key: "revenue", value: usd(data.totals.revenue) },
-        { key: "payouts", value: usd(data.totals.payouts) },
-        { key: "net", value: usd(data.totals.net) },
+        { key: "revenue", value: rm(data.totals.revenue) },
+        { key: "payouts", value: rm(data.totals.payouts) },
+        { key: "net", value: rm(data.totals.net) },
         {
           key: "liability",
-          value: usd(data.liability.market_value),
+          value: rm(data.liability.market_value),
           hint: t("economy.liabilityHint", { count: data.liability.count }),
         },
-        { key: "topups", value: usd(data.totals.topups) },
-        { key: "adjustments", value: usd(data.totals.adjustments) },
+        { key: "topups", value: rm(data.totals.topups) },
+        { key: "adjustments", value: rm(data.totals.adjustments) },
       ]
     : [];
 
@@ -101,10 +101,10 @@ const EconomyPage = () => {
                     {p.category}
                   </Table.Cell>
                   <Table.Cell className="text-right tabular-nums">
-                    {usd(p.price)}
+                    {rm(p.price)}
                   </Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                    {usd(p.ev)}
+                    {rm(p.ev)}
                   </Table.Cell>
                   <Table.Cell className="text-right">
                     {p.rtp_pct === null ? (

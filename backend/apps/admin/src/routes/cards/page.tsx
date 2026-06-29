@@ -25,7 +25,7 @@ import {
 } from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
-import { usd } from '../../lib/format';
+import { rm } from '../../lib/format';
 import RegisterCardModal from './RegisterCardModal';
 import CardPokemonFields from './CardPokemonFields';
 
@@ -226,10 +226,10 @@ const GachaCardsPage = () => {
                   {gradeLabel(c) || '—'}
                 </Table.Cell>
                 <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                  {usd(c.market_value)}
+                  {rm(c.market_value)}
                 </Table.Cell>
                 <Table.Cell className="text-right tabular-nums">
-                  {usd(c.price ?? c.market_value)}
+                  {rm(c.price ?? c.market_value)}
                   {c.price === null && (
                     <span className="text-ui-fg-muted ml-1 text-xs">FMV</span>
                   )}

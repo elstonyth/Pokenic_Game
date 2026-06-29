@@ -20,7 +20,7 @@ import {
 } from '../../lib/admin-rest';
 import { useEligibleProducts, useRegisterCard } from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
-import { usd } from '../../lib/format';
+import { rm } from '../../lib/format';
 import CardPokemonFields from './CardPokemonFields';
 
 // Register an EXISTING inventory product as a gacha card (inventory-first: the
@@ -344,7 +344,7 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
                         type="button"
                         onClick={() => applyPrice(p.grade, p.usd)}
                       >
-                        {p.grade}: {usd(p.usd)}
+                        {p.grade}: {rm(p.usd)}
                       </Button>
                     ))
                   )}

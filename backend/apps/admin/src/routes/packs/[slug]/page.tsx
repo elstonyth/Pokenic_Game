@@ -25,7 +25,7 @@ import {
   useSaveMembers,
   useSaveOdds,
 } from '../../../lib/queries';
-import { fmtPct, usd } from '../../../lib/format';
+import { fmtPct, rm } from '../../../lib/format';
 import {
   mapOddsToRows,
   rowsToOddsInputs,
@@ -266,7 +266,7 @@ const PackOddsEditorPage = () => {
                       </Select>
                     </Table.Cell>
                     <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                      {usd(r.market_value)}
+                      {rm(r.market_value)}
                     </Table.Cell>
                     <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
                       {fmtPct(r.currentPct)}
@@ -410,7 +410,7 @@ const PackOddsEditorPage = () => {
                         </span>
                         <span className="text-ui-fg-subtle text-xs">
                           {[c.grader, c.grade].filter(Boolean).join(' ') || '—'}{' '}
-                          · {usd(c.market_value)}
+                          · {rm(c.market_value)}
                         </span>
                       </div>
                     </label>

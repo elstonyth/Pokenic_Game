@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { usd, timeAgo, fmtPct } from './format';
+import { rm, timeAgo, fmtPct } from './format';
 
-describe('usd', () => {
-  it('formats a number with two decimals and a dollar sign', () => {
-    expect(usd(12.5)).toBe('$12.50');
+describe('rm', () => {
+  it('formats a number with two decimals and an RM prefix', () => {
+    expect(rm(12.5)).toBe('RM 12.50');
   });
   it('formats a whole number with grouping and trailing zeros', () => {
-    expect(usd(1000)).toBe('$1,000.00');
+    expect(rm(1000)).toBe('RM 1,000.00');
   });
   it('returns an em dash for null', () => {
-    expect(usd(null)).toBe('—');
+    expect(rm(null)).toBe('—');
   });
 });
 

@@ -28,7 +28,7 @@ import {
 } from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
-import { usd } from '../../lib/format';
+import { rm } from '../../lib/format';
 
 // Sidebar entry. The label is literal (internal single-operator tool); switch to
 // RouteConfig.translationNs if this dashboard is ever localized.
@@ -245,7 +245,7 @@ const PacksListPage = () => {
                   </StatusBadge>
                 </Table.Cell>
                 <Table.Cell className="tabular-nums">
-                  {usd(p.price)}
+                  {rm(p.price)}
                 </Table.Cell>
                 <Table.Cell className="text-right">
                   <div className="flex justify-end gap-2">

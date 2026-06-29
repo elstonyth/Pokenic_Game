@@ -4,7 +4,7 @@ import { ChartBar } from "@medusajs/icons";
 import type { RouteConfig } from "@mercurjs/dashboard-sdk";
 import { usePulls } from "../../lib/queries";
 import { resolveImageUrl } from "../../lib/image-url";
-import { usd, timeAgo } from "../../lib/format";
+import { rm, timeAgo } from "../../lib/format";
 
 export const config: RouteConfig = {
   label: "Pull Ledger",
@@ -110,14 +110,14 @@ const PullLedgerPage = () => {
                   </Table.Cell>
                   <Table.Cell>{p.card?.rarity ? <Badge size="2xsmall">{p.card.rarity}</Badge> : "—"}</Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                    {usd(p.card?.market_value ?? null)}
+                    {rm(p.card?.market_value ?? null)}
                   </Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle">{p.customer_email ?? t("pulls.anon")}</Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle">{p.pack_id}</Table.Cell>
                   <Table.Cell>
                     {p.status === "bought_back" ? (
                       <StatusBadge color="orange">
-                        {t("pulls.boughtBack", { amount: usd(p.buyback_amount) })}
+                        {t("pulls.boughtBack", { amount: rm(p.buyback_amount) })}
                       </StatusBadge>
                     ) : (
                       <StatusBadge color="green">{t("pulls.vaulted")}</StatusBadge>

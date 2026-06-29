@@ -1,10 +1,10 @@
 // Shared display formatters for the gacha admin pages. Pure and dependency-free
 // so they can be unit-tested in a node environment (see format.test.ts).
 
-export const usd = (n: number | null): string =>
+export const rm = (n: number | null): string =>
   n === null
     ? '—'
-    : `$${n.toLocaleString('en-US', {
+    : `RM ${n.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}`;

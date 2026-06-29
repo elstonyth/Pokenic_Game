@@ -19,7 +19,7 @@ import type { RouteConfig } from "@mercurjs/dashboard-sdk";
 import { searchCustomers, type SupportCustomer } from "../../lib/admin-rest";
 import { useAdjustCredits, useCustomerGacha } from "../../lib/queries";
 import { resolveImageUrl } from "../../lib/image-url";
-import { usd } from "../../lib/format";
+import { rm } from "../../lib/format";
 
 export const config: RouteConfig = {
   label: "Customer Support",
@@ -91,8 +91,8 @@ const SupportPage = () => {
       });
       toast.success(
         t("support.adjusted", {
-          amount: usd(res.amount),
-          balance: usd(res.balance),
+          amount: rm(res.amount),
+          balance: rm(res.balance),
         }),
       );
       // Invalidation (in the hook) refetches the customer view → fresh ledger row.
@@ -206,7 +206,7 @@ const SupportPage = () => {
                   {t("support.balance")}
                 </Text>
                 <Heading level="h1" className="mt-1 tabular-nums">
-                  {usd(view.balance)}
+                  {rm(view.balance)}
                 </Heading>
               </div>
               <div className="bg-ui-bg-subtle px-6 py-4">
@@ -218,7 +218,7 @@ const SupportPage = () => {
                 </Heading>
                 <Text size="small" className="text-ui-fg-subtle">
                   {t("support.vaultValue", {
-                    value: usd(view.vault.market_value),
+                    value: rm(view.vault.market_value),
                   })}
                 </Text>
               </div>
@@ -263,7 +263,7 @@ const SupportPage = () => {
                 <Prompt.Title>{t("support.adjustConfirmTitle")}</Prompt.Title>
                 <Prompt.Description>
                   {t("support.adjustConfirmDescription", {
-                    amount: usd(Number(amount)),
+                    amount: rm(Number(amount)),
                     email: view.customer.email,
                   })}
                 </Prompt.Description>
@@ -311,7 +311,7 @@ const SupportPage = () => {
                       <Table.Cell
                         className={`text-right tabular-nums ${tx.amount < 0 ? "text-ui-fg-error" : ""}`}
                       >
-                        {usd(tx.amount)}
+                        {rm(tx.amount)}
                       </Table.Cell>
                       <Table.Cell className="text-ui-fg-subtle text-right">
                         {new Date(tx.created_at).toLocaleString("en-US")}
@@ -367,13 +367,13 @@ const SupportPage = () => {
                         {p.pack_id}
                       </Table.Cell>
                       <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                        {usd(p.card?.market_value ?? null)}
+                        {rm(p.card?.market_value ?? null)}
                       </Table.Cell>
                       <Table.Cell>
                         {p.status === "bought_back" ? (
                           <StatusBadge color="orange">
                             {t("pulls.boughtBack", {
-                              amount: usd(p.buyback_amount),
+                              amount: rm(p.buyback_amount),
                             })}
                           </StatusBadge>
                         ) : (

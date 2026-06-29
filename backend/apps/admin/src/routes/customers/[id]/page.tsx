@@ -27,7 +27,7 @@ import {
   useUnfreezeCustomer,
   useUnsuspendCommission,
 } from '../../../lib/queries';
-import { usd } from '../../../lib/format';
+import { rm } from '../../../lib/format';
 import type { ReferralTreeNode } from '../../../lib/admin-rest';
 
 // ponytail: no config export — keeps route out of sidebar nav (mirrors packs/[slug]/page.tsx)
@@ -239,7 +239,7 @@ const Customer360Page = () => {
                 {t('customer360.balance')}
               </Text>
               <Heading level="h1" className="mt-1 tabular-nums">
-                {usd(view.balance)}
+                {rm(view.balance)}
               </Heading>
             </div>
             <div className="bg-ui-bg-subtle px-6 py-4">
@@ -250,7 +250,7 @@ const Customer360Page = () => {
                 {view.vault.count}
               </Heading>
               <Text size="small" className="text-ui-fg-subtle">
-                {usd(view.vault.market_value)} FMV
+                {rm(view.vault.market_value)} FMV
               </Text>
             </div>
             {view.vip && (

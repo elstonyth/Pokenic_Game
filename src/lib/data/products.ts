@@ -42,26 +42,26 @@ export interface MarketplaceCategory {
 const PRODUCT_FIELDS = '+metadata,*variants.calculated_price';
 const PRODUCT_LIST_LIMIT = 100;
 
-// The storefront prices and displays cards in USD, so Store API calls pass the
-// USD region's id to resolve `calculated_price`. The in-flight promise is cached
-// (so concurrent callers share one lookup instead of stampeding), but a miss or
-// failure clears the cache so the next call retries — region ids are stable.
-let usdRegionIdPromise: Promise<string | undefined> | null = null;
-function getUsdRegionId(): Promise<string | undefined> {
-  if (!usdRegionIdPromise) {
-    usdRegionIdPromise = sdk.store.region
+// The store prices cards in MYR (RM), so Store API calls pass the MYR region's id
+// to resolve `calculated_price`. The in-flight promise is cached (so concurrent
+// callers share one lookup instead of stampeding), but a miss or failure clears
+// the cache so the next call retries — region ids are stable.
+let storeRegionIdPromise: Promise<string | undefined> | null = null;
+function getStoreRegionId(): Promise<string | undefined> {
+  if (!storeRegionIdPromise) {
+    storeRegionIdPromise = sdk.store.region
       .list()
       .then(({ regions }) => {
-        const id = regions.find((r) => r.currency_code === 'usd')?.id;
-        if (!id) usdRegionIdPromise = null; // not found — allow a later retry
+        const id = regions.find((r) => r.currency_code === 'myr')?.id;
+        if (!id) storeRegionIdPromise = null; // not found — allow a later retry
         return id;
       })
       .catch((error) => {
-        usdRegionIdPromise = null; // failed — allow a later retry
+        storeRegionIdPromise = null; // failed — allow a later retry
         throw error;
       });
   }
-  return usdRegionIdPromise;
+  return storeRegionIdPromise;
 }
 
 const VALID_RARITIES: readonly Rarity[] = [
@@ -131,7 +131,7 @@ const CATEGORIES: MarketplaceCategory[] = [
 /** Marketplace listing grid — live from the Store API (empty on backend failure). */
 export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
   try {
-    const region_id = await getUsdRegionId();
+    const region_id = await getStoreRegionId();
     const { products } = await sdk.store.product.list({
       region_id,
       fields: PRODUCT_FIELDS,
@@ -156,7 +156,7 @@ export function getMarketplaceCategories(): MarketplaceCategory[] {
  */
 export async function getCardById(handle: string): Promise<MockCard> {
   try {
-    const region_id = await getUsdRegionId();
+    const region_id = await getStoreRegionId();
     const { products } = await sdk.store.product.list({
       handle,
       region_id,

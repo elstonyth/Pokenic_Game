@@ -29,7 +29,7 @@ export type CardProductSeed = {
   handle: string;
   title: string;
   image: string;
-  price: number; // USD listing price (decimal, stored as-is — never cents)
+  price: number; // MYR listing price (decimal, stored as-is — never cents)
   metadata: CardProductMetadata;
 };
 
@@ -79,7 +79,7 @@ export function buildCardProductInput(
         sku: `CARD-${card.handle.toUpperCase()}`,
         manage_inventory: opts.manageInventory,
         options: { Format: 'Slab' },
-        prices: [{ currency_code: 'usd', amount: card.price }],
+        prices: [{ currency_code: 'myr', amount: card.price }],
       },
     ],
     sales_channels: [{ id: opts.salesChannelId }],

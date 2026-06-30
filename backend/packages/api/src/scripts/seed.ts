@@ -106,8 +106,8 @@ type Rarity = OddsRarity;
 type CardSeed = {
   handle: string;
   title: string;
-  price: number; // USD listing price
-  fmv: number; // USD fair-market value
+  price: number; // MYR listing price
+  fmv: number; // MYR fair-market value
   points: number;
   grade: string;
   grader: string;
@@ -365,7 +365,7 @@ const DEMO_APPAREL_HANDLES = ['t-shirt', 'sweatshirt', 'sweatpants', 'shorts'];
 // src/app/claw/packs-data.ts so /claw and the home "Open Packs" tiles can read
 // real backend packs. `slug` matches the storefront pack id (= /claw/<slug>
 // route), `category` is a stable key the storefront maps to labels/icons, and
-// `rank` is the display order within a category. Prices are whole-dollar USD
+// `rank` is the display order within a category. Prices are whole-ringgit MYR
 // decimals (Medusa stores prices as-is, never cents). Backend & storefront are
 // separate workspaces so the list is duplicated by design (as CARD_PRODUCTS is
 // vs. the storefront CARD_POOL); the storefront also keeps these as its
@@ -489,7 +489,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
   const salesChannelModuleService = container.resolve(Modules.SALES_CHANNEL);
   const storeModuleService = container.resolve(Modules.STORE);
 
-  const countries = ['gb', 'de', 'dk', 'se', 'fr', 'es', 'it'];
+  const countries = ['my'];
 
   logger.info('Seeding store data...');
   const [store] = await storeModuleService.listStores();
@@ -518,11 +518,8 @@ export default async function seedDemoData({ container }: ExecArgs) {
       store_id: store.id,
       supported_currencies: [
         {
-          currency_code: 'eur',
+          currency_code: 'myr',
           is_default: true,
-        },
-        {
-          currency_code: 'usd',
         },
       ],
     },
@@ -532,6 +529,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
     input: {
       selector: { id: store.id },
       update: {
+        name: 'Pokenic',
         default_sales_channel_id: defaultSalesChannel[0].id,
       },
     },
@@ -554,86 +552,30 @@ export default async function seedDemoData({ container }: ExecArgs) {
     }
   }
 
-  const unassignedCountries = countries.filter(
-    (c) => !assignedCountries.has(c),
-  );
-
-  let region;
-  if (unassignedCountries.length === 0) {
-    // All countries already assigned - find the region that has most of our countries
-    region =
-      existingRegions.find((r) =>
-        r.countries?.some((c) => countries.includes(c.iso_2)),
-      ) || existingRegions[0];
-    logger.info(
-      'Countries already assigned to a region, skipping region creation.',
-    );
-  } else if (unassignedCountries.length < countries.length) {
-    // Some countries assigned, some not - only create with unassigned ones
-    logger.info(
-      `Some countries already assigned, creating region with: ${unassignedCountries.join(', ')}`,
-    );
-    const { result: regionResult } = await createRegionsWorkflow(container).run(
-      {
-        input: {
-          regions: [
-            {
-              name: 'Europe',
-              currency_code: 'eur',
-              countries: unassignedCountries,
-              payment_providers: ['pp_system_default'],
-            },
-          ],
-        },
-      },
-    );
-    region = regionResult[0];
-  } else {
-    // No countries assigned - create full region
-    const { result: regionResult } = await createRegionsWorkflow(container).run(
-      {
-        input: {
-          regions: [
-            {
-              name: 'Europe',
-              currency_code: 'eur',
-              countries,
-              payment_providers: ['pp_system_default'],
-            },
-          ],
-        },
-      },
-    );
-    region = regionResult[0];
-  }
-
-  // USD region — the storefront prices and displays cards in USD, so it queries
-  // `/store/products` with this region's id to resolve `calculated_price` in USD
-  // (card variants carry USD prices). Guarded by currency so re-runs are no-ops.
-  const allRegions = await regionModuleService.listRegions({});
-  let usdRegion = allRegions.find((r) => r.currency_code === 'usd');
-  if (!usdRegion) {
-    // Only claim "us" if no existing region already has it (countries are unique
-    // to one region); a USD region with no country still resolves USD prices.
-    const usdCountries = assignedCountries.has('us') ? [] : ['us'];
-    const { result: usdRegionResult } = await createRegionsWorkflow(
-      container,
-    ).run({
+  // Single MYR region (Malaysia). The storefront queries `/store/products` with
+  // this region's id to resolve `calculated_price` in MYR (card variants carry
+  // MYR prices). Guarded by currency so re-runs are no-ops.
+  let region = existingRegions.find((r) => r.currency_code === 'myr');
+  if (!region) {
+    // Only claim 'my' if no existing region already has it (countries are unique
+    // to one region); a region with no country still resolves its currency.
+    const myCountries = assignedCountries.has('my') ? [] : ['my'];
+    const { result: regionResult } = await createRegionsWorkflow(container).run({
       input: {
         regions: [
           {
-            name: 'United States',
-            currency_code: 'usd',
-            countries: usdCountries,
+            name: 'Malaysia',
+            currency_code: 'myr',
+            countries: myCountries,
             payment_providers: ['pp_system_default'],
           },
         ],
       },
     });
-    usdRegion = usdRegionResult[0];
-    logger.info(`Created USD region (${usdRegion.id}).`);
+    region = regionResult[0];
+    logger.info(`Created Malaysia (MYR) region (${region.id}).`);
   } else {
-    logger.info('USD region already exists, skipping.');
+    logger.info('Malaysia (MYR) region already exists, skipping.');
   }
   logger.info('Finished seeding regions.');
 
@@ -662,14 +604,14 @@ export default async function seedDemoData({ container }: ExecArgs) {
   logger.info('Seeding stock location data...');
   const stockLocationModule = container.resolve(Modules.STOCK_LOCATION);
   const existingStockLocations = await stockLocationModule.listStockLocations({
-    name: 'European Warehouse',
+    name: 'Malaysia Warehouse',
   });
 
   let stockLocation;
   if (existingStockLocations.length) {
     stockLocation = existingStockLocations[0];
     logger.info(
-      "Stock location 'European Warehouse' already exists, skipping.",
+      "Stock location 'Malaysia Warehouse' already exists, skipping.",
     );
   } else {
     const { result: stockLocationResult } = await createStockLocationsWorkflow(
@@ -678,10 +620,10 @@ export default async function seedDemoData({ container }: ExecArgs) {
       input: {
         locations: [
           {
-            name: 'European Warehouse',
+            name: 'Malaysia Warehouse',
             address: {
-              city: 'Copenhagen',
-              country_code: 'DK',
+              city: 'Kuala Lumpur',
+              country_code: 'MY',
               address_1: '',
             },
           },
@@ -743,49 +685,25 @@ export default async function seedDemoData({ container }: ExecArgs) {
 
   const existingFulfillmentSets =
     await fulfillmentModuleService.listFulfillmentSets({
-      name: 'European Warehouse delivery',
+      name: 'Malaysia Warehouse delivery',
     });
 
   let fulfillmentSet;
   if (existingFulfillmentSets.length) {
     fulfillmentSet = existingFulfillmentSets[0];
     logger.info(
-      "Fulfillment set 'European Warehouse delivery' already exists, skipping.",
+      "Fulfillment set 'Malaysia Warehouse delivery' already exists, skipping.",
     );
   } else {
     fulfillmentSet = await fulfillmentModuleService.createFulfillmentSets({
-      name: 'European Warehouse delivery',
+      name: 'Malaysia Warehouse delivery',
       type: 'shipping',
       service_zones: [
         {
-          name: 'Europe',
+          name: 'Malaysia',
           geo_zones: [
             {
-              country_code: 'gb',
-              type: 'country',
-            },
-            {
-              country_code: 'de',
-              type: 'country',
-            },
-            {
-              country_code: 'dk',
-              type: 'country',
-            },
-            {
-              country_code: 'se',
-              type: 'country',
-            },
-            {
-              country_code: 'fr',
-              type: 'country',
-            },
-            {
-              country_code: 'es',
-              type: 'country',
-            },
-            {
-              country_code: 'it',
+              country_code: 'my',
               type: 'country',
             },
           ],
@@ -825,14 +743,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
           },
           prices: [
             {
-              currency_code: 'usd',
-              amount: 10,
-            },
-            {
-              currency_code: 'eur',
-              amount: 10,
-            },
-            {
               region_id: region.id,
               amount: 10,
             },
@@ -862,14 +772,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
             code: 'express',
           },
           prices: [
-            {
-              currency_code: 'usd',
-              amount: 10,
-            },
-            {
-              currency_code: 'eur',
-              amount: 10,
-            },
             {
               region_id: region.id,
               amount: 10,
@@ -976,7 +878,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
     const [created] = await sellerService.createSellers([
       {
         ...HOUSE_SELLER,
-        currency_code: 'usd',
+        currency_code: 'myr',
         status: SellerStatus.OPEN,
         metadata: { house: true },
       },
@@ -1179,7 +1081,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
     grader: c.grader,
     grade: c.grade,
     // No rarity here — it is a per-pack property, seeded on the PackOdds rows.
-    market_value: c.fmv, // USD decimal — stored as-is, never cents.
+    market_value: c.fmv, // MYR decimal — stored as-is, never cents.
     image: c.image,
   }));
 

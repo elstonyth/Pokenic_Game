@@ -2,6 +2,7 @@
 // screenshots proof, and stays open for manual use. Ctrl-C to quit.
 // Run: node scripts/launch-logged-in.mjs
 import { createRequire } from 'node:module';
+import { mkdirSync } from 'node:fs';
 const { chromium } = createRequire(import.meta.url)('playwright'); // ponytail: global playwright via NODE_PATH
 
 // Credentials come from the environment — never hardcode secrets in source.
@@ -24,6 +25,9 @@ if (!ADMIN.pw || !CUST.pw) {
       '  ADMIN_PASSWORD=… CUSTOMER_PASSWORD=… node scripts/launch-logged-in.mjs',
   );
 }
+
+// Screenshots are written here; ensure it exists so a fresh clone never fails.
+mkdirSync('docs/research', { recursive: true });
 
 const browser = await chromium.launch({ headless: false });
 // One shared context = one window; each newPage() is a tab. Admin (:7000) and

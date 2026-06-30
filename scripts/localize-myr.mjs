@@ -24,8 +24,13 @@ async function main() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(ADMIN),
   });
+  if (!authRes.ok) {
+    throw new Error(
+      `admin auth failed: ${authRes.status} ${await authRes.text()}`,
+    );
+  }
   const { token } = await authRes.json();
-  if (!token) throw new Error('admin auth failed');
+  if (!token) throw new Error('admin auth returned no token');
   const H = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -79,9 +84,15 @@ async function main() {
 
   // 2) Re-price every product variant in MYR using its existing amount (prefer
   //    usd, else eur, else the first price). Replaces the variant price list.
-  const { products } = await api(
-    '/admin/products?limit=200&fields=id,title,variants.id,variants.prices.amount,variants.prices.currency_code',
-  );
+  // Page through ALL products (offset-based) so a catalog >200 is fully re-priced.
+  const products = [];
+  for (let offset = 0; ; offset += 200) {
+    const { products: page, count } = await api(
+      `/admin/products?limit=200&offset=${offset}&fields=id,title,variants.id,variants.prices.amount,variants.prices.currency_code`,
+    );
+    products.push(...page);
+    if (page.length === 0 || products.length >= count) break;
+  }
   let repriced = 0;
   for (const p of products) {
     const variants = (p.variants || []).map((v) => {
@@ -160,6 +171,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error('FAILED:', e.message);
+  console.error('FAILED:', e && e.stack ? e.stack : e);
   process.exit(1);
 });

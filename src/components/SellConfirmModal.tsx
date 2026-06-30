@@ -42,6 +42,9 @@ export default function SellConfirmModal({
   onCancel: () => void;
 }) {
   const bulk = typeof count === 'number';
+  // A single-card selection can still open the bulk modal (count === 1), so
+  // pluralize off the count rather than off `bulk`.
+  const plural = count !== 1;
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
@@ -122,7 +125,9 @@ export default function SellConfirmModal({
           )}
           <div className="min-w-0">
             <h2 className="font-heading text-lg font-bold text-white">
-              {bulk ? `Sell ${count} cards?` : 'Sell this card?'}
+              {bulk
+                ? `Sell ${count} card${plural ? 's' : ''}?`
+                : 'Sell this card?'}
             </h2>
             <p className="truncate text-[13px] text-white/60">{cardName}</p>
           </div>
@@ -151,8 +156,9 @@ export default function SellConfirmModal({
           {rateType === 'instant' && typeof secondsLeft === 'number'
             ? `Instant offer — ${secondsLeft}s left. `
             : ''}
-          Selling is permanent: the {bulk ? 'cards leave' : 'card leaves'} your
-          vault and the amount is credited to your site balance.
+          Selling is permanent: the{' '}
+          {bulk && plural ? 'cards leave' : 'card leaves'} your vault and the
+          amount is credited to your site balance.
         </p>
 
         <div className="mt-5 flex gap-2">

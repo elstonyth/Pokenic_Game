@@ -62,6 +62,11 @@ export default function VaultClient({
     (s, i) => s + i.buyback.amount,
     0,
   );
+  // The vault buyback is a flat rate, uniform across all vaulted items (see the
+  // footer copy + actions/vault.ts), so the first item's percent represents the
+  // whole batch. The confirm's "You receive" total is the exact sum of per-item
+  // amounts (selectedBuyback) — independent of this — so only the displayed rate
+  // label leans on the invariant, and the credited total stays correct anyway.
   const selectedPercent =
     selectedItems[0]?.buyback.percent ?? FLAT_BUYBACK_PERCENT;
 
@@ -138,16 +143,21 @@ export default function VaultClient({
     const ids = selectedItems.map((i) => i.pullId);
     const sold: string[] = [];
     let lastBalance: number | null = null;
+    // Remember the first failure's reason so the summary can say WHY (e.g. rate
+    // limited vs already sold), not just how many — keeps going either way so
+    // one failure doesn't strand the rest of the batch.
+    let firstError: string | null = null;
     for (const id of ids) {
       try {
         const res = await sellBackPull(id);
         if (res.ok) {
           sold.push(id);
           lastBalance = res.balance;
+        } else if (!firstError) {
+          firstError = res.error;
         }
       } catch {
-        // Counted as not-sold below; keep going so one failure doesn't strand
-        // the rest of the batch.
+        if (!firstError) firstError = 'Something went wrong. Please try again.';
       }
     }
     if (sold.length > 0) {
@@ -167,7 +177,7 @@ export default function VaultClient({
       setError(
         `${failed} card${failed === 1 ? '' : 's'} couldn't be sold back${
           sold.length > 0 ? ` — the other ${sold.length} sold` : ''
-        }. Please try again.`,
+        }.${firstError ? ` ${firstError}` : ''}`,
       );
     } else {
       setSelectMode(false);

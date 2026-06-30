@@ -2,17 +2,40 @@ import { validateRewardsPatch } from '../rewards-settings-validate';
 
 describe('validateRewardsPatch — clamp rules', () => {
   test('rejects a non-decaying / out-of-range / fractional override pct', () => {
-    expect(() => validateRewardsPatch({ teamOverridePct: 1 })).toThrow(/between 0 and 1/i);
-    expect(() => validateRewardsPatch({ teamOverridePct: 0 })).toThrow(/between 0 and 1/i);
-    expect(() => validateRewardsPatch({ teamOverridePct: 0.205 })).toThrow(/whole percent/i);
-    expect(() => validateRewardsPatch({ commissionCooldownDays: -1 })).toThrow(/>= 0/);
-    expect(() => validateRewardsPatch({ overrideGenerationCap: 0 })).toThrow(/>= 1/);
+    expect(() => validateRewardsPatch({ teamOverridePct: 1 })).toThrow(
+      /between 0 and 1/i,
+    );
+    // Batch A item 2 — the documented fat-finger: an admin typing "20" (meaning
+    // 20%) is a 2000% override fraction and must be rejected, not stored.
+    expect(() => validateRewardsPatch({ teamOverridePct: 20 })).toThrow(
+      /between 0 and 1/i,
+    );
+    expect(() => validateRewardsPatch({ teamOverridePct: 0 })).toThrow(
+      /between 0 and 1/i,
+    );
+    expect(() => validateRewardsPatch({ teamOverridePct: 0.205 })).toThrow(
+      /whole percent/i,
+    );
+    expect(() => validateRewardsPatch({ commissionCooldownDays: -1 })).toThrow(
+      />= 0/,
+    );
+    expect(() => validateRewardsPatch({ overrideGenerationCap: 0 })).toThrow(
+      />= 1/,
+    );
   });
 
   test('accepts a valid decaying whole-percent patch', () => {
     expect(
-      validateRewardsPatch({ teamOverridePct: 0.2, commissionCooldownDays: 3, overrideGenerationCap: 100 }),
-    ).toEqual({ teamOverridePct: 0.2, commissionCooldownDays: 3, overrideGenerationCap: 100 });
+      validateRewardsPatch({
+        teamOverridePct: 0.2,
+        commissionCooldownDays: 3,
+        overrideGenerationCap: 100,
+      }),
+    ).toEqual({
+      teamOverridePct: 0.2,
+      commissionCooldownDays: 3,
+      overrideGenerationCap: 100,
+    });
   });
 
   test('rejects an empty patch (no recognised fields)', () => {
@@ -38,14 +61,20 @@ describe('validateRewardsPatch — clamp rules', () => {
 
   // Fix 5 — strict typeof reject BEFORE Number() coercion
   test('rejects null commissionCooldownDays (typeof guard)', () => {
-    expect(() => validateRewardsPatch({ commissionCooldownDays: null })).toThrow(/integer >= 0/);
+    expect(() =>
+      validateRewardsPatch({ commissionCooldownDays: null }),
+    ).toThrow(/integer >= 0/);
   });
 
   test('rejects string teamOverridePct (typeof guard)', () => {
-    expect(() => validateRewardsPatch({ teamOverridePct: '0.2' })).toThrow(/between 0 and 1/);
+    expect(() => validateRewardsPatch({ teamOverridePct: '0.2' })).toThrow(
+      /between 0 and 1/,
+    );
   });
 
   test('rejects string overrideGenerationCap (typeof guard)', () => {
-    expect(() => validateRewardsPatch({ overrideGenerationCap: '5' })).toThrow(/integer >= 1/);
+    expect(() => validateRewardsPatch({ overrideGenerationCap: '5' })).toThrow(
+      /integer >= 1/,
+    );
   });
 });

@@ -1,7 +1,14 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils';
 import { DashboardModuleOptions } from '@mercurjs/types';
 import path from 'path';
+import { assertMockTopupSafe } from './src/modules/packs/topup';
 loadEnv(process.env.NODE_ENV || 'development', process.cwd());
+
+// Boot-guard (security audit 2026-06-30, Batch A): refuse to start a production
+// server that would mint free credit through the always-approving mock gateway
+// (ALLOW_MOCK_TOPUP=true in prod). Runs at config load, the same fail-fast point
+// as the JWT/COOKIE secret checks below.
+assertMockTopupSafe(process.env);
 
 // Secrets pass through UNDEFINED when unset so Medusa's own ConfigManager
 // gate stays live: it already fail-fasts in production on a missing

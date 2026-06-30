@@ -103,6 +103,21 @@ moduleIntegrationTestRunner<PacksModuleService>({
     };
 
     describe('recordRewardWithdrawal', () => {
+      // recordRewardWithdrawal fails closed (returns 'invalid') when the global
+      // redemption gate is off — so these tests need it ON. Previously this suite
+      // set NOTHING and silently relied on another suite leaking the flag; that
+      // surfaced when payout-freeze-guard.spec.ts (correctly) restored the env.
+      // Own the flag here and restore it, so the suite is order-independent.
+      const prevGate = process.env.REWARDS_REDEMPTION_ENABLED;
+      beforeAll(() => {
+        process.env.REWARDS_REDEMPTION_ENABLED = 'true';
+      });
+      afterAll(() => {
+        if (prevGate === undefined)
+          delete process.env.REWARDS_REDEMPTION_ENABLED;
+        else process.env.REWARDS_REDEMPTION_ENABLED = prevGate;
+      });
+
       it('ships a vaulted reward Pull: requested + is_reward order + Pull flipped', async () => {
         const customerId = 'cus_wd_ok';
         const pullId = await seedPull({ customerId, source: 'reward' });
@@ -137,10 +152,18 @@ moduleIntegrationTestRunner<PacksModuleService>({
         const first = await seedPull({ customerId, source: 'reward' });
         const second = await seedPull({ customerId, source: 'reward' });
 
-        const r1 = await service.recordRewardWithdrawal(customerId, first, ADDRESS);
+        const r1 = await service.recordRewardWithdrawal(
+          customerId,
+          first,
+          ADDRESS,
+        );
         expect(r1.status).toBe('requested');
 
-        const r2 = await service.recordRewardWithdrawal(customerId, second, ADDRESS);
+        const r2 = await service.recordRewardWithdrawal(
+          customerId,
+          second,
+          ADDRESS,
+        );
         expect(r2.status).toBe('capped');
 
         // Only one order; the second Pull is left untouched (still vaulted).

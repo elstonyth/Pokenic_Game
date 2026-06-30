@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { Migration20260624212744 } from '../Migration20260624212744';
 import { Migration20260625052600 } from '../Migration20260625052600';
+import { Migration20260630120000 } from '../Migration20260630120000';
 
 /**
  * G1 — Schema-diff + migration ordering guards (no DB required).
@@ -26,7 +27,9 @@ import { Migration20260625052600 } from '../Migration20260625052600';
 
 function collectSql(migration: { up: () => Promise<void> }): Promise<string[]> {
   const sql: string[] = [];
-  const m = migration as unknown as { addSql: (s: string) => void } & typeof migration;
+  const m = migration as unknown as {
+    addSql: (s: string) => void;
+  } & typeof migration;
   m.addSql = (s: string) => sql.push(s);
   return m.up().then(() => sql);
 }
@@ -34,7 +37,9 @@ function collectSql(migration: { up: () => Promise<void> }): Promise<string[]> {
 // ── 1. ordering: nullability relaxed BEFORE cross-column CHECK ────────────────
 
 test('A2 db:generate migration (20260624212744) emits DROP NOT NULL for card_id and rarity', async () => {
-  const m = Object.create(Migration20260624212744.prototype) as Migration20260624212744;
+  const m = Object.create(
+    Migration20260624212744.prototype,
+  ) as Migration20260624212744;
   const sql = await collectSql(m);
   const joined = sql.join('\n');
 
@@ -47,7 +52,9 @@ test('A2 db:generate migration (20260624212744) emits DROP NOT NULL for card_id 
 });
 
 test('A2 hand-written migration (20260625052600) adds pack_odds_kind_payout_check WITHOUT re-dropping nullability', async () => {
-  const m = Object.create(Migration20260625052600.prototype) as Migration20260625052600;
+  const m = Object.create(
+    Migration20260625052600.prototype,
+  ) as Migration20260625052600;
   const sql = await collectSql(m);
   const joined = sql.join('\n');
 
@@ -68,21 +75,21 @@ test('ordering invariant: nullability migration timestamp < cross-column CHECK m
   // This is a compile-time proof: if the imports resolve, the classes exist
   // and their timestamps are in the right order.
   const nullabilityTs = 20260624212744;
-  const checkTs       = 20260625052600;
+  const checkTs = 20260625052600;
   expect(nullabilityTs).toBeLessThan(checkTs);
 });
 
 // ── 2. snapshot sync: card_id + rarity nullable in .snapshot-packs.json ──────
 
 test('db:generate snapshot reflects pack_odds.card_id as nullable (empty-diff proxy)', () => {
-  const snapshotPath = path.resolve(
-    __dirname,
-    '../.snapshot-packs.json',
-  );
+  const snapshotPath = path.resolve(__dirname, '../.snapshot-packs.json');
   expect(fs.existsSync(snapshotPath)).toBe(true);
 
   const snapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) as {
-    tables: Array<{ name: string; columns: Record<string, { nullable: boolean }> }>;
+    tables: Array<{
+      name: string;
+      columns: Record<string, { nullable: boolean }>;
+    }>;
   };
 
   const packOdds = snapshot.tables.find((t) => t.name === 'pack_odds');
@@ -92,4 +99,24 @@ test('db:generate snapshot reflects pack_odds.card_id as nullable (empty-diff pr
   // run after the nullability relaxation (no pending diff).
   expect(packOdds!.columns['card_id']?.nullable).toBe(true);
   expect(packOdds!.columns['rarity']?.nullable).toBe(true);
+});
+
+// ── Batch A item 3: pack_odds.credit_amount ceiling CHECK ─────────────────────
+
+test('credit-ceiling migration (20260630120000) adds pack_odds_credit_amount_max_check allowing NULL', async () => {
+  const m = Object.create(
+    Migration20260630120000.prototype,
+  ) as Migration20260630120000;
+  const sql = await collectSql(m);
+  const joined = sql.join('\n');
+
+  // Adds the ceiling CHECK constraint…
+  expect(joined).toMatch(/pack_odds_credit_amount_max_check/i);
+  expect(joined).toMatch(/ADD CONSTRAINT/i);
+  // …bounded at 10000 (MAX_REWARD_CREDIT_MYR)…
+  expect(joined).toMatch(/credit_amount"?\s*<=\s*10000/i);
+  // …NULL allowed for non-credit (product/nothing/legacy-card) rows…
+  expect(joined).toMatch(/credit_amount"?\s+IS NULL/i);
+  // …and clamps any pre-existing over-cap row first so the ADD never violates.
+  expect(joined).toMatch(/UPDATE "pack_odds" SET "credit_amount" = 10000/i);
 });

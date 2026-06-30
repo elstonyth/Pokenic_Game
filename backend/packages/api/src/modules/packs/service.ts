@@ -48,7 +48,11 @@ import {
 } from './referral-commission';
 import { levelForSpend } from './vip-ladder';
 import { levelsToGrant, rewardsForLevel } from './vip-rewards';
-import { unlockedKeys, levelForXp, type AchMetric } from './achievements-ladder';
+import {
+  unlockedKeys,
+  levelForXp,
+  type AchMetric,
+} from './achievements-ladder';
 import { fromSen } from './money';
 import {
   validateRewardsPatch,
@@ -56,6 +60,7 @@ import {
   type RewardsSettingsView,
 } from './rewards-settings-validate';
 import type { RewardPoolEntry } from './reward-pool-validate';
+import { MAX_REWARD_CREDIT_MYR } from './reward-pool-validate';
 import {
   drawPrize,
   type DrawnPrize,
@@ -781,6 +786,38 @@ class PacksModuleService extends MedusaService({
     );
   }
 
+  // Block value-extraction for a MANUALLY frozen account (security audit
+  // 2026-06-30, Batch A item 5). A *manual* freeze is the admin/AMLA/fraud hold —
+  // "this account is locked, no transactions" — so it must stop value flowing OUT
+  // (buyback, reward draw, voucher claim, prize withdrawal). An *auto* freeze is a
+  // DIFFERENT mechanism: it marks a negative balance from a clawback and clears
+  // itself once a repaying inflow — a top-up OR a buyback sale — brings the
+  // balance back to >= 0 (maybeAutoUnfreeze). Gating auto freezes here would block
+  // that very repayment path and strand the account in debt, so the block is
+  // scoped to cause='manual'. Deliberately NOT wired into mutateCreditAtomic
+  // either — that path carries top-ups and admin adjustments, which must stay
+  // allowed. Each payout site calls this under its own per-customer credit: lock
+  // so the read is consistent; the buyback STEP calls it bare (fresh read) before
+  // crediting. @InjectManager runs it standalone or threads a caller's locked txn
+  // (sharedContext). Pack OPENS are self-spend (floor-checked) and NOT gated here.
+  @InjectManager()
+  async assertNotFrozen(
+    customerId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<void> {
+    const [state] = await this.listCustomerAccountStates(
+      { customer_id: customerId, frozen: true, cause: 'manual' },
+      { take: 1 },
+      sharedContext,
+    );
+    if (state) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'This account is frozen. Please contact support before transacting.',
+      );
+    }
+  }
+
   // Admin commission-scoped reversal (Phase 3a). Claws back EVERY commission row
   // for the target's open (all generations) but leaves the recruit's pack_open
   // debit intact — unlike reverseOpen, which also refunds the recruit. Same
@@ -808,10 +845,22 @@ class PacksModuleService extends MedusaService({
     // All commission CREDIT rows for this open (every generation). Fetch all
     // rows for the open and filter to commission reasons — same pattern as
     // reverseOpen (no array-filter reliance on MedusaService list).
-    const allRows = await this.listCreditTransactions(
+    // PAGED — a full reversal must never silently truncate. A bare take:1000
+    // would leave the commissions of a large open (many generations) unreversed,
+    // so sponsors keep clawed-back credit AND the auto-freeze projection below is
+    // computed on a partial set. Mirrors reverseOpen's loop on the same key.
+    const PAGE = 1000;
+    let allRows = await this.listCreditTransactions(
       { source_transaction_id: open },
-      { take: 1000, order: { created_at: 'ASC', id: 'ASC' } },
+      { skip: 0, take: PAGE, order: { created_at: 'ASC', id: 'ASC' } },
     );
+    for (let skip = PAGE; allRows.length === skip; skip += PAGE) {
+      const next = await this.listCreditTransactions(
+        { source_transaction_id: open },
+        { skip, take: PAGE, order: { created_at: 'ASC', id: 'ASC' } },
+      );
+      allRows = allRows.concat(next);
+    }
     const credits = allRows.filter(
       (r) =>
         (r.reason === 'direct_referral' || r.reason === 'team_override') &&
@@ -954,6 +1003,10 @@ class PacksModuleService extends MedusaService({
       `credit:${customerId}`,
     ]);
 
+    // Frozen accounts cannot draw value out (Batch A item 5) — block this payout
+    // under the same lock as the read below.
+    await this.assertNotFrozen(customerId, sharedContext);
+
     // Re-read the grant UNDER the lock, scoped to the owning customer.
     const [grant] = await this.listVipRewardGrants(
       { id: grantId, customer_id: customerId },
@@ -1047,6 +1100,10 @@ class PacksModuleService extends MedusaService({
       `credit:${customerId}`,
     ]);
 
+    // Frozen accounts cannot draw value out (Batch A item 5) — block this payout
+    // under the same lock as the cap COUNT + payout below.
+    await this.assertNotFrozen(customerId, sharedContext);
+
     // 1) Two-hop tier resolution. Default to the floor level (L1) when the
     //    customer has no state row yet (mirrors grantLevelUpRewards).
     const [state] = await this.listVipMemberStates(
@@ -1130,6 +1187,16 @@ class PacksModuleService extends MedusaService({
       );
       vaultPullId = pull.id;
     } else if (prize.kind === 'credit') {
+      // Defense-in-depth ceiling (Batch A item 3): the authoring validator and
+      // the pack_odds DB CHECK both cap credit_amount, but fail LOUD here too so
+      // a row that bypassed both (e.g. a direct seed) can never mint an absurd
+      // prize straight into the ledger.
+      if (prize.amount_myr > MAX_REWARD_CREDIT_MYR) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          `Reward credit ${prize.amount_myr} exceeds the ${MAX_REWARD_CREDIT_MYR} MYR cap.`,
+        );
+      }
       // Reward credit: ext=0 (basis-neutral — never bumps the VIP spend basis),
       // idempotent on the partial-unique tuple (customer:day:ordinal), NOT a
       // not-yet-created row id. Re-acquires the same credit: lock re-entrantly.
@@ -1222,6 +1289,10 @@ class PacksModuleService extends MedusaService({
     await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
       `credit:${customerId}`,
     ]);
+
+    // Frozen accounts cannot draw value out (Batch A item 5) — block shipping a
+    // prize under the same lock as the cap COUNT + writes below.
+    await this.assertNotFrozen(customerId, sharedContext);
 
     // 1) Re-read the Pull UNDER the lock and validate it via the same pure helper
     //    the lockless delivery path uses: must be owned + 'vaulted'. The extra
@@ -1339,6 +1410,26 @@ class PacksModuleService extends MedusaService({
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ status: 'suspended' }> {
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    // First read resolves the beneficiary (and 404s) so we can take the
+    // per-beneficiary lock; status is validated UNDER the lock below. The lock
+    // must PRECEDE the authoritative status check — otherwise a concurrent
+    // reverseCommission could flip status to 'reversed' between our check and
+    // our update (TOCTOU), and we'd clobber the reversal with 'suspended'.
+    const [pre] = await this.listCommissions(
+      { id: input.commissionId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!pre) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Commission '${input.commissionId}' not found.`,
+      );
+    }
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${pre.beneficiary}`,
+    ]);
+    // Re-read under the lock — authoritative status for the guard + audit.
     const [c] = await this.listCommissions(
       { id: input.commissionId },
       { take: 1 },
@@ -1362,9 +1453,6 @@ class PacksModuleService extends MedusaService({
         'Commission is already suspended.',
       );
     }
-    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
-      `credit:${c.beneficiary}`,
-    ]);
     await this.updateCommissions(
       { selector: { id: c.id }, data: { status: 'suspended' } },
       sharedContext,
@@ -1396,6 +1484,24 @@ class PacksModuleService extends MedusaService({
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ status: 'pending' | 'available' }> {
     const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    // First read resolves the beneficiary (and 404s) so we can take the
+    // per-beneficiary lock; status + maturity are validated UNDER the lock below
+    // (TOCTOU vs a concurrent reverseCommission — see suspendCommission).
+    const [pre] = await this.listCommissions(
+      { id: input.commissionId },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!pre) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `Commission '${input.commissionId}' not found.`,
+      );
+    }
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${pre.beneficiary}`,
+    ]);
+    // Re-read under the lock — authoritative status for the guard + audit.
     const [c] = await this.listCommissions(
       { id: input.commissionId },
       { take: 1 },
@@ -1416,9 +1522,6 @@ class PacksModuleService extends MedusaService({
     // Restore from the authoritative read-predicate, not a stored prior value.
     const next: 'pending' | 'available' =
       new Date(c.matures_at).getTime() <= Date.now() ? 'available' : 'pending';
-    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
-      `credit:${c.beneficiary}`,
-    ]);
     await this.updateCommissions(
       { selector: { id: c.id }, data: { status: next } },
       sharedContext,
@@ -3173,7 +3276,9 @@ class PacksModuleService extends MedusaService({
   ): Promise<{ casesOpened: number; collectionSize: number }> {
     const em = (sharedContext.transactionManager ??
       sharedContext.manager) as unknown as LedgerSqlManager;
-    const rows = await em.execute<{ cases_opened: number; collection_size: number }[]>(
+    const rows = await em.execute<
+      { cases_opened: number; collection_size: number }[]
+    >(
       `SELECT COUNT(*) FILTER (WHERE source = 'pack')::int AS cases_opened,
               COUNT(*) FILTER (WHERE status <> 'bought_back')::int AS collection_size
          FROM pull WHERE customer_id = ? AND deleted_at IS NULL`,
@@ -3203,7 +3308,10 @@ class PacksModuleService extends MedusaService({
 
     // 1. Metrics (fresh). spend in MYR; counts via COUNT aggregate (no row-scan cap).
     const summary = await this.creditSummary(customerId);
-    const { casesOpened, collectionSize } = await this.pullCounts(customerId, sharedContext);
+    const { casesOpened, collectionSize } = await this.pullCounts(
+      customerId,
+      sharedContext,
+    );
 
     const defs = await this.listAchievementDefs(
       {},
@@ -3216,7 +3324,10 @@ class PacksModuleService extends MedusaService({
       { customer_id: customerId },
       { take: 1 },
     );
-    const peakOpens = Math.max(Number(prior?.peak_cases_opened ?? 0), casesOpened);
+    const peakOpens = Math.max(
+      Number(prior?.peak_cases_opened ?? 0),
+      casesOpened,
+    );
     const peakCollection = Math.max(
       Number(prior?.peak_collection_size ?? 0),
       collectionSize,
@@ -3224,8 +3335,16 @@ class PacksModuleService extends MedusaService({
 
     // 3. Unlocked keys (against peaks, so unlocks never revoke).
     const unlocked = unlockedKeys(
-      { spend: summary.externalFundedSpendTotal, cases_opened: peakOpens, collection_size: peakCollection },
-      defs.map((d) => ({ key: d.key, metric: d.metric as AchMetric, threshold: Number(d.threshold) })),
+      {
+        spend: summary.externalFundedSpendTotal,
+        cases_opened: peakOpens,
+        collection_size: peakCollection,
+      },
+      defs.map((d) => ({
+        key: d.key,
+        metric: d.metric as AchMetric,
+        threshold: Number(d.threshold),
+      })),
     );
 
     // 4. Idempotent grant insert for each unlocked key; collect newly inserted.

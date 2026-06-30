@@ -1,18 +1,18 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
 import {
   ContainerRegistrationKeys,
   MedusaError,
   Modules,
-} from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
-import { findCardInventoryTarget } from "../../modules/packs/card-stock";
+} from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
+import { findCardInventoryTarget } from '../../modules/packs/card-stock';
 import {
   buybackAmount,
   resolveBuybackRate,
   type BuybackRateType,
-} from "../../modules/packs/buyback-rate";
-import { insertOrMapDuplicate } from "./duplicate-race";
+} from '../../modules/packs/buyback-rate';
+import { insertOrMapDuplicate } from './duplicate-race';
 
 export type BuybackPullInput = {
   pull_id: string;
@@ -48,7 +48,7 @@ type CompensateData =
 // anything else mutates. The later mutations are manually undone on failure so
 // the step stays atomic; compensation covers later-step failures.
 export const buybackPullStep = createStep(
-  "buyback-pull",
+  'buyback-pull',
   async (input: BuybackPullInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
     const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
@@ -59,29 +59,34 @@ export const buybackPullStep = createStep(
     if (!pull || pull.customer_id !== input.customer_id) {
       throw new MedusaError(
         MedusaError.Types.NOT_FOUND,
-        `Pull '${input.pull_id}' not found.`
+        `Pull '${input.pull_id}' not found.`,
       );
     }
-    if (pull.status !== "vaulted") {
+    if (pull.status !== 'vaulted') {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
-        "This card was already sold back."
+        'This card was already sold back.',
       );
     }
     // C1: reward prizes are not sellable — guard before listCards so the
     // sentinel card_id (product handle) never reaches the card lookup.
-    if (pull.source === "reward") {
+    if (pull.source === 'reward') {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
-        "Reward prizes can't be sold back"
+        "Reward prizes can't be sold back",
       );
     }
+
+    // Frozen accounts cannot draw value out (Batch A item 5): a fraud/AMLA hold
+    // must block selling a card back for credit. Fresh read (no surrounding lock
+    // here — the buyback writes its credit directly, not via mutateCreditAtomic).
+    await packs.assertNotFrozen(input.customer_id);
 
     const [card] = await packs.listCards({ handle: pull.card_id }, { take: 1 });
     if (!card) {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
-        "This card is no longer in the catalog and cannot be valued."
+        'This card is no longer in the catalog and cannot be valued.',
       );
     }
 
@@ -101,7 +106,7 @@ export const buybackPullStep = createStep(
     if (!Number.isFinite(marketValue) || marketValue < 0) {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
-        "This card has no valid market value and cannot be sold back."
+        'This card has no valid market value and cannot be sold back.',
       );
     }
     const amount = buybackAmount(marketValue, percent);
@@ -113,24 +118,24 @@ export const buybackPullStep = createStep(
           {
             customer_id: input.customer_id,
             amount,
-            reason: "buyback" as const,
+            reason: 'buyback' as const,
             pull_id: pull.id,
           },
         ]),
       probeDuplicate: async () => {
         const [existing] = await packs.listCreditTransactions(
           { pull_id: pull.id },
-          { take: 1 }
+          { take: 1 },
         );
         return existing !== undefined;
       },
       duplicateError: () =>
         new MedusaError(
           MedusaError.Types.NOT_ALLOWED,
-          "This card was already sold back."
+          'This card was already sold back.',
         ),
       logger,
-      label: "buyback-pull",
+      label: 'buyback-pull',
     });
     const creditTransactionId = txn.id;
 
@@ -140,7 +145,7 @@ export const buybackPullStep = createStep(
       await packs.updatePulls([
         {
           id: pull.id,
-          status: "bought_back" as const,
+          status: 'bought_back' as const,
           buyback_amount: amount,
           buyback_at: new Date(),
         },
@@ -154,7 +159,7 @@ export const buybackPullStep = createStep(
         logger.error(
           `buyback-pull: UNDO FAILED — credit txn '${creditTransactionId}' exists but pull '${pull.id}' was not flipped; repair manually. ${
             undoError instanceof Error ? undoError.message : String(undoError)
-          }`
+          }`,
         );
       }
       throw error;
@@ -175,7 +180,7 @@ export const buybackPullStep = createStep(
           await inventoryModule.adjustInventory(
             target.inventoryItemId,
             target.locationId,
-            1
+            1,
           );
           await packs.updatePulls([{ id: pull.id, stock_earmarked: false }]);
           stockTarget = {
@@ -188,7 +193,7 @@ export const buybackPullStep = createStep(
       logger.warn(
         `buyback-pull: could not restore stock for '${pull.card_id}' — buyback continues. ${
           error instanceof Error ? error.message : String(error)
-        }`
+        }`,
       );
     }
 
@@ -206,7 +211,7 @@ export const buybackPullStep = createStep(
       logger.warn(
         `buyback-pull: auto-unfreeze check failed for '${input.customer_id}' — buyback continues. ${
           error instanceof Error ? error.message : String(error)
-        }`
+        }`,
       );
     }
 
@@ -230,7 +235,7 @@ export const buybackPullStep = createStep(
     await packs.updatePulls([
       {
         id: data.pullId,
-        status: "vaulted" as const,
+        status: 'vaulted' as const,
         buyback_amount: null,
         buyback_at: null,
         // A restored unit goes back out and the earmark returns with it, so a
@@ -243,10 +248,10 @@ export const buybackPullStep = createStep(
       await inventoryModule.adjustInventory(
         data.stockTarget.inventoryItemId,
         data.stockTarget.locationId,
-        -1
+        -1,
       );
     }
-  }
+  },
 );
 
 export default buybackPullStep;

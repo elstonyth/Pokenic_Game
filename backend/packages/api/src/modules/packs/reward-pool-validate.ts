@@ -14,6 +14,15 @@ const bad = (m: string): never => {
   throw new MedusaError(MedusaError.Types.INVALID_DATA, m);
 };
 
+// Per-prize ceiling for a reward-box CREDIT payout (security audit 2026-06-30,
+// Batch A item 3). credit_amount is otherwise an unbounded numeric and
+// settleRewardDraw pays it straight to the ledger, so a fat-fingered authoring
+// value (or a direct seed) would mint an absurd prize. Enforced here at the
+// authoring boundary, again at the settle site (defense-in-depth), and by a DB
+// CHECK on pack_odds.credit_amount. A single daily-box prize over RM10,000 is
+// implausible for a collectibles economy; raise deliberately if that changes.
+export const MAX_REWARD_CREDIT_MYR = 10_000;
+
 export type RewardPoolEntry = {
   kind: 'product' | 'credit' | 'nothing';
   product_handle?: string | null;
@@ -81,9 +90,7 @@ export function validateRewardPool(raw: unknown): RewardPoolBody {
           typeof e.product_handle !== 'string' ||
           (e.product_handle as string).trim() === ''
         ) {
-          bad(
-            `${prefix}: kind='product' requires a non-empty product_handle.`,
-          );
+          bad(`${prefix}: kind='product' requires a non-empty product_handle.`);
         }
         if (e.credit_amount != null) {
           bad(`${prefix}: kind='product' must not have credit_amount.`);
@@ -104,12 +111,15 @@ export function validateRewardPool(raw: unknown): RewardPoolBody {
           typeof e.credit_amount === 'string'
             ? Number(e.credit_amount)
             : (e.credit_amount as unknown);
-        if (
-          typeof ca !== 'number' ||
-          !Number.isFinite(ca) ||
-          ca <= 0
-        ) {
-          bad(`${prefix}: kind='credit' requires credit_amount > 0 (decimal MYR).`);
+        if (typeof ca !== 'number' || !Number.isFinite(ca) || ca <= 0) {
+          bad(
+            `${prefix}: kind='credit' requires credit_amount > 0 (decimal MYR).`,
+          );
+        }
+        if ((ca as number) > MAX_REWARD_CREDIT_MYR) {
+          bad(
+            `${prefix}: kind='credit' credit_amount must be at most ${MAX_REWARD_CREDIT_MYR} MYR.`,
+          );
         }
         return {
           kind,

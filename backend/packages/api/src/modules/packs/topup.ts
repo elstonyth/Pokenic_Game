@@ -43,6 +43,28 @@ export function mockTopupAllowed(
   return env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
 }
 
+// Production boot-guard (security audit 2026-06-30, Batch A). mockTopupAllowed
+// above honours ALLOW_MOCK_TOPUP=true in ANY env — a legitimate opt-in for a
+// staging/demo box that has no real gateway yet. But in PRODUCTION that same flag
+// would mint free spendable credit through the always-approving mock, so a single
+// copy-pasted prod env var becomes a money leak. This guard is the harder
+// backstop: it refuses to START a production server with the dangerous
+// combination (called at medusa-config load, alongside the JWT/COOKIE secret
+// checks). Uses the framework's definition of production ('production' | 'prod').
+// Pure (env injected) so the policy is unit-testable without booting.
+export function assertMockTopupSafe(
+  env: { NODE_ENV?: string; ALLOW_MOCK_TOPUP?: string } = process.env,
+): void {
+  const isProduction = env.NODE_ENV === 'production' || env.NODE_ENV === 'prod';
+  if (isProduction && env.ALLOW_MOCK_TOPUP === 'true') {
+    throw new Error(
+      'ALLOW_MOCK_TOPUP=true is not permitted in production: the mock payment ' +
+        'gateway always approves and mints free spendable credit. Unset ' +
+        'ALLOW_MOCK_TOPUP (and wire a real payment provider) before deploying.',
+    );
+  }
+}
+
 // Customer-scoped idempotency anchor for a top-up. A replayed request carrying
 // the same Idempotency-Key resolves to this same anchor, so the per-customer
 // locked dedupe in mutateCreditAtomic returns the existing row instead of

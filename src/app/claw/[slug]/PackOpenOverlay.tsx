@@ -35,6 +35,7 @@ import {
 import type { PackCard } from '../packs-data';
 import { SELL_COUNTDOWN_SECS, sellSecondsLeft } from '@/lib/sell-countdown';
 import SellConfirmModal from '@/components/SellConfirmModal';
+import { rm } from '@/lib/format';
 
 // Rarity → rgb (shared with the detail-page rings) drives the glow, pill, and the
 // Pull-celebration ribbon color.
@@ -72,6 +73,7 @@ export default function PackOpenOverlay({
   category,
   reduced,
   opening,
+  marketPriceMyr,
   buyback,
   onSellBack,
   onReveal,
@@ -86,6 +88,10 @@ export default function PackOpenOverlay({
   category: string;
   reduced: boolean;
   opening: boolean;
+  /** Live MYR market price for THIS pull (raw USD FMV x FX x per-card
+   *  multiplier), same number the vault will show once the pull lands there.
+   *  Null for demo spins (no backend pull) or an older backend response. */
+  marketPriceMyr?: number | null;
   /** Sell-back offer for THIS pull; null for demo spins. */
   buyback?: {
     pullId: string;
@@ -649,7 +655,9 @@ export default function PackOpenOverlay({
                 <RarityPill rarity={card.rarity} rgb={rgb} small />
                 <span className="text-[13px] text-white/70">
                   Value:{' '}
-                  <span className="font-bold text-white">{card.value}</span>
+                  <span className="font-bold text-white">
+                    {marketPriceMyr != null ? rm(marketPriceMyr ?? 0) : card.value}
+                  </span>
                   {!isReal && ' · demo'}
                 </span>
               </div>

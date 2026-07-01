@@ -162,7 +162,9 @@ export const BuybackResultSchema = z.looseObject({
 
 // --- actions/packs.ts -------------------------------------------------------
 
-/** Open-route `card` — handle + name + known rarity + finite market_value. */
+/** Open-route `card` — handle + name + known rarity + finite market_value.
+ *  marketPriceMyr (live MYR display price) is optional — an older backend
+ *  that hasn't been enriched yet simply omits it. */
 export const WonCardSchema = z.looseObject({
   handle: z.string(),
   name: z.string(),
@@ -170,6 +172,7 @@ export const WonCardSchema = z.looseObject({
   market_value: finite,
   pokemon_dex: z.number().nullable().optional(),
   sprite_image: z.string().nullable().optional(),
+  marketPriceMyr: finite.optional(),
 });
 
 /** Open-route `buyback` offer — instant percent/amount (required) + the vault

@@ -86,6 +86,41 @@
       "buybackOnly": "0 in stock · buyback-only"
     }
   },
+  "pcAdd": {
+    "title": "Add from PriceCharting",
+    "subtitle": "Search PriceCharting, pick a graded tier, and create a marketplace product carrying that live-price link. Cards registered from this product auto-track its value daily.",
+    "search": {
+      "label": "Search PriceCharting",
+      "placeholder": "Card name…",
+      "button": "Search",
+      "empty": "No matches found."
+    },
+    "grade": {
+      "label": "Grade tier",
+      "loadError": "Could not load prices for this product.",
+      "empty": "No prices available for this product.",
+      "derivedHint": "Grader: {{grader}} · Grade: {{grade}}"
+    },
+    "markup": {
+      "label": "Markup %"
+    },
+    "preview": {
+      "loading": "Loading FX rate…",
+      "line": "Raw ${{raw}} · FX {{fx}} · Market RM{{market}} · Customer sees RM{{customer}} · Margin RM{{margin}}"
+    },
+    "image": {
+      "label": "Image",
+      "upload": "Upload image",
+      "replace": "Replace image",
+      "urlPlaceholder": "Image URL",
+      "hint": "Required before the product can be created. PriceCharting does not provide an image — upload one."
+    },
+    "submit": "Add product",
+    "created": "Created",
+    "toast": {
+      "created": "Product created from {{name}}."
+    }
+  },
   "cards": {
     "title": "Gacha Cards",
     "subtitle": "Inventory products registered as gacha prizes. Add the item to the product catalog first, then register it here; rarity is chosen per pack in each pack's win-rate editor.",

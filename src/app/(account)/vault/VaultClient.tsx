@@ -323,7 +323,7 @@ export default function VaultClient({
                     {item.card.rarity}
                   </span>
                   <span className="font-bold text-white">
-                    {rm(item.card.marketValue)}
+                    {rm(item.card.marketPriceMyr)}
                   </span>
                 </div>
                 <p

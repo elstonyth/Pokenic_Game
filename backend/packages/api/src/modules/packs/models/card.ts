@@ -37,6 +37,16 @@ export const Card = model.define("card", {
   pokemon_dex: model.number().nullable(),
   // Optional custom uploaded pixel sprite URL; overrides the dex default gif.
   sprite_image: model.text().nullable(),
+  // PriceCharting linkage (live market-price tracking). product id links this
+  // Card to a PriceCharting catalog entry; grade is PC's own grade label
+  // (e.g. "PSA 10") for picking the right price field off that product.
+  pc_product_id: model.text().nullable(),
+  pc_grade: model.text().nullable(),
+  // Display-only markup applied over the raw PriceCharting price (never
+  // mutates market_value itself). bigNumber (decimal), default 1.2 = +20%.
+  market_multiplier: model.bigNumber().default(1.2),
+  // Last time this card's price was synced from PriceCharting; null = never.
+  pc_synced_at: model.dateTime().nullable(),
 });
 
 export default Card;

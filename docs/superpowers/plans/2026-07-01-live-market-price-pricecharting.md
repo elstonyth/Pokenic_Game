@@ -45,7 +45,7 @@
 - `src/api/store/vault/route.ts`, `src/api/store/pulls/recent/route.ts`, `src/api/store/pulls/[id]/reveal/route.ts` — add `marketPriceMyr`.
 
 **Admin UI — new**
-- `src/routes/products/from-pricecharting/page.tsx` — the "Add from PriceCharting" page (+ menu item).
+- `src/routes/gacha/from-pricecharting/page.tsx` — the "Add from PriceCharting" page, under the **Gacha** section (a custom route CANNOT nest under the stock `products/` prefix — it collides with Mercur's built-in product routes). → `/dashboard/gacha/from-pricecharting`.
 
 **Admin UI — modified**
 - `src/lib/admin-rest.ts`, `queries.ts`, `query-keys.ts` — `createProductFromPriceCharting`, FX helpers, Card DTO + breakdown.
@@ -411,13 +411,18 @@ export async function resolveFxRate(packs: { listFxRates: (f: unknown, c: unknow
   return effectiveRate(row ?? null);
 }
 ```
-- [ ] **Step 2: Store routes** — in `store/vault/route.ts`, `pulls/recent/route.ts`, `pulls/[id]/reveal/route.ts`, resolve the rate once and add per card:
+- [ ] **Step 2: Store routes** — in `store/vault/route.ts`, `pulls/recent/route.ts`, `pulls/[id]/reveal/route.ts`, resolve the rate once and fold `marketPriceMyr` into the card view object. In the vault route the card is built via `toCardView(card, rarity)`, so:
 ```ts
 import { resolveFxRate, displayMarketPrice } from "../../../modules/packs/pricing";
 const packs: any = req.scope.resolve(PACKS_MODULE);
 const fxRate = await resolveFxRate(packs);
-// per card: marketPriceMyr: displayMarketPrice(Number(card.market_value), fxRate, Number(card.market_multiplier ?? 1.2)),
+// where the item is built (card.market_value + card.market_multiplier are in scope):
+card: {
+  ...toCardView(card, rarityOf(p.pack_id, p.card_id)),
+  marketPriceMyr: displayMarketPrice(Number(card.market_value), fxRate, Number(card.market_multiplier ?? 1.2)),
+},
 ```
+(Ensure `market_multiplier` is among the loaded card fields; the card list returns full rows, and the `?? 1.2` fallback covers any gap.)
 - [ ] **Step 3: Admin card breakdown** — in `admin/cards/route.ts` + `[handle]/route.ts`, resolve `fxRate` once, attach per card: `raw = Number(card.market_value)`, `mult = Number(card.market_multiplier ?? 1.2)`, `marketMyr = displayMarketPrice(raw,fxRate,1)`, `displayPrice = displayMarketPrice(raw,fxRate,mult)`, `markup = Math.round((displayPrice - marketMyr)*100)/100`.
 - [ ] **Step 4: HTTP test**
 ```ts
@@ -570,9 +575,20 @@ git commit -m "feat(pricing): admin REST + query wiring for PC product create + 
 
 ### Task 10: New "Add from PriceCharting" admin page
 
-**Files:** Create `src/routes/products/from-pricecharting/page.tsx` (+ its `RouteConfig` menu entry).
+**Files:** Create `src/routes/gacha/from-pricecharting/page.tsx` (+ its `RouteConfig` menu entry).
 
-- [ ] **Step 1: Page skeleton + route config** — a file-based route exporting `RouteConfig` (label "Add from PriceCharting", a suitable icon, nested near Products) rendering a `Container` with a heading. Follow `dashboard-page-ui` + `medusa-ui-conformance`.
+> **Route location (verified):** it must live **under the Gacha section**, NOT under `products/` — a custom route nested under the stock `products/` prefix collides with Mercur's built-in product routes. Every working custom route in this repo uses its own section (`/gacha`, `/operations`).
+
+- [ ] **Step 1: Page skeleton + route config** — a file-based route rendering a `Container` with a heading, exporting:
+```tsx
+import type { RouteConfig } from '@mercurjs/dashboard-sdk';
+export const config: RouteConfig = {
+  label: 'Add from PriceCharting',
+  nested: '/gacha',   // sits alongside Cards (rank 1) and Packs (rank 2)
+  rank: 3,
+};
+```
+→ renders at `/dashboard/gacha/from-pricecharting`. Follow `dashboard-page-ui` + `medusa-ui-conformance`.
 - [ ] **Step 2: PriceCharting search + grade picker** — reuse `searchPriceCharting`/`getPriceChartingProduct` (already in `admin-rest.ts`): text query → match list → on pick, load per-grade prices → grade-tier picker. Picking a tier sets `market_value` = that USD, derives grader/grade (client mirror of `gradeToGrader`), and records `pc_product_id` + `pc_grade` (the tier label).
 - [ ] **Step 3: Markup + live preview** — `market_multiplier` field (percent input, default 20%). Preview row via `useFxRate()`: `Raw $X · FX {effective} · Market RM{raw×fx} · Customer sees RM{raw×fx×mult} · Margin RM{raw×fx×(mult−1)}`.
 - [ ] **Step 4: Image (auto-pull + upload)** — attempt a best-effort image prefill (see Task 15; if the endpoint isn't available yet, skip prefill) and always offer `useUploadImage()` upload/replace. The final image URL is required before submit.
@@ -580,7 +596,7 @@ git commit -m "feat(pricing): admin REST + query wiring for PC product create + 
 - [ ] **Step 6: Verify running** — backend :9000 + admin; open the page, search, pick a grade, confirm value/grader/grade fill + preview math, upload an image, click "Add product", confirm the product appears in the Products list with `metadata.pc_product_id`. Screenshot to `docs/research/`.
 - [ ] **Step 7: Commit**
 ```bash
-git add "backend/apps/admin/src/routes/products/from-pricecharting/page.tsx"
+git add "backend/apps/admin/src/routes/gacha/from-pricecharting/page.tsx"
 git commit -m "feat(pricing): Add-from-PriceCharting admin page"
 ```
 

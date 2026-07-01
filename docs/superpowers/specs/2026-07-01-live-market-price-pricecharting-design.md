@@ -162,8 +162,11 @@ admin card reads (raw, fxRate, marketMyr, displayPrice, markup delta).
 
 ## 7. Admin UI
 
-- **New page: "Add from PriceCharting"** (file-based route under `src/routes`, a
-  sensible path + menu item near Products). Sections: PC **search → match list →
+- **New page: "Add from PriceCharting"** — a file-based route **under the Gacha
+  section** (`src/routes/gacha/from-pricecharting/page.tsx` →
+  `/dashboard/gacha/from-pricecharting`, alongside Cards/Packs). It **cannot** nest
+  under the stock `products/` prefix — that collides with Mercur's built-in product
+  routes (verified). Sections: PC **search → match list →
   grade-tier picker** (auto-fills grader/grade/raw value, records
   `pc_product_id`/`pc_grade`); **markup** field (default 20%); **live preview**
   row (`Raw $X · FX 4.xx · Market RM… · Customer sees RM… · Margin RM…` using the

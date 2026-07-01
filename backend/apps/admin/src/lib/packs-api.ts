@@ -60,6 +60,23 @@ export interface AdminCard {
   /** Available physical units; `null` = untracked (infinite). Display-only —
    *  0-stock cards stay pullable/listed (buyback fulfills them). */
   stock: number | null;
+  /** PriceCharting product id this card tracks, or null if unlinked. */
+  pc_product_id: string | null;
+  /** PriceCharting grade key (e.g. "PSA 10") this card tracks. */
+  pc_grade: string | null;
+  /** Display markup over FMV applied on top of `priceBreakdown.marketMyr`. */
+  market_multiplier: number;
+  /** Last time the daily PriceCharting sync updated this card's market_value. */
+  pc_synced_at: string | null;
+  /** USD -> MYR breakdown for the current market_value; always present (GET
+   *  routes always resolve an fxRate before building the DTO). */
+  priceBreakdown: {
+    raw: number;
+    fxRate: number;
+    marketMyr: number;
+    displayPrice: number;
+    markup: number;
+  };
 }
 
 // Registration payload (create): the item must already exist as an inventory
@@ -86,6 +103,11 @@ export interface AdminCardUpdate {
   for_sale: boolean;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  /** Explicit `null` unlinks the card from PriceCharting (reverts to manual
+   *  pricing); `undefined` leaves the current link untouched. */
+  pc_product_id?: string | null;
+  pc_grade?: string | null;
+  market_multiplier?: number;
 }
 
 export interface OddsRow {

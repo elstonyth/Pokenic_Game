@@ -25,7 +25,7 @@ import {
 } from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
-import { rm } from '../../lib/format';
+import { rm, timeAgo } from '../../lib/format';
 import RegisterCardModal from './RegisterCardModal';
 import CardPokemonFields from './CardPokemonFields';
 
@@ -52,6 +52,14 @@ type FormState = {
   for_sale: boolean;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  // PriceCharting link (Task 5/9/11). Null pc_product_id here just means the
+  // card was never linked; the "unlink" action clears an existing link by
+  // setting this to null and sending it explicitly on save.
+  pc_product_id: string | null;
+  pc_grade: string | null;
+  pc_synced_at: string | null;
+  // Percent string (1.2 -> "20") so the operator edits a familiar unit.
+  market_multiplier_pct: string;
 };
 
 const formFromCard = (c: AdminCard): FormState => ({
@@ -67,6 +75,10 @@ const formFromCard = (c: AdminCard): FormState => ({
   for_sale: c.for_sale,
   pokemon_dex: c.pokemon_dex,
   sprite_image: c.sprite_image,
+  pc_product_id: c.pc_product_id,
+  pc_grade: c.pc_grade,
+  pc_synced_at: c.pc_synced_at,
+  market_multiplier_pct: String(Math.round((c.market_multiplier - 1) * 100)),
 });
 
 const gradeLabel = (c: AdminCard): string =>
@@ -131,10 +143,46 @@ const GachaCardsPage = () => {
       for_sale: form.for_sale,
       pokemon_dex: form.pokemon_dex,
       sprite_image: form.sprite_image,
+      // pc_product_id stays untouched (undefined) unless the operator hits
+      // Unlink, which submits null explicitly and closes the form immediately.
+      pc_product_id: undefined,
+      market_multiplier:
+        form.pc_product_id === null || form.market_multiplier_pct.trim() === ''
+          ? undefined
+          : 1 + Number(form.market_multiplier_pct) / 100,
     };
     try {
       await updateCard.mutateAsync({ handle: form.handle, ...payload });
       toast.success(t('cards.toast.updated'));
+      setForm(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Unlink clears ONLY the PC link — it must not carry the operator's
+  // in-progress (possibly unsaved) edits to other fields from the open form.
+  // Values below are the card's last-loaded state (from the list), not
+  // `form`'s live (possibly dirty) state.
+  const unlink = async () => {
+    const card = cards?.find((c) => c.handle === form?.handle);
+    if (!form || !card) return;
+    try {
+      await updateCard.mutateAsync({
+        handle: card.handle,
+        name: card.name,
+        set: card.set,
+        grader: card.grader,
+        grade: card.grade,
+        market_value: card.market_value,
+        image: card.image,
+        price: card.price ?? undefined,
+        for_sale: card.for_sale,
+        pokemon_dex: card.pokemon_dex,
+        sprite_image: card.sprite_image,
+        pc_product_id: null,
+      });
+      toast.success(t('cards.toast.unlinked'));
       setForm(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -452,6 +500,47 @@ const GachaCardsPage = () => {
                     onCheckedChange={(v) => patch({ for_sale: v })}
                   />
                 </div>
+
+                {form.pc_product_id && (
+                  <div className="bg-ui-bg-subtle flex flex-col gap-y-3 rounded-lg p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <Text size="small" weight="plus">
+                        🔗{' '}
+                        {t('cards.form.linked', {
+                          synced: form.pc_synced_at
+                            ? timeAgo(form.pc_synced_at)
+                            : t('cards.form.neverSynced'),
+                        })}
+                      </Text>
+                      <Button
+                        size="small"
+                        variant="danger"
+                        type="button"
+                        onClick={unlink}
+                        isLoading={saving}
+                        disabled={saving}
+                      >
+                        {t('cards.form.unlink')}
+                      </Button>
+                    </div>
+                    <div className="flex flex-col gap-y-2">
+                      <Label size="small" weight="plus">
+                        {t('cards.form.markup')}
+                      </Label>
+                      <Input
+                        type="number"
+                        step={1}
+                        value={form.market_multiplier_pct}
+                        onChange={(e) =>
+                          patch({ market_multiplier_pct: e.target.value })
+                        }
+                      />
+                      <Text className="text-ui-fg-subtle text-xs">
+                        {t('cards.form.markupHint')}
+                      </Text>
+                    </div>
+                  </div>
+                )}
 
                 <CardPokemonFields
                   value={{

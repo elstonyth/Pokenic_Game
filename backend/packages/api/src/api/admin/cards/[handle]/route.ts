@@ -5,6 +5,7 @@ import { updateCardWorkflow } from '../../../../workflows/update-card';
 import { deleteCardWorkflow } from '../../../../workflows/delete-card';
 import { coerceUpdateCardBody } from '../validate';
 import { toAdminCardDto } from '../../../../modules/packs/admin-card';
+import { resolveFxRate } from '../../../../modules/packs/pricing';
 
 // GET /admin/cards/:handle — load one card for the edit form.
 export async function GET(
@@ -14,13 +15,16 @@ export async function GET(
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const { handle } = req.params;
 
-  const [card] = await packs.listCards({ handle }, { take: 1 });
+  const [[card], fxRate] = await Promise.all([
+    packs.listCards({ handle }, { take: 1 }),
+    resolveFxRate(packs),
+  ]);
   if (!card) {
     res.status(404).json({ message: `Card '${handle}' not found` });
     return;
   }
 
-  res.json({ card: toAdminCardDto(card) });
+  res.json({ card: toAdminCardDto(card, fxRate) });
 }
 
 // POST /admin/cards/:handle — update a card (+ re-sync its Product). `handle` is

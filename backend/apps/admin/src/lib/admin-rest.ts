@@ -319,6 +319,44 @@ export async function getPriceChartingProduct(id: string): Promise<PcProduct> {
   return data.product;
 }
 
+// Mint a standalone marketplace Product from a PriceCharting lookup (no card
+// created here — see docs/research for the product-first flow).
+export async function createProductFromPriceCharting(body: {
+  pc_product_id: string;
+  pc_grade: string;
+  name: string;
+  set: string;
+  grader: string;
+  grade: string;
+  market_value: number;
+  image: string;
+  price?: number | null;
+  for_sale?: boolean;
+  market_multiplier?: number;
+}): Promise<{ id: string; handle: string }> {
+  const data = await postJson<{ product: { id: string; handle: string } }>(
+    '/admin/products/from-pricecharting',
+    body,
+  );
+  return data.product;
+}
+
+// ── FX rate (USD -> MYR) ─────────────────────────────────────────────────────
+
+export interface FxRateState {
+  effective: number;
+  manual_override: boolean;
+  manual_rate: number | null;
+  fetched_at: string | null;
+}
+
+export const getFxRate = () => getJson<FxRateState>('/admin/pricing/fx');
+
+export const setFxRate = (body: {
+  manual_override: boolean;
+  manual_rate?: number | null;
+}) => postJson<{ effective: number }>('/admin/pricing/fx', body);
+
 // ── Delivery orders ──────────────────────────────────────────────────────────
 
 export type DeliveryStatus =

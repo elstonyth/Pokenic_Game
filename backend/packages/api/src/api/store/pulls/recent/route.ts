@@ -6,6 +6,7 @@ import {
   makeRarityOf,
 } from '../../../../modules/packs/card-view';
 import { toMoney } from '../../../../modules/packs/money';
+import { displayMarketPrice, resolveFxRate } from '../../../../modules/packs/pricing';
 
 // GET /store/pulls/recent — the most recent pulls across all packs, for the
 // "Recent Pulls" live feed on /claw/[slug]. A plain publishable-key-scoped store
@@ -19,6 +20,7 @@ export async function GET(
   res: MedusaResponse,
 ): Promise<void> {
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
+  const fxRate = await resolveFxRate(packs);
 
   const pulls = await packs.listPulls(
     // ponytail: $ne filter mirrors the leaderboard SQL exclusion — reward prizes
@@ -55,6 +57,11 @@ export async function GET(
         rarity: rarityOf(p.pack_id, p.card_id),
         // market_value is a BigNumber — normalize to a JSON number (USD decimal).
         market_value: toMoney(card.market_value),
+        marketPriceMyr: displayMarketPrice(
+          toMoney(card.market_value),
+          fxRate,
+          Number(card.market_multiplier ?? 1.2),
+        ),
         image: card.image,
         // pack the card came from (= Pack.slug) — for the feed's pack label.
         // Still NO customer_id: the feed stays PII-free.

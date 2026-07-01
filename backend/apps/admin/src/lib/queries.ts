@@ -17,6 +17,7 @@ import {
 } from './packs-api';
 import {
   adjustCustomerCredits,
+  createProductFromPriceCharting,
   deleteCard,
   deletePack,
   freezeCustomer,
@@ -25,12 +26,14 @@ import {
   getCustomerGacha,
   getCustomerCommissions,
   getEconomyReport,
+  getFxRate,
   getRewardPool,
   getReferralTree,
   listDeliveryOrders,
   listEligibleProducts,
   reverseCommission,
   saveRewardPool,
+  setFxRate,
   suspendCommission,
   unfreezeCustomer,
   unsuspendCommission,
@@ -46,6 +49,7 @@ import {
   type DeliveryStatus,
   type EconomyReport,
   type EligibleProduct,
+  type FxRateState,
   type ReferralTree,
   type RewardPoolBody,
   type RewardPoolResponse,
@@ -144,6 +148,9 @@ export const useDeliveryOrders = (
     queryFn: () => listDeliveryOrders(status),
   });
 
+export const useFxRate = (): UseQueryResult<FxRateState> =>
+  useQuery({ queryKey: qk.fxRate, queryFn: getFxRate });
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 export const useUpdateCard = () => {
@@ -178,6 +185,30 @@ export const useRegisterCard = () => {
       qc.invalidateQueries({ queryKey: qk.cards });
       qc.invalidateQueries({ queryKey: qk.eligibleProducts });
     },
+  });
+};
+
+export const useCreateProductFromPriceCharting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createProductFromPriceCharting,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.cards });
+      qc.invalidateQueries({ queryKey: qk.eligibleProducts });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export const useSetFxRate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: setFxRate,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.fxRate });
+      qc.invalidateQueries({ queryKey: qk.cards });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 };
 

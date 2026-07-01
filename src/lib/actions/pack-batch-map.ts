@@ -40,6 +40,7 @@ export interface RawBatchRollItem {
     rarity: string;
     pokemon_dex?: number | null;
     sprite_image?: string | null;
+    marketPriceMyr?: number;
     [key: string]: unknown;
   };
   buyback?: unknown;
@@ -79,6 +80,7 @@ export function mapBatchRoll(rawRoll: RawBatchRollItem): BatchRoll | null {
       rarity: wonCard.rarity as Rarity,
       pokemon_dex: wonCard.pokemon_dex ?? null,
       sprite_image: wonCard.sprite_image ?? null,
+      marketPriceMyr: wonCard.marketPriceMyr ?? null,
     },
     pullId: typeof rawRoll.pull?.id === 'string' ? rawRoll.pull.id : null,
     marketValue: wonCard.market_value,

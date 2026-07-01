@@ -131,6 +131,9 @@ export default function PackDetailClient({
     nonce: number;
     pullId: string | null;
     marketValue: number | null;
+    // Live MYR display price for this pull (vault-matching); null for demo
+    // spins (no backend pull) or an older backend response.
+    marketPriceMyr: number | null;
     // Authoritative instant sell-back offer from the open response (backend's
     // resolveBuybackRate) — the reveal quotes THIS, not the catalog rate, so the
     // shown % always matches what selling credits. Null for demo spins / older
@@ -183,6 +186,7 @@ export default function PackDetailClient({
       nonce: Date.now(),
       pullId: null,
       marketValue: null,
+      marketPriceMyr: null,
       buybackPercent: null,
       buybackAmount: null,
       vaultPercent: null,
@@ -220,6 +224,7 @@ export default function PackDetailClient({
         nonce: Date.now(),
         pullId: res.pullId,
         marketValue: res.marketValue,
+        marketPriceMyr: res.card.marketPriceMyr,
         buybackPercent: res.buyback?.percent ?? null,
         buybackAmount: res.buyback?.amount ?? null,
         vaultPercent: res.buyback?.vaultPercent ?? null,
@@ -230,7 +235,10 @@ export default function PackDetailClient({
         id: `${res.card.id}-${Date.now()}`,
         name: res.card.name,
         image: res.card.image,
-        value: res.card.value,
+        value:
+          res.card.marketPriceMyr != null
+            ? rm(res.card.marketPriceMyr)
+            : res.card.value,
         rarity: res.card.rarity,
         packName: active.name,
         packIcon: active.image,
@@ -623,6 +631,7 @@ export default function PackDetailClient({
           category={pack.categoryName}
           opening={opening}
           reduced={reduced}
+          marketPriceMyr={reveal.marketPriceMyr}
           buyback={
             reveal.pullId !== null && reveal.marketValue !== null
               ? {

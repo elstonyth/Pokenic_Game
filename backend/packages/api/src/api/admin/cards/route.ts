@@ -5,6 +5,7 @@ import { createCardWorkflow } from '../../../workflows/create-card';
 import { getCardStockByHandle } from '../../../modules/packs/card-stock';
 import { coerceRegisterCardBody } from './validate';
 import { toAdminCardDto } from '../../../modules/packs/admin-card';
+import { resolveFxRate } from '../../../modules/packs/pricing';
 
 // GET /admin/cards — the catalog list for the admin Gacha Cards page (auto-
 // protected by Medusa admin auth). Returns every card, alphabetical by name.
@@ -15,7 +16,10 @@ export async function GET(
   res: MedusaResponse,
 ): Promise<void> {
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
-  const cards = await packs.listCards({}, { take: 1000 });
+  const [cards, fxRate] = await Promise.all([
+    packs.listCards({}, { take: 1000 }),
+    resolveFxRate(packs),
+  ]);
   const sorted = [...cards].sort((a, b) => a.name.localeCompare(b.name));
   const stockByHandle = await getCardStockByHandle(
     req.scope,
@@ -26,7 +30,7 @@ export async function GET(
     // The admin card DTO is one seam (toAdminCardDto); `stock` is list-only, so
     // it's spread on top rather than baked into the shared shape.
     cards: sorted.map((c) => ({
-      ...toAdminCardDto(c),
+      ...toAdminCardDto(c, fxRate),
       stock: stockByHandle.get(c.handle) ?? null,
     })),
   });

@@ -11,6 +11,7 @@ import {
   buybackAmount,
   instantDeadlineMs,
 } from '../../../../../modules/packs/buyback-rate';
+import { displayMarketPrice, resolveFxRate } from '../../../../../modules/packs/pricing';
 
 // POST /store/packs/:slug/open — open a pack: roll a winner over the pack's
 // weighted odds and append the result to the Pull ledger.
@@ -54,12 +55,29 @@ export async function POST(
     marketValue,
   );
 
+  // Display-only live MYR price (raw USD x FX x per-card multiplier) — mirrors
+  // the vault/recent-pulls enrichment (pricing.ts) so the reveal card shows the
+  // same number the vault will once the pull lands there. market_value itself
+  // stays the raw USD decimal untouched (never overwritten). RolledCard (the
+  // roll-pack step's normalized winner shape) does not carry market_multiplier,
+  // so it is looked up here by handle — same field the vault route reads.
+  const fxRate = await resolveFxRate(packsService);
+  const [wonCardRow] = await packsService.listCards(
+    { handle: result.card.handle },
+    { take: 1 },
+  );
+  const marketPriceMyr = displayMarketPrice(
+    marketValue,
+    fxRate,
+    Number(wonCardRow?.market_multiplier ?? 1.2),
+  );
+
   // result.card is already a plain, JSON-safe object (normalized in roll-pack);
   // market_value is a USD decimal, never cents. balance is the post-charge
   // credit balance (Task A2 — opens debit the pack price from the ledger).
   res.json({
     pull: result.pull,
-    card: result.card,
+    card: { ...result.card, marketPriceMyr },
     balance: result.balance,
     price: result.price,
     buyback: {

@@ -74,6 +74,54 @@ const optSprite = (b: Record<string, unknown>): string | null => {
   return s;
 };
 
+// PriceCharting linkage fields (Task 5). pc_product_id is nullable — an
+// explicit null in the update body means "unlink"; undefined means "not
+// provided" (create falls back to the product's metadata; update falls back
+// to null via the `?? null` in update-card.ts).
+const optPcId = (b: Record<string, unknown>): string | null | undefined => {
+  const v = b.pc_product_id;
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') bad(`'pc_product_id' must be a string.`);
+  const trimmed = (v as string).trim();
+  return trimmed === '' ? null : trimmed;
+};
+
+const optPcGrade = (b: Record<string, unknown>): string | null | undefined => {
+  const v = b.pc_grade;
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') bad(`'pc_grade' must be a string.`);
+  const trimmed = (v as string).trim();
+  return trimmed === '' ? null : trimmed;
+};
+
+// The PriceCharting sync needs BOTH fields together (pc_product_id to fetch,
+// pc_grade to pick the price field) — half-linked (one set, other null) is
+// rejected. Fully-linked (both set) and unlink (both null/absent) are fine.
+const checkPcPairing = (
+  pcProductId: string | null | undefined,
+  pcGrade: string | null | undefined,
+): void => {
+  const idSet = pcProductId != null;
+  const gradeSet = pcGrade != null;
+  if (idSet !== gradeSet) {
+    bad(
+      "'pc_product_id' and 'pc_grade' must both be set or both be null/omitted.",
+    );
+  }
+};
+
+const optMultiplier = (b: Record<string, unknown>): number | undefined => {
+  const v = b.market_multiplier;
+  if (v === undefined || v === null || v === '') return undefined;
+  const n = typeof v === 'string' ? Number(v) : v;
+  if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) {
+    bad(`'market_multiplier' must be a positive number.`);
+  }
+  return n as number;
+};
+
 const asObject = (raw: unknown): Record<string, unknown> => {
   if (!raw || typeof raw !== "object") {
     bad("Body must be an object.");
@@ -87,6 +135,10 @@ const asObject = (raw: unknown): Record<string, unknown> => {
 export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
   const b = asObject(raw);
 
+  const pc_product_id = optPcId(b);
+  const pc_grade = optPcGrade(b);
+  checkPcPairing(pc_product_id, pc_grade);
+
   return {
     product_id: reqStr(b, "product_id"),
     set: optStr(b, "set"),
@@ -95,6 +147,9 @@ export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
     market_value: reqNum(b, "market_value"),
     pokemon_dex: optDex(b),
     sprite_image: optSprite(b),
+    pc_product_id,
+    pc_grade,
+    market_multiplier: optMultiplier(b),
   };
 }
 
@@ -116,6 +171,10 @@ export function coerceUpdateCardBody(
       ? undefined
       : reqNum(b, "price");
 
+  const pc_product_id = optPcId(b);
+  const pc_grade = optPcGrade(b);
+  checkPcPairing(pc_product_id, pc_grade);
+
   return {
     handle,
     name: reqStr(b, "name"),
@@ -128,5 +187,8 @@ export function coerceUpdateCardBody(
     for_sale: b.for_sale !== false, // default true unless explicitly false
     pokemon_dex: optDex(b),
     sprite_image: optSprite(b),
+    pc_product_id,
+    pc_grade,
+    market_multiplier: optMultiplier(b),
   };
 }

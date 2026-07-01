@@ -12,6 +12,7 @@ import {
   buybackAmount,
   instantDeadlineMs,
 } from '../../../../../modules/packs/buyback-rate';
+import { displayMarketPrice, resolveFxRate } from '../../../../../modules/packs/pricing';
 
 // POST /store/packs/:slug/open-batch — open N packs in one atomic operation:
 // rolls N winners, debits count×price from the credit ledger, and records N
@@ -63,6 +64,19 @@ export async function POST(
   // quoteBuyback, then attach vault_percent / vault_amount / instant_deadline_ms.
   const packsService = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
 
+  // Display-only live MYR price per roll — fxRate resolved ONCE for the whole
+  // batch, and the won cards' market_multiplier fetched in a single batched
+  // lookup (RolledCard, the roll-pack-batch step's winner shape, does not
+  // carry market_multiplier — same gap as the single-open route).
+  const fxRate = await resolveFxRate(packsService);
+  const handles = [...new Set(result.rolls.map((card) => card.handle))];
+  const cardRows = handles.length
+    ? await packsService.listCards({ handle: handles }, { take: handles.length })
+    : [];
+  const multiplierByHandle = new Map(
+    cardRows.map((c) => [c.handle, Number(c.market_multiplier ?? 1.2)]),
+  );
+
   const rolls = await Promise.all(
     result.rolls.map(async (card, i) => {
       const pull = result.pulls[i];
@@ -72,9 +86,14 @@ export async function POST(
         { rolled_at: pull.rolled_at, revealed_at: pull.revealed_at },
         marketValue,
       );
+      const marketPriceMyr = displayMarketPrice(
+        marketValue,
+        fxRate,
+        multiplierByHandle.get(card.handle) ?? 1.2,
+      );
       return {
         pull,
-        card,
+        card: { ...card, marketPriceMyr },
         buyback: {
           ...buyback,
           vault_percent: FLAT_PERCENT,

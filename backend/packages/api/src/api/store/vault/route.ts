@@ -14,6 +14,7 @@ import {
   toCardView,
 } from '../../../modules/packs/card-view';
 import { toMoney } from '../../../modules/packs/money';
+import { displayMarketPrice, resolveFxRate } from '../../../modules/packs/pricing';
 
 // GET /store/vault — the authenticated customer's vault: every pull still held
 // (status "vaulted"), newest first, with a LIVE buyback offer per item: current
@@ -37,6 +38,7 @@ export async function GET(
 ): Promise<void> {
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerId = req.auth_context.actor_id;
+  const fxRate = await resolveFxRate(packs);
 
   const pulls = await packs.listPulls(
     { customer_id: customerId, status: 'vaulted' },
@@ -100,7 +102,14 @@ export async function GET(
         pack_id: p.pack_id,
         pack_title: pack?.title ?? p.pack_id,
         showcased: (p as unknown as { showcased: boolean }).showcased ?? false,
-        card: toCardView(card, rarityOf(p.pack_id, p.card_id)),
+        card: {
+          ...toCardView(card, rarityOf(p.pack_id, p.card_id)),
+          marketPriceMyr: displayMarketPrice(
+            marketValue,
+            fxRate,
+            Number(card.market_multiplier ?? 1.2),
+          ),
+        },
         buyback: {
           percent,
           amount: buybackAmount(marketValue, percent),

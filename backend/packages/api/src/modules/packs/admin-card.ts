@@ -1,5 +1,6 @@
 import { toMoney } from './money';
 import type { CardLike } from './card-view';
+import { displayMarketPrice } from './pricing';
 
 // The admin Gacha-Cards DTO: the public card fields plus the operator-only
 // `price` (raw stored sentinel — null = "use FMV", which the edit form
@@ -12,10 +13,19 @@ export type AdminCardLike = CardLike & {
   for_sale: boolean;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  pc_product_id: string | null;
+  pc_grade: string | null;
+  market_multiplier: unknown;
+  pc_synced_at: Date | string | null;
 };
 
-export function toAdminCardDto(card: AdminCardLike) {
-  return {
+// `fxRate` is optional so existing callers/tests that only need the base DTO
+// (no FX resolved) keep the exact same shape. Admin routes pass it, adding a
+// `priceBreakdown` block: raw stored USD, the fx rate used, the FMV at 1x
+// (no markup), the display price (with the card's own multiplier), and the
+// markup difference between the two.
+export function toAdminCardDto(card: AdminCardLike, fxRate?: number) {
+  const base = {
     handle: card.handle,
     name: card.name,
     set: card.set,
@@ -27,5 +37,25 @@ export function toAdminCardDto(card: AdminCardLike) {
     for_sale: card.for_sale,
     pokemon_dex: card.pokemon_dex ?? null,
     sprite_image: card.sprite_image ?? null,
+    pc_product_id: card.pc_product_id ?? null,
+    pc_grade: card.pc_grade ?? null,
+    market_multiplier: toMoney(card.market_multiplier ?? 1.2),
+    pc_synced_at: card.pc_synced_at ?? null,
+  };
+  if (fxRate === undefined) return base;
+
+  const raw = toMoney(card.market_value);
+  const mult = toMoney(card.market_multiplier ?? 1.2);
+  const marketMyr = displayMarketPrice(raw, fxRate, 1);
+  const displayPrice = displayMarketPrice(raw, fxRate, mult);
+  return {
+    ...base,
+    priceBreakdown: {
+      raw,
+      fxRate,
+      marketMyr,
+      displayPrice,
+      markup: Math.round((displayPrice - marketMyr) * 100) / 100,
+    },
   };
 }

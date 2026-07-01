@@ -23,4 +23,5 @@ export const qk = {
   deliveryOrder: (id: string) => ['admin', 'delivery-order', id] as const,
   rewardPool: (tier: string) => ['admin', 'reward-pool', tier] as const,
   achievements: ['admin', 'achievements'] as const,
+  fxRate: ['admin', 'pricing', 'fx'] as const,
 };

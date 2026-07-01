@@ -29,6 +29,11 @@ export type WonCard = {
   rarity: Rarity;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  /** Live MYR display price (raw USD FMV x FX x per-card multiplier) — mirrors
+   *  the vault's marketPriceMyr so the reveal shows the same live number.
+   *  Null if an older/un-enriched backend omitted it — the reveal then falls
+   *  back to the legacy `value` field instead of rendering "RM 0.00". */
+  marketPriceMyr: number | null;
 };
 
 export type OpenPackResult =
@@ -72,6 +77,7 @@ interface BackendWonCard {
   rarity: string;
   pokemon_dex?: number | null;
   sprite_image?: string | null;
+  marketPriceMyr?: number;
 }
 
 // Shape of the `buyback` offer returned by the open route.
@@ -145,6 +151,7 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
         rarity: wonCard.rarity as Rarity,
         pokemon_dex: wonCard.pokemon_dex ?? null,
         sprite_image: wonCard.sprite_image ?? null,
+        marketPriceMyr: wonCard.marketPriceMyr ?? null,
       },
       pullId: typeof pull?.id === 'string' ? pull.id : null,
       marketValue: wonCard.market_value,

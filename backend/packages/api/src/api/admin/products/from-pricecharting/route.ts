@@ -34,6 +34,27 @@ const requireNonNegativeNumber = (value: unknown, field: string): number => {
   return n;
 };
 
+const requirePositiveNumber = (value: unknown, field: string): number => {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      `'${field}' must be a positive number.`,
+    );
+  }
+  return n;
+};
+
+const requireUrl = (value: unknown, field: string): string => {
+  const s = requireString(value, field);
+  try {
+    new URL(s);
+  } catch {
+    throw new MedusaError(MedusaError.Types.INVALID_DATA, `'${field}' must be a valid URL.`);
+  }
+  return s;
+};
+
 // POST /admin/products/from-pricecharting — mint a standalone marketplace
 // Product from a PriceCharting lookup, carrying the PC link on
 // product.metadata. NO card is created here.
@@ -44,7 +65,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
   const pc_grade = requireString(body.pc_grade, "pc_grade");
   const name = requireString(body.name, "name");
   const market_value = requireNonNegativeNumber(body.market_value, "market_value");
-  const image = requireString(body.image, "image");
+  const image = requireUrl(body.image, "image");
 
   const set = typeof body.set === "string" ? body.set : "";
   const grader = typeof body.grader === "string" ? body.grader : "";
@@ -57,7 +78,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
   const market_multiplier =
     body.market_multiplier === undefined
       ? 1.2
-      : requireNonNegativeNumber(body.market_multiplier, "market_multiplier");
+      : requirePositiveNumber(body.market_multiplier, "market_multiplier");
 
   const { result } = await createProductFromPriceChartingWorkflow(req.scope).run({
     input: {

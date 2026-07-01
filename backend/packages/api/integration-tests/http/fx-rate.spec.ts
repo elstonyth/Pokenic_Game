@@ -39,6 +39,21 @@ medusaIntegrationTestRunner({
         expect(after.data.effective).toBe(4.85);
         expect(after.data.manual_override).toBe(true);
         expect(after.data.manual_rate).toBe(4.85);
+
+        // UPDATE branch: second override edit
+        const updatePost = await unwrapResponse(
+          api.post(
+            "/admin/pricing/fx",
+            { manual_override: true, manual_rate: 4.2 },
+            adminHeaders(),
+          ),
+        );
+        expect(updatePost.status).toBe(200);
+        expect(updatePost.data.effective).toBe(4.2);
+
+        const afterUpdate = await unwrapResponse(api.get("/admin/pricing/fx", adminHeaders()));
+        expect(afterUpdate.data.effective).toBe(4.2);
+        expect(afterUpdate.data.manual_rate).toBe(4.2);
       });
     });
   },

@@ -74,6 +74,36 @@ const optSprite = (b: Record<string, unknown>): string | null => {
   return s;
 };
 
+// PriceCharting linkage fields (Task 5). pc_product_id is nullable — an
+// explicit null in the update body means "unlink"; undefined means "not
+// provided" (create falls back to the product's metadata; update falls back
+// to null via the `?? null` in update-card.ts).
+const optPcId = (b: Record<string, unknown>): string | null | undefined => {
+  const v = b.pc_product_id;
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') bad(`'pc_product_id' must be a string.`);
+  return (v as string).trim();
+};
+
+const optPcGrade = (b: Record<string, unknown>): string | null | undefined => {
+  const v = b.pc_grade;
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') bad(`'pc_grade' must be a string.`);
+  return (v as string).trim();
+};
+
+const optMultiplier = (b: Record<string, unknown>): number | undefined => {
+  const v = b.market_multiplier;
+  if (v === undefined || v === null || v === '') return undefined;
+  const n = typeof v === 'string' ? Number(v) : v;
+  if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) {
+    bad(`'market_multiplier' must be a positive number.`);
+  }
+  return n as number;
+};
+
 const asObject = (raw: unknown): Record<string, unknown> => {
   if (!raw || typeof raw !== "object") {
     bad("Body must be an object.");
@@ -95,6 +125,9 @@ export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
     market_value: reqNum(b, "market_value"),
     pokemon_dex: optDex(b),
     sprite_image: optSprite(b),
+    pc_product_id: optPcId(b),
+    pc_grade: optPcGrade(b),
+    market_multiplier: optMultiplier(b),
   };
 }
 
@@ -128,5 +161,8 @@ export function coerceUpdateCardBody(
     for_sale: b.for_sale !== false, // default true unless explicitly false
     pokemon_dex: optDex(b),
     sprite_image: optSprite(b),
+    pc_product_id: optPcId(b),
+    pc_grade: optPcGrade(b),
+    market_multiplier: optMultiplier(b),
   };
 }

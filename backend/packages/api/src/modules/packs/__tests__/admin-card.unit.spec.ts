@@ -12,6 +12,10 @@ const card = {
   for_sale: true,
   pokemon_dex: null as number | null,
   sprite_image: null as string | null,
+  pc_product_id: null as string | null,
+  pc_grade: null as string | null,
+  market_multiplier: '1.2',
+  pc_synced_at: null as string | Date | null,
 };
 
 describe('toAdminCardDto', () => {
@@ -28,6 +32,10 @@ describe('toAdminCardDto', () => {
       for_sale: true,
       pokemon_dex: null,
       sprite_image: null,
+      pc_product_id: null,
+      pc_grade: null,
+      market_multiplier: 1.2,
+      pc_synced_at: null,
     });
   });
 

@@ -12,6 +12,10 @@ export type AdminCardLike = CardLike & {
   for_sale: boolean;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  pc_product_id: string | null;
+  pc_grade: string | null;
+  market_multiplier: unknown;
+  pc_synced_at: Date | string | null;
 };
 
 export function toAdminCardDto(card: AdminCardLike) {
@@ -27,5 +31,9 @@ export function toAdminCardDto(card: AdminCardLike) {
     for_sale: card.for_sale,
     pokemon_dex: card.pokemon_dex ?? null,
     sprite_image: card.sprite_image ?? null,
+    pc_product_id: card.pc_product_id ?? null,
+    pc_grade: card.pc_grade ?? null,
+    market_multiplier: toMoney(card.market_multiplier ?? 1.2),
+    pc_synced_at: card.pc_synced_at ?? null,
   };
 }

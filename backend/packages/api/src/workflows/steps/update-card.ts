@@ -29,6 +29,13 @@ export type UpdateCardInput = {
   for_sale: boolean;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  // PriceCharting linkage — optional. Omitted/undefined defaults to
+  // null/1.2 below (NOT "leave as-is"); the edit form round-trips the card's
+  // current values from GET so a save that doesn't touch PC linkage still
+  // preserves it in practice.
+  pc_product_id?: string | null;
+  pc_grade?: string | null;
+  market_multiplier?: number;
 };
 
 type CardSnapshot = {
@@ -43,6 +50,9 @@ type CardSnapshot = {
   for_sale: boolean;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  pc_product_id: string | null;
+  pc_grade: string | null;
+  market_multiplier: number;
 };
 
 type ProductSnapshot = {
@@ -89,6 +99,9 @@ export const updateCardStep = createStep(
       for_sale: card.for_sale,
       pokemon_dex: card.pokemon_dex ?? null,
       sprite_image: card.sprite_image ?? null,
+      pc_product_id: card.pc_product_id ?? null,
+      pc_grade: card.pc_grade ?? null,
+      market_multiplier: Number(card.market_multiplier ?? 1.2),
     };
 
     const salePrice = input.price ?? input.market_value;
@@ -108,6 +121,9 @@ export const updateCardStep = createStep(
         for_sale: input.for_sale,
         pokemon_dex: input.pokemon_dex,
         sprite_image: input.sprite_image,
+        pc_product_id: input.pc_product_id ?? null,
+        pc_grade: input.pc_grade ?? null,
+        market_multiplier: input.market_multiplier ?? 1.2,
       },
     ]);
 
@@ -223,6 +239,9 @@ export const updateCardStep = createStep(
         for_sale: data.card.for_sale,
         pokemon_dex: data.card.pokemon_dex,
         sprite_image: data.card.sprite_image,
+        pc_product_id: data.card.pc_product_id,
+        pc_grade: data.card.pc_grade,
+        market_multiplier: data.card.market_multiplier,
       },
     ]);
     if (data.product) {

@@ -25,6 +25,11 @@ export type RegisterCardInput = {
   market_value: number; // USD FMV — a decimal, never cents
   pokemon_dex: number | null;
   sprite_image: string | null;
+  // PriceCharting linkage — optional; when omitted, inherited from the
+  // product's own metadata (set by /admin/products/from-pricecharting).
+  pc_product_id?: string | null;
+  pc_grade?: string | null;
+  market_multiplier?: number;
 };
 
 type CompensateData =
@@ -94,6 +99,21 @@ export const registerCardInvoke = async (
     throw alreadyRegistered();
   }
 
+  // Inherit the PriceCharting link from the product's own metadata (set by
+  // /admin/products/from-pricecharting) unless the caller explicitly overrides
+  // it. A plain (non-PC) product leaves these null/default — untracked.
+  const meta = (product.metadata ?? {}) as Record<string, unknown>;
+  const pcProductId =
+    input.pc_product_id ??
+    (typeof meta.pc_product_id === 'string' ? meta.pc_product_id : null);
+  const pcGrade =
+    input.pc_grade ?? (typeof meta.pc_grade === 'string' ? meta.pc_grade : null);
+  const mult =
+    input.market_multiplier ??
+    (Number.isFinite(Number(meta.market_multiplier))
+      ? Number(meta.market_multiplier)
+      : 1.2);
+
   const [card] = await insertOrMapDuplicate({
     insert: () =>
       packs.createCards([
@@ -111,6 +131,9 @@ export const registerCardInvoke = async (
           for_sale: product.status === 'published',
           pokemon_dex: input.pokemon_dex,
           sprite_image: input.sprite_image,
+          pc_product_id: pcProductId,
+          pc_grade: pcGrade,
+          market_multiplier: mult,
         },
       ]),
     probeDuplicate: async () => {

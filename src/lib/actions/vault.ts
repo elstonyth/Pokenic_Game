@@ -68,7 +68,7 @@ interface BackendVaultItem {
     image: string;
     rarity: string;
     market_value: number;
-    market_price_myr: number;
+    marketPriceMyr: number;
   };
   buyback: { percent: number; amount: number };
 }
@@ -131,7 +131,7 @@ export async function getVault(): Promise<VaultResult> {
         image: i.card.image,
         rarity: i.card.rarity,
         marketValue: i.card.market_value,
-        marketPriceMyr: i.card.market_price_myr,
+        marketPriceMyr: i.card.marketPriceMyr,
       },
       buyback: { percent: i.buyback.percent, amount: i.buyback.amount },
     }));

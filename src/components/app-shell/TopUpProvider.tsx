@@ -39,7 +39,14 @@ export function useTopUp(): TopUpContextValue {
  */
 export function TopUpProvider({ children }: { children: ReactNode }) {
   const { customer } = useAuth();
-  const [balance, setBalance] = useState<number | null>(null);
+  // Balance is stored WITH the customer id it was fetched for. A value tagged
+  // for another identity never renders (security review: on logout→login as a
+  // different account, an untagged balance briefly leaked the previous user's
+  // amount until the new fetch resolved).
+  const [balance, setBalance] = useState<{
+    forId: string;
+    value: number;
+  } | null>(null);
   const [open, setOpen] = useState(false);
 
   // Fetch on login / account switch. setState only ever runs in promise
@@ -47,10 +54,11 @@ export function TopUpProvider({ children }: { children: ReactNode }) {
   // via derivation below instead of a state write.
   useEffect(() => {
     if (!customer) return;
+    const forId = customer.id;
     let cancelled = false;
     getCreditBalance()
       .then((value) => {
-        if (!cancelled) setBalance(value);
+        if (!cancelled) setBalance(value == null ? null : { forId, value });
       })
       .catch(() => {
         // Header chip degrades to "—"; pages surface their own errors.
@@ -64,12 +72,24 @@ export function TopUpProvider({ children }: { children: ReactNode }) {
   // Event-handler refresh (post-purchase, focus, etc.) — not effect-driven.
   const refreshBalance = useCallback(async () => {
     if (!customer) return;
+    const forId = customer.id;
     try {
-      setBalance(await getCreditBalance());
+      const value = await getCreditBalance();
+      setBalance(value == null ? null : { forId, value });
     } catch {
       setBalance(null);
     }
   }, [customer]);
+
+  // Fresh values pushed by purchase/claim actions inherit the CURRENT
+  // identity; ignored when somehow fired while logged out.
+  const applyBalance = useCallback(
+    (value: number) => {
+      if (!customer) return;
+      setBalance({ forId: customer.id, value });
+    },
+    [customer],
+  );
 
   const openTopUp = useCallback(() => {
     if (!customer) {
@@ -79,8 +99,9 @@ export function TopUpProvider({ children }: { children: ReactNode }) {
     setOpen(true);
   }, [customer]);
 
-  // Logged-out is derived, not stored — no state write needed on logout.
-  const shownBalance = customer ? balance : null;
+  // Logged-out and cross-identity values derive to null — never rendered.
+  const shownBalance =
+    customer && balance && balance.forId === customer.id ? balance.value : null;
 
   return (
     <TopUpContext.Provider
@@ -88,7 +109,7 @@ export function TopUpProvider({ children }: { children: ReactNode }) {
         balance: shownBalance,
         openTopUp,
         refreshBalance,
-        applyBalance: setBalance,
+        applyBalance,
       }}
     >
       {children}
@@ -96,7 +117,7 @@ export function TopUpProvider({ children }: { children: ReactNode }) {
         open={open}
         balance={shownBalance}
         onClose={() => setOpen(false)}
-        onToppedUp={(next) => setBalance(next)}
+        onToppedUp={applyBalance}
       />
     </TopUpContext.Provider>
   );

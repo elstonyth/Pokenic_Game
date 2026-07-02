@@ -86,7 +86,7 @@
     ],
     "breakpoints": [
       { "name": "sm", "value": "640px" },
-      { "name": "lg", "value": "1024px — tab bar hides, header nav appears" }
+      { "name": "lg", "value": "1024px", "note": "tab bar hides, header nav appears" }
     ]
   },
   "components": [

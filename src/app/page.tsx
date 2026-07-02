@@ -22,19 +22,23 @@ export default async function HomePage() {
     getRecentPulls(),
   ]);
   const packs = categories.flatMap((c) => c.packs);
-  const details = await Promise.all(
-    packs.slice(0, CHASE_LOOKUPS).map((p) => getPackDetail(p.id)),
-  );
-  const chaseByPack = new Map<string, PackCard | null>(
-    packs
-      .slice(0, CHASE_LOOKUPS)
-      .map((p, i) => [p.id, details[i]?.topHits[0] ?? null]),
-  );
-
   const inStock = packs.filter((p) => p.inStock !== false);
   const featured = [...inStock].sort(
     (a, b) => priceNumber(b.price) - priceNumber(a.price),
   )[0];
+
+  // Chase lookups cover the first N tiles PLUS the featured pack, so the hero
+  // never silently loses its chase when featured falls outside the first N.
+  const lookupPacks = [
+    ...new Set([...(featured ? [featured] : []), ...packs.slice(0, CHASE_LOOKUPS)]),
+  ];
+  const details = await Promise.all(
+    lookupPacks.map((p) => getPackDetail(p.id)),
+  );
+  const chaseByPack = new Map<string, PackCard | null>(
+    lookupPacks.map((p, i) => [p.id, details[i]?.topHits[0] ?? null]),
+  );
+
   const featuredChase = featured
     ? (chaseByPack.get(featured.id) ?? null)
     : null;
@@ -160,15 +164,13 @@ function PackTile({ pack, chase }: { pack: Pack; chase: PackCard | null }) {
   const tier = priceTier(priceNumber(pack.price));
   const soldOut = pack.inStock === false;
 
-  return (
-    <Link
-      href={`/slots/${pack.id}`}
-      aria-disabled={soldOut}
-      className={`relative flex flex-col rounded-2xl border bg-neutral-900 p-3 transition-colors hover:border-white/30 ${
-        soldOut ? 'opacity-50' : ''
-      }`}
-      style={{ borderColor: `rgba(${TIER_COLOR[tier]}, 0.4)` }}
-    >
+  const tileClass = `relative flex flex-col rounded-2xl border bg-neutral-900 p-3 transition-colors ${
+    soldOut ? 'opacity-50' : 'hover:border-white/30'
+  }`;
+  const tileStyle = { borderColor: `rgba(${TIER_COLOR[tier]}, 0.4)` };
+
+  const body = (
+    <>
       <div className="relative flex h-28 items-center justify-center">
         <Image
           src={pack.image}
@@ -200,6 +202,24 @@ function PackTile({ pack, chase }: { pack: Pack; chase: PackCard | null }) {
           Top chase <span className="text-neutral-300">{chase.value}</span>
         </p>
       )}
+    </>
+  );
+
+  // Sold-out tiles are display-only — a real non-target, not an aria hint.
+  if (soldOut) {
+    return (
+      <div className={tileClass} style={tileStyle}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <Link
+      href={`/slots/${encodeURIComponent(pack.id)}`}
+      className={tileClass}
+      style={tileStyle}
+    >
+      {body}
     </Link>
   );
 }

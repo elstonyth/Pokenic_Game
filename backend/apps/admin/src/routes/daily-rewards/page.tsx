@@ -50,8 +50,14 @@ const DailyRewardsPage = () => {
   const parsed = amounts.map((a) => Number(a));
   const amountsValid = parsed.every((n) => Number.isFinite(n) && n > 0);
   const reasonValid = reason.trim().length > 0;
+  // Never save the pre-fetch placeholder buffer over live config.
+  const loaded = seededFrom !== undefined;
 
   const onSave = () => {
+    if (!loaded) {
+      toast.error('Settings are still loading — try again in a moment.');
+      return;
+    }
     if (!amountsValid) {
       toast.error('Every day needs a positive MYR amount.');
       return;
@@ -122,7 +128,7 @@ const DailyRewardsPage = () => {
             onChange={(e) => setReason(e.target.value)}
           />
         </div>
-        <Button onClick={onSave} isLoading={save.isPending}>
+        <Button onClick={onSave} isLoading={save.isPending} disabled={!loaded}>
           Save
         </Button>
       </div>

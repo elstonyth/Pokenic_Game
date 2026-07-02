@@ -12,7 +12,8 @@ import type { Pack, PackCategory } from '@/lib/packs-data';
 // Pack catalog comes from the backend via getPackCategories() (server page);
 // types + presentational category meta live in @/lib/packs-data.
 
-const packHref = (id: string, qty: number) => `/slots/${id}?count=${qty}`;
+const packHref = (id: string, qty: number) =>
+  `/slots/${encodeURIComponent(id)}?count=${qty}`;
 
 // ---------------------------------------------------------------------------
 // Pack card (DESKTOP) — art, name, price, quantity stepper, Open. Boosted

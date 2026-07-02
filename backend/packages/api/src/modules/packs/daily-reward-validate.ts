@@ -52,7 +52,13 @@ export function validateDailyRewardPatch(raw: unknown): DailyRewardPatch {
       );
     }
     const parsed = amounts.map((value, i) => {
-      const n = Number(value);
+      if (typeof value !== 'number') {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          `amounts[${i}] must be a number.`,
+        );
+      }
+      const n = value;
       if (!Number.isFinite(n) || n <= 0) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,

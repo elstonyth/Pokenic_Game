@@ -3,12 +3,12 @@ import type { MedusaContainer } from "@medusajs/framework/types";
 import {
   ContainerRegistrationKeys,
   MedusaError,
-  Modules,
   ProductStatus,
 } from "@medusajs/framework/utils";
 import {
   createProductsWorkflow,
   createInventoryLevelsWorkflow,
+  deleteProductsWorkflow,
 } from "@medusajs/medusa/core-flows";
 import {
   buildCardProductInput,
@@ -106,10 +106,26 @@ export const createProductFromPcInvoke = async (
   });
   const product = result[0];
 
-  // Single rollback path — delete the just-created product if it can't be stocked
-  // (resolved lazily so the success path doesn't pay for the module lookup).
-  const rollbackProduct = () =>
-    container.resolve(Modules.PRODUCT).deleteProducts([product.id]);
+  // Single rollback path — delete the just-created product via the delete
+  // WORKFLOW (not the module service), so its inventory-item + sales-channel
+  // links are cleaned up too; a direct module delete would orphan them.
+  // Best-effort: a cleanup failure is logged, never rethrown, so it can never
+  // mask the original error thrown at the call site below.
+  const rollbackProduct = async () => {
+    try {
+      await deleteProductsWorkflow(container).run({
+        input: { ids: [product.id] },
+      });
+    } catch (cleanupErr) {
+      container
+        .resolve(ContainerRegistrationKeys.LOGGER)
+        .error(
+          `[from-pricecharting] rollback failed for product ${product.id}: ${
+            cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
+          }`,
+        );
+    }
+  };
 
   // createProductsWorkflow auto-creates the inventory ITEM (manage_inventory
   // true); resolve it, then create the LEVEL — the same two-step the seed uses.
@@ -169,7 +185,9 @@ export const createProductFromPcStep = createStep(
   // Fires only if a LATER workflow step fails after this one succeeds.
   async (data: CompensateData, { container }) => {
     if (!data) return;
-    await container.resolve(Modules.PRODUCT).deleteProducts([data.productId]);
+    await deleteProductsWorkflow(container).run({
+      input: { ids: [data.productId] },
+    });
   },
 );
 

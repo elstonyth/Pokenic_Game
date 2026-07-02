@@ -42,26 +42,34 @@ export function TopUpProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
+  // Fetch on login / account switch. setState only ever runs in promise
+  // callbacks (never synchronously in the effect); logged-out renders null
+  // via derivation below instead of a state write.
+  useEffect(() => {
+    if (!customer) return;
+    let cancelled = false;
+    getCreditBalance()
+      .then((value) => {
+        if (!cancelled) setBalance(value);
+      })
+      .catch(() => {
+        // Header chip degrades to "—"; pages surface their own errors.
+        if (!cancelled) setBalance(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customer]);
+
+  // Event-handler refresh (post-purchase, focus, etc.) — not effect-driven.
   const refreshBalance = useCallback(async () => {
-    if (!customer) {
-      // Defer past the current tick so an effect caller never sets state
-      // synchronously (react-hooks cascading-render lint).
-      await Promise.resolve();
-      setBalance(null);
-      return;
-    }
+    if (!customer) return;
     try {
-      const value = await getCreditBalance();
-      setBalance(value);
+      setBalance(await getCreditBalance());
     } catch {
-      // Header chip degrades to "—"; pages surface their own errors.
       setBalance(null);
     }
   }, [customer]);
-
-  useEffect(() => {
-    void refreshBalance();
-  }, [refreshBalance]);
 
   const openTopUp = useCallback(() => {
     if (!customer) {
@@ -71,14 +79,22 @@ export function TopUpProvider({ children }: { children: ReactNode }) {
     setOpen(true);
   }, [customer]);
 
+  // Logged-out is derived, not stored — no state write needed on logout.
+  const shownBalance = customer ? balance : null;
+
   return (
     <TopUpContext.Provider
-      value={{ balance, openTopUp, refreshBalance, applyBalance: setBalance }}
+      value={{
+        balance: shownBalance,
+        openTopUp,
+        refreshBalance,
+        applyBalance: setBalance,
+      }}
     >
       {children}
       <TopUpSheet
         open={open}
-        balance={balance}
+        balance={shownBalance}
         onClose={() => setOpen(false)}
         onToppedUp={(next) => setBalance(next)}
       />

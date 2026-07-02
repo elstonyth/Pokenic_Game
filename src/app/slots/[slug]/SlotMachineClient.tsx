@@ -19,7 +19,7 @@ import {
   type Pack,
   FLAT_BUYBACK_PERCENT,
   priceNumber,
-} from '@/app/claw/packs-data';
+} from '@/lib/packs-data';
 import type { RecentPull } from '@/lib/data/packs';
 import { BASE_SPIN_MS } from '@/lib/reel';
 import { priceTier, TIER_COLOR, type Tier } from '@/lib/price-tier';

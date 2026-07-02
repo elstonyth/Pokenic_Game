@@ -1,4 +1,4 @@
-import type { Rarity } from '@/app/claw/packs-data';
+import type { Rarity } from '@/lib/packs-data';
 
 /**
  * Rarity glow RGB (as "r, g, b") — feed `rgba(${rarityRgb(r)}, a)`.

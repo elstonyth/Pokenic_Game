@@ -6,7 +6,7 @@ import {
   getPackDetail,
   getRecentPulls,
 } from '@/lib/data/packs';
-import { priceNumber, type Pack, type PackCard } from '@/app/claw/packs-data';
+import { priceNumber, type Pack, type PackCard } from '@/lib/packs-data';
 import { priceTier, TIER_COLOR } from '@/lib/price-tier';
 import RecentPullsSection from '@/components/RecentPullsSection';
 

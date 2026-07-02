@@ -13,7 +13,7 @@ import {
 } from '@/lib/actions/vault';
 import { type AddressView } from '@/lib/actions/delivery';
 import RequestDeliveryModal from '@/components/account/RequestDeliveryModal';
-import { FLAT_BUYBACK_PERCENT } from '@/app/claw/packs-data';
+import { FLAT_BUYBACK_PERCENT } from '@/lib/packs-data';
 import SellConfirmModal from '@/components/SellConfirmModal';
 import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import { RARITY_ORDER, rarityRgb } from '@/lib/rarity';

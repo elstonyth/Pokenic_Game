@@ -80,6 +80,13 @@ export interface EligibleProduct {
   handle: string;
   thumbnail: string | null;
   status: string;
+  /** Gacha facts staged on product.metadata — autofill for the register form. */
+  set: string | null;
+  grade: string | null;
+  grader: string | null;
+  fmv: number | null;
+  pc_product_id: string | null;
+  pc_grade: string | null;
 }
 
 export async function listEligibleProducts(): Promise<EligibleProduct[]> {
@@ -146,24 +153,46 @@ export async function getCustomerGacha(id: string): Promise<CustomerGacha> {
 // ── Customer 360: referral tree + commissions (Phase 4 P4.1) ─────────────────
 
 export interface ReferralTreeNode {
-  customer_id: string; depth: number; sponsor_id: string | null;
-  vip_level: number | null; lifetime_external_spend_sen: string;
-  frozen: boolean; direct_recruit_count: number; has_more_depth: boolean;
-  handle: string | null; email: string | null; created_at: string | null;
+  customer_id: string;
+  depth: number;
+  sponsor_id: string | null;
+  vip_level: number | null;
+  lifetime_external_spend_sen: string;
+  frozen: boolean;
+  direct_recruit_count: number;
+  has_more_depth: boolean;
+  handle: string | null;
+  email: string | null;
+  created_at: string | null;
 }
-export interface ReferralTree { root: ReferralTreeNode; nodes: ReferralTreeNode[]; maxDepth: number; truncated: boolean; }
+export interface ReferralTree {
+  root: ReferralTreeNode;
+  nodes: ReferralTreeNode[];
+  maxDepth: number;
+  truncated: boolean;
+}
 export const getReferralTree = (id: string, maxDepth = 6) =>
-  getJson<ReferralTree>(`/admin/customers/${encodeURIComponent(id)}/referral-tree?maxDepth=${maxDepth}`);
+  getJson<ReferralTree>(
+    `/admin/customers/${encodeURIComponent(id)}/referral-tree?maxDepth=${maxDepth}`,
+  );
 
 export interface AdminCommissionRow {
-  id: string; generation: number; kind: 'direct' | 'override';
+  id: string;
+  generation: number;
+  kind: 'direct' | 'override';
   status: 'pending' | 'available' | 'suspended' | 'reversed';
-  amount: string; reason: string; matures_at: string;
-  reversal_transaction_id: string | null; source_transaction_id: string;
-  opener: { customer_id: string | null; handle: string | null }; created_at: string;
+  amount: string;
+  reason: string;
+  matures_at: string;
+  reversal_transaction_id: string | null;
+  source_transaction_id: string;
+  opener: { customer_id: string | null; handle: string | null };
+  created_at: string;
 }
 export const getCustomerCommissions = (id: string, page = 0, limit = 50) =>
-  getJson<{ commissions: AdminCommissionRow[] }>(`/admin/customers/${encodeURIComponent(id)}/commissions?limit=${limit}&offset=${page * limit}`);
+  getJson<{ commissions: AdminCommissionRow[] }>(
+    `/admin/customers/${encodeURIComponent(id)}/commissions?limit=${limit}&offset=${page * limit}`,
+  );
 
 // ── Phase 4 P4.2 — audit timeline ───────────────────────────────────────────
 
@@ -301,6 +330,8 @@ export interface PcProduct {
   id: string;
   name: string;
   set: string;
+  /** PriceCharting's card photo (their public GCS bucket), when they have one. */
+  image: string | null;
   /** Per-grade values in USD, ascending grade order; absent grades omitted. */
   prices: { grade: string; usd: number }[];
 }
@@ -332,8 +363,9 @@ export async function createProductFromPriceCharting(body: {
   image: string;
   price?: number | null;
   for_sale?: boolean;
-  market_multiplier?: number;
   stock?: number;
+  pokemon_dex?: number | null;
+  sprite_image?: string | null;
 }): Promise<{ id: string; handle: string }> {
   const data = await postJson<{ product: { id: string; handle: string } }>(
     '/admin/products/from-pricecharting',
@@ -403,7 +435,9 @@ export async function listDeliveryOrders(
   return data.orders;
 }
 
-export async function getDeliveryOrder(id: string): Promise<AdminDeliveryOrder> {
+export async function getDeliveryOrder(
+  id: string,
+): Promise<AdminDeliveryOrder> {
   const data = await getJson<{ order: AdminDeliveryOrder }>(
     `/admin/delivery-orders/${encodeURIComponent(id)}`,
   );

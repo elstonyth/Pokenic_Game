@@ -99,25 +99,24 @@
       "label": "Grade tier",
       "loadError": "Could not load prices for this product.",
       "empty": "No prices available for this product.",
+      "fxHint": "Prices shown in RM at the live FX rate — no markup applied. Margin is set when the card is registered for gacha.",
       "derivedHint": "Grader: {{grader}} · Grade: {{grade}}"
-    },
-    "markup": {
-      "label": "Markup %"
     },
     "stock": {
       "label": "Stock quantity",
-      "hint": "Physical copies you hold. Decrements as the card is pulled or sold. Default 1 for a single graded slab."
+      "hint": "Physical copies you hold. Decrements as the card is pulled or sold. Default 0 — count units when the slabs are in hand."
     },
     "preview": {
       "loading": "Loading FX rate…",
-      "line": "Raw ${{raw}} · FX {{fx}} · Market RM{{market}} · Customer sees RM{{customer}} · Margin RM{{margin}}"
+      "line": "Raw ${{raw}} · FX {{fx}} · Listing RM{{market}} (no markup)"
     },
     "image": {
       "label": "Image",
       "upload": "Upload image",
       "replace": "Replace image",
       "urlPlaceholder": "Image URL",
-      "hint": "Required before the product can be created. PriceCharting does not provide an image — upload one."
+      "hint": "Auto-filled from PriceCharting when available; the image is stored through the media pipeline on save, never hotlinked. Upload to override.",
+      "autoFilled": "Auto-fetched from PriceCharting"
     },
     "submit": "Add product",
     "created": "Created",
@@ -160,6 +159,7 @@
       "pcNoMatches": "No PriceCharting matches — refine the search or enter the value manually.",
       "pcNoPrices": "No prices recorded for this product — enter the value manually.",
       "pcHint": "Pick a match, then click a grade price to fill the market value. Needs PRICECHARTING_API_TOKEN on the backend; manual entry always works.",
+      "autofillHint": "Set, grade, grader and fair-market value were auto-filled from the product — adjust if needed.",
       "rarityHint": "Rarity is NOT set here — the same card can be a different tier per pack. Choose it when you add the card to a pack (Gacha Packs → pool & odds)."
     },
     "form": {

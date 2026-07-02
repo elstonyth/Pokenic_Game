@@ -18,10 +18,17 @@ import {
   type PcMatch,
   type PcProduct,
 } from '../../../lib/admin-rest';
-import { useFxRate, useCreateProductFromPriceCharting, useUploadImage } from '../../../lib/queries';
+import {
+  useFxRate,
+  useCreateProductFromPriceCharting,
+  useUploadImage,
+} from '../../../lib/queries';
 import { resolveImageUrl } from '../../../lib/image-url';
 import { validateImageFile } from '../../../lib/image-validation';
 import { rm } from '../../../lib/format';
+import CardPokemonFields, {
+  type CardPokemonValue,
+} from '../../cards/CardPokemonFields';
 
 export const config: RouteConfig = {
   label: 'Add from PriceCharting',
@@ -43,24 +50,11 @@ function gradeToGrader(label: string): { grader: string; grade: string } {
   return { grader: '', grade: label };
 }
 
-// Client mirror of pricing.ts displayMarketPrice — display-only preview math;
-// the value actually submitted to the backend is always the raw USD grade
-// price (see market_value in the payload below), never this computed number.
-function displayMarketPrice(
-  marketValueUsd: number,
-  fxUsdMyr: number,
-  multiplier: number,
-): number {
-  const raw = Number(marketValueUsd);
-  const fx = Number(fxUsdMyr);
-  const mult = Number(multiplier);
-  if (![raw, fx, mult].every(Number.isFinite) || raw < 0 || fx <= 0 || mult <= 0) {
-    return 0;
-  }
-  return Math.round(raw * fx * mult * 100) / 100;
-}
-
-const DEFAULT_MULTIPLIER_PCT = '20'; // 20% markup = 1.2x, the spec default.
+// USD → MYR at the effective FX rate — display-only preview math; the value
+// submitted to the backend is always the raw USD grade price. NO markup is
+// applied anywhere on this page: margin belongs to gacha-card registration.
+const usdToMyr = (usd: number, fx: number): number =>
+  Math.round(usd * fx * 100) / 100;
 
 const AddFromPriceChartingPage = () => {
   const { t } = useTranslation();
@@ -83,16 +77,21 @@ const AddFromPriceChartingPage = () => {
   const [grader, setGrader] = useState('');
   const [grade, setGrade] = useState('');
 
-  // Step 3 — markup.
-  const [multiplierPct, setMultiplierPct] = useState(DEFAULT_MULTIPLIER_PCT);
+  // Step 3 — stock. Default 0: units are counted when the physical slabs are
+  // actually in hand, not implied by creating the listing.
+  const [stock, setStock] = useState('0');
 
-  // Step 3b — stock. Tracked units seeded at creation (default a single slab).
-  const [stock, setStock] = useState('1');
-
-  // Step 4 — image (auto-pull seam for Task 15: no prefill wired yet — the
-  // Prices API returns no image, so this always starts empty and relies on
-  // upload/replace until a prefill endpoint lands).
+  // Step 4 — image. Auto-filled from PriceCharting's card photo when they have
+  // one; the backend re-fetches it through the media pipeline on save (never
+  // hotlinked). Upload/replace stays available.
   const [image, setImage] = useState('');
+
+  // Step 5 — pixel Pokémon (staged on product.metadata; inherited when the
+  // product is registered as a gacha card).
+  const [pokemon, setPokemon] = useState<CardPokemonValue>({
+    pokemon_dex: null,
+    sprite_image: null,
+  });
 
   // Result.
   const [created, setCreated] = useState<{ id: string; handle: string } | null>(
@@ -130,7 +129,9 @@ const AddFromPriceChartingPage = () => {
     setMarketValue(null);
     setImage('');
     try {
-      setPcProduct(await getPriceChartingProduct(m.id));
+      const product = await getPriceChartingProduct(m.id);
+      setPcProduct(product);
+      if (product.image) setImage(product.image);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -165,16 +166,14 @@ const AddFromPriceChartingPage = () => {
     }
   };
 
-  const multiplier = 1 + Number(multiplierPct) / 100;
   const fxEffective = fx?.effective ?? null;
-  const preview =
-    marketValue !== null && fxEffective !== null && Number.isFinite(multiplier) && multiplier > 0
-      ? {
-          marketMyr: displayMarketPrice(marketValue, fxEffective, 1),
-          customerMyr: displayMarketPrice(marketValue, fxEffective, multiplier),
-          marginMyr: displayMarketPrice(marketValue, fxEffective, Math.max(multiplier - 1, 0)),
-        }
-      : null;
+  // Non-marked-up MYR label for a grade-tier chip; raw USD until FX loads.
+  const tierLabel = (usd: number): string =>
+    fxEffective !== null
+      ? rm(usdToMyr(usd, fxEffective))
+      : `$${usd.toFixed(2)}`;
+
+  const imageAutoFilled = image !== '' && image === pcProduct?.image;
 
   const canSave =
     !!match &&
@@ -182,22 +181,21 @@ const AddFromPriceChartingPage = () => {
     pcGrade !== null &&
     marketValue !== null &&
     image.trim() !== '' &&
-    Number.isFinite(multiplier) &&
-    multiplier > 0 &&
-    // Markup bounded to [0, 1000]% so a fat-fingered value can't create an
-    // absurd customer price.
-    Number(multiplierPct) >= 0 &&
-    Number(multiplierPct) <= 1000 &&
     stock.trim() !== '' &&
     Number.isInteger(Number(stock)) &&
-    // Require a positive stock — a tracked card product must ship with at
-    // least one physical copy (default 1), never 0/out-of-stock.
-    Number(stock) > 0 &&
+    Number(stock) >= 0 &&
     !saving &&
     !uploading;
 
   const save = async () => {
-    if (!canSave || !match || !pcProduct || pcGrade === null || marketValue === null) return;
+    if (
+      !canSave ||
+      !match ||
+      !pcProduct ||
+      pcGrade === null ||
+      marketValue === null
+    )
+      return;
     try {
       const product = await createProduct.mutateAsync({
         pc_product_id: match.id,
@@ -208,8 +206,9 @@ const AddFromPriceChartingPage = () => {
         grade,
         market_value: marketValue,
         image: image.trim(),
-        market_multiplier: multiplier,
         stock: Number(stock),
+        pokemon_dex: pokemon.pokemon_dex,
+        sprite_image: pokemon.sprite_image,
       });
       setCreated(product);
       toast.success(t('pcAdd.toast.created', { name: pcProduct.name }));
@@ -281,7 +280,7 @@ const AddFromPriceChartingPage = () => {
           )}
         </div>
 
-        {/* Step 2 — grade-tier picker */}
+        {/* Step 2 — grade-tier picker (non-marked-up MYR via the live FX rate) */}
         {match && (
           <div className="bg-ui-bg-subtle flex flex-col gap-y-3 rounded-lg p-4">
             <Label size="small" weight="plus">
@@ -300,19 +299,24 @@ const AddFromPriceChartingPage = () => {
                 {t('pcAdd.grade.empty')}
               </Text>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {pcProduct.prices.map((p) => (
-                  <Button
-                    key={p.grade}
-                    size="small"
-                    variant={pcGrade === p.grade ? 'primary' : 'secondary'}
-                    type="button"
-                    onClick={() => pickTier(p.grade, p.usd)}
-                  >
-                    {p.grade}: {rm(p.usd)}
-                  </Button>
-                ))}
-              </div>
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {pcProduct.prices.map((p) => (
+                    <Button
+                      key={p.grade}
+                      size="small"
+                      variant={pcGrade === p.grade ? 'primary' : 'secondary'}
+                      type="button"
+                      onClick={() => pickTier(p.grade, p.usd)}
+                    >
+                      {p.grade}: {tierLabel(p.usd)}
+                    </Button>
+                  ))}
+                </div>
+                <Text className="text-ui-fg-subtle text-xs">
+                  {t('pcAdd.grade.fxHint')}
+                </Text>
+              </>
             )}
             {pcGrade !== null && (
               <Text className="text-ui-fg-subtle text-xs">
@@ -325,46 +329,22 @@ const AddFromPriceChartingPage = () => {
           </div>
         )}
 
-        {/* Step 3 — markup + live preview */}
+        {/* Step 3 — live preview (raw USD → MYR, no markup) */}
         {pcGrade !== null && marketValue !== null && (
-          <div className="flex flex-col gap-y-3">
-            <div className="flex flex-col gap-y-2">
-              <Label size="small" weight="plus">
-                {t('pcAdd.markup.label')}
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  max={1000}
-                  step={1}
-                  className="max-w-[8rem]"
-                  value={multiplierPct}
-                  onChange={(e) => setMultiplierPct(e.target.value)}
-                />
-                <Text className="text-ui-fg-subtle" size="small">
-                  %
-                </Text>
-              </div>
-            </div>
-
-            <div className="bg-ui-bg-subtle rounded-lg p-4">
-              {fxEffective === null || preview === null ? (
-                <Text className="text-ui-fg-subtle" size="small">
-                  {t('pcAdd.preview.loading')}
-                </Text>
-              ) : (
-                <Text size="small">
-                  {t('pcAdd.preview.line', {
-                    raw: marketValue.toFixed(2),
-                    fx: fxEffective.toFixed(4),
-                    market: preview.marketMyr.toFixed(2),
-                    customer: preview.customerMyr.toFixed(2),
-                    margin: preview.marginMyr.toFixed(2),
-                  })}
-                </Text>
-              )}
-            </div>
+          <div className="bg-ui-bg-subtle rounded-lg p-4">
+            {fxEffective === null ? (
+              <Text className="text-ui-fg-subtle" size="small">
+                {t('pcAdd.preview.loading')}
+              </Text>
+            ) : (
+              <Text size="small">
+                {t('pcAdd.preview.line', {
+                  raw: marketValue.toFixed(2),
+                  fx: fxEffective.toFixed(4),
+                  market: usdToMyr(marketValue, fxEffective).toFixed(2),
+                })}
+              </Text>
+            )}
           </div>
         )}
 
@@ -376,7 +356,7 @@ const AddFromPriceChartingPage = () => {
             </Label>
             <Input
               type="number"
-              min={1}
+              min={0}
               step={1}
               className="max-w-[8rem]"
               value={stock}
@@ -391,9 +371,16 @@ const AddFromPriceChartingPage = () => {
         {/* Step 4 — image */}
         {pcGrade !== null && (
           <div className="flex flex-col gap-y-2">
-            <Label size="small" weight="plus">
-              {t('pcAdd.image.label')}
-            </Label>
+            <div className="flex items-center gap-2">
+              <Label size="small" weight="plus">
+                {t('pcAdd.image.label')}
+              </Label>
+              {imageAutoFilled && (
+                <StatusBadge color="blue">
+                  {t('pcAdd.image.autoFilled')}
+                </StatusBadge>
+              )}
+            </div>
             <div className="flex items-center gap-4">
               {image ? (
                 <img
@@ -436,10 +423,24 @@ const AddFromPriceChartingPage = () => {
           </div>
         )}
 
-        {/* Step 5 — submit */}
+        {/* Step 5 — pixel Pokémon */}
+        {pcGrade !== null && (
+          <CardPokemonFields
+            value={pokemon}
+            onChange={(p) => setPokemon((v) => ({ ...v, ...p }))}
+            suggestionName={pcProduct?.name ?? ''}
+          />
+        )}
+
+        {/* Step 6 — submit */}
         {pcGrade !== null && (
           <div className="flex items-center gap-3">
-            <Button size="small" onClick={save} isLoading={saving} disabled={!canSave}>
+            <Button
+              size="small"
+              onClick={save}
+              isLoading={saving}
+              disabled={!canSave}
+            >
               {t('pcAdd.submit')}
             </Button>
             {created && (

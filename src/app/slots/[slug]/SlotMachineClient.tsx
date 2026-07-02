@@ -11,7 +11,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { openAuth } from '@/components/AuthButton';
 import { openBatch, revealPull } from '@/lib/actions/packs';
 import type { WonCard } from '@/lib/actions/packs';
-import { getCreditBalance, sellBackPull } from '@/lib/actions/vault';
+import { sellBackPull } from '@/lib/actions/vault';
 import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import { useSound } from '@/lib/use-sound';
 import { rm } from '@/lib/format';
@@ -62,11 +62,10 @@ export default function SlotMachineClient({
   // Shrink the cell so multiple reels fit across the viewport.
   const cellSize = count > 1 ? 76 : 96;
 
-  // Mirror every server-returned balance into the app-shell provider so the
-  // header chip / top-up sheet / detail-page affordability never go stale
-  // after reel spends or sell-backs (review finding).
-  const { applyBalance } = useTopUp();
-  const [balance, setBalance] = useState<number | null>(null);
+  // Balance comes from the app-shell provider (identity-tagged: values from
+  // another account never render — push security review). Server-returned
+  // balances from spins/sell-backs are pushed back up via applyBalance.
+  const { balance, applyBalance } = useTopUp();
   const [recent, setRecent] = useState<RecentPull[]>(recentPulls);
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +85,8 @@ export default function SlotMachineClient({
   // closing over `spin` — the callback stays stable and double-fire-safe.
   const pending = useRef<{
     balance: number | null;
+    /** Customer the charge/balance belongs to — settle drops it on mismatch. */
+    forId: string | null;
     offers: (SellBackOffer | null)[];
     cards: WonCard[];
   } | null>(null);
@@ -99,25 +100,6 @@ export default function SlotMachineClient({
     [],
   );
 
-  // Load balance on mount / auth change.
-  useEffect(() => {
-    if (!customer) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBalance(null);
-      return;
-    }
-    let cancelled = false;
-    getCreditBalance()
-      .then((b) => {
-        if (!cancelled) setBalance(b);
-      })
-      .catch(() => {
-        if (!cancelled) setBalance(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [customer]);
 
   const canAfford = balance !== null && balance >= cost * count;
   const spinGuarded = phase === 'resolving' || phase === 'spinning';
@@ -200,7 +182,12 @@ export default function SlotMachineClient({
       tiers.push(tier);
     }
 
-    pending.current = { balance: res.balance, offers: builtOffers, cards };
+    pending.current = {
+      balance: res.balance,
+      forId: customer?.id ?? null,
+      offers: builtOffers,
+      cards,
+    };
     setSpin({ nonce: Date.now(), cards, winners, tiers });
     setPhase('spinning');
   }
@@ -213,8 +200,7 @@ export default function SlotMachineClient({
     if (!held) return;
     pending.current = null;
 
-    if (held.balance != null) {
-      setBalance(held.balance);
+    if (held.balance != null && held.forId === customer?.id) {
       applyBalance(held.balance);
     }
     setOffers(held.offers);
@@ -255,15 +241,9 @@ export default function SlotMachineClient({
       () => setCooldown(false),
       COOLDOWN_MS,
     );
-  }, [pack.name, pack.image, play, vibrate, applyBalance]);
+  }, [pack.name, pack.image, play, vibrate, applyBalance, customer?.id]);
 
-  const refreshBalance = useCallback(
-    (b: number) => {
-      setBalance(b);
-      applyBalance(b);
-    },
-    [applyBalance],
-  );
+  const refreshBalance = applyBalance;
 
   const wonCards = phase === 'landed' ? (spin?.cards ?? []) : [];
   // For single-card banner: use the first card's tier.

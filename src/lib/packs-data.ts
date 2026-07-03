@@ -198,7 +198,7 @@ export function priceNumber(price: string): number {
 export type Rarity =
   | 'Immortal'
   | 'Legendary'
-  | 'Epic'
+  | 'Mythical'
   | 'Rare'
   | 'Uncommon'
   | 'Common';
@@ -212,10 +212,12 @@ export type PackCard = {
 
 // Per-rarity pull odds — the statically-PUBLISHED display, decoupled by design
 // from the backend's secret per-card weights (admin-configurable in Step 4).
+// All six tiers, rarest first; dots match RARITY_RGB in src/lib/rarity.ts.
 export const ODDS: { rarity: Rarity; chance: string; dot: string }[] = [
-  { rarity: 'Legendary', chance: '0.5%', dot: 'bg-amber-400' },
-  { rarity: 'Epic', chance: '4.5%', dot: 'bg-fuchsia-400' },
-  { rarity: 'Rare', chance: '15%', dot: 'bg-sky-400' },
-  { rarity: 'Uncommon', chance: '30%', dot: 'bg-emerald-400' },
+  { rarity: 'Immortal', chance: '0.1%', dot: 'bg-orange-400' },
+  { rarity: 'Legendary', chance: '0.4%', dot: 'bg-pink-500' },
+  { rarity: 'Mythical', chance: '4.5%', dot: 'bg-purple-500' },
+  { rarity: 'Rare', chance: '15%', dot: 'bg-blue-600' },
+  { rarity: 'Uncommon', chance: '30%', dot: 'bg-sky-400' },
   { rarity: 'Common', chance: '50%', dot: 'bg-neutral-400' },
 ];

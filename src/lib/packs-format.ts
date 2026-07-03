@@ -13,7 +13,7 @@ import { money } from './format';
 export const RARITIES: Rarity[] = [
   'Immortal',
   'Legendary',
-  'Epic',
+  'Mythical',
   'Rare',
   'Uncommon',
   'Common',

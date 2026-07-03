@@ -21,7 +21,7 @@ export const PackOdds = model
     // storefront tier badge. Default keeps legacy/diff-created rows valid.
     // NULL for reward entries (kind IS NOT NULL).
     rarity: model
-      .enum(['Immortal', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'])
+      .enum(['Immortal', 'Legendary', 'Mythical', 'Rare', 'Uncommon', 'Common'])
       .nullable(),
     // Relative pull weight: roll chance = weight / Σ(weights in the pack), so the
     // roll is scale-invariant (the seed ships rarity-relative weights that need

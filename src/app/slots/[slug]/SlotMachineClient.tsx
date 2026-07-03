@@ -273,7 +273,10 @@ export default function SlotMachineClient({
     setRecent((prev) => [...justPulled, ...prev].slice(0, 12));
 
     const big = held.cards.some(
-      (c) => c.rarity === 'Epic' || c.rarity === 'Legendary',
+      (c) =>
+        c.rarity === 'Immortal' ||
+        c.rarity === 'Legendary' ||
+        c.rarity === 'Mythical',
     );
     play(big ? 'bigwin' : 'win');
     vibrate(big ? [40, 40, 80] : 30);

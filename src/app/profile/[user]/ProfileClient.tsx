@@ -98,7 +98,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
       {/* Tabs */}
       <div
         role="tablist"
-        className="mb-5 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1 sm:inline-flex"
+        className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1 sm:inline-flex"
       >
         {TABS.map((t) => (
           <button

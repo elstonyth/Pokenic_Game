@@ -53,9 +53,10 @@ const PackOddsEditorPage = () => {
   const { data: packsList = null } = usePacks();
   const fullPack = packsList?.find((p) => p.slug === slug) ?? null;
   const updatePack = useUpdatePack();
-  // Mirror of the backend activation guard, for the disabled state only — the
-  // server remains authoritative (rejects an empty/zero-weight pool).
-  const canActivate = (rows?.length ?? 0) > 0;
+  // Mirror of the backend activation guard (hasRollablePool: ≥1 card row with
+  // weight > 0 ⟺ a row with a positive saved %), for the disabled state only —
+  // the server remains authoritative (rejects an empty/zero-weight pool).
+  const canActivate = (rows ?? []).some((r) => r.currentPct > 0);
 
   const toggleStatus = async () => {
     if (!fullPack || updatePack.isPending) return;

@@ -3,7 +3,7 @@ import { Modules } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../src/modules/packs";
 import type PacksModuleService from "../../src/modules/packs/service";
 import { HANDLE_RE } from "../../src/utils/profile-handle";
-import { unwrapResponse } from "./utils";
+import { myrDisplay as MYR, unwrapResponse } from "./utils";
 
 jest.setTimeout(240 * 1000);
 
@@ -17,6 +17,10 @@ const RARE_CARD = "pp-card-rare";
 const RARE_FMV = 50;
 const EPIC_CARD = "pp-card-epic";
 const EPIC_FMV = 10;
+
+// volume is the MYR display value (FMV × multiplier × FX), matching the
+// leaderboard. No FxRate row is seeded and cards carry the model-default
+// multiplier, so values follow the shared myrDisplay helper (see utils).
 
 const SEEDED_HANDLE = "kenji-test";
 const SEEDED_EMAIL = "pp-collector@test.dev";
@@ -118,6 +122,15 @@ medusaIntegrationTestRunner({
             rolled_at: new Date("2026-06-03T10:00:00Z"),
           },
         ]);
+        // Matching pack_open ledger debits — points come from REAL spend now
+        // (the same basis as the leaderboard), not from re-joining pack price.
+        await packs.createCreditTransactions(
+          Array.from({ length: 3 }, () => ({
+            customer_id: seededCustomerId,
+            amount: -PACK_PRICE,
+            reason: "pack_open" as const,
+          })) as Parameters<typeof packs.createCreditTransactions>[0],
+        );
       });
 
       const getProfile = (handle: string) =>
@@ -159,7 +172,7 @@ medusaIntegrationTestRunner({
 
         expect(p.stats).toEqual({
           pulls: 3,
-          volume: 2 * RARE_FMV + EPIC_FMV,
+          volume: Math.round((2 * MYR(RARE_FMV) + MYR(EPIC_FMV)) * 100) / 100,
           points: 3 * PACK_PRICE * 100,
           by_rarity: {
             Legendary: 0,
@@ -181,6 +194,8 @@ medusaIntegrationTestRunner({
             grader: "BGS",
             grade: "10",
             market_value: EPIC_FMV,
+            // The live MYR display value the storefront prefers over raw USD.
+            marketPriceMyr: MYR(EPIC_FMV),
             image: "/cdn/epic.webp",
           },
         });

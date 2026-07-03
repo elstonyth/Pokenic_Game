@@ -22,8 +22,10 @@ import { computeOdds, RARITIES } from '@acme/odds-math';
 import {
   useCards,
   usePackOdds,
+  usePacks,
   useSaveMembers,
   useSaveOdds,
+  useUpdatePack,
 } from '../../../lib/queries';
 import { fmtPct, rm } from '../../../lib/format';
 import {
@@ -45,6 +47,31 @@ const PackOddsEditorPage = () => {
   const saving = saveOdds.isPending;
   const packTitle = data?.pack.title ?? '';
   const packStatus = data?.pack.status ?? '';
+
+  // Full pack row (the status toggle must send the complete write payload —
+  // the odds snapshot only carries slug/title/category/status).
+  const { data: packsList = null } = usePacks();
+  const fullPack = packsList?.find((p) => p.slug === slug) ?? null;
+  const updatePack = useUpdatePack();
+  // Mirror of the backend activation guard (hasRollablePool: ≥1 card row with
+  // weight > 0 ⟺ a row with a positive saved %), for the disabled state only —
+  // the server remains authoritative (rejects an empty/zero-weight pool).
+  const canActivate = (rows ?? []).some((r) => r.currentPct > 0);
+
+  const toggleStatus = async () => {
+    if (!fullPack || updatePack.isPending) return;
+    const next = packStatus === 'active' ? 'draft' : 'active';
+    try {
+      await updatePack.mutateAsync({ ...fullPack, status: next });
+      toast.success(
+        next === 'active'
+          ? t('packs.editor.activated')
+          : t('packs.editor.deactivated'),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   // Seed (and reseed) the editable buffer from the server snapshot, during render
   // (not an effect) per react.dev "you might not need an effect". React Query keeps
@@ -186,15 +213,51 @@ const PackOddsEditorPage = () => {
             {t('packs.editor.subtitle')}
           </Text>
         </div>
-        <Button
-          size="small"
-          variant="secondary"
-          onClick={openPool}
-          disabled={rows === null}
-        >
-          {t('packs.pool.manage')}
-        </Button>
+        <div className="flex items-center gap-x-2">
+          <Button
+            size="small"
+            variant="secondary"
+            onClick={openPool}
+            disabled={rows === null}
+          >
+            {t('packs.pool.manage')}
+          </Button>
+          {packStatus === 'draft' ? (
+            <Button
+              size="small"
+              variant="primary"
+              onClick={toggleStatus}
+              isLoading={updatePack.isPending}
+              disabled={!fullPack || !canActivate}
+              title={!canActivate ? t('packs.editor.activateNeedsPool') : ''}
+            >
+              {t('packs.editor.activate')}
+            </Button>
+          ) : (
+            packStatus === 'active' && (
+              <Button
+                size="small"
+                variant="secondary"
+                onClick={toggleStatus}
+                isLoading={updatePack.isPending}
+                disabled={!fullPack}
+              >
+                {t('packs.editor.deactivate')}
+              </Button>
+            )
+          )}
+        </div>
       </div>
+
+      {/* Draft banner — a draft pack is invisible to customers; say so, and
+          say what unblocks activation, right where the operator is working. */}
+      {packStatus === 'draft' && (
+        <div className="bg-ui-tag-orange-bg text-ui-tag-orange-text px-6 py-2.5 text-sm">
+          {canActivate
+            ? t('packs.editor.draftReadyBanner')
+            : t('packs.editor.draftBanner')}
+        </div>
+      )}
 
       {rows === null ? (
         <div className="px-6 py-8">
@@ -239,10 +302,20 @@ const PackOddsEditorPage = () => {
                           <span className="max-w-[18rem] truncate">
                             {r.name}
                           </span>
-                          {r.stock === 0 && (
-                            <span className="text-ui-tag-orange-text text-xs">
-                              {t('packs.editor.buybackOnly')}
+                          {r.stock !== null && r.stock < 0 ? (
+                            // Wins keep counting below 0 — this is how many
+                            // physical units the operator owes winners.
+                            <span className="text-ui-tag-red-text text-xs font-medium">
+                              {t('packs.editor.unitsOwed', {
+                                count: Math.abs(r.stock),
+                              })}
                             </span>
+                          ) : (
+                            r.stock === 0 && (
+                              <span className="text-ui-tag-orange-text text-xs">
+                                {t('packs.editor.buybackOnly')}
+                              </span>
+                            )
                           )}
                         </div>
                       </div>

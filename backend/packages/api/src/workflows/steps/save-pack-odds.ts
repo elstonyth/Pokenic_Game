@@ -34,7 +34,9 @@ type OddsSnapshot = {
 // persist rarity + weight + locked. Compensated by restoring the pre-save snapshot.
 //
 // Validation (reject → 400/404 via MedusaError, BEFORE any write):
-//   - pack must exist and be active
+//   - pack must exist — DRAFT included: draft is the designated authoring
+//     state (create draft → add cards → save win rates → activate), so the
+//     editor must be able to save before activation
 //   - entries must cover exactly the pack's existing card set (no stale form /
 //     injected card_ids)
 //   - computeOdds must return no error (Σlocked ≤ 100; all-locked ⇒ Σ == 100;
@@ -44,10 +46,7 @@ export const savePackOddsStep = createStep(
   async (input: SavePackOddsInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
-    const [pack] = await packs.listPacks(
-      { slug: input.pack_id, status: 'active' },
-      { take: 1 },
-    );
+    const [pack] = await packs.listPacks({ slug: input.pack_id }, { take: 1 });
     if (!pack) {
       throw new MedusaError(
         MedusaError.Types.NOT_FOUND,

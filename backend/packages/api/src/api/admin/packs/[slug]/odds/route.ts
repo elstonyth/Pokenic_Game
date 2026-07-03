@@ -25,8 +25,9 @@ type OddsRow = {
   image: string;
   rarity: string;
   market_value: number;
-  // Available physical units (null = untracked/infinite). Display-only — 0 is
-  // NOT excluded from anything (buyback fulfills 0-stock pulls).
+  // Available physical units (null = untracked/infinite). Display-only —
+  // nothing is excluded at any count; wins keep decrementing below 0, so a
+  // negative value = units owed to winners.
   stock: number | null;
   weight: number;
   locked: boolean;

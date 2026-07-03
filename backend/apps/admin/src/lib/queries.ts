@@ -22,7 +22,6 @@ import {
   deleteCard,
   deletePack,
   freezeCustomer,
-  getAchievementDefs,
   getCustomerAudit,
   getCustomerGacha,
   getCustomerCommissions,
@@ -40,11 +39,8 @@ import {
   suspendCommission,
   unfreezeCustomer,
   unsuspendCommission,
-  updateAchievementDef,
   updateDeliveryOrder,
   uploadImage,
-  type AchievementDefBody,
-  type AchievementDefDTO,
   type AdminCommissionRow,
   type AdminDeliveryOrder,
   type CustomerAudit,
@@ -231,7 +227,12 @@ export const useUpdatePack = () => {
       const { slug, ...payload } = vars;
       return packsApi.admin.packs.$slug.mutate({ $slug: slug, ...payload });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.packs }),
+    // The pack's status also renders on its odds-editor page (activate /
+    // set-to-draft lives there), so refresh that snapshot too.
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.packs });
+      qc.invalidateQueries({ queryKey: qk.packOdds(vars.slug) });
+    },
   });
 };
 
@@ -313,10 +314,15 @@ export const useUnfreezeCustomer = () => {
 export const useReverseCommission = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
-      reverseCommission(vars.commId, vars.reason),
+    mutationFn: (vars: {
+      commId: string;
+      customerId: string;
+      reason: string;
+    }) => reverseCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
+      qc.invalidateQueries({
+        queryKey: qk.customerCommissionsKey(vars.customerId),
+      });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
@@ -326,10 +332,15 @@ export const useReverseCommission = () => {
 export const useSuspendCommission = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
-      suspendCommission(vars.commId, vars.reason),
+    mutationFn: (vars: {
+      commId: string;
+      customerId: string;
+      reason: string;
+    }) => suspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
+      qc.invalidateQueries({
+        queryKey: qk.customerCommissionsKey(vars.customerId),
+      });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
@@ -339,10 +350,15 @@ export const useSuspendCommission = () => {
 export const useUnsuspendCommission = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { commId: string; customerId: string; reason: string }) =>
-      unsuspendCommission(vars.commId, vars.reason),
+    mutationFn: (vars: {
+      commId: string;
+      customerId: string;
+      reason: string;
+    }) => unsuspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: qk.customerCommissionsKey(vars.customerId) });
+      qc.invalidateQueries({
+        queryKey: qk.customerCommissionsKey(vars.customerId),
+      });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.customerId) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
@@ -393,23 +409,6 @@ export const useSaveRewardPool = () => {
   });
 };
 
-export const useAchievementDefs = (): UseQueryResult<AchievementDefDTO[]> =>
-  useQuery({
-    queryKey: qk.achievements,
-    queryFn: getAchievementDefs,
-  });
-
-export const useUpdateAchievementDef = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: { key: string; body: AchievementDefBody }) =>
-      updateAchievementDef(vars.key, vars.body),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: qk.achievements }),
-    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
-  });
-};
-
 export const useDailyRewardSettings =
   (): UseQueryResult<DailyRewardSettingsDTO> =>
     useQuery({
@@ -420,8 +419,11 @@ export const useDailyRewardSettings =
 export const useSaveDailyRewardSettings = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { enabled: boolean; amounts: number[]; reason: string }) =>
-      saveDailyRewardSettings(body),
+    mutationFn: (body: {
+      enabled: boolean;
+      amounts: number[];
+      reason: string;
+    }) => saveDailyRewardSettings(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.dailyRewardSettings });
       toast.success('Daily reward settings saved');

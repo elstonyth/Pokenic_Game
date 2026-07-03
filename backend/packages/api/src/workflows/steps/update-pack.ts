@@ -1,8 +1,9 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError } from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
-import type { PackWriteInput } from "./create-pack";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { MedusaError } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
+import { hasRollablePool } from '../../modules/packs/rollable-pool';
+import type { PackWriteInput } from './create-pack';
 
 // slug is immutable (it keys PackOdds / the /claw route); it selects the row.
 export type UpdatePackInput = PackWriteInput;
@@ -16,12 +17,12 @@ type PackSnapshot = {
   buyback_percent: number;
   boost: boolean;
   rank: number;
-  status: "active" | "draft";
+  status: 'active' | 'draft';
 };
 
 // update-pack — patch a pack's listing fields (everything but slug).
 export const updatePackStep = createStep(
-  "update-pack",
+  'update-pack',
   async (input: UpdatePackInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
@@ -29,8 +30,23 @@ export const updatePackStep = createStep(
     if (!pack) {
       throw new MedusaError(
         MedusaError.Types.NOT_FOUND,
-        `Pack '${input.slug}' not found.`
+        `Pack '${input.slug}' not found.`,
       );
+    }
+
+    // Activating (or keeping active) requires a rollable prize pool — an active
+    // pack with no positive-weight card odds fails every storefront spin.
+    // reward_box packs are internal draw pools (reward rows, card_id null) and
+    // are never opened via the pack path, so they are exempt.
+    if (input.status === 'active' && input.category !== 'reward_box') {
+      const rollable = await hasRollablePool(packs, input.slug);
+      if (!rollable) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          `Pack '${input.slug}' has no cards in its prize pool. ` +
+            'Add cards and set win rates on the pack page, then activate it.',
+        );
+      }
     }
 
     const snapshot: PackSnapshot = {
@@ -65,7 +81,7 @@ export const updatePackStep = createStep(
     if (!snapshot) return;
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
     await packs.updatePacks([snapshot]);
-  }
+  },
 );
 
 export default updatePackStep;

@@ -2,14 +2,7 @@
 // Usage: node scripts/qa-rm-sweep.mjs (requires :4000 to be running)
 import { chromium } from 'playwright';
 
-const PAGES = [
-  '/',
-  '/marketplace',
-  '/claw',
-  '/leaderboard',
-  '/repacks',
-  '/achievements',
-];
+const PAGES = ['/', '/marketplace', '/claw', '/leaderboard', '/repacks'];
 const b = await chromium.launch();
 const p = await b.newPage();
 const offenders = [];

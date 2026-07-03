@@ -21,7 +21,9 @@ type CompensateData = ItemCompensate[];
 // decrement-card-stock-batch — best-effort batch version of decrement-card-stock.
 // Loops over input.items and earmarks one physical unit for each pull that won
 // a card. STOCK IS NEVER A GATE: pulls must never fail because of inventory, so
-// every error is caught and logged as a warning. The compensation list only
+// every error is caught and logged as a warning. The counter is allowed to go
+// NEGATIVE — every tracked win decrements, so a negative number is the units
+// owed to winners (see decrement-card-stock). The compensation list only
 // contains entries for items that were actually decremented.
 export const decrementCardStockBatchStep = createStep<
   DecrementCardStockBatchInput,
@@ -36,9 +38,9 @@ export const decrementCardStockBatchStep = createStep<
     for (const item of input.items) {
       try {
         const target = await findCardInventoryTarget(container, item.card_id);
-        // Untracked (null) or already at 0 — nothing to earmark; the pull is
-        // fulfilled via buyback if the customer wants no/own physical card.
-        if (target && target.stocked > 0) {
+        // Untracked (null) — nothing to count; the pull is fulfilled via
+        // buyback if the customer wants no/own physical card.
+        if (target) {
           const inventoryModule = container.resolve(Modules.INVENTORY);
           await inventoryModule.adjustInventory(
             target.inventoryItemId,
@@ -50,9 +52,10 @@ export const decrementCardStockBatchStep = createStep<
             locationId: target.locationId,
           });
           // Record that THIS pull took a unit — buyback only restores flagged
-          // pulls (a 0-stock pull must never mint a phantom unit on sell-back).
-          // If the flag write fails the counter errs LOW (no restore later) —
-          // the conservative direction — so warn rather than fail the pull.
+          // pulls (an untracked-product pull never decremented, so restoring
+          // it would mint a phantom unit). If the flag write fails the counter
+          // errs LOW (no restore later) — the conservative direction — so warn
+          // rather than fail the pull.
           const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
           await packs.updatePulls([
             { id: item.pull_id, stock_earmarked: true },

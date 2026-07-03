@@ -58,7 +58,8 @@ export interface AdminCard {
   /** Custom uploaded pixel sprite URL or null → use the dex default gif. */
   sprite_image: string | null;
   /** Available physical units; `null` = untracked (infinite). Display-only —
-   *  0-stock cards stay pullable/listed (buyback fulfills them). */
+   *  cards stay pullable at any count; wins keep decrementing below 0, so a
+   *  negative value = units owed to winners. */
   stock: number | null;
   /** PriceCharting product id this card tracks, or null if unlinked. */
   pc_product_id: string | null;

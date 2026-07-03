@@ -147,15 +147,8 @@ ok(
   `expected "${topName}"`,
 );
 ok('home_leaderboard_not_mock', !homeHtml.includes('FightingProdigy3098'));
-const apiLb = await page.evaluate(async () => {
-  const res = await fetch('/api/leaderboard', { cache: 'no-store' });
-  return res.ok ? (await res.json()).entries : null;
-});
-ok(
-  'home_leaderboard_poll_endpoint',
-  Array.isArray(apiLb) && apiLb.length > 0,
-  `len ${apiLb?.length}`,
-);
+// (the /api/leaderboard poll endpoint was removed with the mock fallback —
+// the /leaderboard page fetches server-side now, checked above)
 await page.screenshot({ path: `${OUT}/07-home-live-feed.png`, fullPage: true });
 
 await browser.close();

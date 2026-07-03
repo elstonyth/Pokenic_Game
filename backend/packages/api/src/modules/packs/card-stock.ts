@@ -1,13 +1,15 @@
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import type { MedusaContainer } from "@medusajs/framework/types";
+import { ContainerRegistrationKeys } from '@medusajs/framework/utils';
+import type { MedusaContainer } from '@medusajs/framework/types';
 
 // Physical-stock helpers for gacha cards (Card.handle === Product.handle).
 //
 // Stock is a FULFILLMENT COUNTER, not a gate: a card with 0 available stays on
 // the marketplace, in every pack's pool, and in the roll — the buyback system
-// can always fulfill a pull without a physical card. The counter only tells the
-// operator how many pulls they can still ship physically. `null` means the
-// product doesn't track inventory at all (= infinite / untracked).
+// can always fulfill a pull without a physical card. The counter tells the
+// operator how many pulls they can still ship physically, and it is allowed to
+// go NEGATIVE: every win decrements, so a negative number is the units owed to
+// winners that still need sourcing (operator request, 2026-07-03). `null`
+// means the product doesn't track inventory at all (= infinite / untracked).
 
 export type CardInventoryTarget = {
   inventoryItemId: string;
@@ -38,22 +40,22 @@ const num = (v: unknown): number => {
 };
 
 const STOCK_FIELDS = [
-  "handle",
-  "variants.manage_inventory",
-  "variants.inventory_items.inventory.id",
-  "variants.inventory_items.inventory.location_levels.location_id",
-  "variants.inventory_items.inventory.location_levels.stocked_quantity",
-  "variants.inventory_items.inventory.location_levels.reserved_quantity",
+  'handle',
+  'variants.manage_inventory',
+  'variants.inventory_items.inventory.id',
+  'variants.inventory_items.inventory.location_levels.location_id',
+  'variants.inventory_items.inventory.location_levels.stocked_quantity',
+  'variants.inventory_items.inventory.location_levels.reserved_quantity',
 ];
 
 async function queryStockRows(
   container: MedusaContainer,
-  handles: string[]
+  handles: string[],
 ): Promise<ProductStockRow[]> {
   if (handles.length === 0) return [];
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
   const { data } = await query.graph({
-    entity: "product",
+    entity: 'product',
     fields: STOCK_FIELDS,
     filters: { handle: handles },
   });
@@ -61,11 +63,12 @@ async function queryStockRows(
 }
 
 // Available physical units per handle: Σ(stocked − reserved) over the tracked
-// variants' location levels, floored at 0. `null` when nothing is tracked.
-// Handles with no matching product are simply absent from the map.
+// variants' location levels. NOT floored — a negative value is real signal
+// (units owed to winners that still need sourcing). `null` when nothing is
+// tracked. Handles with no matching product are simply absent from the map.
 export async function getCardStockByHandle(
   container: MedusaContainer,
-  handles: string[]
+  handles: string[],
 ): Promise<Map<string, number | null>> {
   const rows = await queryStockRows(container, handles);
   const stockByHandle = new Map<string, number | null>();
@@ -80,11 +83,12 @@ export async function getCardStockByHandle(
         for (const level of item?.inventory?.location_levels ?? []) {
           if (!level) continue;
           tracked = true;
-          available += num(level.stocked_quantity) - num(level.reserved_quantity);
+          available +=
+            num(level.stocked_quantity) - num(level.reserved_quantity);
         }
       }
     }
-    stockByHandle.set(row.handle, tracked ? Math.max(0, available) : null);
+    stockByHandle.set(row.handle, tracked ? available : null);
   }
   return stockByHandle;
 }
@@ -94,7 +98,7 @@ export async function getCardStockByHandle(
 // can tell "tracked but empty" from "untracked"). `null` = untracked.
 export async function findCardInventoryTarget(
   container: MedusaContainer,
-  handle: string
+  handle: string,
 ): Promise<CardInventoryTarget | null> {
   const rows = await queryStockRows(container, [handle]);
   let first: CardInventoryTarget | null = null;

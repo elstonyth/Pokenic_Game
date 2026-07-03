@@ -29,6 +29,7 @@ import {
 import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
 import { rm } from '../../lib/format';
+import { GachaPipelineHint } from '../../components/GachaPipelineHint';
 
 // Sidebar entry. The label is literal (internal single-operator tool); switch to
 // RouteConfig.translationNs if this dashboard is ever localized.
@@ -203,6 +204,8 @@ const PacksListPage = () => {
         </Button>
       </div>
 
+      <GachaPipelineHint current="pack" />
+
       {isError ? (
         <div className="px-6 py-8">
           <Text className="text-ui-fg-subtle">{t('packs.list.loadError')}</Text>
@@ -244,9 +247,7 @@ const PacksListPage = () => {
                     {p.status}
                   </StatusBadge>
                 </Table.Cell>
-                <Table.Cell className="tabular-nums">
-                  {rm(p.price)}
-                </Table.Cell>
+                <Table.Cell className="tabular-nums">{rm(p.price)}</Table.Cell>
                 <Table.Cell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button
@@ -431,24 +432,36 @@ const PacksListPage = () => {
                   <Label size="small" weight="plus">
                     {t('packs.form.statusField')}
                   </Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(v) =>
-                      patch({ status: v === 'draft' ? 'draft' : 'active' })
-                    }
-                  >
-                    <Select.Trigger>
-                      <Select.Value />
-                    </Select.Trigger>
-                    <Select.Content>
-                      <Select.Item value="active">
-                        {t('packs.form.active')}
-                      </Select.Item>
-                      <Select.Item value="draft">
-                        {t('packs.form.draft')}
-                      </Select.Item>
-                    </Select.Content>
-                  </Select>
+                  {/* Create is draft-only (the backend rejects an active
+                      creation — the pool is empty by construction); activation
+                      lives on the pack page once cards are assigned. */}
+                  {mode === 'create' ? (
+                    <>
+                      <Input value={t('packs.form.draft')} disabled />
+                      <Text className="text-ui-fg-subtle text-xs">
+                        {t('packs.form.statusCreateHint')}
+                      </Text>
+                    </>
+                  ) : (
+                    <Select
+                      value={form.status}
+                      onValueChange={(v) =>
+                        patch({ status: v === 'draft' ? 'draft' : 'active' })
+                      }
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                      </Select.Trigger>
+                      <Select.Content>
+                        <Select.Item value="active">
+                          {t('packs.form.active')}
+                        </Select.Item>
+                        <Select.Item value="draft">
+                          {t('packs.form.draft')}
+                        </Select.Item>
+                      </Select.Content>
+                    </Select>
+                  )}
                 </div>
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">

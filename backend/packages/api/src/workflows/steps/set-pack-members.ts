@@ -79,6 +79,31 @@ export const setPackMembersStep = createStep(
     const toAdd = desired.filter((h) => !existingCards.has(h));
     const toRemove = existing.filter((o) => !desiredSet.has(o.card_id));
 
+    // An ACTIVE pack must keep a ROLLABLE pool — the resulting membership
+    // needs at least one positive-weight card row or every storefront spin
+    // would fail (roll-pack rejects an empty/zero-weight pool). This covers
+    // both emptying the pool AND stripping it down to only zero-weight rows
+    // (a card can sit at weight 0 when locked rates sum to 100). New members
+    // join at NEW_MEMBER_WEIGHT (> 0), so only pure-removal edits can break
+    // it. reward_box packs are internal draw pools (reward rows, card_id
+    // null) whose card membership is legitimately empty.
+    if (
+      pack.status === 'active' &&
+      pack.category !== 'reward_box' &&
+      toAdd.length === 0
+    ) {
+      const keptRollable = existing.some(
+        (o) => desiredSet.has(o.card_id) && o.weight > 0,
+      );
+      if (!keptRollable) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          `Pack '${input.pack_id}' is active — this change would leave its ` +
+            'prize pool with no winnable cards. Set the pack to draft first.',
+        );
+      }
+    }
+
     let createdIds: string[] = [];
     if (toAdd.length) {
       const created = await packs.createPackOdds(

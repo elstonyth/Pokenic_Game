@@ -28,6 +28,7 @@ import { validateImageFile } from '../../lib/image-validation';
 import { rm, timeAgo, myrToUsd } from '../../lib/format';
 import RegisterCardModal from './RegisterCardModal';
 import CardPokemonFields from './CardPokemonFields';
+import { GachaPipelineHint } from '../../components/GachaPipelineHint';
 
 export const config: RouteConfig = {
   label: 'Gacha Cards',
@@ -227,6 +228,8 @@ const GachaCardsPage = () => {
         </Button>
       </div>
 
+      <GachaPipelineHint current="card" />
+
       {isError ? (
         <div className="px-6 py-8">
           <Text className="text-ui-fg-subtle">{t('cards.list.loadError')}</Text>
@@ -292,9 +295,13 @@ const GachaCardsPage = () => {
                 </Table.Cell>
                 <Table.Cell
                   className={
-                    c.stock === 0
-                      ? 'text-ui-tag-orange-text text-right tabular-nums'
-                      : 'text-ui-fg-subtle text-right tabular-nums'
+                    // Negative = units OWED to winners (wins keep counting
+                    // below 0 by design) — red beats orange for "act now".
+                    c.stock !== null && c.stock < 0
+                      ? 'text-ui-tag-red-text text-right font-medium tabular-nums'
+                      : c.stock === 0
+                        ? 'text-ui-tag-orange-text text-right tabular-nums'
+                        : 'text-ui-fg-subtle text-right tabular-nums'
                   }
                 >
                   {c.stock === null ? '∞' : c.stock.toLocaleString('en-US')}

@@ -10,16 +10,24 @@
 // Best-effort by design: any failure returns null so the caller (the product
 // price route) never breaks — the operator can always paste/upload manually.
 
+import {
+  PC_IMAGE_HOST,
+  PC_IMAGE_PATH_PREFIX,
+} from '../media/ingest-pc-image';
+
 const OFFERS_URL = 'https://www.pricecharting.com/offers';
 const TIMEOUT_MS = 10_000;
 
 // The card photo on PriceCharting's public GCS bucket, e.g.
-// …/images.pricecharting.com/<hash>/240.jpg. Mirrors the SSRF allowlist in
-// ingest-pc-image.ts (host + bucket-prefix), so we never return a URL the
-// ingest step would reject. The hash segment is any run of non-separator chars;
-// the size segment is digits + ".jpg".
-const GCS_IMAGE_RE =
-  /https:\/\/storage\.googleapis\.com\/images\.pricecharting\.com\/[^/"'\s]+\/\d+\.jpg/i;
+// …/images.pricecharting.com/<hash>/240.jpg. Built from the SAME host +
+// bucket-prefix constants ingest-pc-image.ts guards on, so the finder here can
+// never drift from the SSRF allowlist that ultimately validates the URL. The
+// hash segment is any run of non-separator chars; the size is digits + ".jpg".
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const GCS_IMAGE_RE = new RegExp(
+  `https://${escapeRe(PC_IMAGE_HOST)}${escapeRe(PC_IMAGE_PATH_PREFIX)}[^/"'\\s]+/\\d+\\.jpg`,
+  'i',
+);
 
 // Pull the first PriceCharting card photo out of an offers-page HTML body and
 // normalize its size to /240.jpg. The offers page renders the product's own

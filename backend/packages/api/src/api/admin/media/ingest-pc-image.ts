@@ -13,9 +13,11 @@ import { IMAGE_RULES, validateImage } from './validate';
 
 // SSRF guard: the ONLY host this fetches from. The URL comes from the admin
 // browser (prefilled off the /admin/pricecharting/product proxy), so treat it
-// as untrusted input.
-const PC_IMAGE_HOST = 'storage.googleapis.com';
-const PC_IMAGE_PATH_PREFIX = '/images.pricecharting.com/';
+// as untrusted input. Exported as the single source of truth for the host +
+// bucket allowlist — the offers-page scraper (../pricecharting/product-image)
+// builds its find-regex from these so the two can't drift.
+export const PC_IMAGE_HOST = 'storage.googleapis.com';
+export const PC_IMAGE_PATH_PREFIX = '/images.pricecharting.com/';
 
 const FETCH_TIMEOUT_MS = 10_000;
 

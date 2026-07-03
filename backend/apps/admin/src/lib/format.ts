@@ -9,6 +9,23 @@ export const rm = (n: number | null): string =>
         maximumFractionDigits: 2,
       })}`;
 
+// USD → MYR at the given rate (2dp), mirroring the backend displayMarketPrice at
+// multiplier 1. Card FMV is tracked in USD (PriceCharting-native); the admin
+// shows RM at the live rate, no markup (markup lives on the sale price). Bad
+// inputs collapse to 0 (same guard as myrToUsd) rather than emitting NaN.
+export const usdToMyr = (usd: number, fx: number): number =>
+  Number.isFinite(usd) && Number.isFinite(fx) && fx > 0
+    ? Math.round(usd * fx * 100) / 100
+    : 0;
+
+// MYR → USD at the given rate (2dp) — the inverse, used when an operator authors
+// a value in RM but the stored/submitted FMV must stay USD so the daily
+// PriceCharting sync and buyback math keep their USD source of truth.
+export const myrToUsd = (myr: number, fx: number): number =>
+  Number.isFinite(myr) && Number.isFinite(fx) && fx > 0
+    ? Math.round((myr / fx) * 100) / 100
+    : 0;
+
 // `now` is injectable so the function is pure and testable with a fixed clock;
 // the default keeps every existing callsite (`timeAgo(iso)`) byte-identical.
 export function timeAgo(iso: string, now: number = Date.now()): string {

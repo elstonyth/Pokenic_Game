@@ -30,7 +30,10 @@ export default async function HomePage() {
   // Chase lookups cover the first N tiles PLUS the featured pack, so the hero
   // never silently loses its chase when featured falls outside the first N.
   const lookupPacks = [
-    ...new Set([...(featured ? [featured] : []), ...packs.slice(0, CHASE_LOOKUPS)]),
+    ...new Set([
+      ...(featured ? [featured] : []),
+      ...packs.slice(0, CHASE_LOOKUPS),
+    ]),
   ];
   const details = await Promise.all(
     lookupPacks.map((p) => getPackDetail(p.id)),

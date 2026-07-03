@@ -25,7 +25,7 @@ import {
 } from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
-import { rm, timeAgo } from '../../lib/format';
+import { rm, timeAgo, myrToUsd } from '../../lib/format';
 import RegisterCardModal from './RegisterCardModal';
 import CardPokemonFields from './CardPokemonFields';
 
@@ -60,6 +60,9 @@ type FormState = {
   pc_synced_at: string | null;
   // Percent string (1.2 -> "20") so the operator edits a familiar unit.
   market_multiplier_pct: string;
+  // The card's live USD→MYR rate (from priceBreakdown) — market_value is edited
+  // in MYR but stored in USD, so we convert back with this on save.
+  fx_rate: number;
 };
 
 const formFromCard = (c: AdminCard): FormState => ({
@@ -68,7 +71,9 @@ const formFromCard = (c: AdminCard): FormState => ({
   set: c.set,
   grader: c.grader,
   grade: c.grade,
-  market_value: String(c.market_value),
+  // FMV shown/edited in MYR (priceBreakdown.marketMyr = market_value × live FX,
+  // no markup); converted back to USD on save.
+  market_value: String(c.priceBreakdown.marketMyr),
   image: c.image,
   // null price = "use FMV" → empty field (preserved on save as undefined).
   price: c.price === null ? '' : String(c.price),
@@ -79,6 +84,7 @@ const formFromCard = (c: AdminCard): FormState => ({
   pc_grade: c.pc_grade,
   pc_synced_at: c.pc_synced_at,
   market_multiplier_pct: String(Math.round((c.market_multiplier - 1) * 100)),
+  fx_rate: c.priceBreakdown.fxRate,
 });
 
 const gradeLabel = (c: AdminCard): string =>
@@ -137,7 +143,9 @@ const GachaCardsPage = () => {
       set: form.set.trim(),
       grader: form.grader.trim(),
       grade: form.grade.trim(),
-      market_value: Number(form.market_value),
+      // Edited in MYR; the backend tracks FMV in USD — convert back at the
+      // card's live rate so the stored value stays PriceCharting-native.
+      market_value: myrToUsd(Number(form.market_value), form.fx_rate),
       image: form.image.trim(),
       price: form.price.trim() === '' ? undefined : Number(form.price),
       for_sale: form.for_sale,
@@ -274,10 +282,10 @@ const GachaCardsPage = () => {
                   {gradeLabel(c) || '—'}
                 </Table.Cell>
                 <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                  {rm(c.market_value)}
+                  {rm(c.priceBreakdown.marketMyr)}
                 </Table.Cell>
                 <Table.Cell className="text-right tabular-nums">
-                  {rm(c.price ?? c.market_value)}
+                  {rm(c.price ?? c.priceBreakdown.displayPrice)}
                   {c.price === null && (
                     <span className="text-ui-fg-muted ml-1 text-xs">FMV</span>
                   )}

@@ -25,7 +25,7 @@ import {
 } from '../../../lib/queries';
 import { resolveImageUrl } from '../../../lib/image-url';
 import { validateImageFile } from '../../../lib/image-validation';
-import { rm } from '../../../lib/format';
+import { rm, usdToMyr } from '../../../lib/format';
 import CardPokemonFields, {
   type CardPokemonValue,
 } from '../../cards/CardPokemonFields';
@@ -50,11 +50,9 @@ function gradeToGrader(label: string): { grader: string; grade: string } {
   return { grader: '', grade: label };
 }
 
-// USD → MYR at the effective FX rate — display-only preview math; the value
-// submitted to the backend is always the raw USD grade price. NO markup is
-// applied anywhere on this page: margin belongs to gacha-card registration.
-const usdToMyr = (usd: number, fx: number): number =>
-  Math.round(usd * fx * 100) / 100;
+// NOTE: usdToMyr is display-only preview math; the value submitted to the backend
+// is always the raw USD grade price. NO markup is applied anywhere on this page —
+// margin belongs to gacha-card registration.
 
 // Client mirror of backend api/admin/media/ingest-pc-image.ts isPcImageUrl —
 // PriceCharting's price API exposes no image, so the backend scrapes the photo

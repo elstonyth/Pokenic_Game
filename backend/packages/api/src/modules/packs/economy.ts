@@ -7,12 +7,14 @@ export type OddsValue = {
   /** Relative win weight (normalized to 10000 bps on save, but the math
    *  normalizes by the actual sum so stale rows still report correctly). */
   weight: number;
-  /** Card FMV in USD decimals. */
+  /** Card FMV. USD at rest, but /admin/economy feeds MYR (converted at the live
+   *  FX rate) so EV/RTP land in the same currency as the pack price; the math is
+   *  unit-agnostic. */
   market_value: number;
 };
 
 export type PackRtp = {
-  /** Odds-weighted expected FMV per open, USD (2dp). */
+  /** Odds-weighted expected FMV per open, MYR (2dp) as fed by /admin/economy. */
   ev: number;
   /** Return-to-player: ev / price × 100 (2dp). > 100 = operator loses money. */
   rtp_pct: number;

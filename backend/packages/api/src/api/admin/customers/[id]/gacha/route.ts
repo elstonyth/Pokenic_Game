@@ -5,6 +5,10 @@ import { PACKS_MODULE } from '../../../../../modules/packs';
 import type PacksModuleService from '../../../../../modules/packs/service';
 import { pageAll } from '../../../../utils/page-all';
 import { toMoney } from '../../../../../modules/packs/money';
+import {
+  resolveFxRate,
+  displayMarketPrice,
+} from '../../../../../modules/packs/pricing';
 import { cardByHandle } from '../../../../../modules/packs/card-view';
 import { levelForSpend } from '../../../../../modules/packs/vip-ladder';
 
@@ -31,7 +35,7 @@ export async function GET(
 
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
 
-  const [balance, transactions, pulls, vaulted] = await Promise.all([
+  const [balance, transactions, pulls, vaulted, fx] = await Promise.all([
     packs.creditBalance(id),
     packs.listCreditTransactions(
       { customer_id: id },
@@ -46,6 +50,8 @@ export async function GET(
     pageAll((opts) =>
       packs.listPulls({ customer_id: id, status: 'vaulted' }, opts),
     ),
+    // FMV is stored USD; the support view shows MYR at the live rate (no markup).
+    resolveFxRate(packs),
   ]);
 
   // Card join over both lists (handles are the stable key, like /store/vault).
@@ -57,7 +63,9 @@ export async function GET(
 
   const vaultValueCents = vaulted.reduce((sum, p) => {
     const card = byHandle.get(p.card_id);
-    const value = card ? toMoney(card.market_value) : 0;
+    const value = card
+      ? displayMarketPrice(toMoney(card.market_value), fx, 1)
+      : 0;
     return sum + (Number.isFinite(value) ? Math.round(value * 100) : 0);
   }, 0);
 
@@ -124,7 +132,7 @@ export async function GET(
           ? {
               handle: card.handle,
               name: card.name,
-              market_value: toMoney(card.market_value),
+              market_value: displayMarketPrice(toMoney(card.market_value), fx, 1),
               image: card.image,
             }
           : null,

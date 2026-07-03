@@ -28,6 +28,7 @@ import { validateImageFile } from '../../lib/image-validation';
 import { rm, timeAgo } from '../../lib/format';
 import RegisterCardModal from './RegisterCardModal';
 import CardPokemonFields from './CardPokemonFields';
+import { GachaPipelineHint } from '../../components/GachaPipelineHint';
 
 export const config: RouteConfig = {
   label: 'Gacha Cards',
@@ -218,6 +219,8 @@ const GachaCardsPage = () => {
           {t('cards.new')}
         </Button>
       </div>
+
+      <GachaPipelineHint current="card" />
 
       {isError ? (
         <div className="px-6 py-8">

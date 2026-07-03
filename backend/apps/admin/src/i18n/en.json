@@ -84,7 +84,14 @@
       "back": "All packs",
       "loadError": "Could not load pack odds.",
       "flattenWarning": "No cards are locked — saving will reset every card to its rarity-based share. Lock the cards whose exact win rate you want to preserve first.",
-      "buybackOnly": "0 in stock · buyback-only"
+      "buybackOnly": "0 in stock · buyback-only",
+      "activate": "Activate pack",
+      "deactivate": "Set to draft",
+      "activated": "Pack activated — it is now live on the storefront.",
+      "deactivated": "Pack set to draft — hidden from the storefront.",
+      "activateNeedsPool": "Add at least one card to the prize pool first.",
+      "draftBanner": "Draft — hidden from the storefront. Add cards to the prize pool, save win rates, then activate.",
+      "draftReadyBanner": "Draft — hidden from the storefront. The prize pool has cards; activate when the win rates look right."
     }
   },
   "pcAdd": {
@@ -345,5 +352,11 @@
     "rtp": "RTP",
     "empty": "No active packs.",
     "loadError": "Could not load the economy report."
+  },
+  "pipeline": {
+    "label": "Inventory pipeline",
+    "product": "Create product (physical stock)",
+    "card": "Register as gacha card",
+    "pack": "Add to a pack & set win rates"
   }
 }

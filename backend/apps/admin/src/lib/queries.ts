@@ -227,7 +227,12 @@ export const useUpdatePack = () => {
       const { slug, ...payload } = vars;
       return packsApi.admin.packs.$slug.mutate({ $slug: slug, ...payload });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.packs }),
+    // The pack's status also renders on its odds-editor page (activate /
+    // set-to-draft lives there), so refresh that snapshot too.
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.packs });
+      qc.invalidateQueries({ queryKey: qk.packOdds(vars.slug) });
+    },
   });
 };
 

@@ -29,6 +29,7 @@ import { rm } from '../../../lib/format';
 import CardPokemonFields, {
   type CardPokemonValue,
 } from '../../cards/CardPokemonFields';
+import { GachaPipelineHint } from '../../../components/GachaPipelineHint';
 
 export const config: RouteConfig = {
   label: 'Add from PriceCharting',
@@ -195,7 +196,8 @@ const AddFromPriceChartingPage = () => {
 
   // A pasted PC photo URL (or the rare proxy-provided one) gets the "will be
   // ingested" badge — the backend stores its own copy on save.
-  const imageAutoFilled = image !== '' && (isPcImageUrl(image) || image === pcProduct?.image);
+  const imageAutoFilled =
+    image !== '' && (isPcImageUrl(image) || image === pcProduct?.image);
 
   const canSave =
     !!match &&
@@ -247,6 +249,8 @@ const AddFromPriceChartingPage = () => {
           {t('pcAdd.subtitle')}
         </Text>
       </div>
+
+      <GachaPipelineHint current="product" />
 
       <div className="flex flex-col gap-y-6 px-6 py-6">
         {/* Step 1 — search */}

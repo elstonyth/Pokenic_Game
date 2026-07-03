@@ -91,9 +91,10 @@ medusaIntegrationTestRunner({
           },
         ]);
 
-        // Pulls: one vaulted ($12.5 USD FMV → RM58.75 at the default 4.7 FX,
-        // counts toward the vault summary), one bought back (excluded). Direct
-        // rows — the aggregate only joins Card by handle, no product chain.
+        // Pulls: one vaulted ($12.5 USD FMV → RM62.5 at the explicit 5.0 FX
+        // seeded below, counts toward the vault summary), one bought back
+        // (excluded). Direct rows — the aggregate only joins Card by handle, no
+        // product chain.
         await packs.createCards([
           {
             handle: 'gacha-view-card',
@@ -123,6 +124,20 @@ medusaIntegrationTestRunner({
           },
         ]);
 
+        // Seed an explicit USD→MYR rate so the assertions pin the conversion at
+        // a NON-default rate — proves resolveFxRate + displayMarketPrice are
+        // actually applied here, not that the numbers happen to match
+        // DEFAULT_USD_MYR.
+        await packs.createFxRates([
+          {
+            pair: 'USD_MYR',
+            rate: 5,
+            source: 'test',
+            manual_override: false,
+            manual_rate: null,
+          },
+        ]);
+
         const res = await view(customerId, adminHeaders());
         expect(res.status).toBe(200);
 
@@ -149,10 +164,10 @@ medusaIntegrationTestRunner({
         expect(vaulted.card).toMatchObject({
           handle: 'gacha-view-card',
           name: 'Gacha View Card',
-          market_value: 58.75,
+          market_value: 62.5,
         });
 
-        expect(res.data.vault).toEqual({ count: 1, market_value: 58.75 });
+        expect(res.data.vault).toEqual({ count: 1, market_value: 62.5 });
       });
     });
   },

@@ -4,6 +4,7 @@ import { PACKS_MODULE } from '../../../../modules/packs';
 import { cardByHandle, toCardView } from '../../../../modules/packs/card-view';
 import { toMoney } from '../../../../modules/packs/money';
 import {
+  DEFAULT_MARKET_MULTIPLIER,
   displayMarketPrice,
   resolveFxRate,
 } from '../../../../modules/packs/pricing';
@@ -75,7 +76,7 @@ export async function GET(
             marketPriceMyr: displayMarketPrice(
               toMoney(card.market_value),
               fxRate,
-              Number(card.market_multiplier ?? 1.2),
+              Number(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
             ),
           }
         : null;

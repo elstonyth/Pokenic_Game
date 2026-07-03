@@ -99,7 +99,12 @@ medusaIntegrationTestRunner({
       };
 
       const pinFxRate = async (): Promise<void> => {
-        const adminToken = await mintSuperAdmin(getContainer(), api, ADMIN_EMAIL, PASSWORD);
+        const adminToken = await mintSuperAdmin(
+          getContainer(),
+          api,
+          ADMIN_EMAIL,
+          PASSWORD,
+        );
         const fxPost = await unwrapResponse(
           api.post(
             '/admin/pricing/fx',
@@ -122,7 +127,11 @@ medusaIntegrationTestRunner({
         );
 
         const open = await unwrapResponse(
-          api.post(`/store/packs/${PACK_SLUG}/open`, {}, { headers: authed(token) }),
+          api.post(
+            `/store/packs/${PACK_SLUG}/open`,
+            {},
+            { headers: authed(token) },
+          ),
         );
         expect(open.status).toBe(200);
         expect(open.data.card.handle).toBe(CARD_HANDLE);
@@ -161,8 +170,12 @@ medusaIntegrationTestRunner({
           expect(roll.card.handle).toBe(CARD_HANDLE);
           expect(roll.card.market_value).toBe(FMV);
           expect(roll.card.marketPriceMyr).toBe(EXPECTED_MARKET_PRICE_MYR);
-          // Buyback quoted off the MYR Value, same as the single-open route.
+          // Buyback quoted off the MYR Value, same as the single-open route —
+          // percents locked too so a rate-selection divergence in the batch
+          // path can't hide behind matching amounts.
+          expect(roll.buyback.percent).toBe(96);
           expect(roll.buyback.amount).toBe(460.8);
+          expect(roll.buyback.vault_percent).toBe(90);
           expect(roll.buyback.vault_amount).toBe(432);
         }
       });

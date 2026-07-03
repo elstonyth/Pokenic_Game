@@ -12,7 +12,11 @@ import {
   buybackAmount,
   instantDeadlineMs,
 } from '../../../../../modules/packs/buyback-rate';
-import { displayMarketPrice, resolveFxRate } from '../../../../../modules/packs/pricing';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../../../../modules/packs/pricing';
 
 // POST /store/packs/:slug/open-batch — open N packs in one atomic operation:
 // rolls N winners, debits count×price from the credit ledger, and records N
@@ -52,7 +56,7 @@ export async function POST(
   if (result.rolls.length !== result.pulls.length) {
     throw new MedusaError(
       MedusaError.Types.UNEXPECTED_STATE,
-      "open-batch workflow returned mismatched rolls/pulls.",
+      'open-batch workflow returned mismatched rolls/pulls.',
     );
   }
 
@@ -71,10 +75,16 @@ export async function POST(
   const fxRate = await resolveFxRate(packsService);
   const handles = [...new Set(result.rolls.map((card) => card.handle))];
   const cardRows = handles.length
-    ? await packsService.listCards({ handle: handles }, { take: handles.length })
+    ? await packsService.listCards(
+        { handle: handles },
+        { take: handles.length },
+      )
     : [];
   const multiplierByHandle = new Map(
-    cardRows.map((c) => [c.handle, Number(c.market_multiplier ?? 1.2)]),
+    cardRows.map((c) => [
+      c.handle,
+      Number(c.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
+    ]),
   );
 
   const rolls = await Promise.all(
@@ -86,7 +96,7 @@ export async function POST(
       const marketPriceMyr = displayMarketPrice(
         marketValue,
         fxRate,
-        multiplierByHandle.get(card.handle) ?? 1.2,
+        multiplierByHandle.get(card.handle) ?? DEFAULT_MARKET_MULTIPLIER,
       );
       const buyback = await packsService.quoteBuyback(
         slug,

@@ -14,7 +14,11 @@ import {
   toCardView,
 } from '../../../modules/packs/card-view';
 import { toMoney } from '../../../modules/packs/money';
-import { displayMarketPrice, resolveFxRate } from '../../../modules/packs/pricing';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../../modules/packs/pricing';
 
 // GET /store/vault — the authenticated customer's vault: every pull still held
 // (status "vaulted"), newest first, with a LIVE buyback offer per item: current
@@ -101,7 +105,7 @@ export async function GET(
       const marketPriceMyr = displayMarketPrice(
         marketValue,
         fxRate,
-        Number(card.market_multiplier ?? 1.2),
+        Number(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
       );
       return {
         pull_id: p.id,

@@ -1,4 +1,5 @@
 import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { DEFAULT_MARKET_MULTIPLIER } from '../../modules/packs/pricing';
 import type { MedusaContainer } from '@medusajs/framework/types';
 import {
   ContainerRegistrationKeys,
@@ -113,7 +114,7 @@ export const registerCardInvoke = async (
     input.market_multiplier ??
     (Number.isFinite(Number(meta.market_multiplier))
       ? Number(meta.market_multiplier)
-      : 1.2);
+      : DEFAULT_MARKET_MULTIPLIER);
   // Pixel-Pokémon assignment staged at product creation (from-pricecharting)
   // is inherited the same way — an explicit pick in the register dialog wins.
   const pokemonDex =

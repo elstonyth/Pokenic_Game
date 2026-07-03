@@ -12,7 +12,11 @@ import {
   resolveBuybackRate,
   type BuybackRateType,
 } from '../../modules/packs/buyback-rate';
-import { displayMarketPrice, resolveFxRate } from '../../modules/packs/pricing';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../modules/packs/pricing';
 import { insertOrMapDuplicate } from './duplicate-race';
 
 export type BuybackPullInput = {
@@ -119,7 +123,7 @@ export const buybackPullStep = createStep(
     const valueMyr = displayMarketPrice(
       rawUsd,
       fx,
-      Number(card.market_multiplier ?? 1.2),
+      Number(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
     );
     const amount = buybackAmount(valueMyr, percent);
 

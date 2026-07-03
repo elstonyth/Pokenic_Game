@@ -11,7 +11,11 @@ import {
   buybackAmount,
   instantDeadlineMs,
 } from '../../../../../modules/packs/buyback-rate';
-import { displayMarketPrice, resolveFxRate } from '../../../../../modules/packs/pricing';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../../../../modules/packs/pricing';
 
 // POST /store/packs/:slug/open — open a pack: roll a winner over the pack's
 // weighted odds and append the result to the Pull ledger.
@@ -55,7 +59,7 @@ export async function POST(
   const marketPriceMyr = displayMarketPrice(
     marketValue,
     fxRate,
-    Number(wonCardRow?.market_multiplier ?? 1.2),
+    Number(wonCardRow?.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
   );
 
   // Quote the instant sell-back from the SAME helper the buyback workflow credits

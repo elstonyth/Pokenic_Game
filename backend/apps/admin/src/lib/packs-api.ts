@@ -1,5 +1,5 @@
 import { client } from './client';
-import type { ComputedOdd, OddsInput, OddsRarity } from '@acme/odds-math';
+import type { OddsRarity } from '@acme/odds-math';
 
 // Typed facade for the custom gacha admin routes.
 //
@@ -123,6 +123,9 @@ export interface AdminCardUpdate {
   market_multiplier?: number;
 }
 
+// 🔒 No win-rate fields here on purpose: weights/locks are secret and the
+// backend omits them from the UI's odds GET (they exist only behind the
+// operator's manual `?include_weights=1` curl seam).
 export interface OddsRow {
   card_id: string;
   name: string;
@@ -132,17 +135,21 @@ export interface OddsRow {
   market_value: number;
   /** Available physical units; `null` = untracked (infinite). */
   stock: number | null;
-  weight: number;
-  locked: boolean;
-  /** Current win % = weight / Σweight × 100. */
-  pct: number;
   /** Admin-picked Top Hit flag (storefront display only). */
   top_hit: boolean;
 }
 
 export interface PackOddsResponse {
   pack: { slug: string; title: string; category: string; status: string };
+  /** Non-secret aggregate: the pack has a rollable pool (Activate gate). */
+  rollable: boolean;
   odds: OddsRow[];
+}
+
+/** Rarity-only save entry — the ONLY odds-adjacent thing the UI writes. */
+export interface RarityEntry {
+  card_id: string;
+  rarity: string;
 }
 
 export interface PullRow {
@@ -198,10 +205,12 @@ type PacksApi = {
         ) => Promise<{ pack: { slug: string } }>;
         odds: {
           query: (input: { $slug: string }) => Promise<PackOddsResponse>;
+        };
+        rarities: {
           mutate: (input: {
             $slug: string;
-            entries: OddsInput[];
-          }) => Promise<{ odds: ComputedOdd[] }>;
+            entries: RarityEntry[];
+          }) => Promise<{ saved: number }>;
         };
         members: {
           query: (input: { $slug: string }) => Promise<{ members: string[] }>;

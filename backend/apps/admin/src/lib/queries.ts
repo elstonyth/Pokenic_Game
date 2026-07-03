@@ -15,6 +15,7 @@ import {
   type AdminPackWrite,
   type PackOddsResponse,
   type PullsResponse,
+  type RarityEntry,
 } from './packs-api';
 import {
   adjustCustomerCredits,
@@ -53,7 +54,6 @@ import {
   type RewardPoolBody,
   type RewardPoolResponse,
 } from './admin-rest';
-import type { OddsInput } from '@acme/odds-math';
 import { qk } from './query-keys';
 
 // ── Display queries ──────────────────────────────────────────────────────────
@@ -244,13 +244,12 @@ export const useDeletePack = () => {
   });
 };
 
-// No invalidation by design: the editor patches its local rows from the response
-// (the server is authoritative for the computed %), keeping the lock-save path
-// identical to the pre-refactor behavior. See the design spec.
-export const useSaveOdds = () =>
+// Rarity-only save — locks/weights stay server-side (the backend merges the
+// stored lock state; the UI never sees or sends win rates).
+export const useSaveRarities = () =>
   useMutation({
-    mutationFn: (vars: { slug: string; entries: OddsInput[] }) =>
-      packsApi.admin.packs.$slug.odds.mutate({
+    mutationFn: (vars: { slug: string; entries: RarityEntry[] }) =>
+      packsApi.admin.packs.$slug.rarities.mutate({
         $slug: vars.slug,
         entries: vars.entries,
       }),

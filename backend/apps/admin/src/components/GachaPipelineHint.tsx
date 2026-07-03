@@ -33,7 +33,12 @@ export function GachaPipelineHint({ current }: { current: PipelineStep }) {
             </span>
           )}
           {s.key === current ? (
-            <Text size="xsmall" weight="plus" className="text-ui-fg-base">
+            <Text
+              size="xsmall"
+              weight="plus"
+              className="text-ui-fg-base"
+              aria-current="step"
+            >
               {i + 1}. {t(`pipeline.${s.key}`)}
             </Text>
           ) : (

@@ -3,7 +3,7 @@ import { Modules } from "@medusajs/framework/utils";
 import { PACKS_MODULE } from "../../src/modules/packs";
 import type PacksModuleService from "../../src/modules/packs/service";
 import { HANDLE_RE } from "../../src/utils/profile-handle";
-import { unwrapResponse } from "./utils";
+import { myrDisplay as MYR, unwrapResponse } from "./utils";
 
 jest.setTimeout(240 * 1000);
 
@@ -20,9 +20,7 @@ const EPIC_FMV = 10;
 
 // volume is the MYR display value (FMV × multiplier × FX), matching the
 // leaderboard. No FxRate row is seeded and cards carry the model-default
-// multiplier, so it's FMV × 1.2 (DEFAULT_MARKET_MULTIPLIER) × 4.7
-// (DEFAULT_USD_MYR).
-const MYR = (usd: number) => Math.round(usd * 1.2 * 4.7 * 100) / 100;
+// multiplier, so values follow the shared myrDisplay helper (see utils).
 
 const SEEDED_HANDLE = "kenji-test";
 const SEEDED_EMAIL = "pp-collector@test.dev";
@@ -196,6 +194,8 @@ medusaIntegrationTestRunner({
             grader: "BGS",
             grade: "10",
             market_value: EPIC_FMV,
+            // The live MYR display value the storefront prefers over raw USD.
+            marketPriceMyr: MYR(EPIC_FMV),
             image: "/cdn/epic.webp",
           },
         });

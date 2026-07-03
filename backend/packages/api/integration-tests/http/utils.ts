@@ -1,6 +1,10 @@
 import Redis from "ioredis";
 import { Modules } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework/types";
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  DEFAULT_USD_MYR,
+} from "../../src/modules/packs/pricing";
 
 // Shared harness policy for the HTTP suites — the two idioms every suite was
 // copy-pasting. Not a spec file (jest's http testMatch only picks *.spec.ts).
@@ -71,6 +75,16 @@ export async function mintSuperAdmin(
   const login = await api.post("/auth/user/emailpass", { email, password });
   return login.data.token as string;
 }
+
+/**
+ * The MYR display value the pricing seam produces for a raw USD FMV when a
+ * suite seeds NO FxRate row and cards keep the model-default multiplier —
+ * i.e. displayMarketPrice(usd, DEFAULT_USD_MYR, DEFAULT_MARKET_MULTIPLIER).
+ * Imported from the production constants so the specs can't silently drift
+ * from the real formula.
+ */
+export const myrDisplay = (usd: number): number =>
+  Math.round(usd * DEFAULT_MARKET_MULTIPLIER * DEFAULT_USD_MYR * 100) / 100;
 
 /**
  * Connects to the test Redis or THROWS — deliberately no skip: the rate

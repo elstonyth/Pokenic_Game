@@ -3,7 +3,7 @@ import { Modules } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../src/modules/packs';
 import type PacksModuleService from '../../src/modules/packs/service';
 import { seedOf } from '../../src/utils/profile-handle';
-import { unwrapResponse } from './utils';
+import { myrDisplay as MYR, unwrapResponse } from './utils';
 
 jest.setTimeout(240 * 1000);
 
@@ -21,10 +21,8 @@ const CARD_X = 'lb-x'; // mv 50 USD
 const CARD_Y = 'lb-y'; // mv 30 USD
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// No FxRate row is seeded and cards carry the model-default multiplier, so the
-// MYR winnings column is mv × 1.2 (DEFAULT_MARKET_MULTIPLIER) × 4.7
-// (DEFAULT_USD_MYR).
-const MYR = (usd: number) => Math.round(usd * 1.2 * 4.7 * 100) / 100;
+// No FxRate row is seeded and cards carry the model-default multiplier, so
+// the MYR winnings column follows the shared myrDisplay helper (see utils).
 
 medusaIntegrationTestRunner({
   inApp: true,

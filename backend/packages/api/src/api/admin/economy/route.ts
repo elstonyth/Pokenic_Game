@@ -8,6 +8,10 @@ import {
 } from '../../../modules/packs/economy';
 import { pageAll } from '../../utils/page-all';
 import { toMoney } from '../../../modules/packs/money';
+import {
+  resolveFxRate,
+  displayMarketPrice,
+} from '../../../modules/packs/pricing';
 
 // GET /admin/economy — the operator's money report: lifetime ledger totals
 // (revenue / payouts / top-ups / adjustments / net), the outstanding vault
@@ -42,8 +46,16 @@ export async function GET(
     vaultedByCard.set(p.card_id, (vaultedByCard.get(p.card_id) ?? 0) + 1);
   }
   const allCards = await pageAll((opts) => packs.listCards({}, opts));
+  const fx = await resolveFxRate(packs);
+  // Card FMV is stored in USD; the economy report shows MYR at the live FX rate
+  // (multiplier 1 — markup lives on the sale price, not the FMV). Converting here
+  // makes liability, EV, and RTP all MYR, so RTP compares like-for-like (MYR EV
+  // ÷ MYR pack price) instead of the prior USD-FMV-vs-MYR-price mix.
   const valueByHandle = new Map(
-    allCards.map((c) => [c.handle, toMoney(c.market_value)]),
+    allCards.map((c) => [
+      c.handle,
+      displayMarketPrice(toMoney(c.market_value), fx, 1),
+    ]),
   );
   let liabilityCents = 0;
   let liabilityCount = 0;

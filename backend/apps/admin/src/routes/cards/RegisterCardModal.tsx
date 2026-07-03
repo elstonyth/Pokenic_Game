@@ -18,9 +18,13 @@ import {
   type PcMatch,
   type PcProduct,
 } from '../../lib/admin-rest';
-import { useEligibleProducts, useRegisterCard } from '../../lib/queries';
+import {
+  useEligibleProducts,
+  useFxRate,
+  useRegisterCard,
+} from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
-import { rm } from '../../lib/format';
+import { rm, usdToMyr, myrToUsd } from '../../lib/format';
 import CardPokemonFields from './CardPokemonFields';
 
 // Register an EXISTING inventory product as a gacha card (inventory-first: the
@@ -36,7 +40,7 @@ type Fields = {
   set: string;
   grader: string;
   grade: string;
-  market_value: string; // string so the operator can type freely
+  market_value: string; // operator-facing MYR (converted to USD on save)
   margin_pct: string; // display margin over FMV — Card.market_multiplier home
   pokemon_dex: number | null;
   sprite_image: string | null;
@@ -61,6 +65,13 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
   const { data: products = null, isError: loadError } =
     useEligibleProducts(open);
   const registerCard = useRegisterCard();
+  // FMV is tracked in USD (PriceCharting-native); operators read/enter RM. fx is
+  // the live USD→MYR rate used to show RM and to convert back to USD on save.
+  const { data: fx } = useFxRate();
+  const fxEff = fx?.effective ?? null;
+  // Non-marked-up MYR label for a grade-tier chip; raw USD until FX loads.
+  const tierLabel = (usd: number): string =>
+    fxEff !== null ? rm(usdToMyr(usd, fxEff)) : `$${usd.toFixed(2)}`;
   const [filter, setFilter] = useState('');
   const [productId, setProductId] = useState<string | null>(null);
 
@@ -112,7 +123,10 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
       set: p.set ?? f.set,
       grade: p.grade ?? f.grade,
       grader: p.grader ?? f.grader,
-      market_value: p.fmv !== null ? String(p.fmv) : f.market_value,
+      market_value:
+        p.fmv !== null && fxEff !== null
+          ? String(usdToMyr(p.fmv, fxEff))
+          : f.market_value,
     }));
     // Seed the lookup query with the product title — usually the card name.
     setPcQuery(p.title);
@@ -157,11 +171,13 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
   };
 
   // Fill FMV from the picked grade; the grade label doubles as a sensible
-  // default for the (still editable) grade field when it is empty.
+  // default for the (still editable) grade field when it is empty. The tier is
+  // USD; the field is MYR, so convert (raw USD until FX loads — canSave blocks
+  // save in that window).
   const applyPrice = (grade: string, usd: number) =>
     setFields((f) => ({
       ...f,
-      market_value: String(usd),
+      market_value: String(fxEff !== null ? usdToMyr(usd, fxEff) : usd),
       grade: f.grade.trim() ? f.grade : grade,
     }));
 
@@ -169,6 +185,8 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
     !!productId &&
     fields.market_value.trim() !== '' &&
     Number(fields.market_value) >= 0 &&
+    // FMV is entered in RM but stored in USD — need the live rate to convert.
+    fxEff !== null &&
     fields.margin_pct.trim() !== '' &&
     // Margin bounded to [0, 1000]% so a fat-fingered value can't create an
     // absurd customer price.
@@ -177,14 +195,16 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
     !saving;
 
   const save = async () => {
-    if (!canSave || !productId) return;
+    if (!canSave || !productId || fxEff === null) return;
     try {
       await registerCard.mutateAsync({
         product_id: productId,
         set: fields.set.trim(),
         grader: fields.grader.trim(),
         grade: fields.grade.trim(),
-        market_value: Number(fields.market_value),
+        // Field is MYR; the backend tracks FMV in USD, so convert at the live
+        // rate before submit (fxEff non-null: guarded here + in canSave).
+        market_value: myrToUsd(Number(fields.market_value), fxEff),
         market_multiplier: 1 + Number(fields.margin_pct) / 100,
         pokemon_dex: fields.pokemon_dex,
         sprite_image: fields.sprite_image,
@@ -373,7 +393,7 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
                         type="button"
                         onClick={() => applyPrice(p.grade, p.usd)}
                       >
-                        {p.grade}: {rm(p.usd)}
+                        {p.grade}: {tierLabel(p.usd)}
                       </Button>
                     ))
                   )}

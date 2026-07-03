@@ -5,6 +5,10 @@ import { savePackOddsWorkflow } from '../../../../../workflows/save-pack-odds';
 import { RARITIES, type OddsInput } from '@acme/odds-math';
 import { getCardStockByHandle } from '../../../../../modules/packs/card-stock';
 import { toMoney } from '../../../../../modules/packs/money';
+import {
+  resolveFxRate,
+  displayMarketPrice,
+} from '../../../../../modules/packs/pricing';
 import { cardByHandle } from '../../../../../modules/packs/card-view';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -63,6 +67,8 @@ export async function GET(
     : [];
   const byHandle = cardByHandle(cards);
   const stockByHandle = await getCardStockByHandle(req.scope, handles);
+  // FMV stored USD; the odds editor shows MYR at the live rate (no markup).
+  const fx = await resolveFxRate(packsModuleService);
 
   const total = odds.reduce((sum, o) => sum + o.weight, 0) || 1;
 
@@ -75,7 +81,7 @@ export async function GET(
       name: card.name,
       image: card.image,
       rarity: o.rarity ?? 'Common',
-      market_value: toMoney(card.market_value),
+      market_value: displayMarketPrice(toMoney(card.market_value), fx, 1),
       stock: stockByHandle.get(card.handle) ?? null,
       weight: o.weight,
       locked: o.locked,

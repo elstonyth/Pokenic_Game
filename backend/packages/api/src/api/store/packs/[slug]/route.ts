@@ -99,5 +99,9 @@ export async function GET(
       status: pack.status,
     },
     odds: entries,
+    // The PUBLIC odds display ({ overall, tiers } percentages, admin-authored).
+    // This is the ONLY odds data customers ever see — deliberately decoupled
+    // from the secret per-card weights above. Null = not set (panel hidden).
+    published_odds: pack.published_odds ?? null,
   });
 }

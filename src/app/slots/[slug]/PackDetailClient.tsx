@@ -35,6 +35,7 @@ import {
   priceNumber,
 } from '@/lib/packs-data';
 import { rarityRgb } from '@/lib/rarity';
+import { publishedOddsRows } from '@/lib/packs-format';
 import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import PackOpenOverlay from './PackOpenOverlay';
 
@@ -133,6 +134,13 @@ export default function PackDetailClient({
   const maxQty = 3;
   const setQ = (n: number) => setQty(Math.min(maxQty, Math.max(1, n)));
 
+  // The admin-PUBLISHED odds — the ONLY rates players see. Null (unset) hides
+  // the whole Pull Odds panel; the static ODDS constant remains solely as the
+  // demo spin's sampling fallback so the demo still works pre-publication.
+  const publishedRows = detail?.publishedOdds
+    ? publishedOddsRows(detail.publishedOdds)
+    : null;
+
   // Free demo spin — a client-side WEIGHTED sample over the published odds
   // drives the same reveal overlay. Pure theater: no backend call, no Pull row,
   // no credit/stock effects; the real open below stays auth-gated. Draws from
@@ -140,7 +148,12 @@ export default function PackDetailClient({
   const demoPool = detail?.pool ?? [];
   function demoSpin() {
     setOpenError(null);
-    const mock = demoDraw(demoPool, ODDS, Math.random(), Math.random());
+    const mock = demoDraw(
+      demoPool,
+      publishedRows?.length ? publishedRows : ODDS,
+      Math.random(),
+      Math.random(),
+    );
     if (!mock) return;
     setReveal({
       card: mock,
@@ -463,34 +476,49 @@ export default function PackDetailClient({
         </aside>
       </div>
 
-      {/* ===== Pull Odds + Recent Pulls (below the fold) ===== */}
+      {/* ===== Pull Odds + Recent Pulls (below the fold) =====
+          The odds panel renders ONLY the admin-published rates from the
+          backend; a pack with no published odds shows no panel at all. */}
       <div className="mb-10 mt-8 grid gap-6 lg:grid-cols-2">
-        <Reveal as="section" className="h-full min-w-0">
-          <div className="mb-3 flex items-center gap-2">
-            <h2 className="font-heading text-lg font-bold tracking-tight text-white">
-              Pull Odds (by rarity)
-            </h2>
-          </div>
-          <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-            {ODDS.map((o) => (
-              <li
-                key={o.rarity}
-                className="flex items-center justify-between border-b border-white/5 px-4 py-3 last:border-b-0"
-              >
-                <span className="flex items-center gap-2.5 text-[13px] font-medium text-white">
-                  <span className={cn('h-2.5 w-2.5 rounded-full', o.dot)} />
-                  {o.rarity}
+        {detail?.publishedOdds && publishedRows && (
+          <Reveal as="section" className="h-full min-w-0">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="font-heading text-lg font-bold tracking-tight text-white">
+                Pull Odds (by rarity)
+              </h2>
+            </div>
+            <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+              <li className="flex items-center justify-between border-b border-white/5 bg-white/[0.03] px-4 py-3">
+                <span className="text-[13px] font-semibold text-white">
+                  Overall win rate
                 </span>
-                <span className="text-[13px] tabular-nums text-white/55">
-                  {o.chance}
+                <span className="text-[13px] font-semibold tabular-nums text-white">
+                  {detail.publishedOdds.overall}%
                 </span>
               </li>
-            ))}
-          </ul>
-          <p className="mt-2 px-1 text-[11px] text-white/35">
-            Indicative odds — final rates are published by the backend.
-          </p>
-        </Reveal>
+              {publishedRows.map((o) => (
+                <li
+                  key={o.rarity}
+                  className="flex items-center justify-between border-b border-white/5 px-4 py-3 last:border-b-0"
+                >
+                  <span className="flex items-center gap-2.5 text-[13px] font-medium text-white">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ background: `rgb(${rarityRgb(o.rarity)})` }}
+                    />
+                    {o.rarity}
+                  </span>
+                  <span className="text-[13px] tabular-nums text-white/55">
+                    {o.chance}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 px-1 text-[11px] text-white/35">
+              Published rates for this pack.
+            </p>
+          </Reveal>
+        )}
 
         <Reveal as="section" delay={90} className="h-full min-w-0">
           <div className="mb-3 flex items-center gap-2">

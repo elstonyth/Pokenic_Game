@@ -15,7 +15,7 @@
 
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
-import { formatValue } from '@/lib/packs-format';
+import { formatValue, isRarity, type PublishedOdds } from '@/lib/packs-format';
 import { money, relativeTime } from '@/lib/format';
 import {
   parseList,
@@ -178,7 +178,26 @@ export interface PackDetail {
   /** The full public prize pool (display fields only, weights stay secret) —
    *  feeds the guest demo spin's client-side weighted sample. */
   pool: PackCard[];
+  /** Admin-published PUBLIC odds; null = not set (the odds panel is hidden). */
+  publishedOdds: PublishedOdds | null;
 }
+
+// Sanitize the backend's published_odds json (jsonb passthrough — validate at
+// the trust boundary so a malformed value can't render NaN or unknown tiers).
+const parsePublishedOdds = (raw: unknown): PublishedOdds | null => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = raw as { overall?: unknown; tiers?: unknown };
+  const okPct = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100;
+  if (!okPct(o.overall)) return null;
+  const tiers: PublishedOdds['tiers'] = {};
+  if (o.tiers && typeof o.tiers === 'object' && !Array.isArray(o.tiers)) {
+    for (const [k, v] of Object.entries(o.tiers as Record<string, unknown>)) {
+      if (isRarity(k) && okPct(v)) tiers[k] = v;
+    }
+  }
+  return { overall: o.overall, tiers };
+};
 
 /**
  * Pack detail for /claw/[slug]: the highest-value cards (Top Hits), derived
@@ -196,9 +215,10 @@ export interface PackDetail {
  */
 export async function getPackDetail(slug: string): Promise<PackDetail | null> {
   try {
-    const { odds } = await sdk.client.fetch<{ odds: BackendOddsEntry[] }>(
-      `/store/packs/${encodeURIComponent(slug)}`,
-    );
+    const { odds, published_odds } = await sdk.client.fetch<{
+      odds: BackendOddsEntry[];
+      published_odds?: unknown;
+    }>(`/store/packs/${encodeURIComponent(slug)}`);
     if (!Array.isArray(odds) || odds.length === 0) return null;
 
     // The fetch generic is a type assertion, not a runtime guard — drop rows
@@ -223,7 +243,11 @@ export async function getPackDetail(slug: string): Promise<PackDetail | null> {
         rarity: o.rarity as Rarity,
       }));
 
-    return { topHits: pool.slice(0, 5), pool };
+    return {
+      topHits: pool.slice(0, 5),
+      pool,
+      publishedOdds: parsePublishedOdds(published_odds),
+    };
   } catch (error) {
     logger.error(`[packs] failed to load pack detail for '${slug}':`, error);
     return null;

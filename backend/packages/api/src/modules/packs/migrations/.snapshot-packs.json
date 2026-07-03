@@ -2031,6 +2031,15 @@
           ],
           "mappedType": "enum"
         },
+        "published_odds": {
+          "name": "published_odds",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
+        },
         "pool_enabled": {
           "name": "pool_enabled",
           "type": "boolean",

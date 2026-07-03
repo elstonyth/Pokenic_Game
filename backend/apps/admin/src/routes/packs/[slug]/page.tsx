@@ -9,6 +9,7 @@ import {
   Button,
   Switch,
   Input,
+  Label,
   Select,
   StatusBadge,
   FocusModal,
@@ -17,7 +18,11 @@ import {
   clx,
 } from '@medusajs/ui';
 import { ArrowLeft } from '@medusajs/icons';
-import type { PackOddsResponse } from '../../../lib/packs-api';
+import type {
+  AdminPack,
+  PackOddsResponse,
+  PublishedOdds,
+} from '../../../lib/packs-api';
 import { computeOdds, RARITIES } from '@acme/odds-math';
 import {
   useCards,
@@ -259,6 +264,24 @@ const PackOddsEditorPage = () => {
         </div>
       )}
 
+      {/* Published odds — the PUBLIC percentages players see. Display-only,
+          fully decoupled from the per-card win rates in the table below. */}
+      {fullPack && (
+        <PublishedOddsSection
+          key={fullPack.slug}
+          pack={fullPack}
+          saving={updatePack.isPending}
+          onSave={async (po) => {
+            try {
+              await updatePack.mutateAsync({ ...fullPack, published_odds: po });
+              toast.success(t('packs.published.saved'));
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : String(err));
+            }
+          }}
+        />
+      )}
+
       {rows === null ? (
         <div className="px-6 py-8">
           <Text className="text-ui-fg-subtle">…</Text>
@@ -495,6 +518,130 @@ const PackOddsEditorPage = () => {
         </FocusModal.Content>
       </FocusModal>
     </Container>
+  );
+};
+
+// ── Published odds (PUBLIC) ──────────────────────────────────────────────────
+// The percentages players see on the storefront pack page ({ overall, per-tier }).
+// Display-only: saving here never touches the per-card win-rate weights.
+// Mounted with key={slug}, only once fullPack is loaded, so the initial state
+// can seed straight from props.
+const PublishedOddsSection = ({
+  pack,
+  saving,
+  onSave,
+}: {
+  pack: AdminPack;
+  saving: boolean;
+  onSave: (po: PublishedOdds) => Promise<void>;
+}) => {
+  const { t } = useTranslation();
+  const [overall, setOverall] = useState<string>(
+    pack.published_odds ? String(pack.published_odds.overall) : '100',
+  );
+  const [tiers, setTiers] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      RARITIES.map((r) => [
+        r,
+        pack.published_odds?.tiers[r] !== undefined
+          ? String(pack.published_odds.tiers[r])
+          : '',
+      ]),
+    ),
+  );
+
+  const validPct = (v: string) =>
+    v.trim() === '' ||
+    (Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 100);
+  const allValid =
+    overall.trim() !== '' &&
+    validPct(overall) &&
+    RARITIES.every((r) => validPct(tiers[r] ?? ''));
+  const sum =
+    Math.round(
+      RARITIES.reduce((s, r) => s + (Number(tiers[r]) || 0), 0) * 100,
+    ) / 100;
+
+  const save = () =>
+    onSave({
+      overall: Number(overall),
+      tiers: Object.fromEntries(
+        RARITIES.filter((r) => (tiers[r] ?? '').trim() !== '').map((r) => [
+          r,
+          Number(tiers[r]),
+        ]),
+      ),
+    });
+
+  return (
+    <div className="px-6 py-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Heading level="h3">{t('packs.published.title')}</Heading>
+          <Text className="text-ui-fg-subtle mt-1 max-w-2xl" size="small">
+            {t('packs.published.subtitle')}
+          </Text>
+        </div>
+        <Button
+          size="small"
+          variant="secondary"
+          onClick={save}
+          isLoading={saving}
+          disabled={!allValid}
+        >
+          {t('packs.published.save')}
+        </Button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="flex flex-col gap-y-1">
+          <Label size="xsmall" weight="plus">
+            {t('packs.published.overall')}
+          </Label>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step={0.1}
+            value={overall}
+            onChange={(e) => setOverall(e.target.value)}
+          />
+        </div>
+        {RARITIES.map((r) => (
+          <div key={r} className="flex flex-col gap-y-1">
+            <Label size="xsmall" weight="plus">
+              {r}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              placeholder="—"
+              value={tiers[r] ?? ''}
+              onChange={(e) =>
+                setTiers((m) => ({ ...m, [r]: e.target.value }))
+              }
+            />
+          </div>
+        ))}
+      </div>
+
+      <Text
+        size="small"
+        className={clx(
+          'mt-2',
+          sum === 100 ? 'text-ui-fg-subtle' : 'text-ui-tag-orange-text',
+        )}
+      >
+        {t('packs.published.sum', { sum })}
+      </Text>
+      {!pack.published_odds && (
+        <Text size="small" className="text-ui-fg-subtle mt-1">
+          {t('packs.published.notSet')}
+        </Text>
+      )}
+    </div>
   );
 };
 

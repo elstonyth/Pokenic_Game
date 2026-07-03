@@ -23,6 +23,7 @@ import {
   priceNumber,
 } from '@/lib/packs-data';
 import type { RecentPull } from '@/lib/data/packs';
+import { publishedOddsRows, type PublishedOdds } from '@/lib/packs-format';
 import { BASE_SPIN_MS, STAGGER_MS } from '@/lib/reel';
 import { priceTier, TIER_COLOR, type Tier } from '@/lib/price-tier';
 import { resolveCardPokemon } from '@/lib/resolve-card-pokemon';
@@ -48,10 +49,13 @@ export default function SlotMachineClient({
   pack,
   recentPulls,
   count,
+  publishedOdds,
 }: {
   pack: ResolvedPack & Pack;
   recentPulls: RecentPull[];
   count: number;
+  /** Admin-published PUBLIC odds for the OddsSheet; null = not published. */
+  publishedOdds: PublishedOdds | null;
 }) {
   const reduced = usePrefersReducedMotion();
   // Immersive surface: chrome inert + body scroll locked the whole time mounted.
@@ -492,7 +496,12 @@ export default function SlotMachineClient({
         {announce}
       </p>
 
-      <OddsSheet open={oddsOpen} onClose={() => setOddsOpen(false)} />
+      <OddsSheet
+        open={oddsOpen}
+        onClose={() => setOddsOpen(false)}
+        odds={publishedOdds ? publishedOddsRows(publishedOdds) : null}
+        overall={publishedOdds?.overall ?? null}
+      />
     </div>
   );
 }

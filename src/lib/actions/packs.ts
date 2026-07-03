@@ -97,6 +97,12 @@ const PACKS_RULES: ErrorRule[] = [
   ],
   [/unauthorized|not authenticated|401/i, 'Please log in to open a pack.'],
   [/not enough credits/i, 'Not enough credits to open this pack.'],
+  // A pack whose prize pool is empty/zero-weight (mid-setup in admin). Must
+  // precede the generic not-found rule: the backend throws it as NOT_FOUND.
+  [
+    /no odds|invalid odds|prize pool/i,
+    "This pack isn't ready yet — check back soon.",
+  ],
   [/not available|not found|404/i, "This pack isn't available right now."],
 ];
 const PACKS_FALLBACK = 'Could not open the pack. Please try again.';

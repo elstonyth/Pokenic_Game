@@ -44,6 +44,22 @@ export const setPackMembersStep = createStep(
 
     const desired = Array.from(new Set(input.card_ids));
 
+    // An ACTIVE pack must keep a rollable pool — emptying it would make every
+    // storefront spin fail. Demote to draft first, then clear the pool.
+    // reward_box packs are internal draw pools (reward rows, card_id null)
+    // whose card membership is legitimately empty.
+    if (
+      desired.length === 0 &&
+      pack.status === 'active' &&
+      pack.category !== 'reward_box'
+    ) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Pack '${input.pack_id}' is active — removing every card would break ` +
+          'opening it. Set the pack to draft first.',
+      );
+    }
+
     // Every desired member must be a real Card (no dangling odds rows).
     if (desired.length) {
       const cards = await packs.listCards(

@@ -431,24 +431,36 @@ const PacksListPage = () => {
                   <Label size="small" weight="plus">
                     {t('packs.form.statusField')}
                   </Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(v) =>
-                      patch({ status: v === 'draft' ? 'draft' : 'active' })
-                    }
-                  >
-                    <Select.Trigger>
-                      <Select.Value />
-                    </Select.Trigger>
-                    <Select.Content>
-                      <Select.Item value="active">
-                        {t('packs.form.active')}
-                      </Select.Item>
-                      <Select.Item value="draft">
-                        {t('packs.form.draft')}
-                      </Select.Item>
-                    </Select.Content>
-                  </Select>
+                  {/* Create is draft-only (the backend rejects an active
+                      creation — the pool is empty by construction); activation
+                      lives on the pack page once cards are assigned. */}
+                  {mode === 'create' ? (
+                    <>
+                      <Input value={t('packs.form.draft')} disabled />
+                      <Text className="text-ui-fg-subtle text-xs">
+                        {t('packs.form.statusCreateHint')}
+                      </Text>
+                    </>
+                  ) : (
+                    <Select
+                      value={form.status}
+                      onValueChange={(v) =>
+                        patch({ status: v === 'draft' ? 'draft' : 'active' })
+                      }
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                      </Select.Trigger>
+                      <Select.Content>
+                        <Select.Item value="active">
+                          {t('packs.form.active')}
+                        </Select.Item>
+                        <Select.Item value="draft">
+                          {t('packs.form.draft')}
+                        </Select.Item>
+                      </Select.Content>
+                    </Select>
+                  )}
                 </div>
                 <div className="flex flex-col gap-y-2">
                   <Label size="small" weight="plus">

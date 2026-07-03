@@ -1,7 +1,7 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError } from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { MedusaError } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
 
 export type PackWriteInput = {
   slug: string;
@@ -15,7 +15,7 @@ export type PackWriteInput = {
   buyback_percent: number;
   boost: boolean;
   rank: number;
-  status: "active" | "draft";
+  status: 'active' | 'draft';
 };
 
 type CompensateData = { packId: string } | undefined;
@@ -24,15 +24,26 @@ type CompensateData = { packId: string } | undefined;
 // (no PackOdds yet); cards are assigned via the membership editor. Compensation
 // deletes the created pack.
 export const createPackStep = createStep(
-  "create-pack",
+  'create-pack',
   async (input: PackWriteInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
+
+    // A new pack's prize pool is empty by construction, so an active creation
+    // could never be opened — every storefront spin would fail. Enforce the
+    // draft → assign cards → activate lifecycle.
+    if (input.status === 'active') {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        'A new pack starts with an empty prize pool and cannot be active. ' +
+          'Create it as a draft, add cards on the pack page, then activate it.',
+      );
+    }
 
     const [existing] = await packs.listPacks({ slug: input.slug }, { take: 1 });
     if (existing) {
       throw new MedusaError(
         MedusaError.Types.DUPLICATE_ERROR,
-        `A pack with slug '${input.slug}' already exists.`
+        `A pack with slug '${input.slug}' already exists.`,
       );
     }
 
@@ -50,16 +61,15 @@ export const createPackStep = createStep(
       },
     ]);
 
-    return new StepResponse(
-      { slug: pack.slug },
-      { packId: pack.id } satisfies CompensateData
-    );
+    return new StepResponse({ slug: pack.slug }, {
+      packId: pack.id,
+    } satisfies CompensateData);
   },
   async (data: CompensateData, { container }) => {
     if (!data) return;
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
     await packs.deletePacks([data.packId]);
-  }
+  },
 );
 
 export default createPackStep;

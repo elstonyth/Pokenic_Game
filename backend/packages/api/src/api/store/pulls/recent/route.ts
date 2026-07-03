@@ -6,7 +6,11 @@ import {
   makeRarityOf,
 } from '../../../../modules/packs/card-view';
 import { toMoney } from '../../../../modules/packs/money';
-import { displayMarketPrice, resolveFxRate } from '../../../../modules/packs/pricing';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../../../modules/packs/pricing';
 
 // GET /store/pulls/recent — the most recent pulls across all packs, for the
 // "Recent Pulls" live feed on /claw/[slug]. A plain publishable-key-scoped store
@@ -60,7 +64,7 @@ export async function GET(
         marketPriceMyr: displayMarketPrice(
           toMoney(card.market_value),
           fxRate,
-          Number(card.market_multiplier ?? 1.2),
+          Number(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
         ),
         image: card.image,
         // pack the card came from (= Pack.slug) — for the feed's pack label.

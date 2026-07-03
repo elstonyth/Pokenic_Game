@@ -1,8 +1,8 @@
-import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
-import { Modules } from "@medusajs/framework/utils";
-import { PACKS_MODULE } from "../../src/modules/packs";
-import type PacksModuleService from "../../src/modules/packs/service";
-import { unwrapResponse } from "./utils";
+import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
+import { Modules } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../src/modules/packs';
+import type PacksModuleService from '../../src/modules/packs/service';
+import { unwrapResponse } from './utils';
 
 jest.setTimeout(180 * 1000);
 
@@ -14,23 +14,23 @@ jest.setTimeout(180 * 1000);
 // asserts it is silently ignored — the relationship is stored against the
 // token's actor, not the body field.
 
-const PASSWORD = "referral-route-pw-1";
+const PASSWORD = 'referral-route-pw-1';
 
 medusaIntegrationTestRunner({
   inApp: true,
   testSuite: ({ api, getContainer }) => {
-    describe("POST /store/referral", () => {
+    describe('POST /store/referral', () => {
       let storeHeaders: Record<string, string>;
 
       beforeEach(async () => {
         const container = getContainer();
         const apiKeyModule = container.resolve(Modules.API_KEY);
         const key = await apiKeyModule.createApiKeys({
-          title: "referral-route-test",
-          type: "publishable",
-          created_by: "referral-route-test",
+          title: 'referral-route-test',
+          type: 'publishable',
+          created_by: 'referral-route-test',
         });
-        storeHeaders = { "x-publishable-api-key": key.token };
+        storeHeaders = { 'x-publishable-api-key': key.token };
       });
 
       /**
@@ -42,12 +42,12 @@ medusaIntegrationTestRunner({
       const registerAndLogin = async (
         email: string,
       ): Promise<{ token: string; actorId: string }> => {
-        const reg = await api.post("/auth/customer/emailpass/register", {
+        const reg = await api.post('/auth/customer/emailpass/register', {
           email,
           password: PASSWORD,
         });
         const created = await api.post(
-          "/store/customers",
+          '/store/customers',
           { email },
           {
             headers: {
@@ -56,7 +56,7 @@ medusaIntegrationTestRunner({
             },
           },
         );
-        const login = await api.post("/auth/customer/emailpass", {
+        const login = await api.post('/auth/customer/emailpass', {
           email,
           password: PASSWORD,
         });
@@ -66,9 +66,12 @@ medusaIntegrationTestRunner({
         };
       };
 
-      it("binds the recruit to the authenticated actor, not the body", async () => {
+      it('binds the recruit to the authenticated actor, not the body', async () => {
+        // The route verifies sponsor_id points to a REAL customer (F7
+        // hardening), so the sponsor must exist before it can be linked.
+        const sponsor = await registerAndLogin('sponsor-route@pokenic.test');
         const { token, actorId } = await registerAndLogin(
-          "recruit-route@pokenic.test",
+          'recruit-route@pokenic.test',
         );
 
         // Send a spoofed customer_id in the body alongside the real sponsor_id.
@@ -76,8 +79,8 @@ medusaIntegrationTestRunner({
         // bearer token's actor (actorId).
         const res = await unwrapResponse(
           api.post(
-            "/store/referral",
-            { sponsor_id: "cus_sponsor_x", customer_id: "cus_SPOOF" },
+            '/store/referral',
+            { sponsor_id: sponsor.actorId, customer_id: 'cus_SPOOF' },
             { headers: { ...storeHeaders, authorization: `Bearer ${token}` } },
           ),
         );
@@ -91,34 +94,34 @@ medusaIntegrationTestRunner({
           { take: 1 },
         );
         expect(rel).toBeDefined();
-        expect(rel.sponsor_id).toBe("cus_sponsor_x");
+        expect(rel.sponsor_id).toBe(sponsor.actorId);
 
         // Also confirm nothing was stored for the spoofed id.
         const spoofed = await packs.listReferralRelationships(
-          { customer_id: "cus_SPOOF" },
+          { customer_id: 'cus_SPOOF' },
           { take: 1 },
         );
         expect(spoofed).toHaveLength(0);
       });
 
-      it("rejects unauthenticated requests with 401", async () => {
+      it('rejects unauthenticated requests with 401', async () => {
         const res = await unwrapResponse(
           api.post(
-            "/store/referral",
-            { sponsor_id: "cus_sponsor_y" },
+            '/store/referral',
+            { sponsor_id: 'cus_sponsor_y' },
             { headers: storeHeaders },
           ),
         );
         expect(res.status).toBe(401);
       });
 
-      it("rejects missing sponsor_id with 400", async () => {
+      it('rejects missing sponsor_id with 400', async () => {
         const { token } = await registerAndLogin(
-          "recruit-route-nosp@pokenic.test",
+          'recruit-route-nosp@pokenic.test',
         );
         const res = await unwrapResponse(
           api.post(
-            "/store/referral",
+            '/store/referral',
             {},
             { headers: { ...storeHeaders, authorization: `Bearer ${token}` } },
           ),
@@ -126,14 +129,14 @@ medusaIntegrationTestRunner({
         expect(res.status).toBe(400);
       });
 
-      it("rejects empty sponsor_id with 400", async () => {
+      it('rejects empty sponsor_id with 400', async () => {
         const { token } = await registerAndLogin(
-          "recruit-route-emptysp@pokenic.test",
+          'recruit-route-emptysp@pokenic.test',
         );
         const res = await unwrapResponse(
           api.post(
-            "/store/referral",
-            { sponsor_id: "" },
+            '/store/referral',
+            { sponsor_id: '' },
             { headers: { ...storeHeaders, authorization: `Bearer ${token}` } },
           ),
         );

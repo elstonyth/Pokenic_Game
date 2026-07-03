@@ -99,7 +99,12 @@ medusaIntegrationTestRunner({
       };
 
       const pinFxRate = async (): Promise<void> => {
-        const adminToken = await mintSuperAdmin(getContainer(), api, ADMIN_EMAIL, PASSWORD);
+        const adminToken = await mintSuperAdmin(
+          getContainer(),
+          api,
+          ADMIN_EMAIL,
+          PASSWORD,
+        );
         const fxPost = await unwrapResponse(
           api.post(
             '/admin/pricing/fx',
@@ -122,13 +127,24 @@ medusaIntegrationTestRunner({
         );
 
         const open = await unwrapResponse(
-          api.post(`/store/packs/${PACK_SLUG}/open`, {}, { headers: authed(token) }),
+          api.post(
+            `/store/packs/${PACK_SLUG}/open`,
+            {},
+            { headers: authed(token) },
+          ),
         );
         expect(open.status).toBe(200);
         expect(open.data.card.handle).toBe(CARD_HANDLE);
         // market_value stays RAW USD — untouched by the FX/multiplier math.
         expect(open.data.card.market_value).toBe(FMV);
         expect(open.data.card.marketPriceMyr).toBe(EXPECTED_MARKET_PRICE_MYR);
+        // Buyback is a cut of the MYR Value (NOT raw USD): 96% x 480 = 460.80,
+        // flat 90% x 480 = 432. Regression guard for the FX-less buyback bug
+        // that quoted/credited 96% x 100 = 96 as if it were ringgit.
+        expect(open.data.buyback.percent).toBe(96);
+        expect(open.data.buyback.amount).toBe(460.8);
+        expect(open.data.buyback.vault_percent).toBe(90);
+        expect(open.data.buyback.vault_amount).toBe(432);
       });
 
       it('open-batch response enriches every roll with marketPriceMyr', async () => {
@@ -154,6 +170,13 @@ medusaIntegrationTestRunner({
           expect(roll.card.handle).toBe(CARD_HANDLE);
           expect(roll.card.market_value).toBe(FMV);
           expect(roll.card.marketPriceMyr).toBe(EXPECTED_MARKET_PRICE_MYR);
+          // Buyback quoted off the MYR Value, same as the single-open route —
+          // percents locked too so a rate-selection divergence in the batch
+          // path can't hide behind matching amounts.
+          expect(roll.buyback.percent).toBe(96);
+          expect(roll.buyback.amount).toBe(460.8);
+          expect(roll.buyback.vault_percent).toBe(90);
+          expect(roll.buyback.vault_amount).toBe(432);
         }
       });
     });

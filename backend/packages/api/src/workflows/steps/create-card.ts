@@ -1,4 +1,5 @@
 import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { DEFAULT_MARKET_MULTIPLIER } from '../../modules/packs/pricing';
 import type { MedusaContainer } from '@medusajs/framework/types';
 import {
   ContainerRegistrationKeys,
@@ -107,12 +108,25 @@ export const registerCardInvoke = async (
     input.pc_product_id ??
     (typeof meta.pc_product_id === 'string' ? meta.pc_product_id : null);
   const pcGrade =
-    input.pc_grade ?? (typeof meta.pc_grade === 'string' ? meta.pc_grade : null);
+    input.pc_grade ??
+    (typeof meta.pc_grade === 'string' ? meta.pc_grade : null);
   const mult =
     input.market_multiplier ??
     (Number.isFinite(Number(meta.market_multiplier))
       ? Number(meta.market_multiplier)
-      : 1.2);
+      : DEFAULT_MARKET_MULTIPLIER);
+  // Pixel-Pokémon assignment staged at product creation (from-pricecharting)
+  // is inherited the same way — an explicit pick in the register dialog wins.
+  const pokemonDex =
+    input.pokemon_dex ??
+    (Number.isInteger(Number(meta.pokemon_dex)) && Number(meta.pokemon_dex) >= 1
+      ? Number(meta.pokemon_dex)
+      : null);
+  const spriteImage =
+    input.sprite_image ??
+    (typeof meta.sprite_image === 'string' && meta.sprite_image.trim() !== ''
+      ? meta.sprite_image
+      : null);
 
   const [card] = await insertOrMapDuplicate({
     insert: () =>
@@ -129,8 +143,8 @@ export const registerCardInvoke = async (
           // marketplace source of truth and is not touched by registration.
           price: null,
           for_sale: product.status === 'published',
-          pokemon_dex: input.pokemon_dex,
-          sprite_image: input.sprite_image,
+          pokemon_dex: pokemonDex,
+          sprite_image: spriteImage,
           pc_product_id: pcProductId,
           pc_grade: pcGrade,
           market_multiplier: mult,

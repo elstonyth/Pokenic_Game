@@ -130,7 +130,51 @@ medusaIntegrationTestRunner({
         );
         expect(data.card.pc_product_id).toBe("6910");
         expect(data.card.pc_grade).toBe("PSA 10");
+        // Product creation stores no margin — registration without an explicit
+        // market_multiplier falls back to the 20% default.
         expect(data.card.market_multiplier).toBe(1.2);
+      });
+
+      it("explicit margin from the register dialog wins over the default", async () => {
+        const p = await unwrapResponse(
+          api.post(
+            "/admin/products/from-pricecharting",
+            {
+              pc_product_id: "6911",
+              pc_grade: "PSA 9",
+              name: "Blastoise",
+              set: "Base Set",
+              grader: "PSA",
+              grade: "9",
+              market_value: 50,
+              image: "https://example.com/blastoise.png",
+              pokemon_dex: 9,
+            },
+            adminHeaders(),
+          ),
+        );
+
+        await unwrapResponse(
+          api.post(
+            "/admin/cards",
+            {
+              product_id: p.data.product.id,
+              set: "Base Set",
+              grader: "PSA",
+              grade: "9",
+              market_value: 50,
+              market_multiplier: 1.35,
+            },
+            adminHeaders(),
+          ),
+        );
+
+        const { data } = await unwrapResponse(
+          api.get(`/admin/cards/${p.data.product.handle}`, adminHeaders()),
+        );
+        expect(data.card.market_multiplier).toBe(1.35);
+        // Pixel-Pokémon staged at product creation is inherited by the card.
+        expect(data.card.pokemon_dex).toBe(9);
       });
     });
   },

@@ -8,7 +8,12 @@
 // (declared type, size, decoded dimensions), so the sniff/animation gates are
 // skipped client-side and enforced here.
 
-export type ImageKind = "pack" | "card" | "sprite";
+// 'pc-card' is SERVER-INTERNAL (the PriceCharting image ingest) — the /admin/media
+// route's kind allowlist deliberately excludes it, so a browser can never pick the
+// relaxed profile. PriceCharting card photos are small (their largest variant often
+// serves under 300px wide), so the curated 600×840 card minimum can't apply; the
+// security gates (type sniff, byte cap, bomb guard) run unchanged.
+export type ImageKind = 'pack' | 'card' | 'sprite' | 'pc-card';
 
 export interface ImageFacts {
   width: number;
@@ -27,23 +32,23 @@ export type ValidationResult =
   | { ok: false; code: ValidationCode; message: string };
 
 export type ValidationCode =
-  | "bad_type"
-  | "type_mismatch"
-  | "animated"
-  | "too_large"
-  | "unreadable"
-  | "too_big_dimension"
-  | "too_small"
-  | "bad_aspect";
+  | 'bad_type'
+  | 'type_mismatch'
+  | 'animated'
+  | 'too_large'
+  | 'unreadable'
+  | 'too_big_dimension'
+  | 'too_small'
+  | 'bad_aspect';
 
 // Allowed declared MIME → the sharp format string(s) those bytes decode to.
 // Used both as the type allowlist and as the magic-byte consistency map.
 const MIME_TO_FORMATS: Record<string, readonly string[]> = {
-  "image/webp": ["webp"],
-  "image/png": ["png"],
-  "image/jpeg": ["jpeg", "jpg"],
-  "image/avif": ["avif", "heif"], // sharp reports AVIF as "heif"
-  "image/gif": ["gif"],
+  'image/webp': ['webp'],
+  'image/png': ['png'],
+  'image/jpeg': ['jpeg', 'jpg'],
+  'image/avif': ['avif', 'heif'], // sharp reports AVIF as "heif"
+  'image/gif': ['gif'],
 };
 
 export interface ProfileRule {
@@ -59,11 +64,34 @@ export const IMAGE_RULES = {
   maxBytes: 20 * 1024 * 1024, // 20 MB — also enforced by multer at the edge
   maxDimension: 8000, // decompression-bomb / absurd-upload guard
   profiles: {
-    card: { minWidth: 600, minHeight: 840, targetRatio: 5 / 7, aspectTolerance: 0.03 },
-    pack: { minWidth: 512, minHeight: 512, targetRatio: 1, aspectTolerance: 0.05 },
+    card: {
+      minWidth: 600,
+      minHeight: 840,
+      targetRatio: 5 / 7,
+      aspectTolerance: 0.03,
+    },
+    pack: {
+      minWidth: 512,
+      minHeight: 512,
+      targetRatio: 1,
+      aspectTolerance: 0.05,
+    },
     // Pixel sprite: small + square-ish. Generous tolerance — pixel art is often
     // a few px off square; the storefront renders it object-contain regardless.
-    sprite: { minWidth: 64, minHeight: 64, targetRatio: 1, aspectTolerance: 0.25 },
+    sprite: {
+      minWidth: 64,
+      minHeight: 64,
+      targetRatio: 1,
+      aspectTolerance: 0.25,
+    },
+    // PriceCharting ingest (see ImageKind note): card-shaped but small. The min
+    // only rejects degenerate/tracking-pixel responses, not real card photos.
+    'pc-card': {
+      minWidth: 96,
+      minHeight: 128,
+      targetRatio: 5 / 7,
+      aspectTolerance: 0.25,
+    },
   } satisfies Record<ImageKind, ProfileRule>,
 } as const;
 
@@ -73,13 +101,16 @@ const fail = (code: ValidationCode, message: string): ValidationResult => ({
   message,
 });
 
-export function validateImage(facts: ImageFacts, kind: ImageKind): ValidationResult {
+export function validateImage(
+  facts: ImageFacts,
+  kind: ImageKind,
+): ValidationResult {
   const allowedFormats = MIME_TO_FORMATS[facts.mimeType];
 
   // 1 — declared type allowlist.
   if (!allowedFormats) {
     return fail(
-      "bad_type",
+      'bad_type',
       `Unsupported type ${facts.mimeType}. Use WebP, PNG, JPEG, AVIF, or GIF.`,
     );
   }
@@ -88,31 +119,37 @@ export function validateImage(facts: ImageFacts, kind: ImageKind): ValidationRes
   // consistent with the declared MIME, so a renamed/disguised file is rejected.
   if (facts.detectedFormat && !allowedFormats.includes(facts.detectedFormat)) {
     return fail(
-      "type_mismatch",
+      'type_mismatch',
       `File contents (${facts.detectedFormat}) don't match the declared type ${facts.mimeType}.`,
     );
   }
 
   // 3 — no animated/multi-frame art (server only): we store a single image.
   if (facts.frames !== undefined && facts.frames > 1) {
-    return fail("animated", "Animated images aren't supported — upload a single frame.");
+    return fail(
+      'animated',
+      "Animated images aren't supported — upload a single frame.",
+    );
   }
 
   // 4 — byte cap.
   if (facts.bytes > IMAGE_RULES.maxBytes) {
     const mb = Math.round(IMAGE_RULES.maxBytes / (1024 * 1024));
-    return fail("too_large", `File exceeds the ${mb} MB limit.`);
+    return fail('too_large', `File exceeds the ${mb} MB limit.`);
   }
 
   // 5 — decodable.
   if (facts.width <= 0 || facts.height <= 0) {
-    return fail("unreadable", "Could not read the image dimensions.");
+    return fail('unreadable', 'Could not read the image dimensions.');
   }
 
   // 6 — upper dimension guard.
-  if (facts.width > IMAGE_RULES.maxDimension || facts.height > IMAGE_RULES.maxDimension) {
+  if (
+    facts.width > IMAGE_RULES.maxDimension ||
+    facts.height > IMAGE_RULES.maxDimension
+  ) {
     return fail(
-      "too_big_dimension",
+      'too_big_dimension',
       `Image is too large — keep each side ≤ ${IMAGE_RULES.maxDimension}px.`,
     );
   }
@@ -121,9 +158,14 @@ export function validateImage(facts: ImageFacts, kind: ImageKind): ValidationRes
 
   // 7 — minimum resolution (no blurry upscaling on the storefront).
   if (facts.width < profile.minWidth || facts.height < profile.minHeight) {
-    const label = kind === "card" ? "Card" : kind === "pack" ? "Pack" : "Sprite";
+    const label =
+      kind === 'card' || kind === 'pc-card'
+        ? 'Card'
+        : kind === 'pack'
+          ? 'Pack'
+          : 'Sprite';
     return fail(
-      "too_small",
+      'too_small',
       `${label} art must be at least ${profile.minWidth}×${profile.minHeight}px.`,
     );
   }
@@ -133,10 +175,10 @@ export function validateImage(facts: ImageFacts, kind: ImageKind): ValidationRes
   const deviation = Math.abs(ratio - profile.targetRatio) / profile.targetRatio;
   if (deviation > profile.aspectTolerance) {
     return fail(
-      "bad_aspect",
-      kind === "card"
-        ? "Card art must be roughly 5:7 (portrait)."
-        : "Sprite/pack art must be roughly square (1:1).",
+      'bad_aspect',
+      kind === 'card' || kind === 'pc-card'
+        ? 'Card art must be roughly 5:7 (portrait).'
+        : 'Sprite/pack art must be roughly square (1:1).',
     );
   }
 

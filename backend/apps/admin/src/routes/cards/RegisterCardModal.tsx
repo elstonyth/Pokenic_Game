@@ -37,15 +37,19 @@ type Fields = {
   grader: string;
   grade: string;
   market_value: string; // string so the operator can type freely
+  margin_pct: string; // display margin over FMV — Card.market_multiplier home
   pokemon_dex: number | null;
   sprite_image: string | null;
 };
 
+// Margin defaults to 20% here (the gacha card is where margin lives — product
+// creation carries none).
 const EMPTY_FIELDS: Fields = {
   set: '',
   grader: '',
   grade: '',
   market_value: '',
+  margin_pct: '20',
   pokemon_dex: null,
   sprite_image: null,
 };
@@ -100,11 +104,25 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
 
   const pick = (p: EligibleProduct) => {
     setProductId(p.id);
+    // Autofill the gacha facts from the product's staged metadata (set by
+    // Add-from-PriceCharting or a manual product edit) — the operator only
+    // adjusts, never retypes. Facts the product lacks are left as typed.
+    setFields((f) => ({
+      ...f,
+      set: p.set ?? f.set,
+      grade: p.grade ?? f.grade,
+      grader: p.grader ?? f.grader,
+      market_value: p.fmv !== null ? String(p.fmv) : f.market_value,
+    }));
     // Seed the lookup query with the product title — usually the card name.
     setPcQuery(p.title);
     setPcMatches(null);
     setPcProduct(null);
   };
+
+  const pickedAutofill =
+    selected !== null &&
+    (selected.set !== null || selected.grade !== null || selected.fmv !== null);
 
   const patch = (p: Partial<Fields>) => setFields((f) => ({ ...f, ...p }));
 
@@ -151,6 +169,11 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
     !!productId &&
     fields.market_value.trim() !== '' &&
     Number(fields.market_value) >= 0 &&
+    fields.margin_pct.trim() !== '' &&
+    // Margin bounded to [0, 1000]% so a fat-fingered value can't create an
+    // absurd customer price.
+    Number(fields.margin_pct) >= 0 &&
+    Number(fields.margin_pct) <= 1000 &&
     !saving;
 
   const save = async () => {
@@ -162,6 +185,7 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
         grader: fields.grader.trim(),
         grade: fields.grade.trim(),
         market_value: Number(fields.market_value),
+        market_multiplier: 1 + Number(fields.margin_pct) / 100,
         pokemon_dex: fields.pokemon_dex,
         sprite_image: fields.sprite_image,
       });
@@ -271,6 +295,11 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
               {selected && (
                 <Text className="text-ui-fg-subtle" size="small">
                   {t('cards.register.selectedHint', { title: selected.title })}
+                </Text>
+              )}
+              {pickedAutofill && (
+                <Text className="text-ui-fg-subtle" size="small">
+                  {t('cards.register.autofillHint')}
                 </Text>
               )}
             </div>
@@ -395,6 +424,22 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
                   value={fields.grade}
                   onChange={(e) => patch({ grade: e.target.value })}
                 />
+              </div>
+              <div className="flex flex-col gap-y-2">
+                <Label size="small" weight="plus">
+                  {t('cards.form.markup')}
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={1000}
+                  step={1}
+                  value={fields.margin_pct}
+                  onChange={(e) => patch({ margin_pct: e.target.value })}
+                />
+                <Text className="text-ui-fg-subtle text-xs">
+                  {t('cards.form.markupHint')}
+                </Text>
               </div>
             </div>
 

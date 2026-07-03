@@ -3,6 +3,11 @@ import PacksModuleService from '../../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../../modules/packs';
 import { cardByHandle, toCardView } from '../../../../modules/packs/card-view';
 import { toMoney } from '../../../../modules/packs/money';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../../../modules/packs/pricing';
 
 // GET /store/packs/:slug — one active pack plus its prize pool (each odds row
 // joined to the referenced Card), behind /claw/[slug]'s Top Hits. A plain Medusa
@@ -57,10 +62,24 @@ export async function GET(
   // Join each odds row to its card; drop orphaned odds whose card is missing.
   // rarity comes from the odds row — the card's tier IN THIS PACK. o.weight
   // (the secret win rate) is intentionally NOT included.
+  //
+  // marketPriceMyr = raw USD FMV × FX × the card's own multiplier, computed at
+  // request time — the same live display seam as open/vault/recent-pulls, so
+  // the daily PriceCharting sync reaches Top Hits without any cache to bust.
+  const fxRate = await resolveFxRate(packsModuleService);
   const entries = odds
     .map((o) => {
       const card = byHandle.get(o.card_id);
-      return card ? toCardView(card, o.rarity ?? 'Common') : null;
+      return card
+        ? {
+            ...toCardView(card, o.rarity ?? 'Common'),
+            marketPriceMyr: displayMarketPrice(
+              toMoney(card.market_value),
+              fxRate,
+              Number(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
+            ),
+          }
+        : null;
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
 

@@ -154,6 +154,9 @@ interface BackendOddsEntry {
   name: string;
   rarity: string;
   market_value: number;
+  /** Live MYR display price (FMV × FX × margin) computed by the backend at
+   *  request time; absent on an older backend → fall back to market_value. */
+  marketPriceMyr?: number;
   image: string;
 }
 
@@ -194,12 +197,16 @@ export async function getPackDetail(slug: string): Promise<PackDetail | null> {
     if (valid.length === 0) return null;
 
     const pool: PackCard[] = [...valid]
-      .sort((a, b) => b.market_value - a.market_value)
+      .sort(
+        (a, b) =>
+          (b.marketPriceMyr ?? b.market_value) -
+          (a.marketPriceMyr ?? a.market_value),
+      )
       .map((o) => ({
         id: o.handle,
         name: o.name,
         image: o.image,
-        value: formatValue(o.market_value),
+        value: formatValue(o.marketPriceMyr ?? o.market_value),
         rarity: o.rarity as Rarity,
       }));
 
@@ -218,6 +225,8 @@ interface BackendRecentPull {
   name: string;
   image: string;
   market_value: number;
+  /** Live MYR display price — same optional contract as BackendOddsEntry. */
+  marketPriceMyr?: number;
   rarity: string;
   pack_id: string;
   rolled_at: string;
@@ -261,7 +270,7 @@ export async function getRecentPulls(): Promise<RecentPull[]> {
         id: `${p.handle}-${p.rolled_at}-${i}`,
         name: p.name,
         image: p.image,
-        value: formatValue(p.market_value),
+        value: formatValue(p.marketPriceMyr ?? p.market_value),
         rarity: p.rarity as Rarity,
         packName: pack?.name ?? 'Mystery Pack',
         packIcon: pack?.image ?? FALLBACK_PACK_ICON,

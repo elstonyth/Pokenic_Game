@@ -52,19 +52,25 @@ export const PackRowSchema = z.looseObject({
   price: finite,
 });
 
-/** GET /store/packs/:slug odds row — handle + known rarity + finite value. */
+/** GET /store/packs/:slug odds row — handle + known rarity + finite value.
+ *  marketPriceMyr (live MYR display price: FMV × FX × margin, computed by the
+ *  backend at request time) is optional — an older backend without it falls
+ *  back to the raw USD market_value. */
 export const OddsEntrySchema = z.looseObject({
   handle: z.string(),
   rarity,
   market_value: finite,
+  marketPriceMyr: finite.optional(),
 });
 
-/** GET /store/pulls/recent row — handle + name + known rarity + finite value. */
+/** GET /store/pulls/recent row — handle + name + known rarity + finite value.
+ *  marketPriceMyr optional, same contract as the odds row above. */
 export const RecentPullSchema = z.looseObject({
   handle: z.string(),
   name: z.string(),
   rarity,
   market_value: finite,
+  marketPriceMyr: finite.optional(),
 });
 
 // --- data/leaderboard.ts ----------------------------------------------------

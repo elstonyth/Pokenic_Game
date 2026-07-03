@@ -10,6 +10,7 @@ import { validateDeliveryRequest, snapshotAddress } from './delivery';
 import { rewardsRedemptionEnabled } from './rewards-gate';
 import Pack from './models/pack';
 import Card from './models/card';
+import CardPriceHistory from './models/card-price-history';
 import FxRate from './models/fx-rate';
 import PackOdds from './models/pack-odds';
 import Pull from './models/pull';
@@ -217,6 +218,7 @@ const DOWNSTREAM_DEPTH_CAP = 100;
 class PacksModuleService extends MedusaService({
   Pack,
   Card,
+  CardPriceHistory,
   FxRate,
   PackOdds,
   Pull,
@@ -479,7 +481,9 @@ class PacksModuleService extends MedusaService({
   async quoteBuyback(
     packSlug: string,
     pull: { rolled_at: Date | string; revealed_at?: Date | string | null },
-    marketValue: number,
+    // The MYR display Value (raw USD × FX × per-card markup), NOT raw USD —
+    // buyback pays MYR credits, so the percent is of what the customer sees.
+    valueMyr: number,
     nowMs: number = Date.now(),
   ): Promise<{
     percent: number;
@@ -488,7 +492,7 @@ class PacksModuleService extends MedusaService({
   }> {
     const [pack] = await this.listPacks({ slug: packSlug }, { take: 1 });
     const { percent, rate_type } = resolveBuybackRate(pack, pull, nowMs);
-    return { percent, amount: buybackAmount(marketValue, percent), rate_type };
+    return { percent, amount: buybackAmount(valueMyr, percent), rate_type };
   }
 
   // Lifetime ledger totals (balance + money-in/out + external-funded spend),
@@ -635,6 +639,16 @@ class PacksModuleService extends MedusaService({
       externalFundedCents = -consumeExternalSen(
         -deltaCents,
         externalBalanceSen,
+      );
+    }
+    // Defensive: a pack_open debit snapshots the NEGATED consumed sen, so it
+    // must be non-positive. If a future consumeExternalSen regression flipped
+    // the sign, a positive value would inflate the VIP spend basis — fail loudly
+    // rather than silently corrupt it.
+    if (input.reason === 'pack_open' && externalFundedCents > 0) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        'pack_open external_funded_cents must be <= 0.',
       );
     }
 

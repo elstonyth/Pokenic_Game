@@ -1,6 +1,6 @@
 import { toMoney } from './money';
 import type { CardLike } from './card-view';
-import { displayMarketPrice } from './pricing';
+import { DEFAULT_MARKET_MULTIPLIER, displayMarketPrice } from './pricing';
 
 // The admin Gacha-Cards DTO: the public card fields plus the operator-only
 // `price` (raw stored sentinel — null = "use FMV", which the edit form
@@ -39,13 +39,15 @@ export function toAdminCardDto(card: AdminCardLike, fxRate?: number) {
     sprite_image: card.sprite_image ?? null,
     pc_product_id: card.pc_product_id ?? null,
     pc_grade: card.pc_grade ?? null,
-    market_multiplier: toMoney(card.market_multiplier ?? 1.2),
+    market_multiplier: toMoney(
+      card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER,
+    ),
     pc_synced_at: card.pc_synced_at ?? null,
   };
   if (fxRate === undefined) return base;
 
   const raw = toMoney(card.market_value);
-  const mult = toMoney(card.market_multiplier ?? 1.2);
+  const mult = toMoney(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER);
   const marketMyr = displayMarketPrice(raw, fxRate, 1);
   const displayPrice = displayMarketPrice(raw, fxRate, mult);
   return {

@@ -12,7 +12,11 @@ import {
   buybackAmount,
   instantDeadlineMs,
 } from '../../../../../modules/packs/buyback-rate';
-import { displayMarketPrice, resolveFxRate } from '../../../../../modules/packs/pricing';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../../../../modules/packs/pricing';
 
 // POST /store/packs/:slug/open-batch — open N packs in one atomic operation:
 // rolls N winners, debits count×price from the credit ledger, and records N
@@ -52,7 +56,7 @@ export async function POST(
   if (result.rolls.length !== result.pulls.length) {
     throw new MedusaError(
       MedusaError.Types.UNEXPECTED_STATE,
-      "open-batch workflow returned mismatched rolls/pulls.",
+      'open-batch workflow returned mismatched rolls/pulls.',
     );
   }
 
@@ -71,25 +75,33 @@ export async function POST(
   const fxRate = await resolveFxRate(packsService);
   const handles = [...new Set(result.rolls.map((card) => card.handle))];
   const cardRows = handles.length
-    ? await packsService.listCards({ handle: handles }, { take: handles.length })
+    ? await packsService.listCards(
+        { handle: handles },
+        { take: handles.length },
+      )
     : [];
   const multiplierByHandle = new Map(
-    cardRows.map((c) => [c.handle, Number(c.market_multiplier ?? 1.2)]),
+    cardRows.map((c) => [
+      c.handle,
+      Number(c.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
+    ]),
   );
 
   const rolls = await Promise.all(
     result.rolls.map(async (card, i) => {
       const pull = result.pulls[i];
       const marketValue = toMoney(card.market_value);
-      const buyback = await packsService.quoteBuyback(
-        slug,
-        { rolled_at: pull.rolled_at, revealed_at: pull.revealed_at },
-        marketValue,
-      );
+      // MYR Value first — buyback (instant + flat) is a cut of the shown Value,
+      // not raw USD, so it must be quoted off this, matching what selling credits.
       const marketPriceMyr = displayMarketPrice(
         marketValue,
         fxRate,
-        multiplierByHandle.get(card.handle) ?? 1.2,
+        multiplierByHandle.get(card.handle) ?? DEFAULT_MARKET_MULTIPLIER,
+      );
+      const buyback = await packsService.quoteBuyback(
+        slug,
+        { rolled_at: pull.rolled_at, revealed_at: pull.revealed_at },
+        marketPriceMyr,
       );
       return {
         pull,
@@ -97,7 +109,7 @@ export async function POST(
         buyback: {
           ...buyback,
           vault_percent: FLAT_PERCENT,
-          vault_amount: buybackAmount(marketValue, FLAT_PERCENT),
+          vault_amount: buybackAmount(marketPriceMyr, FLAT_PERCENT),
           instant_deadline_ms: instantDeadlineMs(
             pull.rolled_at,
             pull.revealed_at,

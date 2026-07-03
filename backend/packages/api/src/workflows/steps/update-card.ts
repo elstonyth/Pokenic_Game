@@ -1,15 +1,16 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import { MedusaError, ProductStatus, Modules } from "@medusajs/framework/utils";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import { DEFAULT_MARKET_MULTIPLIER } from '../../modules/packs/pricing';
+import { MedusaError, ProductStatus, Modules } from '@medusajs/framework/utils';
 import {
   createProductsWorkflow,
   updateProductsWorkflow,
-} from "@medusajs/medusa/core-flows";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
+} from '@medusajs/medusa/core-flows';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
 import {
   buildCardProductInput,
   resolveCardProductContext,
-} from "../../modules/packs/card-product";
+} from '../../modules/packs/card-product';
 
 // Everything about a card is editable EXCEPT its handle (the immutable key that
 // PackOdds / Pull / the Product reference). `handle` selects the row to patch.
@@ -74,7 +75,7 @@ type CompensateData =
 // Upsert: if the Product is somehow missing it is (re)created. Compensation
 // restores the prior Card AND the full prior Product state.
 export const updateCardStep = createStep(
-  "update-card",
+  'update-card',
   async (input: UpdateCardInput, { container }) => {
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
     const productModule = container.resolve(Modules.PRODUCT);
@@ -83,7 +84,7 @@ export const updateCardStep = createStep(
     if (!card) {
       throw new MedusaError(
         MedusaError.Types.NOT_FOUND,
-        `Card '${input.handle}' not found.`
+        `Card '${input.handle}' not found.`,
       );
     }
 
@@ -101,7 +102,9 @@ export const updateCardStep = createStep(
       sprite_image: card.sprite_image ?? null,
       pc_product_id: card.pc_product_id ?? null,
       pc_grade: card.pc_grade ?? null,
-      market_multiplier: Number(card.market_multiplier ?? 1.2),
+      market_multiplier: Number(
+        card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER,
+      ),
     };
 
     const salePrice = input.price ?? input.market_value;
@@ -123,14 +126,14 @@ export const updateCardStep = createStep(
         sprite_image: input.sprite_image,
         pc_product_id: input.pc_product_id ?? null,
         pc_grade: input.pc_grade ?? null,
-        market_multiplier: input.market_multiplier ?? 1.2,
+        market_multiplier: input.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER,
       },
     ]);
 
     // Mirror to the Product (handle === card.handle).
     const [product] = await productModule.listProducts(
       { handle: input.handle },
-      { take: 1, relations: ["variants", "images"] }
+      { take: 1, relations: ['variants', 'images'] },
     );
     const nextStatus = input.for_sale
       ? ProductStatus.PUBLISHED
@@ -172,14 +175,15 @@ export const updateCardStep = createStep(
                 // must not leave it stale.
                 pc_product_id: input.pc_product_id ?? null,
                 pc_grade: input.pc_grade ?? null,
-                market_multiplier: input.market_multiplier ?? 1.2,
+                market_multiplier:
+                  input.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER,
               },
               ...(variantId
                 ? {
                     variants: [
                       {
                         id: variantId,
-                        prices: [{ currency_code: "usd", amount: salePrice }],
+                        prices: [{ currency_code: 'usd', amount: salePrice }],
                       },
                     ],
                   }
@@ -188,10 +192,10 @@ export const updateCardStep = createStep(
           ],
         },
       });
-      return new StepResponse(
-        { handle: card.handle, productId: product.id },
-        { card: snapshot, product: prevProduct } satisfies CompensateData
-      );
+      return new StepResponse({ handle: card.handle, productId: product.id }, {
+        card: snapshot,
+        product: prevProduct,
+      } satisfies CompensateData);
     }
 
     // Defensive upsert: no Product for this handle — create one to match.
@@ -216,7 +220,7 @@ export const updateCardStep = createStep(
         salesChannelId: ctx.salesChannelId,
         status: nextStatus,
         manageInventory: false,
-      }
+      },
     );
     const { result } = await createProductsWorkflow(container).run({
       input: {
@@ -225,10 +229,10 @@ export const updateCardStep = createStep(
       },
     });
 
-    return new StepResponse(
-      { handle: card.handle, productId: result[0].id },
-      { card: snapshot, product: null } satisfies CompensateData
-    );
+    return new StepResponse({ handle: card.handle, productId: result[0].id }, {
+      card: snapshot,
+      product: null,
+    } satisfies CompensateData);
   },
   async (data: CompensateData, { container }) => {
     if (!data) return;
@@ -270,7 +274,7 @@ export const updateCardStep = createStep(
                         id: p.variantId,
                         prices: [
                           {
-                            currency_code: "usd",
+                            currency_code: 'usd',
                             amount: data.card.price ?? data.card.market_value,
                           },
                         ],
@@ -283,7 +287,7 @@ export const updateCardStep = createStep(
         },
       });
     }
-  }
+  },
 );
 
 export default updateCardStep;

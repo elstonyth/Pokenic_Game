@@ -1,6 +1,6 @@
-import { MedusaError } from "@medusajs/framework/utils";
-import type { RegisterCardInput } from "../../../workflows/steps/create-card";
-import type { UpdateCardInput } from "../../../workflows/steps/update-card";
+import { MedusaError } from '@medusajs/framework/utils';
+import type { RegisterCardInput } from '../../../workflows/steps/create-card';
+import type { UpdateCardInput } from '../../../workflows/steps/update-card';
 
 const HANDLE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_TEXT = 512;
@@ -13,7 +13,7 @@ const bad = (message: string): never => {
 
 const reqStr = (b: Record<string, unknown>, key: string): string => {
   const v = b[key];
-  if (typeof v !== "string" || v.trim() === "") bad(`'${key}' is required.`);
+  if (typeof v !== 'string' || v.trim() === '') bad(`'${key}' is required.`);
   const s = (b[key] as string).trim();
   if (s.length > MAX_TEXT) bad(`'${key}' is too long (max ${MAX_TEXT} chars).`);
   return s;
@@ -23,7 +23,7 @@ const reqStr = (b: Record<string, unknown>, key: string): string => {
 // relative paths (blocks oversized data: URIs and odd schemes).
 const imageStr = (b: Record<string, unknown>, key: string): string => {
   const v = b[key];
-  if (typeof v !== "string" || v.trim() === "") bad(`'${key}' is required.`);
+  if (typeof v !== 'string' || v.trim() === '') bad(`'${key}' is required.`);
   const s = (b[key] as string).trim();
   if (s.length > MAX_URL) bad(`'${key}' is too long (max ${MAX_URL} chars).`);
   if (!IMAGE_RE.test(s)) {
@@ -34,12 +34,12 @@ const imageStr = (b: Record<string, unknown>, key: string): string => {
 
 const optStr = (b: Record<string, unknown>, key: string): string => {
   const v = b[key];
-  return typeof v === "string" ? v.trim() : "";
+  return typeof v === 'string' ? v.trim() : '';
 };
 
 const reqNum = (b: Record<string, unknown>, key: string): number => {
-  const v = typeof b[key] === "string" ? Number(b[key]) : b[key];
-  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+  const v = typeof b[key] === 'string' ? Number(b[key]) : b[key];
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
     bad(`'${key}' must be a number >= 0.`);
   }
   return v as number;
@@ -53,7 +53,7 @@ const reqNum = (b: Record<string, unknown>, key: string): number => {
 // when omitted/blank (the card then resolves via name-derivation).
 const MAX_DEX = 1025;
 
-const optDex = (b: Record<string, unknown>): number | null => {
+export const optDex = (b: Record<string, unknown>): number | null => {
   const v = b.pokemon_dex;
   if (v === undefined || v === null || v === '') return null;
   const n = typeof v === 'string' ? Number(v) : v;
@@ -63,14 +63,16 @@ const optDex = (b: Record<string, unknown>): number | null => {
   return n as number;
 };
 
-const optSprite = (b: Record<string, unknown>): string | null => {
+export const optSprite = (b: Record<string, unknown>): string | null => {
   const v = b.sprite_image;
   if (v === undefined || v === null || v === '') return null;
   if (typeof v !== 'string') bad(`'sprite_image' must be a string URL.`);
   const s = (v as string).trim();
   if (s === '') return null;
-  if (s.length > MAX_URL) bad(`'sprite_image' is too long (max ${MAX_URL} chars).`);
-  if (!IMAGE_RE.test(s)) bad(`'sprite_image' must be an http(s) URL or a /storefront path.`);
+  if (s.length > MAX_URL)
+    bad(`'sprite_image' is too long (max ${MAX_URL} chars).`);
+  if (!IMAGE_RE.test(s))
+    bad(`'sprite_image' must be an http(s) URL or a /storefront path.`);
   return s;
 };
 
@@ -123,8 +125,8 @@ const optMultiplier = (b: Record<string, unknown>): number | undefined => {
 };
 
 const asObject = (raw: unknown): Record<string, unknown> => {
-  if (!raw || typeof raw !== "object") {
-    bad("Body must be an object.");
+  if (!raw || typeof raw !== 'object') {
+    bad('Body must be an object.');
   }
   return raw as Record<string, unknown>;
 };
@@ -140,11 +142,11 @@ export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
   checkPcPairing(pc_product_id, pc_grade);
 
   return {
-    product_id: reqStr(b, "product_id"),
-    set: optStr(b, "set"),
-    grader: optStr(b, "grader"),
-    grade: optStr(b, "grade"),
-    market_value: reqNum(b, "market_value"),
+    product_id: reqStr(b, 'product_id'),
+    set: optStr(b, 'set'),
+    grader: optStr(b, 'grader'),
+    grade: optStr(b, 'grade'),
+    market_value: reqNum(b, 'market_value'),
     pokemon_dex: optDex(b),
     sprite_image: optSprite(b),
     pc_product_id,
@@ -157,7 +159,7 @@ export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
 // (immutable — it keys PackOdds/Pull/Product).
 export function coerceUpdateCardBody(
   raw: unknown,
-  handle: string
+  handle: string,
 ): UpdateCardInput {
   const b = asObject(raw);
 
@@ -167,9 +169,9 @@ export function coerceUpdateCardBody(
 
   const priceRaw = b.price;
   const price =
-    priceRaw === undefined || priceRaw === null || priceRaw === ""
+    priceRaw === undefined || priceRaw === null || priceRaw === ''
       ? undefined
-      : reqNum(b, "price");
+      : reqNum(b, 'price');
 
   const pc_product_id = optPcId(b);
   const pc_grade = optPcGrade(b);
@@ -177,12 +179,12 @@ export function coerceUpdateCardBody(
 
   return {
     handle,
-    name: reqStr(b, "name"),
-    set: optStr(b, "set"),
-    grader: optStr(b, "grader"),
-    grade: optStr(b, "grade"),
-    market_value: reqNum(b, "market_value"),
-    image: imageStr(b, "image"),
+    name: reqStr(b, 'name'),
+    set: optStr(b, 'set'),
+    grader: optStr(b, 'grader'),
+    grade: optStr(b, 'grade'),
+    market_value: reqNum(b, 'market_value'),
+    image: imageStr(b, 'image'),
     price,
     for_sale: b.for_sale !== false, // default true unless explicitly false
     pokemon_dex: optDex(b),

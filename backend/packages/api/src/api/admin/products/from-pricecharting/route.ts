@@ -1,7 +1,11 @@
-import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { MedusaError } from "@medusajs/framework/utils";
-import { createProductFromPriceChartingWorkflow } from "../../../../workflows/create-product-from-pricecharting";
+import type { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import { MedusaError } from '@medusajs/framework/utils';
+import { createProductFromPriceChartingWorkflow } from '../../../../workflows/create-product-from-pricecharting';
+import { optDex, optSprite } from '../../cards/validate';
 
+// No `market_multiplier` here: margin is a GACHA-card concern set at card
+// registration (Card.market_multiplier) — product creation carries none, and
+// the listing price is plain FMV × FX.
 type Body = {
   pc_product_id?: unknown;
   pc_grade?: unknown;
@@ -13,20 +17,24 @@ type Body = {
   image?: unknown;
   price?: unknown;
   for_sale?: unknown;
-  market_multiplier?: unknown;
   stock?: unknown;
+  pokemon_dex?: unknown;
+  sprite_image?: unknown;
 };
 
 const requireString = (value: unknown, field: string): string => {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new MedusaError(MedusaError.Types.INVALID_DATA, `'${field}' is required.`);
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      `'${field}' is required.`,
+    );
   }
   return value;
 };
 
 const requireNonNegativeNumber = (value: unknown, field: string): number => {
-  const n = typeof value === "string" ? Number(value) : value;
-  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
       `'${field}' must be a non-negative number.`,
@@ -38,28 +46,17 @@ const requireNonNegativeNumber = (value: unknown, field: string): number => {
 const requireNonNegativeInteger = (value: unknown, field: string): number => {
   // Reject "" explicitly: Number("") === 0 would silently coerce a blank field to
   // 0, diverging from the admin UI's canSubmit (which requires a non-empty stock).
-  if (value === "") {
+  if (value === '') {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
       `'${field}' must be provided.`,
     );
   }
-  const n = typeof value === "string" ? Number(value) : value;
-  if (typeof n !== "number" || !Number.isInteger(n) || n < 0) {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
       `'${field}' must be a non-negative integer.`,
-    );
-  }
-  return n;
-};
-
-const requirePositiveNumber = (value: unknown, field: string): number => {
-  const n = typeof value === "string" ? Number(value) : value;
-  if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      `'${field}' must be a positive number.`,
     );
   }
   return n;
@@ -71,9 +68,12 @@ const requireUrl = (value: unknown, field: string): string => {
   try {
     parsed = new URL(s);
   } catch {
-    throw new MedusaError(MedusaError.Types.INVALID_DATA, `'${field}' must be a valid URL.`);
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      `'${field}' must be a valid URL.`,
+    );
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
       `'${field}' must use http or https.`,
@@ -85,31 +85,42 @@ const requireUrl = (value: unknown, field: string): string => {
 // POST /admin/products/from-pricecharting — mint a standalone marketplace
 // Product from a PriceCharting lookup, carrying the PC link on
 // product.metadata. NO card is created here.
-export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<void> {
+export async function POST(
+  req: MedusaRequest,
+  res: MedusaResponse,
+): Promise<void> {
   const body = req.body as Body;
 
-  const pc_product_id = requireString(body.pc_product_id, "pc_product_id");
-  const pc_grade = requireString(body.pc_grade, "pc_grade");
-  const name = requireString(body.name, "name");
-  const market_value = requireNonNegativeNumber(body.market_value, "market_value");
-  const image = requireUrl(body.image, "image");
+  const pc_product_id = requireString(body.pc_product_id, 'pc_product_id');
+  const pc_grade = requireString(body.pc_grade, 'pc_grade');
+  const name = requireString(body.name, 'name');
+  const market_value = requireNonNegativeNumber(
+    body.market_value,
+    'market_value',
+  );
+  const image = requireUrl(body.image, 'image');
 
-  const set = typeof body.set === "string" ? body.set : "";
-  const grader = typeof body.grader === "string" ? body.grader : "";
-  const grade = typeof body.grade === "string" ? body.grade : "";
+  const set = typeof body.set === 'string' ? body.set : '';
+  const grader = typeof body.grader === 'string' ? body.grader : '';
+  const grade = typeof body.grade === 'string' ? body.grade : '';
   const price =
     body.price === null || body.price === undefined
       ? null
-      : requireNonNegativeNumber(body.price, "price");
-  const for_sale = typeof body.for_sale === "boolean" ? body.for_sale : undefined;
-  const market_multiplier =
-    body.market_multiplier === undefined
-      ? 1.2
-      : requirePositiveNumber(body.market_multiplier, "market_multiplier");
+      : requireNonNegativeNumber(body.price, 'price');
+  const for_sale =
+    typeof body.for_sale === 'boolean' ? body.for_sale : undefined;
+  // Default 0: units are counted when the physical slabs are actually in hand,
+  // not implied by creating the listing.
   const stock =
-    body.stock === undefined ? 1 : requireNonNegativeInteger(body.stock, "stock");
+    body.stock === undefined
+      ? 0
+      : requireNonNegativeInteger(body.stock, 'stock');
+  const pokemon_dex = optDex(body as Record<string, unknown>);
+  const sprite_image = optSprite(body as Record<string, unknown>);
 
-  const { result } = await createProductFromPriceChartingWorkflow(req.scope).run({
+  const { result } = await createProductFromPriceChartingWorkflow(
+    req.scope,
+  ).run({
     input: {
       pc_product_id,
       pc_grade,
@@ -121,8 +132,9 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
       image,
       price,
       for_sale,
-      market_multiplier,
       stock,
+      pokemon_dex,
+      sprite_image,
     },
   });
 

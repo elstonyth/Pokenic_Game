@@ -89,6 +89,8 @@ export interface AdminCardRegister {
   market_value: number;
   pokemon_dex: number | null;
   sprite_image: string | null;
+  /** Display margin over FMV (1.2 = +20%) — the gacha-card home of "markup". */
+  market_multiplier?: number;
 }
 
 // Edit payload. `handle` travels as the `$handle` path param, not the body.

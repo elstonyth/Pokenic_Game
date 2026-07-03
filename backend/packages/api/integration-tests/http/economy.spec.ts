@@ -172,6 +172,9 @@ medusaIntegrationTestRunner({
           teamOverride: 0,
           commissionReversal: 0,
           cashout: 0,
+          // Task A5 (audit #59) added the non-revenue rewardPromo bucket to the
+          // report; no reward credits are seeded here, so it must be 0.
+          rewardPromo: 0,
           net: 38.39,
         });
 

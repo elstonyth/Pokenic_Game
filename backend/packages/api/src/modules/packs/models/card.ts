@@ -1,4 +1,5 @@
-import { model } from "@medusajs/framework/utils";
+import { model } from '@medusajs/framework/utils';
+import { DEFAULT_MARKET_MULTIPLIER } from '../pricing';
 
 // Card — the gacha prize metadata referenced by PackOdds (weights) and Pull
 // (results). In Phase 5a it carries its own display fields so the read-only
@@ -6,7 +7,7 @@ import { model } from "@medusajs/framework/utils";
 // links each Card to the Medusa Product whose variant carries inventory +
 // checkout; `handle` is that product's handle (the future link key, and the
 // stable id PackOdds/Pull reference).
-export const Card = model.define("card", {
+export const Card = model.define('card', {
   id: model.id().primaryKey(),
   handle: model.text().unique(),
   name: model.text(),
@@ -44,7 +45,7 @@ export const Card = model.define("card", {
   pc_grade: model.text().nullable(),
   // Display-only markup applied over the raw PriceCharting price (never
   // mutates market_value itself). bigNumber (decimal), default 1.2 = +20%.
-  market_multiplier: model.bigNumber().default(1.2),
+  market_multiplier: model.bigNumber().default(DEFAULT_MARKET_MULTIPLIER),
   // Last time this card's price was synced from PriceCharting; null = never.
   pc_synced_at: model.dateTime().nullable(),
 });

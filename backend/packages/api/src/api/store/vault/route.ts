@@ -14,7 +14,11 @@ import {
   toCardView,
 } from '../../../modules/packs/card-view';
 import { toMoney } from '../../../modules/packs/money';
-import { displayMarketPrice, resolveFxRate } from '../../../modules/packs/pricing';
+import {
+  DEFAULT_MARKET_MULTIPLIER,
+  displayMarketPrice,
+  resolveFxRate,
+} from '../../../modules/packs/pricing';
 
 // GET /store/vault — the authenticated customer's vault: every pull still held
 // (status "vaulted"), newest first, with a LIVE buyback offer per item: current
@@ -96,6 +100,13 @@ export async function GET(
         rolled_at: p.rolled_at,
         revealed_at: p.revealed_at,
       });
+      // MYR Value (raw USD × FX × markup) — the buyback percent is a cut of this
+      // shown Value, not raw USD, matching what selling actually credits.
+      const marketPriceMyr = displayMarketPrice(
+        marketValue,
+        fxRate,
+        Number(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
+      );
       return {
         pull_id: p.id,
         rolled_at: p.rolled_at,
@@ -104,15 +115,11 @@ export async function GET(
         showcased: (p as unknown as { showcased: boolean }).showcased ?? false,
         card: {
           ...toCardView(card, rarityOf(p.pack_id, p.card_id)),
-          marketPriceMyr: displayMarketPrice(
-            marketValue,
-            fxRate,
-            Number(card.market_multiplier ?? 1.2),
-          ),
+          marketPriceMyr,
         },
         buyback: {
           percent,
-          amount: buybackAmount(marketValue, percent),
+          amount: buybackAmount(marketPriceMyr, percent),
           rate_type,
         },
       };

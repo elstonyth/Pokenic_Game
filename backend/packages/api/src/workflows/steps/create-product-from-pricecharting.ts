@@ -1,22 +1,26 @@
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
-import type { MedusaContainer } from "@medusajs/framework/types";
+import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
+import type { MedusaContainer } from '@medusajs/framework/types';
 import {
   ContainerRegistrationKeys,
   MedusaError,
   ProductStatus,
-} from "@medusajs/framework/utils";
+} from '@medusajs/framework/utils';
 import {
   createProductsWorkflow,
   createInventoryLevelsWorkflow,
   deleteProductsWorkflow,
-} from "@medusajs/medusa/core-flows";
+} from '@medusajs/medusa/core-flows';
 import {
   buildCardProductInput,
   resolveCardProductContext,
-} from "../../modules/packs/card-product";
-import { PACKS_MODULE } from "../../modules/packs";
-import type PacksModuleService from "../../modules/packs/service";
-import { displayMarketPrice, resolveFxRate } from "../../modules/packs/pricing";
+} from '../../modules/packs/card-product';
+import { PACKS_MODULE } from '../../modules/packs';
+import type PacksModuleService from '../../modules/packs/service';
+import { displayMarketPrice, resolveFxRate } from '../../modules/packs/pricing';
+import {
+  ingestPcImage,
+  isPcImageUrl,
+} from '../../api/admin/media/ingest-pc-image';
 
 // Create a standalone marketplace Product from a PriceCharting lookup. The
 // product is now a NORMAL tracked card product (manage_inventory + a stock
@@ -34,15 +38,18 @@ export type CreateProductFromPcInput = {
   image: string;
   price?: number | null;
   for_sale?: boolean;
-  market_multiplier?: number;
-  stock?: number; // initial tracked units at the default location (default 1)
+  stock?: number; // initial tracked units at the default location (default 0 — counted when in hand)
+  // Pixel-Pokémon assignment, staged on product.metadata; the create-card step
+  // inherits it when the product is later registered as a gacha card.
+  pokemon_dex?: number | null;
+  sprite_image?: string | null;
 };
 
 const slug = (s: string) =>
   s
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 // Minimal typed view of the remote-query row (strict mode, no `any`).
 type NewProductRow = {
@@ -61,11 +68,18 @@ export const createProductFromPcInvoke = async (
 ) => {
   const ctx = await resolveCardProductContext(container);
   const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
-  const multiplier = input.market_multiplier ?? 1.2;
-  // MYR listing price: FMV(USD) x FX x markup, unless the caller sent one.
+  // MYR listing price: plain FMV(USD) × FX, unless the caller sent one. NO
+  // markup here — margin is a gacha-card concern (Card.market_multiplier),
+  // chosen when the product is registered as a card.
   const price =
     input.price ??
-    displayMarketPrice(input.market_value, await resolveFxRate(packs), multiplier);
+    displayMarketPrice(input.market_value, await resolveFxRate(packs), 1);
+
+  // A PriceCharting image is never hotlinked: ingest it through the media
+  // pipeline (validated + stored on OUR file provider) and persist that URL.
+  const image = isPcImageUrl(input.image)
+    ? await ingestPcImage(container, input.image)
+    : input.image;
 
   const handle = slug(
     `${input.name}-${input.grader}-${input.grade}-${input.pc_product_id}`,
@@ -75,7 +89,7 @@ export const createProductFromPcInvoke = async (
     {
       handle,
       title: input.name,
-      image: input.image,
+      image,
       price,
       metadata: {
         fmv: input.market_value,
@@ -86,14 +100,19 @@ export const createProductFromPcInvoke = async (
         year: new Date().getFullYear(),
         pc_product_id: input.pc_product_id,
         pc_grade: input.pc_grade,
-        market_multiplier: multiplier,
+        ...(input.pokemon_dex != null
+          ? { pokemon_dex: input.pokemon_dex }
+          : {}),
+        ...(input.sprite_image ? { sprite_image: input.sprite_image } : {}),
       },
     },
     {
       shippingProfileId: ctx.shippingProfileId,
       salesChannelId: ctx.salesChannelId,
       status:
-        input.for_sale === false ? ProductStatus.DRAFT : ProductStatus.PUBLISHED,
+        input.for_sale === false
+          ? ProductStatus.DRAFT
+          : ProductStatus.PUBLISHED,
       manageInventory: true,
     },
   );
@@ -121,7 +140,9 @@ export const createProductFromPcInvoke = async (
         .resolve(ContainerRegistrationKeys.LOGGER)
         .error(
           `[from-pricecharting] rollback failed for product ${product.id}: ${
-            cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
+            cleanupErr instanceof Error
+              ? cleanupErr.message
+              : String(cleanupErr)
           }`,
         );
     }
@@ -131,8 +152,8 @@ export const createProductFromPcInvoke = async (
   // true); resolve it, then create the LEVEL — the same two-step the seed uses.
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
   const { data } = await query.graph({
-    entity: "product",
-    fields: ["variants.inventory_items.inventory.id"],
+    entity: 'product',
+    fields: ['variants.inventory_items.inventory.id'],
     filters: { id: product.id },
   });
   const rows = data as NewProductRow[];
@@ -146,7 +167,7 @@ export const createProductFromPcInvoke = async (
     await rollbackProduct();
     throw new MedusaError(
       MedusaError.Types.UNEXPECTED_STATE,
-      "Inventory item was not created for the new product variant.",
+      'Inventory item was not created for the new product variant.',
     );
   }
 
@@ -156,7 +177,7 @@ export const createProductFromPcInvoke = async (
         inventory_levels: [
           {
             location_id: ctx.stockLocationId,
-            stocked_quantity: input.stock ?? 1,
+            stocked_quantity: input.stock ?? 0,
             inventory_item_id: inventoryItemId,
           },
         ],
@@ -173,14 +194,13 @@ export const createProductFromPcInvoke = async (
     throw e;
   }
 
-  return new StepResponse(
-    product,
-    { productId: product.id } satisfies CompensateData,
-  );
+  return new StepResponse(product, {
+    productId: product.id,
+  } satisfies CompensateData);
 };
 
 export const createProductFromPcStep = createStep(
-  "create-product-from-pricecharting",
+  'create-product-from-pricecharting',
   createProductFromPcInvoke,
   // Fires only if a LATER workflow step fails after this one succeeds.
   async (data: CompensateData, { container }) => {

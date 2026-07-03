@@ -57,6 +57,13 @@ export default function SlotMachineClient({
   // Immersive surface: chrome inert + body scroll locked the whole time mounted.
   useChromeInert(true);
   const { customer } = useAuth();
+  // Live customer id for the settle guard. handleSettled can be invoked from a
+  // STALE closure — the reel prop, the watchdog, or handleSpin's own catch path
+  // captured at spin time — so reading `customer` from a closure could compare
+  // against the account that spun rather than the one signed in NOW. A ref
+  // mirrored every render always holds the current id, closing that bypass.
+  const customerIdRef = useRef<string | null>(customer?.id ?? null);
+  customerIdRef.current = customer?.id ?? null;
   const { muted, toggleMuted, play, vibrate } = useSound();
 
   const cost = priceNumber(pack.price);
@@ -240,7 +247,7 @@ export default function SlotMachineClient({
     // prizes (and sell-back offers referencing their pulls). The spun account
     // keeps its cards (server-side vault) and sees its real balance on next load
     // (the provider re-fetches per identity).
-    if (held.forId !== customer?.id) {
+    if (held.forId !== customerIdRef.current) {
       setSpin(null);
       setPhase('idle');
       return;
@@ -287,7 +294,10 @@ export default function SlotMachineClient({
       () => setCooldown(false),
       COOLDOWN_MS,
     );
-  }, [pack.name, pack.image, play, vibrate, applyBalance, customer?.id]);
+    // customerIdRef (a ref) is intentionally not a dep — the guard reads its
+    // live value, so handleSettled stays stable and every caller (reel prop,
+    // watchdog, stale catch closure) checks the CURRENT identity.
+  }, [pack.name, pack.image, play, vibrate, applyBalance]);
 
   // Settle watchdog: the customer is charged the moment openBatch returns ok,
   // but the reveal only lands when the reel reports transitionend. If that

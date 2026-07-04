@@ -13,7 +13,8 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
 }
 
 const ADMIN = 'http://localhost:7000/dashboard';
-const OUT = 'C:/Users/PC/Desktop/Projects/Pokenic_Game/docs/research';
+// Run from the repo root (see usage above); override with QA_OUT_DIR.
+const OUT = process.env.QA_OUT_DIR ?? 'docs/research';
 
 const firstRowTitle = (page) =>
   page.locator('table tbody tr').first().locator('td').nth(1).innerText();

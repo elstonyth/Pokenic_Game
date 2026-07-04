@@ -140,9 +140,16 @@ export const setPackMembersStep = createStep(
     const weightByCard: Map<string, number> | null = (() => {
       if (entries.length === 0) return null;
       const { computed, error } = computeOdds(entries);
-      return error
-        ? null
-        : new Map(computed.map((c) => [c.card_id, c.weight]));
+      if (error) {
+        // Operator signal: the reweight safeguard did NOT apply — the pool
+        // needs a manual pass in the win-rate editor (e.g. a pure removal
+        // left an all-locked pool whose locks no longer sum to 100).
+        console.warn(
+          `set-pack-members: skipped auto-reweight for '${input.pack_id}': ${error}`,
+        );
+        return null;
+      }
+      return new Map(computed.map((c) => [c.card_id, c.weight]));
     })();
 
     // Create + delete + reweigh land in ONE transaction (applyPackMemberDiff):

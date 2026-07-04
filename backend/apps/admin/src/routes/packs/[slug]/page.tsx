@@ -397,7 +397,7 @@ const PackOddsEditorPage = () => {
                       <Checkbox
                         checked={r.topHit}
                         disabled={saveTopHits.isPending}
-                        aria-label={t('packs.editor.topHit')}
+                        aria-label={`${t('packs.editor.topHit')}: ${r.name}`}
                         onCheckedChange={() => void toggleTopHit(r.card_id)}
                       />
                     </Table.Cell>

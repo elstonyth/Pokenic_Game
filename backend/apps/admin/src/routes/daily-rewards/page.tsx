@@ -27,13 +27,6 @@ import { getDailyBox } from '../../lib/admin-rest';
 import { fmtPct, rm } from '../../lib/format';
 import { resolveImageUrl } from '../../lib/image-url';
 
-export const config: RouteConfig = {
-  label: 'Daily Rewards',
-  icon: Calendar,
-  nested: '/gacha',
-  rank: 5,
-};
-
 const TIERS = [
   'a',
   'b',
@@ -54,6 +47,9 @@ const KIND_LABEL: Record<DailyBoxPrizeDTO['kind'], string> = {
   voucher: 'Voucher',
   nothing: 'Nothing',
 };
+
+// Mirrors MAX_BOX_CREDIT_MYR in packages/api src/modules/packs/daily-box.ts — keep in sync.
+const MAX_BOX_CREDIT_MYR = 10_000;
 
 // One prize row in the editable buffer. `payload` fields are flattened here
 // (rather than kept nested) so every cell binds to a single controlled input;
@@ -167,6 +163,8 @@ const BoxesTab = () => {
     setSeededFrom(undefined);
     setRows([]);
     setName('');
+    setEnabled(false);
+    setDrawsPerDay('1');
     setReason('');
   };
 
@@ -216,11 +214,11 @@ const BoxesTab = () => {
       : null;
   const rowErrors = rows.map((r) => {
     if (r.kind === 'product' && !r.productHandle) return 'Pick a product.';
-    if (
-      (r.kind === 'credit' || r.kind === 'voucher') &&
-      !(Number(r.amountInput) > 0)
-    )
-      return 'Amount must be greater than 0.';
+    if (r.kind === 'credit' || r.kind === 'voucher') {
+      const amt = Number(r.amountInput);
+      if (!(amt > 0) || amt > MAX_BOX_CREDIT_MYR)
+        return `RM amount must be between 0 and ${MAX_BOX_CREDIT_MYR}.`;
+    }
     if (r.kind === 'product' && !(Number(r.qtyInput) >= 1))
       return 'Qty must be at least 1.';
     return null;
@@ -628,3 +626,10 @@ const BoxesTab = () => {
 };
 
 export default DailyRewardsPage;
+
+export const config: RouteConfig = {
+  label: 'Daily Rewards',
+  icon: Calendar,
+  nested: '/gacha',
+  rank: 5,
+};

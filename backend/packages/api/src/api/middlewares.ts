@@ -322,6 +322,25 @@ export default defineMiddlewares({
         deliveryWriteRateLimit,
       ],
     },
+    {
+      // Consolidated daily-rewards state (GET /store/daily) — same read family
+      // as /store/rewards above (the /daily surface fetches it on load).
+      matcher: '/store/daily',
+      method: 'GET',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
+      // Daily-box draw (POST /store/daily/draw) — mints value, so it shares the
+      // write-tier budget like /store/rewards/* POSTs. The fail-closed
+      // redemption gate lives in the route handler; actor_id comes from the
+      // verified bearer token only.
+      matcher: '/store/daily/draw',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        deliveryWriteRateLimit,
+      ],
+    },
     // Admin money-mutation routes — already auth-protected by the framework
     // admin auth, so no explicit authenticate() entry is needed here. All share
     // one limiter instance (one budget + one Redis connection). The limiter keys
@@ -373,6 +392,21 @@ export default defineMiddlewares({
       // Daily-box pool config write (POST /admin/reward-pools/:tier) — mutates the
       // reward economy, so it shares the admin money-mutation budget.
       matcher: '/admin/reward-pools/*',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
+    {
+      // Daily-box authoring write (POST /admin/daily-rewards/boxes/:tier) —
+      // mutates the reward economy like reward-pools above. Auth is the
+      // framework default /admin guard.
+      matcher: '/admin/daily-rewards/boxes/*',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
+    {
+      // Voucher-ladder write (POST /admin/daily-rewards/vouchers) — rewrites
+      // vip_level.voucher_amount, so it shares the admin money-mutation budget.
+      matcher: '/admin/daily-rewards/vouchers',
       method: 'POST',
       middlewares: [adminActionRateLimit],
     },

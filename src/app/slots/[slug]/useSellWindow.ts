@@ -63,14 +63,18 @@ export function useSellWindow({
     let cancelled = false;
     void Promise.all(
       offers.map((o) => (o ? onReveal(o.pullId) : Promise.resolve(null))),
-    ).then((results) => {
-      if (cancelled) return;
-      const fresh = results.map((r, i) =>
-        r && r.ok ? r.instantDeadlineMs : offers[i]?.instantDeadlineMs,
-      );
-      const next = sharedDeadlineMs(fresh);
-      if (next !== null) setDeadlineMs(next);
-    });
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const fresh = results.map((r, i) =>
+          r && r.ok ? r.instantDeadlineMs : offers[i]?.instantDeadlineMs,
+        );
+        const next = sharedDeadlineMs(fresh);
+        if (next !== null) setDeadlineMs(next);
+      })
+      .catch(() => {
+        /* keep the open-response fallback deadline (same as SellBackPanel) */
+      });
     return () => {
       cancelled = true;
     };
@@ -97,14 +101,24 @@ export function useSellWindow({
     );
   }, [expired]);
 
+  // Returns true only on a successful server sell — lets the caller chirp
+  // 'credit' on success and stay silent on a guard-block or error.
   const sell = useCallback(
-    async (index: number) => {
+    async (index: number): Promise<boolean> => {
       const offer = offers[index];
-      if (!offer) return;
+      if (!offer) return false;
       let blocked = false;
       setStates((prev) => {
         const cur = prev[index];
-        if (!cur || cur.phase === 'selling' || cur.phase === 'sold') {
+        // Block re-entry while selling/sold AND once vaulted — a confirm modal
+        // left open across expiry must not fire a sell (server enforces the
+        // deadline too; this is client honesty).
+        if (
+          !cur ||
+          cur.phase === 'selling' ||
+          cur.phase === 'sold' ||
+          cur.phase === 'vaulted'
+        ) {
           blocked = true;
           return prev;
         }
@@ -112,7 +126,7 @@ export function useSellWindow({
         next[index] = { phase: 'selling' };
         return next;
       });
-      if (blocked) return;
+      if (blocked) return false;
       try {
         const res = await onSellBack(offer.pullId);
         setStates((prev) => {
@@ -123,6 +137,7 @@ export function useSellWindow({
           return next;
         });
         if (res.ok) onSold?.(res.balance);
+        return res.ok;
       } catch {
         setStates((prev) => {
           const next = [...prev];
@@ -132,6 +147,7 @@ export function useSellWindow({
           };
           return next;
         });
+        return false;
       }
     },
     [offers, onSellBack, onSold],

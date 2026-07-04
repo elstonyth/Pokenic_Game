@@ -13,6 +13,7 @@ type RevealProps = {
   y?: number;
   /** element to render (default div). e.g. "section" */
   as?: ElementType;
+  'aria-labelledby'?: string;
 };
 
 /**
@@ -26,6 +27,7 @@ export default function Reveal({
   delay = 0,
   y = 24,
   as: Tag = 'div',
+  'aria-labelledby': ariaLabelledBy,
 }: RevealProps) {
   // ref typed loosely so it works whether Tag is div, section, etc.
   const [ref, shown] = useInView<HTMLElement>();
@@ -35,6 +37,7 @@ export default function Reveal({
   return (
     <Tag
       ref={ref}
+      {...(ariaLabelledBy && { 'aria-labelledby': ariaLabelledBy })}
       className={cn(
         !reduced &&
           'transition-all duration-700 ease-out will-change-[opacity,transform] motion-reduce:transition-none',

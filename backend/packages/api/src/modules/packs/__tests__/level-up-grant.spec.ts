@@ -116,7 +116,7 @@ moduleIntegrationTestRunner<PacksModuleService>({
           { take: 100 },
         );
 
-        // Each level grants voucher only (box no longer per-rung — tier derives live via settleRewardDraw).
+        // Each level grants voucher only (box no longer per-rung — tier derives live via drawDailyBox).
         // frame_unlock is false for all L2-L5 in the seed data.
         const grantedLevels = [...new Set(grants.map((g) => g.level))].sort(
           (a, b) => a - b,

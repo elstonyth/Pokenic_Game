@@ -27,6 +27,18 @@ export function money(
 export const rm = (n: number) => money(n, { prefix: 'RM ' });
 export const rm0 = (n: number) => money(n, { prefix: 'RM ', decimals: 0 });
 
+// Single wording for a VIP reward grant (voucher or frame), shared by /daily
+// and /vouchers — was two independently-drifted copies.
+export function voucherLabel(grant: {
+  kind: 'voucher' | 'frame';
+  level: number;
+  amountMyr?: number;
+}): string {
+  return grant.kind === 'voucher'
+    ? rm(grant.amountMyr ?? 0)
+    : `LV ${grant.level} Frame`;
+}
+
 export const compact = (n: number) =>
   n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 

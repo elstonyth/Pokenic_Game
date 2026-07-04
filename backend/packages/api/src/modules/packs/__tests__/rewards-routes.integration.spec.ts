@@ -9,13 +9,11 @@
  * supplied via auth_context (never the body).
  *
  * Gate contract (spec §13, fail-closed):
- *  - REWARDS_REDEMPTION_ENABLED unset → POST /store/rewards/claim/:id and
- *    POST /store/rewards/draw return 403 BEFORE any write: the grant stays
- *    'granted' and COUNT(reward_draw)===0 (proves the gate is the first line).
+ *  - REWARDS_REDEMPTION_ENABLED unset → POST /store/rewards/claim/:id returns 403
+ *    BEFORE any write: the grant stays 'granted' (proves the gate is the first line).
  *  - POST /store/rewards/withdraw is NOT env-gated (balance-neutral; only the
  *    withdrawals_per_day cap inside recordRewardWithdrawal applies). With the
  *    env unset it still ships a vaulted reward Pull → 'requested'.
- *  - GET /store/rewards returns claimable grants + draw state + vaulted prizes.
  *
  * Test-runner caveat: moduleIntegrationTestRunner rebuilds schema from MODELS, so
  * hand-written CHECK/partial-unique constraints are ABSENT here; runtime logic only.
@@ -23,6 +21,9 @@
  * Path note: this lives under src/modules/packs/__tests__ (not src/api/__tests__)
  * so the integration:modules testMatch (`**\/src/modules/*\/__tests__/**`) actually
  * runs it — a file under src/api would match no test type and silently never run.
+ *
+ * Task 7 removed the old GET /store/rewards (index) and POST /store/rewards/draw
+ * routes/tests — replaced by GET /store/daily + POST /store/daily/draw (daily-box.spec.ts).
  */
 
 import path from 'path';
@@ -47,9 +48,7 @@ import VipRewardGrant from '../models/vip-reward-grant';
 import NotificationRead from '../models/notification-read';
 import RewardDraw from '../models/reward-draw';
 
-import { GET as rewardsGET } from '../../../api/store/rewards/route';
 import { POST as claimPOST } from '../../../api/store/rewards/claim/[grantId]/route';
-import { POST as drawPOST } from '../../../api/store/rewards/draw/route';
 import { POST as withdrawPOST } from '../../../api/store/rewards/withdraw/route';
 
 jest.setTimeout(300 * 1000);
@@ -196,23 +195,6 @@ moduleIntegrationTestRunner<PacksModuleService>({
         expect(after.status).toBe('granted');
       });
 
-      it('POST /rewards/draw → 403 and COUNT(reward_draw)===0 (no write)', async () => {
-        const customerId = 'cus_d1_draw';
-
-        const { req, res, captured } = makeReqRes({ customerId });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await drawPOST(req as any, res as any);
-
-        expect(captured.status).toBe(403);
-
-        // Proves the gate ran BEFORE settleRewardDraw: no draw row written.
-        const draws = await service.listRewardDraws(
-          { customer_id: customerId },
-          { take: 10 },
-        );
-        expect(draws).toHaveLength(0);
-      });
-
       it('POST /rewards/withdraw → 403 and the Pull stays vaulted (no ship)', async () => {
         const customerId = 'cus_d1_wd';
         const pull = await seedRewardPull(customerId);
@@ -228,7 +210,7 @@ moduleIntegrationTestRunner<PacksModuleService>({
         } catch {
           threw = true;
         }
-        // Withdraw is now gated alongside claim + draw: a 403 (thrown NOT_ALLOWED)
+        // Withdraw is now gated alongside claim: a 403 (thrown NOT_ALLOWED)
         // before any write — the prize is never shipped while redemption is dark.
         expect(threw || captured.status === 403).toBe(true);
         const [after] = await service.listPulls({ id: pull.id }, { take: 1 });
@@ -287,36 +269,6 @@ moduleIntegrationTestRunner<PacksModuleService>({
         }
         const [after] = await service.listPulls({ id: pull.id }, { take: 1 });
         expect(after.status).toBe('vaulted');
-      });
-    });
-
-    describe('GET /store/rewards', () => {
-      it('returns claimable grants + draw state + a vaulted product prize', async () => {
-        const customerId = 'cus_d1_get';
-        const grant = await seedVoucherGrant(customerId);
-        const pull = await seedRewardPull(customerId);
-
-        const { req, res, captured } = makeReqRes({ customerId });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await rewardsGET(req as any, res as any);
-
-        const body = captured.body as {
-          grants: Array<{ id: string; status: string }>;
-          draw_state: { draws_today: number } | null;
-          prizes: Array<{ pull_id: string; status: string }>;
-        };
-
-        // Claimable grant present (status 'granted').
-        expect(body.grants.some((g) => g.id === grant.id)).toBe(true);
-        // Draw state: the one seeded reward_draw counts as today's draw.
-        expect(body.draw_state?.draws_today).toBe(1);
-
-        // B2: the product prize must surface with the PULL's status ('vaulted'),
-        // NOT the reward_draw status ('drawn') — that drift kept the storefront's
-        // "Prizes to ship" list permanently empty.
-        const prize = body.prizes.find((p) => p.pull_id === pull.id);
-        expect(prize).toBeDefined();
-        expect(prize?.status).toBe('vaulted');
       });
     });
   },

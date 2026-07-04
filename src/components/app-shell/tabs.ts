@@ -35,7 +35,6 @@ export const TABS: Tab[] = [
       '/bank-withdrawal',
       '/notifications',
       '/vip',
-      '/rewards',
     ],
   },
 ];

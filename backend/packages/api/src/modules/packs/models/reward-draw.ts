@@ -14,9 +14,12 @@ export const RewardDraw = model
     // (B6) key on this; no dateTime column needed.
     draw_day: model.text(),
     draw_ordinal: model.number(),
-    prize_kind: model.enum(['product', 'credit', 'nothing']),
+    prize_kind: model.enum(['product', 'credit', 'voucher', 'nothing']),
     // prize_snapshot holds {product_handle,title,image} | {amount_myr,currency} | {}
     prize_snapshot: model.json(),
+    // Full computed odds table at draw time ({tier, computed:[{kind,weight,locked}...]}).
+    // Audit-only: never returned by store routes — odds stay hidden from the frontend.
+    odds_snapshot: model.json().nullable(),
     vault_pull_id: model.text().nullable(),
     credit_txn_id: model.text().nullable(),
     status: model.enum(['drawn', 'voided']).default('drawn'),

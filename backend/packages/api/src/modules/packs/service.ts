@@ -1,9 +1,11 @@
+import { randomInt } from 'node:crypto';
 import {
   MedusaService,
   MedusaError,
   InjectManager,
   InjectTransactionManager,
   MedusaContext,
+  Modules,
 } from '@medusajs/framework/utils';
 import type { Context, HttpTypes } from '@medusajs/framework/types';
 import type { OddsRarity } from '@acme/odds-math';
@@ -28,14 +30,8 @@ import VipMemberState from './models/vip-member-state';
 import VipRewardGrant from './models/vip-reward-grant';
 import NotificationRead from './models/notification-read';
 import RewardDraw from './models/reward-draw';
-import DailyClaim from './models/daily-claim';
-import DailyRewardSettings from './models/daily-reward-settings';
-import {
-  coerceStoredAmounts,
-  DAILY_STREAK_DAYS,
-  type DailyRewardPatch,
-  type DailyRewardSettingsView,
-} from './daily-reward-validate';
+import RewardBox from './models/reward-box';
+import RewardBoxPrize from './models/reward-box-prize';
 import {
   resolveBuybackRate,
   buybackAmount,
@@ -63,13 +59,16 @@ import {
   type RewardsSettingsPatch,
   type RewardsSettingsView,
 } from './rewards-settings-validate';
-import type { RewardPoolEntry } from './reward-pool-validate';
-import { MAX_REWARD_CREDIT_MYR } from './reward-pool-validate';
 import {
-  drawPrize,
-  type DrawnPrize,
-  type RewardOddsRow,
-} from '../../workflows/steps/draw-prize';
+  validateDailyBox,
+  computeBoxWeights,
+  pickPrize,
+  MAX_BOX_CREDIT_MYR,
+  type DailyBoxBody,
+  type BoxPrizeInput,
+} from './daily-box';
+import { foldRanges, type VoucherRange } from './voucher-ranges';
+import { getCardStockByHandle } from './card-stock';
 import type { MedusaContainer } from '@medusajs/framework/types';
 
 // Postgres unique-violation detector (SQLSTATE 23505) for the commission
@@ -87,18 +86,6 @@ function isUniqueViolation(e: unknown): boolean {
 // CreditTransaction = the site-credit ledger written by buybacks.
 
 const BALANCE_PAGE = 1000;
-
-/**
- * MYT (Asia/Kuala_Lumpur) calendar day as YYYY-MM-DD (en-CA gives ISO order).
- * The daily reward is user-facing "today" for a Malaysian audience, so it keys
- * on MYT — unlike reward_draw's UTC draw_day. MYT has no DST, so `now − 24h`
- * is always exactly the previous MYT calendar day.
- */
-function mytDay(at: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kuala_Lumpur',
-  }).format(at);
-}
 
 /** A signed credit-ledger write reason (mirrors CreditTransaction.reason). */
 export type CreditMutationReason =
@@ -204,6 +191,59 @@ type LedgerSqlManager = {
   execute<T = unknown>(query: string, params?: unknown[]): Promise<T>;
 };
 
+// ---- Daily Rewards (Task 5): getDailyState / drawDailyBox + admin authoring ----
+// Types match the task-5 brief verbatim — later tasks (routes, storefront) depend
+// on these exact shapes.
+
+/** A VIP reward grant projected for a store-facing list (no internal fields). */
+export type GrantView = {
+  id: string;
+  kind: 'voucher' | 'frame';
+  level: number;
+  payload: unknown;
+  granted_at: string;
+};
+
+/** A vaulted reward-prize Pull, same shape as the old GET /store/rewards `prizes`. */
+export type PrizeView = {
+  pull_id: string;
+  prize_kind: string;
+  prize_snapshot: unknown;
+  status: string;
+  draw_day: string;
+};
+
+export type DailyState = {
+  redemption_enabled: boolean;
+  box: null | {
+    tier: string;
+    name: string;
+    draws_per_day: number;
+    draws_today: number;
+    next_reset: string;
+    prizes: {
+      kind: string;
+      title?: string;
+      image?: string;
+      amount_myr?: number;
+    }[];
+  };
+  vouchers: { claimable: GrantView[]; claimed: GrantView[] };
+  ship_prizes: PrizeView[];
+};
+
+export type DrawDailyBoxResult = {
+  status: 'drawn' | 'unavailable' | 'capped';
+  prize?: {
+    kind: string;
+    title?: string;
+    image?: string;
+    amount_myr?: number;
+    product_handle?: string;
+  };
+  draw_ordinal?: number;
+};
+
 // Defensive depth bound for referralSummary's downward fan-out CTE. linkSponsor
 // already rejects cycles, so a real tree terminates well before this; the cap
 // is belt-and-suspenders against a corrupted edge so COUNT(*) can never loop.
@@ -229,8 +269,8 @@ class PacksModuleService extends MedusaService({
   VipRewardGrant,
   NotificationRead,
   RewardDraw,
-  DailyClaim,
-  DailyRewardSettings,
+  RewardBox,
+  RewardBoxPrize,
 }) {
   // Apply a pack-membership diff (add rows + delete rows + renormalize
   // survivor weights) as ONE transaction. The set-pack-members workflow step
@@ -323,201 +363,6 @@ class PacksModuleService extends MedusaService({
       overrideGenerationCap: row ? Number(row.override_generation_cap) : 100,
       withdrawals_per_day: row ? Number(row.withdrawals_per_day) : 1,
     };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Daily check-in reward (storefront redesign Phase 5). Singleton settings +
-  // one claim per customer per MYT calendar day; claims pay a streak-positioned
-  // MYR amount into the credit ledger (reason 'daily_reward', ext=0 — never
-  // bumps the VIP spend basis, mirroring reward_credit).
-  // ---------------------------------------------------------------------------
-
-  /** Daily-reward config; first row or defaults (same pattern as rewardsSettings). */
-  @InjectManager()
-  async dailyRewardSettings(
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<DailyRewardSettingsView> {
-    const [row] = await this.listDailyRewardSettings(
-      {},
-      { take: 1 },
-      sharedContext,
-    );
-    return {
-      enabled: row ? Boolean(row.enabled) : true,
-      amounts: coerceStoredAmounts(row?.amounts),
-    };
-  }
-
-  /** Admin edit of the daily-reward singleton; audited like editRewardsSettings. */
-  @InjectTransactionManager()
-  async editDailyRewardSettings(
-    input: { patch: DailyRewardPatch; adminId: string; reason: string },
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<DailyRewardSettingsView> {
-    const [row] = await this.listDailyRewardSettings(
-      {},
-      { take: 1 },
-      sharedContext,
-    );
-    const before: DailyRewardSettingsView = {
-      enabled: row ? Boolean(row.enabled) : true,
-      amounts: coerceStoredAmounts(row?.amounts),
-    };
-    const after: DailyRewardSettingsView = {
-      enabled: input.patch.enabled ?? before.enabled,
-      amounts: input.patch.amounts ?? before.amounts,
-    };
-    // JSON column stores the array under an object wrapper (Record-shaped).
-    const data = {
-      enabled: after.enabled,
-      amounts: { days: after.amounts },
-    };
-    if (row) {
-      await this.updateDailyRewardSettings(
-        { selector: { id: row.id }, data },
-        sharedContext,
-      );
-    } else {
-      await this.createDailyRewardSettings([data], sharedContext);
-    }
-    await this.createAdminActionAudits(
-      [
-        {
-          admin_id: input.adminId,
-          entity_type: 'daily_reward_settings',
-          entity_id: row?.id ?? 'singleton',
-          action: 'edit_daily_reward_settings',
-          before,
-          after,
-          reason: input.reason,
-        },
-      ],
-      sharedContext,
-    );
-    return after;
-  }
-
-  /** Claim state for the storefront /daily tab (read-only). */
-  @InjectManager()
-  async dailyStatus(
-    customerId: string,
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<{
-    enabled: boolean;
-    day: string;
-    claimedToday: boolean;
-    /** The streak position TODAY pays (or paid, when already claimed). */
-    streakDay: number;
-    amounts: number[];
-    todayAmount: number;
-  }> {
-    const settings = await this.dailyRewardSettings(sharedContext);
-    const day = mytDay();
-    const yesterday = mytDay(new Date(Date.now() - 86_400_000));
-    const [todayClaim] = await this.listDailyClaims(
-      { customer_id: customerId, claim_day: day },
-      { take: 1 },
-      sharedContext,
-    );
-    let streakDay: number;
-    if (todayClaim) {
-      streakDay = Number(todayClaim.streak_day);
-    } else {
-      const [prev] = await this.listDailyClaims(
-        { customer_id: customerId, claim_day: yesterday },
-        { take: 1 },
-        sharedContext,
-      );
-      streakDay = prev ? (Number(prev.streak_day) % DAILY_STREAK_DAYS) + 1 : 1;
-    }
-    return {
-      enabled: settings.enabled,
-      day,
-      claimedToday: Boolean(todayClaim),
-      streakDay,
-      amounts: settings.amounts,
-      todayAmount: settings.amounts[streakDay - 1] ?? 0,
-    };
-  }
-
-  /**
-   * Claim today's reward. Serialized per customer on the `credit:` advisory
-   * lock (same key every ledger writer takes), frozen accounts blocked, the
-   * ledger write idempotent on `daily:${customer}:${day}`, and the DailyClaim
-   * unique index (customer, day) as the DB backstop.
-   */
-  @InjectTransactionManager()
-  async claimDaily(
-    customerId: string,
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<
-    | {
-        status: 'claimed';
-        day: string;
-        streakDay: number;
-        amount: number;
-        balance: number;
-      }
-    | { status: 'already_claimed' }
-    | { status: 'disabled' }
-  > {
-    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
-    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
-      `credit:${customerId}`,
-    ]);
-    await this.assertNotFrozen(customerId, sharedContext);
-
-    const settings = await this.dailyRewardSettings(sharedContext);
-    if (!settings.enabled) return { status: 'disabled' };
-
-    const day = mytDay();
-    const [existing] = await this.listDailyClaims(
-      { customer_id: customerId, claim_day: day },
-      { take: 1 },
-      sharedContext,
-    );
-    if (existing) return { status: 'already_claimed' };
-
-    const yesterday = mytDay(new Date(Date.now() - 86_400_000));
-    const [prev] = await this.listDailyClaims(
-      { customer_id: customerId, claim_day: yesterday },
-      { take: 1 },
-      sharedContext,
-    );
-    const streakDay = prev
-      ? (Number(prev.streak_day) % DAILY_STREAK_DAYS) + 1
-      : 1;
-    const amount = settings.amounts[streakDay - 1] ?? 0;
-    if (amount <= 0 || amount > MAX_REWARD_CREDIT_MYR) {
-      // Validator + defaults keep amounts in (0, cap]; fail LOUD if a stored
-      // row bypassed both rather than minting a wrong prize (Batch A posture).
-      throw new MedusaError(
-        MedusaError.Types.INVALID_DATA,
-        `Daily reward amount ${amount} outside (0, ${MAX_REWARD_CREDIT_MYR}] MYR.`,
-      );
-    }
-
-    const { balance } = await this.mutateCreditAtomic(
-      {
-        customerId,
-        amount,
-        reason: 'daily_reward',
-        idempotencyReference: `daily:${customerId}:${day}`,
-      },
-      sharedContext,
-    );
-    await this.createDailyClaims(
-      [
-        {
-          customer_id: customerId,
-          claim_day: day,
-          streak_day: streakDay,
-          amount,
-        },
-      ],
-      sharedContext,
-    );
-    return { status: 'claimed', day, streakDay, amount, balance };
   }
 
   // The instant/flat sell-back offer for a pull, composed from the SAME pure
@@ -1334,209 +1179,6 @@ class PacksModuleService extends MedusaService({
     };
   }
 
-  // Settle one daily reward-box draw for a customer (B6). Read-then-write under
-  // the per-customer `credit:` advisory lock, in ONE transaction (same discipline
-  // as settleOpen / claimReward), so concurrent draws at the cap edge serialize:
-  // the lock holds across the COUNT, the payout, AND the reward_draw INSERT, so
-  // two requests can't both pass the cap COUNT and overshoot draws_per_day.
-  //
-  // Flow (all under the lock):
-  //   1. Two-hop tier resolution: vip_member_state.highest_level_ever →
-  //      vip_level.box_tier (floor level when no state row — mirrors
-  //      grantLevelUpRewards' default-L1).
-  //   2. Resolve the reward_box Pack for that tier; pre-check it exists +
-  //      pool_enabled + has reward odds → else 'unavailable' (NO ordinal consumed).
-  //   3. COUNT today's draws; >= draws_per_day → 'capped'.
-  //   4. drawPrize (pure pick + product resolution; writes nothing).
-  //   5. Settle the payout: product → createPulls(source:'reward'); credit →
-  //      mutateCreditAtomic(reason 'reward_credit', ext=0, idem on the
-  //      partial-unique tuple); nothing → no payout.
-  //   6. INSERT reward_draw at ordinal count+1 with the prize snapshot.
-  //
-  // Inventory adjust for product prizes runs in the WORKFLOW after this commits
-  // (never inside the lock — §8). The container (for drawPrize's PRODUCT/INVENTORY
-  // resolution) is supplied by the workflow; defaults to the module container so
-  // credit/nothing pools (which never touch cross-module) work in the module test.
-  @InjectTransactionManager()
-  async settleRewardDraw(
-    customerId: string,
-    container?: MedusaContainer,
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<{
-    status: 'drawn' | 'unavailable' | 'capped';
-    prize?: DrawnPrize;
-    draw_ordinal?: number;
-    draw_day?: string;
-  }> {
-    // Defense-in-depth (spec §6): the route already 403s when the gate is off,
-    // but fail closed at the mint site too so every present/future caller is safe.
-    if (!rewardsRedemptionEnabled()) {
-      return { status: 'unavailable' };
-    }
-
-    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
-    const resolveContainer =
-      container ??
-      (this as unknown as { __container__: MedusaContainer }).__container__;
-
-    // 0) Serialize all credit mutations for THIS customer on the locked txn —
-    //    held across the cap COUNT, the payout, and the INSERT below.
-    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
-      `credit:${customerId}`,
-    ]);
-
-    // Frozen accounts cannot draw value out (Batch A item 5) — block this payout
-    // under the same lock as the cap COUNT + payout below.
-    await this.assertNotFrozen(customerId, sharedContext);
-
-    // 1) Two-hop tier resolution. Default to the floor level (L1) when the
-    //    customer has no state row yet (mirrors grantLevelUpRewards).
-    const [state] = await this.listVipMemberStates(
-      { customer_id: customerId },
-      { take: 1 },
-      sharedContext,
-    );
-    const level = state ? Number(state.highest_level_ever) : 1;
-    const [vipLevel] = await this.listVipLevels(
-      { level },
-      { take: 1 },
-      sharedContext,
-    );
-    const tier = vipLevel?.box_tier ?? '';
-
-    // 2) Resolve the reward_box Pack for this tier; pre-check it exists +
-    //    pool_enabled + has reward odds. Any miss → 'unavailable', NO ordinal
-    //    consumed (no 500 on a missing pool — a tier may simply have no box yet).
-    const rewardPack = await this.resolveRewardBoxPack(tier, sharedContext);
-    if (!rewardPack || !rewardPack.pool_enabled) {
-      return { status: 'unavailable' };
-    }
-    const odds = await this.listPackOdds(
-      { pack_id: rewardPack.slug },
-      { take: 1000 },
-      sharedContext,
-    );
-    const rewardOdds: RewardOddsRow[] = odds
-      .filter((o) => o.kind)
-      .map((o) => ({
-        id: o.id,
-        weight: o.weight,
-        kind: o.kind as 'product' | 'credit' | 'nothing',
-        product_handle: o.product_handle,
-        credit_amount: o.credit_amount == null ? null : Number(o.credit_amount),
-      }));
-    if (rewardOdds.length === 0) {
-      return { status: 'unavailable' };
-    }
-
-    // 3) Daily-cap COUNT under the lock (the partial-unique is the DB backstop;
-    //    the lock makes the COUNT-then-INSERT atomic per customer per day).
-    const drawDay = new Date().toISOString().slice(0, 10);
-    const countRows = await em.execute<{ n: string | null }[]>(
-      `SELECT COUNT(*) AS n FROM reward_draw
-         WHERE customer_id = ? AND draw_day = ? AND deleted_at IS NULL`,
-      [customerId, drawDay],
-    );
-    const count = Number(countRows[0]?.n ?? 0);
-    if (count >= rewardPack.draws_per_day) {
-      return { status: 'capped' };
-    }
-
-    // 4) Pick the prize (pure — writes nothing). drawPrize is statically imported
-    //    at the top of this file (Task 1 made draw-prize.ts a pure leaf with no
-    //    back-reference to service, eliminating the previous load-time cycle).
-    const prize = await drawPrize(resolveContainer, rewardOdds);
-
-    // 5) Settle the payout. The reward_draw ordinal is the NEXT row (count+1) —
-    //    also the idempotency tuple for the credit write.
-    const drawOrdinal = count + 1;
-    let vaultPullId: string | null = null;
-    let creditTxnId: string | null = null;
-
-    if (prize.kind === 'product') {
-      // Only product prizes create a Pull: source='reward', card_id = the
-      // product_handle sentinel, pack_id = the tier's reward_box Pack slug
-      // (consistent with the catalog-exclusion in B2/C1). order_id null.
-      const [pull] = await this.createPulls(
-        [
-          {
-            customer_id: customerId,
-            pack_id: rewardPack.slug,
-            card_id: prize.product_handle,
-            order_id: null,
-            rolled_at: new Date(),
-            source: 'reward',
-          },
-        ],
-        sharedContext,
-      );
-      vaultPullId = pull.id;
-    } else if (prize.kind === 'credit') {
-      // Defense-in-depth ceiling (Batch A item 3): the authoring validator and
-      // the pack_odds DB CHECK both cap credit_amount, but fail LOUD here too so
-      // a row that bypassed both (e.g. a direct seed) can never mint an absurd
-      // prize straight into the ledger.
-      if (prize.amount_myr > MAX_REWARD_CREDIT_MYR) {
-        throw new MedusaError(
-          MedusaError.Types.INVALID_DATA,
-          `Reward credit ${prize.amount_myr} exceeds the ${MAX_REWARD_CREDIT_MYR} MYR cap.`,
-        );
-      }
-      // Reward credit: ext=0 (basis-neutral — never bumps the VIP spend basis),
-      // idempotent on the partial-unique tuple (customer:day:ordinal), NOT a
-      // not-yet-created row id. Re-acquires the same credit: lock re-entrantly.
-      const { id } = await this.mutateCreditAtomic(
-        {
-          customerId,
-          amount: prize.amount_myr,
-          reason: 'reward_credit',
-          idempotencyReference: `reward:${customerId}:${drawDay}:${drawOrdinal}`,
-        },
-        sharedContext,
-      );
-      creditTxnId = id;
-    }
-    // 'nothing' → no payout.
-
-    // 6) Record the draw. prize_snapshot per kind (MYR units): product →
-    //    {product_handle,title,image}; credit → {amount_myr,currency:'MYR'};
-    //    nothing → {}.
-    const prizeSnapshot =
-      prize.kind === 'product'
-        ? {
-            product_handle: prize.product_handle,
-            title: prize.title,
-            image: prize.image,
-          }
-        : prize.kind === 'credit'
-          ? { amount_myr: prize.amount_myr, currency: 'MYR' }
-          : {};
-
-    await this.createRewardDraws(
-      [
-        {
-          customer_id: customerId,
-          tier,
-          draw_day: drawDay,
-          draw_ordinal: drawOrdinal,
-          prize_kind: prize.kind,
-          prize_snapshot: prizeSnapshot,
-          vault_pull_id: vaultPullId,
-          credit_txn_id: creditTxnId,
-          status: 'drawn',
-        },
-      ],
-      sharedContext,
-    );
-
-    return {
-      status: 'drawn',
-      prize,
-      draw_ordinal: drawOrdinal,
-      draw_day: drawDay,
-    };
-  }
-
   // Ship a vaulted reward-prize Pull as a physical delivery (B7). Mirrors
   // settleRewardDraw's discipline (read-then-write under the per-customer `credit:`
   // advisory lock in ONE transaction) — NOT the lockless requestDeliveryStep,
@@ -1649,38 +1291,6 @@ class PacksModuleService extends MedusaService({
     );
 
     return { status: 'requested' };
-  }
-
-  // Resolve the reward_box Pack for a VIP box_tier. The reward_box Pack's slug is
-  // the natural per-tier key; the admin authoring route (E1) creates it as
-  // `reward-box-<tier>`. We match on category + a slug containing the tier so the
-  // demo seed and the admin route can pick their own slug suffix.
-  private async resolveRewardBoxPack(
-    tier: string,
-    sharedContext: Context = {},
-  ): Promise<
-    { slug: string; pool_enabled: boolean; draws_per_day: number } | undefined
-  > {
-    if (!tier) return undefined;
-    const packs = await this.listPacks(
-      { category: 'reward_box' },
-      { take: 1000 },
-      sharedContext,
-    );
-    // Prefer the exact `reward-box-<tier>` slug; only fall back to a
-    // `reward-box-<tier>-<suffix>` variant when no exact match exists. Two passes
-    // (not one order-dependent `find`) so a suffixed pack can never shadow the
-    // canonical one. The `-` boundary keeps tier 'c' clear of a 'ca' slug.
-    const prefix = `reward-box-${tier}`;
-    const match =
-      packs.find((p) => p.slug === prefix) ??
-      packs.find((p) => p.slug.startsWith(`${prefix}-`));
-    if (!match) return undefined;
-    return {
-      slug: match.slug,
-      pool_enabled: match.pool_enabled,
-      draws_per_day: match.draws_per_day,
-    };
   }
 
   // Admin per-commission status flip: available|pending → suspended.
@@ -3268,12 +2878,15 @@ class PacksModuleService extends MedusaService({
   // and drives levelsToGrant — L1 is never granted (levelsToGrant enforces L2 floor).
   //
   // Grant insert idempotency: uses raw INSERT … ON CONFLICT (customer_id, level, kind)
-  // WHERE deleted_at IS NULL DO NOTHING so a replayed event with the same
-  // (customerId, openId) simply skips existing rows without raising a 23505. A
-  // try/catch around the ORM's createVipRewardGrants would poison the enclosing
-  // txn (Postgres 25P02) on the first duplicate — raw DO NOTHING avoids this
-  // entirely. The partial WHERE clause must match the UQ_vip_reward_grant_customer_level_kind
-  // partial index (defined in vip-reward-grant.ts with `where: 'deleted_at IS NULL'`).
+  // WHERE deleted_at IS NULL AND origin = 'ladder' DO NOTHING so a replayed event
+  // with the same (customerId, openId) simply skips existing rows without raising
+  // a 23505. A try/catch around the ORM's createVipRewardGrants would poison the
+  // enclosing txn (Postgres 25P02) on the first duplicate — raw DO NOTHING avoids
+  // this entirely. The partial WHERE clause must match the
+  // UQ_vip_reward_grant_customer_level_kind partial index (defined in
+  // vip-reward-grant.ts with `where: "deleted_at IS NULL AND origin = 'ladder'"`).
+  // origin discriminates ladder grants (this method) from box-won grants, which
+  // are repeatable per (customer, level, kind) and fall outside this index.
   //
   // currentLevel uses the NET basis (creditSummary.externalFundedSpendTotal) so
   // it may drop below highest_level_ever after a clawback — that's by design.
@@ -3323,14 +2936,16 @@ class PacksModuleService extends MedusaService({
       for (const reward of rewards) {
         // Raw INSERT … ON CONFLICT … DO NOTHING — avoids 23505 poisoning the txn
         // (Postgres 25P02). The ON CONFLICT predicate MUST match the partial index
-        // UQ_vip_reward_grant_customer_level_kind (where: 'deleted_at IS NULL').
+        // UQ_vip_reward_grant_customer_level_kind (where: "deleted_at IS NULL AND
+        // origin = 'ladder'"). origin is always 'ladder' here — box-won grants are
+        // inserted elsewhere with origin: 'box' and are not subject to this arbiter.
         // Deterministic id: vrg_<customerId>_<level>_<kind> for deduplication.
         const grantId = `vrg_${customerId}_${L}_${reward.kind}`;
         await em.execute(
           `INSERT INTO vip_reward_grant
-             (id, customer_id, level, kind, payload, status, source_open_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?::jsonb, 'granted', ?, now(), now())
-           ON CONFLICT (customer_id, level, kind) WHERE deleted_at IS NULL DO NOTHING`,
+             (id, customer_id, level, kind, payload, status, source_open_id, origin, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?::jsonb, 'granted', ?, 'ladder', now(), now())
+           ON CONFLICT (customer_id, level, kind) WHERE deleted_at IS NULL AND origin = 'ladder' DO NOTHING`,
           [
             grantId,
             customerId,
@@ -3451,162 +3066,715 @@ class PacksModuleService extends MedusaService({
     return { flipped };
   }
 
-  // Atomic replace-all of a reward_box tier's reward pool (E1). EVERY write —
-  // resolve/create the reward_box Pack, delete prior reward PackOdds, insert the
-  // new set, update the Pack's pool config, and write the admin audit row —
-  // shares ONE injected transaction. A failure anywhere rolls the whole thing
-  // back, so the tier can never be left with its odds wiped, a half-created
-  // dormant pack, or a pool change with no matching audit. All writes pass
-  // sharedContext to enlist in the same transaction.
-  @InjectTransactionManager()
-  async replaceRewardPool(
-    input: {
-      tier: string;
-      newEntries: RewardPoolEntry[];
-      pool_enabled: boolean;
-      draws_per_day: number;
-      admin_id: string;
-    },
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<{
-    pack_slug: string;
-    entries_count: number;
-    draws_per_day: number;
-    pool_enabled: boolean;
-  }> {
-    const prefix = `reward-box-${input.tier}`;
+  // ---- Daily Rewards (Task 5) ----------------------------------------------
+  // getDailyState / drawDailyBox are the model-driven (reward_box +
+  // reward_box_prize) daily-box path — the sole reward-box draw path since
+  // Task 7 deleted the old PackOdds-based settleRewardDraw.
+  // Kept THIN: all pure pick/validate/fold logic lives in daily-box.ts /
+  // voucher-ranges.ts; this file only orchestrates DB reads/writes.
 
-    // Resolve the SAME pack the draw/resolve path serves (resolveRewardBoxPack):
-    // exact `reward-box-<tier>` slug first, then a `reward-box-<tier>-<suffix>`
-    // variant. Editing only the exact slug would create a second pack and orphan
-    // a tier whose live pool lives under a suffixed slug (F6).
-    const rewardBoxPacks = await this.listPacks(
-      { category: 'reward_box' },
-      { take: 1000 },
+  // Batch-resolve product title + thumbnail by handle (product-lookup helper
+  // for the 'product' prize branch — Modules.PRODUCT.listProducts).
+  private async resolveProductDisplay(
+    handles: string[],
+    container: MedusaContainer,
+  ): Promise<Map<string, { title: string; image: string }>> {
+    const out = new Map<string, { title: string; image: string }>();
+    if (handles.length === 0) return out;
+    const productModule = container.resolve(Modules.PRODUCT);
+    const products = await productModule.listProducts(
+      { handle: handles },
+      { select: ['handle', 'title', 'thumbnail'] },
+    );
+    for (const p of products as {
+      handle?: string;
+      title: string;
+      thumbnail?: string;
+    }[]) {
+      if (!p.handle) continue;
+      out.set(p.handle, { title: p.title, image: p.thumbnail ?? '' });
+    }
+    return out;
+  }
+
+  // Two-hop tier resolution shared by getDailyState/drawDailyBox: default to
+  // the floor level (L1) when the customer has no state row yet (mirrors
+  // grantLevelUpRewards / settleRewardDraw).
+  private async resolveBoxTier(
+    customerId: string,
+    sharedContext: Context,
+  ): Promise<string> {
+    const [state] = await this.listVipMemberStates(
+      { customer_id: customerId },
+      { take: 1 },
       sharedContext,
     );
-    const found =
-      rewardBoxPacks.find((p) => p.slug === prefix) ??
-      rewardBoxPacks.find((p) => p.slug.startsWith(`${prefix}-`));
-    let pack: {
-      id: string;
-      slug: string;
-      category: string;
-      pool_enabled: boolean;
-      draws_per_day: number;
-    };
-    if (found) {
-      pack = found as typeof pack;
-    } else {
-      // No reward_box pool yet for this tier — create the canonical exact-slug
-      // shell. Never collide with a non-reward_box pack squatting that slug: the
-      // draw/resolve path trusts category, so writing odds under a normal pack
-      // would silently corrupt it.
-      const [squatter] = await this.listPacks(
-        { slug: prefix },
+    const level = state ? Number(state.highest_level_ever) : 1;
+    const [vipLevel] = await this.listVipLevels(
+      { level },
+      { take: 1 },
+      sharedContext,
+    );
+    return vipLevel?.box_tier ?? '';
+  }
+
+  // highest_level_ever, defaulting to the L1 floor — the level a box-won
+  // voucher grant is stamped with (mirrors resolveBoxTier's own read).
+  private async resolveMemberLevel(
+    customerId: string,
+    sharedContext: Context,
+  ): Promise<number> {
+    const [state] = await this.listVipMemberStates(
+      { customer_id: customerId },
+      { take: 1 },
+      sharedContext,
+    );
+    return state ? Number(state.highest_level_ever) : 1;
+  }
+
+  // The logged-in customer's daily-box + voucher-grant state in one read (B6
+  // successor). NEVER returns weight/locked/odds fields — those stay
+  // server-side. `prizes` showcases only UNLOCKED prize rows so the UI can't
+  // infer a locked pin's pct from its absence/presence pattern.
+  @InjectManager()
+  async getDailyState(
+    customerId: string,
+    container?: MedusaContainer,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<DailyState> {
+    const resolveContainer =
+      container ??
+      (this as unknown as { __container__: MedusaContainer }).__container__;
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+
+    const tier = await this.resolveBoxTier(customerId, sharedContext);
+
+    let box: DailyState['box'] = null;
+    if (tier) {
+      const [rewardBox] = await this.listRewardBoxes(
+        { tier },
         { take: 1 },
         sharedContext,
       );
-      if (squatter) {
+      if (rewardBox && rewardBox.enabled) {
+        const drawDay = new Date().toISOString().slice(0, 10);
+        const countRows = await em.execute<{ n: string | null }[]>(
+          `SELECT COUNT(*) AS n FROM reward_draw
+             WHERE customer_id = ? AND draw_day = ? AND deleted_at IS NULL`,
+          [customerId, drawDay],
+        );
+        const drawsToday = Number(countRows[0]?.n ?? 0);
+
+        const prizeRows = await this.listRewardBoxPrizes(
+          { box_id: rewardBox.id, locked: false },
+          { take: 1000 },
+          sharedContext,
+        );
+        const productHandles = prizeRows
+          .filter((p) => p.kind === 'product')
+          .map((p) => (p.payload as { product_handle?: string }).product_handle)
+          .filter((h): h is string => Boolean(h));
+        const displayByHandle = await this.resolveProductDisplay(
+          productHandles,
+          resolveContainer,
+        );
+        const prizes = prizeRows.map((p) => {
+          const payload = p.payload as {
+            amount_myr?: number;
+            product_handle?: string;
+          };
+          if (p.kind === 'product') {
+            const display = payload.product_handle
+              ? displayByHandle.get(payload.product_handle)
+              : undefined;
+            return {
+              kind: 'product',
+              title: display?.title,
+              image: display?.image,
+            };
+          }
+          if (p.kind === 'credit' || p.kind === 'voucher') {
+            return { kind: p.kind, amount_myr: Number(payload.amount_myr ?? 0) };
+          }
+          return { kind: 'nothing' };
+        });
+
+        // Next UTC midnight — the reset boundary for tomorrow's draw_day.
+        const nextReset = new Date(`${drawDay}T00:00:00.000Z`);
+        nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+
+        box = {
+          tier,
+          name: rewardBox.name,
+          draws_per_day: rewardBox.draws_per_day,
+          draws_today: drawsToday,
+          next_reset: nextReset.toISOString(),
+          prizes,
+        };
+      }
+    }
+
+    const grantRows = await this.listVipRewardGrants(
+      { customer_id: customerId, kind: ['voucher', 'frame'] },
+      { order: { created_at: 'DESC' }, take: 500 },
+      sharedContext,
+    );
+    const toGrantView = (g: (typeof grantRows)[number]): GrantView => ({
+      id: g.id,
+      kind: g.kind as 'voucher' | 'frame',
+      level: g.level,
+      payload: g.payload,
+      granted_at: g.created_at.toISOString(),
+    });
+    const vouchers = {
+      claimable: grantRows
+        .filter((g) => g.status === 'granted')
+        .map(toGrantView),
+      claimed: grantRows
+        .filter((g) => g.status === 'fulfilled')
+        .map(toGrantView),
+    };
+
+    // ship_prizes — ported from GET /store/rewards (ships/vaulted reward Pulls).
+    const rewardPulls = await this.listPulls(
+      { customer_id: customerId, status: 'vaulted', source: 'reward' },
+      { order: { rolled_at: 'DESC' }, take: 500 },
+      sharedContext,
+    );
+    const pullIds = rewardPulls.map((p) => p.id);
+    const drawRows = pullIds.length
+      ? await this.listRewardDraws(
+          { vault_pull_id: pullIds },
+          { take: pullIds.length },
+          sharedContext,
+        )
+      : [];
+    const drawByPullId = new Map(drawRows.map((d) => [d.vault_pull_id, d]));
+    const shipPrizes: PrizeView[] = rewardPulls
+      .map((p): PrizeView | null => {
+        const d = drawByPullId.get(p.id);
+        if (!d) return null;
+        return {
+          pull_id: p.id,
+          prize_kind: d.prize_kind as string,
+          prize_snapshot: d.prize_snapshot,
+          status: p.status as string,
+          draw_day: d.draw_day as string,
+        };
+      })
+      .filter((e): e is PrizeView => e !== null);
+
+    return {
+      redemption_enabled: rewardsRedemptionEnabled(),
+      box,
+      vouchers,
+      ship_prizes: shipPrizes,
+    };
+  }
+
+  // Settle one daily reward-box draw for a customer, against the NEW
+  // reward_box/reward_box_prize model. Same read-then-write-under-lock
+  // discipline as settleRewardDraw (advisory lock, UTC draw_day, cap COUNT,
+  // reward_draw INSERT) — copied verbatim from that method (L1386-1394,
+  // L1436-1447 in the pre-Task-5 file). The prize pick runs over ALL prize
+  // rows (locked AND unlocked) via the stored weights — locked only pins the
+  // roll's probability, it never excludes a row from the pool.
+  @InjectTransactionManager()
+  async drawDailyBox(
+    customerId: string,
+    container?: MedusaContainer,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<DrawDailyBoxResult> {
+    if (!rewardsRedemptionEnabled()) {
+      return { status: 'unavailable' };
+    }
+
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const resolveContainer =
+      container ??
+      (this as unknown as { __container__: MedusaContainer }).__container__;
+
+    // 0) Serialize all credit mutations for THIS customer — ported verbatim
+    //    from settleRewardDraw.
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${customerId}`,
+    ]);
+    await this.assertNotFrozen(customerId, sharedContext);
+
+    // 1) Two-hop tier resolution (same helper getDailyState uses).
+    const tier = await this.resolveBoxTier(customerId, sharedContext);
+    if (!tier) return { status: 'unavailable' };
+
+    const [rewardBox] = await this.listRewardBoxes(
+      { tier },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!rewardBox || !rewardBox.enabled) {
+      return { status: 'unavailable' };
+    }
+
+    const prizeRows = await this.listRewardBoxPrizes(
+      { box_id: rewardBox.id },
+      { take: 1000 },
+      sharedContext,
+    );
+    if (prizeRows.length === 0) {
+      return { status: 'unavailable' };
+    }
+
+    // 2) Daily-cap COUNT under the lock — ported verbatim from settleRewardDraw.
+    const drawDay = new Date().toISOString().slice(0, 10);
+    const countRows = await em.execute<{ n: string | null }[]>(
+      `SELECT COUNT(*) AS n FROM reward_draw
+         WHERE customer_id = ? AND draw_day = ? AND deleted_at IS NULL`,
+      [customerId, drawDay],
+    );
+    const count = Number(countRows[0]?.n ?? 0);
+    if (count >= rewardBox.draws_per_day) {
+      return { status: 'capped' };
+    }
+
+    // 3) Roll over the box's stored weights (locked rows included).
+    const roll = randomInt(10000);
+    const won = pickPrize(
+      prizeRows.map((p) => ({ ...p, weight: p.weight })),
+      roll,
+    );
+    const payload = won.payload as {
+      amount_myr?: number;
+      product_handle?: string;
+      qty?: number;
+    };
+
+    const drawOrdinal = count + 1;
+    let vaultPullId: string | null = null;
+    let creditTxnId: string | null = null;
+    let resultPrize: DrawDailyBoxResult['prize'];
+    let prizeSnapshot: Record<string, unknown>;
+    // Recorded prize_kind — starts as the roll's kind, degrades to 'nothing'
+    // below if the product stock/existence gate fails (Finding 1).
+    let prizeKind: 'product' | 'credit' | 'voucher' | 'nothing' = won.kind;
+
+    if (won.kind === 'product') {
+      const handle = payload.product_handle ?? '';
+      const qty = Number(payload.qty ?? 1);
+      const display = handle
+        ? (await this.resolveProductDisplay([handle], resolveContainer)).get(
+            handle,
+          )
+        : undefined;
+
+      // Post-roll gate (§Finding 1) — degrading (not re-rolling / not
+      // pre-filtering) keeps admin-pinned locked odds honest: the authored
+      // odds table stays what was configured, and odds_snapshot below still
+      // records it truthfully. A dead/missing product or insufficient stock
+      // (< qty, Finding 2) turns this draw into 'nothing' instead of minting
+      // a Pull the shipping pipeline can't back.
+      const stockByHandle = handle
+        ? await getCardStockByHandle(resolveContainer, [handle])
+        : new Map<string, number | null>();
+      const stock = stockByHandle.get(handle);
+      const inStock =
+        Boolean(display) &&
+        stockByHandle.has(handle) &&
+        (stock === null || (stock !== undefined && stock >= qty));
+
+      if (!inStock) {
+        resultPrize = { kind: 'nothing' };
+        prizeSnapshot = { degraded_from: 'product', product_handle: handle };
+        prizeKind = 'nothing';
+      } else {
+        for (let i = 0; i < qty; i += 1) {
+          const [pull] = await this.createPulls(
+            [
+              {
+                customer_id: customerId,
+                pack_id: `reward-box-${tier}`,
+                card_id: handle,
+                order_id: null,
+                rolled_at: new Date(),
+                source: 'reward',
+              },
+            ],
+            sharedContext,
+          );
+          vaultPullId = pull.id;
+        }
+        resultPrize = {
+          kind: 'product',
+          title: display?.title,
+          image: display?.image,
+          product_handle: handle,
+        };
+        prizeSnapshot = {
+          product_handle: handle,
+          title: display?.title ?? '',
+          image: display?.image ?? '',
+          qty,
+        };
+      }
+    } else if (won.kind === 'credit') {
+      const amountMyr = Number(payload.amount_myr ?? 0);
+      // Defense-in-depth ceiling, mirroring settleRewardDraw's MAX_REWARD_CREDIT_MYR
+      // guard — the authoring validator and the stored-weight table both already
+      // cap this, but fail loud here too.
+      if (amountMyr > MAX_BOX_CREDIT_MYR) {
         throw new MedusaError(
-          MedusaError.Types.NOT_ALLOWED,
-          `Pack '${prefix}' exists but is not a reward_box.`,
+          MedusaError.Types.INVALID_DATA,
+          `Reward credit ${amountMyr} exceeds the ${MAX_BOX_CREDIT_MYR} MYR cap.`,
         );
       }
-      // Dormant shell; pool_enabled/draws_per_day are set below from the input.
-      const [created] = await this.createPacks(
+      const { id } = await this.mutateCreditAtomic(
+        {
+          customerId,
+          amount: amountMyr,
+          reason: 'reward_credit',
+          idempotencyReference: `reward:${customerId}:${drawDay}:${drawOrdinal}`,
+        },
+        sharedContext,
+      );
+      creditTxnId = id;
+      resultPrize = { kind: 'credit', amount_myr: amountMyr };
+      prizeSnapshot = { amount_myr: amountMyr, currency: 'MYR' };
+    } else if (won.kind === 'voucher') {
+      const amountMyr = Number(payload.amount_myr ?? 0);
+      resultPrize = { kind: 'voucher', amount_myr: amountMyr };
+      prizeSnapshot = { amount_myr: amountMyr, currency: 'MYR' };
+    } else {
+      resultPrize = { kind: 'nothing' };
+      prizeSnapshot = {};
+    }
+
+    const [draw] = await this.createRewardDraws(
+      [
+        {
+          customer_id: customerId,
+          tier,
+          draw_day: drawDay,
+          draw_ordinal: drawOrdinal,
+          // prizeKind (not won.kind) — a degraded product prize records
+          // 'nothing' here so the audit trail matches what actually happened
+          // (no Pull, no credit), even though the roll picked 'product'.
+          prize_kind: prizeKind,
+          prize_snapshot: prizeSnapshot,
+          odds_snapshot: {
+            tier,
+            computed: prizeRows.map((p) => ({
+              kind: p.kind,
+              weight: p.weight,
+              locked: p.locked,
+            })),
+          },
+          vault_pull_id: vaultPullId,
+          credit_txn_id: creditTxnId,
+          status: 'drawn',
+        },
+      ],
+      sharedContext,
+    );
+
+    // Voucher payout happens AFTER the draw row exists so source_open_id can
+    // point at it directly — origin:'box' puts this grant outside the ladder's
+    // partial-unique index, so it's fine for a customer to win the same
+    // (level, kind) more than once from a box.
+    if (won.kind === 'voucher') {
+      const amountMyr = Number(payload.amount_myr ?? 0);
+      const level = await this.resolveMemberLevel(customerId, sharedContext);
+      await this.createVipRewardGrants(
         [
           {
-            slug: prefix,
-            title: `VIP Reward Box – Tier ${input.tier.toUpperCase()}`,
-            category: 'reward_box',
-            price: 0,
-            image: '/images/reward-box-placeholder.webp',
-            status: 'active' as const,
-            pool_enabled: false,
-            draws_per_day: 0,
+            customer_id: customerId,
+            level,
+            kind: 'voucher',
+            payload: { amount_myr: amountMyr },
+            status: 'granted',
+            origin: 'box',
+            source_open_id: draw.id,
           },
         ],
         sharedContext,
       );
-      pack = created as typeof pack;
     }
 
-    // Every downstream write targets the RESOLVED pack's slug (exact or suffixed).
-    const slug = pack.slug;
+    return {
+      status: 'drawn',
+      prize: resultPrize,
+      draw_ordinal: drawOrdinal,
+    };
+  }
 
-    const priorPoolEnabled = pack.pool_enabled;
-    const priorDrawsPerDay = pack.draws_per_day;
+  // Admin listing: every reward_box row + prize/customer counts (read-only).
+  // Customer counts + level ranges come from ONE grouped SQL over
+  // vip_member_state JOIN vip_level (highest_level_ever = level), grouped by
+  // box_tier — cheaper than N+1 per-tier lookups.
+  @InjectManager()
+  async listDailyBoxesWithMeta(
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<
+    {
+      tier: string;
+      name: string;
+      enabled: boolean;
+      draws_per_day: number;
+      prize_count: number;
+      customer_count: number;
+      level_from: number | null;
+      level_to: number | null;
+    }[]
+  > {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
 
-    // Prior reward odds (card_id null) — the replace-all targets only these.
-    const priorOdds = await this.listPackOdds(
-      { pack_id: slug },
-      { take: 10000 },
+    const boxes = await this.listRewardBoxes({}, { take: 1000 }, sharedContext);
+    const prizeRows = await this.listRewardBoxPrizes(
+      {},
+      { take: 100000, select: ['box_id'] },
       sharedContext,
     );
-    const priorRewardOddsIds = priorOdds
-      .filter((o) => o.card_id == null)
-      .map((o) => o.id);
-
-    if (priorRewardOddsIds.length > 0) {
-      await this.deletePackOdds(priorRewardOddsIds, sharedContext);
+    const prizeCountByBox = new Map<string, number>();
+    for (const p of prizeRows) {
+      prizeCountByBox.set(p.box_id, (prizeCountByBox.get(p.box_id) ?? 0) + 1);
     }
-    if (input.newEntries.length > 0) {
-      await this.createPackOdds(
-        input.newEntries.map((e) => ({
-          pack_id: slug,
-          card_id: null,
-          rarity: null,
-          weight: e.weight,
-          locked: false,
-          kind: e.kind,
-          product_handle: e.product_handle ?? null,
-          credit_amount: e.credit_amount ?? null,
+
+    const metaRows = await em.execute<
+      { box_tier: string; customer_count: string; level_from: number; level_to: number }[]
+    >(
+      `SELECT vl.box_tier AS box_tier,
+              COUNT(DISTINCT vms.customer_id) AS customer_count,
+              MIN(vl.level) AS level_from,
+              MAX(vl.level) AS level_to
+         FROM vip_level vl
+         LEFT JOIN vip_member_state vms
+           ON vms.highest_level_ever = vl.level AND vms.deleted_at IS NULL
+        WHERE vl.deleted_at IS NULL
+        GROUP BY vl.box_tier`,
+    );
+    const metaByTier = new Map(metaRows.map((r) => [r.box_tier, r]));
+
+    return boxes.map((b) => {
+      const meta = metaByTier.get(b.tier);
+      return {
+        tier: b.tier,
+        name: b.name,
+        enabled: b.enabled,
+        draws_per_day: b.draws_per_day,
+        prize_count: prizeCountByBox.get(b.id) ?? 0,
+        customer_count: meta ? Number(meta.customer_count) : 0,
+        level_from: meta ? Number(meta.level_from) : null,
+        level_to: meta ? Number(meta.level_to) : null,
+      };
+    });
+  }
+
+  // Admin editor read for one tier: box config + every prize row (incl.
+  // locked/pct — authoring-only; never reused for a store-facing response).
+  @InjectManager()
+  async getDailyBoxEditor(
+    tier: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{
+    box: { tier: string; name: string; enabled: boolean; draws_per_day: number };
+    prizes: { id: string; kind: string; payload: unknown; locked: boolean; pct: number }[];
+  }> {
+    const [rewardBox] = await this.listRewardBoxes(
+      { tier },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!rewardBox) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `No reward box configured for tier '${tier}'.`,
+      );
+    }
+    const prizeRows = await this.listRewardBoxPrizes(
+      { box_id: rewardBox.id },
+      { take: 1000 },
+      sharedContext,
+    );
+    return {
+      box: {
+        tier: rewardBox.tier,
+        name: rewardBox.name,
+        enabled: rewardBox.enabled,
+        draws_per_day: rewardBox.draws_per_day,
+      },
+      prizes: prizeRows.map((p) => ({
+        id: p.id,
+        kind: p.kind,
+        payload: p.payload,
+        locked: p.locked,
+        pct: p.weight / 100,
+      })),
+    };
+  }
+
+  // Atomic replace-all of one tier's box config + prize table (mirrors
+  // replaceRewardPool's delete-all/create-all + audit pattern). Called by
+  // saveDailyBoxWorkflow AFTER it has already validated the body and computed
+  // weights (pure logic stays outside the transaction).
+  @InjectTransactionManager()
+  async saveDailyBox(
+    input: {
+      tier: string;
+      body: DailyBoxBody;
+      weights: { weight: number; locked: boolean }[];
+      adminId: string;
+    },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ tier: string; prize_count: number; enabled: boolean; draws_per_day: number }> {
+    const [rewardBox] = await this.listRewardBoxes(
+      { tier: input.tier },
+      { take: 1 },
+      sharedContext,
+    );
+    if (!rewardBox) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `No reward box configured for tier '${input.tier}'.`,
+      );
+    }
+
+    const priorPrizes = await this.listRewardBoxPrizes(
+      { box_id: rewardBox.id },
+      { take: 1000 },
+      sharedContext,
+    );
+    const priorPrizeIds = priorPrizes.map((p) => p.id);
+    if (priorPrizeIds.length > 0) {
+      await this.deleteRewardBoxPrizes(priorPrizeIds, sharedContext);
+    }
+    if (input.body.prizes.length > 0) {
+      await this.createRewardBoxPrizes(
+        input.body.prizes.map((p: BoxPrizeInput, i: number) => ({
+          box_id: rewardBox!.id,
+          kind: p.kind,
+          weight: input.weights[i].weight,
+          locked: input.weights[i].locked,
+          payload:
+            p.kind === 'product'
+              ? { product_handle: p.product_handle, qty: p.qty }
+              : p.kind === 'credit' || p.kind === 'voucher'
+                ? { amount_myr: p.amount_myr }
+                : {},
         })),
         sharedContext,
       );
     }
-    await this.updatePacks(
+
+    const before = {
+      name: rewardBox.name,
+      enabled: rewardBox.enabled,
+      draws_per_day: rewardBox.draws_per_day,
+      prize_count: priorPrizeIds.length,
+    };
+    await this.updateRewardBoxes(
       {
-        selector: { slug },
+        selector: { id: rewardBox.id },
         data: {
-          pool_enabled: input.pool_enabled,
-          draws_per_day: input.draws_per_day,
+          name: input.body.name,
+          enabled: input.body.enabled,
+          draws_per_day: input.body.draws_per_day,
         },
       },
       sharedContext,
     );
 
-    // Admin audit row — same txn, so it commits iff the pool change commits.
     await this.createAdminActionAudits(
       [
         {
-          admin_id: input.admin_id,
-          entity_type: 'reward_pool',
-          entity_id: slug,
-          action: 'edit_reward_pool',
-          before: {
-            pool_enabled: priorPoolEnabled,
-            draws_per_day: priorDrawsPerDay,
-            entries_count: priorRewardOddsIds.length,
-          },
+          admin_id: input.adminId,
+          entity_type: 'daily_box',
+          entity_id: rewardBox.id,
+          action: 'edit_daily_box',
+          before,
           after: {
-            pool_enabled: input.pool_enabled,
-            draws_per_day: input.draws_per_day,
-            entries_count: input.newEntries.length,
+            name: input.body.name,
+            enabled: input.body.enabled,
+            draws_per_day: input.body.draws_per_day,
+            prize_count: input.body.prizes.length,
           },
-          reason: `Admin updated reward pool for tier ${input.tier}`,
+          reason: input.body.reason,
         },
       ],
       sharedContext,
     );
 
     return {
-      pack_slug: slug,
-      entries_count: input.newEntries.length,
-      draws_per_day: input.draws_per_day,
-      pool_enabled: input.pool_enabled,
+      tier: input.tier,
+      prize_count: input.body.prizes.length,
+      enabled: input.body.enabled,
+      draws_per_day: input.body.draws_per_day,
     };
+  }
+
+  // All 100 vip_level rows, ascending — the voucher ladder editor's read side.
+  @InjectManager()
+  async getVoucherLadder(
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ level: number; amount_myr: number }[]> {
+    const rows = await this.listVipLevels(
+      {},
+      { select: ['level', 'voucher_amount'], take: 1000 },
+      sharedContext,
+    );
+    return rows
+      .map((r) => ({ level: r.level, amount_myr: Number(r.voucher_amount) }))
+      .sort((a, b) => a.level - b.level);
+  }
+
+  // Fold admin ranges → the 100-entry ladder, update only the CHANGED
+  // vip_level rows (no-op writes for untouched levels), and write ONE audit
+  // row — same pattern as editDailyRewardSettings/replaceRewardPool.
+  @InjectTransactionManager()
+  async saveVoucherRanges(
+    ranges: VoucherRange[],
+    adminId: string,
+    reason: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<void> {
+    const amounts = foldRanges(ranges);
+
+    const rows = await this.listVipLevels(
+      {},
+      { select: ['id', 'level', 'voucher_amount'], take: 1000 },
+      sharedContext,
+    );
+    const byLevel = new Map(rows.map((r) => [r.level, r]));
+
+    const before: Record<number, number> = {};
+    const after: Record<number, number> = {};
+    for (let i = 0; i < amounts.length; i++) {
+      const level = i + 1;
+      const row = byLevel.get(level);
+      if (!row) continue;
+      const priorAmount = Number(row.voucher_amount);
+      const nextAmount = amounts[i];
+      if (priorAmount === nextAmount) continue;
+      before[level] = priorAmount;
+      after[level] = nextAmount;
+      await this.updateVipLevels(
+        { selector: { id: row.id }, data: { voucher_amount: nextAmount } },
+        sharedContext,
+      );
+    }
+
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: adminId,
+          entity_type: 'voucher_ladder',
+          entity_id: 'singleton',
+          action: 'edit_voucher_ladder',
+          before,
+          after,
+          reason,
+        },
+      ],
+      sharedContext,
+    );
   }
 }
 

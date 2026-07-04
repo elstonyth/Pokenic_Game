@@ -139,12 +139,6 @@ moduleIntegrationTestRunner<PacksModuleService>({
         expect(after.status).toBe('granted');
       });
 
-      it('settleRewardDraw throws (before any pool lookup)', async () => {
-        const c = 'cus_frozen_draw';
-        await freeze(c);
-        await expect(service.settleRewardDraw(c)).rejects.toThrow(/frozen/i);
-      });
-
       it('recordRewardWithdrawal throws (before the pull re-read)', async () => {
         const c = 'cus_frozen_withdraw';
         await freeze(c);

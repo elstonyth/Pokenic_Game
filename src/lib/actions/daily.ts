@@ -1,85 +1,208 @@
 'use server';
 
 /**
- * Daily check-in reward server actions (redesign Phase 5).
+ * Daily Rewards server actions — the consolidated `/daily` surface (Task 12).
+ * Absorbs the old `actions/rewards.ts` (all four actions moved/merged here);
+ * the legacy streak check-in (`getDailyStatus`/`claimDailyReward` against
+ * `/store/rewards/daily`) is gone along with its backend routes.
  *
  * Backend routes:
- *   GET  /store/rewards/daily        → claim state (MYT day, streak, amounts)
- *   POST /store/rewards/daily/claim  → pay today's streak amount into credits
+ *   GET  /store/daily                    — box + voucher grants + vaulted prizes
+ *   POST /store/daily/draw               — daily-box draw
+ *   POST /store/rewards/claim/:grantId   — claim a voucher or frame grant
+ *   POST /store/rewards/withdraw         — ship a vaulted prize pull
  */
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
 import { getAuthToken } from '@/lib/data/customer';
 import { friendlyError, isAuthError, type ErrorRule } from '@/lib/errors';
 import {
-  DailyClaimSchema,
-  DailyStatusSchema,
+  parseList,
   parseOne,
+  RewardGrantSchema,
+  RewardPrizeSchema,
+  ClaimGrantSchema,
+  DailyStateSchema,
+  DrawBoxSchema,
+  WithdrawPrizeSchema,
+  WithdrawAddressSchema,
+  type WithdrawAddressInput,
 } from '@/lib/data/schemas';
 
-export type DailyStatus = {
-  enabled: boolean;
-  /** MYT calendar day, YYYY-MM-DD. */
-  day: string;
-  claimedToday: boolean;
-  /** Streak position today pays (or paid), 1–7. */
-  streakDay: number;
-  /** MYR amount per streak day, index 0 = day 1. */
-  amounts: number[];
-  todayAmount: number;
+// ---- types ------------------------------------------------------------------
+
+export type DailyBoxView = {
+  tier: string;
+  name: string;
+  drawsPerDay: number;
+  drawsToday: number;
+  nextReset: string;
+  prizes: {
+    kind: 'credit' | 'product' | 'voucher' | 'nothing';
+    title?: string;
+    image?: string;
+    amountMyr?: number;
+  }[];
 };
 
-export type DailyStatusResult =
-  | { ok: true; status: DailyStatus }
+export type VoucherGrant = {
+  id: string;
+  kind: 'voucher' | 'frame';
+  level: number;
+  amountMyr?: number;
+  grantedAt: string;
+};
+
+export type ShipPrize = {
+  pullId: string;
+  prizeKind: 'product' | 'credit' | 'voucher' | 'nothing';
+  prizeSnapshot: Record<string, unknown> | null;
+  status: string;
+  drawDay: string;
+};
+
+export type DailyState = {
+  redemptionEnabled: boolean;
+  box: DailyBoxView | null;
+  vouchers: { claimable: VoucherGrant[]; claimed: VoucherGrant[] };
+  shipPrizes: ShipPrize[];
+};
+
+export type DailyResult =
+  | { ok: true; state: DailyState }
   | { ok: false; error: string; needsAuth?: boolean };
 
-export type DailyClaimResult =
-  | { ok: true; amount: number; balance: number; streakDay: number }
-  | {
-      ok: false;
-      error: string;
-      code?: 'already_claimed' | 'disabled';
-      needsAuth?: boolean;
-    };
+export type DrawPrize = {
+  kind: 'product' | 'credit' | 'voucher' | 'nothing';
+  title?: string;
+  image?: string;
+  amountMyr?: number;
+  productHandle?: string;
+};
+
+export type DrawBoxResult =
+  | { ok: true; status: 'drawn' | 'unavailable' | 'capped'; prize?: DrawPrize }
+  | { ok: false; error: string; needsAuth?: boolean };
+
+export type ClaimGrantResult =
+  | { ok: true; claimed: boolean; kind: string }
+  | { ok: false; error: string; needsAuth?: boolean };
+
+export type WithdrawPrizeResult =
+  | { ok: true; status: 'requested' | 'capped' | 'invalid' }
+  | { ok: false; error: string; needsAuth?: boolean };
+
+// ---- error rules ------------------------------------------------------------
 
 const DAILY_RULES: ErrorRule[] = [
   [
     /too many|rate.?limit|429/i,
-    'Too many requests — give it a moment and try again.',
+    'Too many requests — wait a moment and try again.',
   ],
   [
-    /already claimed/i,
-    'Today’s reward is already claimed — come back tomorrow.',
+    /unauthorized|not authenticated|401/i,
+    'Please log in to view your rewards.',
   ],
-  [/paused/i, 'Daily rewards are paused right now. Check back soon.'],
-  [/unauthorized|not authenticated|401/i, 'Please log in to claim rewards.'],
+  [/not found|404/i, 'Reward not found.'],
+  // Only the redemption gate's own message — not every 403 (an ownership/forbidden
+  // 403 should fall through to the generic fallback, not claim the gate is off).
+  [
+    /not enabled yet|redemption is not enabled|reward redemption/i,
+    'Reward redemption is not enabled yet.',
+  ],
 ];
 const DAILY_FALLBACK = 'Something went wrong. Please try again.';
 
-export async function getDailyStatus(): Promise<DailyStatusResult> {
+// ---- mapping helpers ----------------------------------------------------------
+
+const toVoucherGrant = (
+  g: ReturnType<typeof RewardGrantSchema.parse>,
+): VoucherGrant => ({
+  id: g.id,
+  kind: g.kind as 'voucher' | 'frame',
+  level: g.level ?? 0,
+  amountMyr: (g.payload as { amount_myr?: number } | null | undefined)
+    ?.amount_myr,
+  grantedAt: g.granted_at,
+});
+
+const toShipPrize = (
+  p: ReturnType<typeof RewardPrizeSchema.parse>,
+): ShipPrize => ({
+  pullId: p.pull_id,
+  prizeKind: p.prize_kind,
+  prizeSnapshot:
+    (p.prize_snapshot as Record<string, unknown> | null | undefined) ?? null,
+  status: p.status,
+  drawDay: p.draw_day,
+});
+
+// ---- actions ----------------------------------------------------------------
+
+/** Load the consolidated daily-rewards state for the page in one call. */
+export async function getDaily(): Promise<DailyResult> {
   const token = await getAuthToken();
   if (!token) {
     return {
       ok: false,
-      error: 'Please log in to see your daily reward.',
+      error: 'Please log in to view your rewards.',
       needsAuth: true,
     };
   }
   try {
-    const raw = await sdk.client.fetch('/store/rewards/daily', {
+    const raw = await sdk.client.fetch('/store/daily', {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     });
-    const parsed = parseOne(DailyStatusSchema, raw);
+
+    const parsed = parseOne(DailyStateSchema, raw);
     if (!parsed) {
       return {
         ok: false,
         error: 'Got an unexpected response. Please try again.',
       };
     }
-    return { ok: true, status: parsed };
+
+    const box: DailyBoxView | null = parsed.box
+      ? {
+          tier: parsed.box.tier,
+          name: parsed.box.name,
+          drawsPerDay: parsed.box.draws_per_day,
+          drawsToday: parsed.box.draws_today,
+          nextReset: parsed.box.next_reset,
+          prizes: parsed.box.prizes.map((p) => ({
+            kind: p.kind,
+            title: p.title,
+            image: p.image,
+            amountMyr: p.amount_myr,
+          })),
+        }
+      : null;
+
+    const vouchers = {
+      claimable: parseList(RewardGrantSchema, parsed.vouchers.claimable).map(
+        toVoucherGrant,
+      ),
+      claimed: parseList(RewardGrantSchema, parsed.vouchers.claimed).map(
+        toVoucherGrant,
+      ),
+    };
+
+    const shipPrizes = parseList(RewardPrizeSchema, parsed.ship_prizes).map(
+      toShipPrize,
+    );
+
+    return {
+      ok: true,
+      state: {
+        redemptionEnabled: parsed.redemption_enabled,
+        box,
+        vouchers,
+        shipPrizes,
+      },
+    };
   } catch (error) {
-    logger.error('[daily] status failed:', error);
+    logger.error('[daily] load failed:', error);
     return {
       ok: false,
       error: friendlyError(error, DAILY_RULES, DAILY_FALLBACK),
@@ -88,47 +211,128 @@ export async function getDailyStatus(): Promise<DailyStatusResult> {
   }
 }
 
-export async function claimDailyReward(): Promise<DailyClaimResult> {
+/** Open today's daily box. Fail-closed: the backend 403s when the gate is off. */
+export async function drawDailyBox(): Promise<DrawBoxResult> {
   const token = await getAuthToken();
   if (!token) {
-    return {
-      ok: false,
-      error: 'Please log in to claim rewards.',
-      needsAuth: true,
-    };
+    return { ok: false, error: 'Please log in first.', needsAuth: true };
   }
   try {
-    const raw = await sdk.client.fetch('/store/rewards/daily/claim', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    });
-    const parsed = parseOne(DailyClaimSchema, raw);
+    const parsed = parseOne(
+      DrawBoxSchema,
+      await sdk.client.fetch('/store/daily/draw', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: {},
+      }),
+    );
     if (!parsed) {
       return {
         ok: false,
         error: 'Got an unexpected response. Please try again.',
       };
     }
-    return {
-      ok: true,
-      amount: parsed.amount,
-      balance: parsed.balance,
-      streakDay: parsed.streakDay,
-    };
+    const prize: DrawPrize | undefined = parsed.prize
+      ? {
+          kind: parsed.prize.kind,
+          title: parsed.prize.title,
+          image: parsed.prize.image,
+          amountMyr: parsed.prize.amount_myr,
+          productHandle: parsed.prize.product_handle,
+        }
+      : undefined;
+    return { ok: true, status: parsed.status, prize };
   } catch (error) {
-    logger.error('[daily] claim failed:', error);
-    const message = friendlyError(error, DAILY_RULES, DAILY_FALLBACK);
-    const text = error instanceof Error ? error.message : String(error);
-    const code = /already.claimed/i.test(text)
-      ? ('already_claimed' as const)
-      : /paused|disabled/i.test(text)
-        ? ('disabled' as const)
-        : undefined;
+    logger.error('[daily] draw failed:', error);
+    // 403 = gate off — show a friendly "not yet" message
     return {
       ok: false,
-      error: message,
-      code,
+      error: friendlyError(error, DAILY_RULES, DAILY_FALLBACK),
+      needsAuth: isAuthError(error),
+    };
+  }
+}
+
+/** Claim a voucher or frame grant. Only for kind='voucher'|'frame'. */
+export async function claimVoucher(grantId: string): Promise<ClaimGrantResult> {
+  if (typeof grantId !== 'string' || grantId.trim() === '') {
+    return { ok: false, error: 'Invalid grant.' };
+  }
+  const token = await getAuthToken();
+  if (!token) {
+    return { ok: false, error: 'Please log in first.', needsAuth: true };
+  }
+  try {
+    const parsed = parseOne(
+      ClaimGrantSchema,
+      await sdk.client.fetch(
+        `/store/rewards/claim/${encodeURIComponent(grantId)}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: {},
+        },
+      ),
+    );
+    if (!parsed) {
+      return {
+        ok: false,
+        error: 'Got an unexpected response. Please try again.',
+      };
+    }
+    return { ok: true, claimed: parsed.claimed, kind: parsed.kind };
+  } catch (error) {
+    logger.error(`[daily] claim failed for '${grantId}':`, error);
+    return {
+      ok: false,
+      error: friendlyError(error, DAILY_RULES, DAILY_FALLBACK),
+      needsAuth: isAuthError(error),
+    };
+  }
+}
+
+// WithdrawAddressSchema + WithdrawAddressInput live in @/lib/data/schemas (the
+// app's sole `zod` importer — eslint no-restricted-imports forbids importing zod
+// here). Consumers import the type straight from schemas; a "use server" file
+// can only export async functions, so it must NOT re-export it.
+
+/** Request shipping for a vaulted prize pull. Not env-gated (balance-neutral). */
+export async function withdrawPrize(
+  pullId: string,
+  address: WithdrawAddressInput,
+): Promise<WithdrawPrizeResult> {
+  if (typeof pullId !== 'string' || pullId.trim() === '') {
+    return { ok: false, error: 'Invalid prize.' };
+  }
+  const addrResult = WithdrawAddressSchema.safeParse(address);
+  if (!addrResult.success) {
+    return { ok: false, error: 'Please fill in all address fields.' };
+  }
+  const token = await getAuthToken();
+  if (!token) {
+    return { ok: false, error: 'Please log in first.', needsAuth: true };
+  }
+  try {
+    const parsed = parseOne(
+      WithdrawPrizeSchema,
+      await sdk.client.fetch('/store/rewards/withdraw', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: { pull_id: pullId, address: addrResult.data },
+      }),
+    );
+    if (!parsed) {
+      return {
+        ok: false,
+        error: 'Got an unexpected response. Please try again.',
+      };
+    }
+    return { ok: true, status: parsed.status };
+  } catch (error) {
+    logger.error(`[daily] withdraw failed for '${pullId}':`, error);
+    return {
+      ok: false,
+      error: friendlyError(error, DAILY_RULES, DAILY_FALLBACK),
       needsAuth: isAuthError(error),
     };
   }

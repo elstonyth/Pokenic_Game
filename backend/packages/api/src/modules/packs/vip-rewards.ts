@@ -22,7 +22,7 @@ export function levelsToGrant(highestEver: number, newLevel: number): number[] {
 // later admin ladder edits, like commission.effective_pct). Box tier derives
 // live from vip_member_state at draw time (B6) — not granted per-rung. 'prize'
 // is never granted here (D7).
-// ponytail: box removed; tier resolves at draw time via settleRewardDraw (B6)
+// ponytail: box removed; tier resolves at draw time via drawDailyBox (B6)
 export function rewardsForLevel(row: {
   level: number;
   voucher_amount: number;

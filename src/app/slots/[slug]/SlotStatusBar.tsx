@@ -2,8 +2,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { rm } from '@/lib/format';
 import type { RecentPull } from '@/lib/data/packs';
+import { Meter } from './Meter';
 
 export function SlotStatusBar({
   balance,
@@ -15,16 +15,19 @@ export function SlotStatusBar({
   reduced: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-5">
         {balance !== null && (
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
               Credit
             </p>
-            <p className="font-heading text-lg font-bold tabular-nums text-white">
-              {rm(balance)}
-            </p>
+            <Meter
+              value={balance}
+              direction={null}
+              reduced={reduced}
+              className="font-heading text-lg font-bold"
+            />
           </div>
         )}
         <div>

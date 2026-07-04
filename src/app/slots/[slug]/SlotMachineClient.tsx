@@ -546,22 +546,23 @@ export default function SlotMachineClient({
 
         {/* Bottom controls (Task 12 restyles). */}
         <div className="px-fluid pb-6 pt-2">
-          <div className="mb-3 flex items-center justify-center text-[13px] text-white/60">
-            <span>Bet </span>
-            <Meter
-              value={cost * reels}
-              direction={meterDir}
-              reduced={reduced}
-              className="ml-1.5 font-semibold text-white/85"
-            />
-            {reels > 1 && (
-              <span className="ml-2 rounded bg-amber-400/15 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">
-                × {reels}
-              </span>
-            )}
-          </div>
           <SlotControls
-            cost={cost * reels}
+            costLine={
+              <span className="inline-flex items-center">
+                <span>Bet </span>
+                <Meter
+                  value={cost * reels}
+                  direction={meterDir}
+                  reduced={reduced}
+                  className="ml-1.5 font-semibold text-white/85"
+                />
+                {reels > 1 && (
+                  <span className="ml-2 rounded bg-amber-400/15 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">
+                    × {reels}
+                  </span>
+                )}
+              </span>
+            }
             spinning={phase === 'spinning' || phase === 'resolving'}
             disabled={
               spinGuarded || cooldown || (customer != null && !canAfford)

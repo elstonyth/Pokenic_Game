@@ -3,8 +3,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Minus } from 'lucide-react';
+import { motion } from 'motion/react';
 import { usePrefersReducedMotion } from '@/lib/use-reveal';
 import { useChromeInert } from '@/lib/use-chrome-inert';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -16,24 +16,33 @@ import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import { useSound } from '@/lib/use-sound';
 import { rm } from '@/lib/format';
 import { logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 import {
   type ResolvedPack,
   type Pack,
+  type Rarity,
   FLAT_BUYBACK_PERCENT,
   priceNumber,
 } from '@/lib/packs-data';
 import type { RecentPull } from '@/lib/data/packs';
 import { publishedOddsRows, type PublishedOdds } from '@/lib/packs-format';
-import { isTopRarity, rarityRgb } from '@/lib/rarity';
-import { spinTotalMs } from '@/lib/vault-reel';
+import { isTopRarity, rarityRgb, RARITY_ORDER } from '@/lib/rarity';
+import { spinTotalMs, columnDurationMs } from '@/lib/vault-reel';
 import { resolveCardPokemon } from '@/lib/resolve-card-pokemon';
+import { spriteGif } from '@/lib/mock/pokedex';
 import { SlotReelStack, type ColumnWinner } from './SlotReelStack';
 import { SlotStatusBar } from './SlotStatusBar';
 import { SlotControls } from './SlotControls';
 import { OddsSheet } from './OddsSheet';
-import { SellBackPanel, type SellBackOffer } from '@/components/SellBackPanel';
+import { VaultRoom } from './VaultRoom';
+import { EmptyPedestal } from './EmptyPedestal';
+import { Meter } from './Meter';
+import { RevealStage } from './RevealStage';
+import type { SellBackOffer } from '@/components/SellBackPanel';
 
 const COOLDOWN_MS = 600;
+/** How long a meter direction cue (up/down) stays lit before resetting. */
+const METER_CUE_MS = 600;
 
 // Neutral reel cell for a won card with no resolvable Pokémon (trainer/energy):
 // a classic Poké Ball. Keeps the reel sprite-themed and never reveals the prize.
@@ -43,7 +52,20 @@ const POKEBALL_PLACEHOLDER =
     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='#f5f5f5' stroke='#171717' stroke-width='4'/><path d='M5 50a45 45 0 0 1 90 0Z' fill='#ef4444'/><rect x='4' y='46' width='92' height='8' fill='#171717'/><circle cx='50' cy='50' r='13' fill='#f5f5f5' stroke='#171717' stroke-width='4'/></svg>",
   );
 
-type Phase = 'idle' | 'resolving' | 'spinning' | 'landed';
+type Phase =
+  | 'idle'
+  | 'resolving'
+  | 'spinning'
+  | 'flood'
+  | 'transform'
+  | 'review';
+
+/** Highest-rarity tier present in a batch, for the room flood color. */
+function topRarityOf(cards: WonCard[]): Rarity {
+  return (
+    RARITY_ORDER.find((r) => cards.some((c) => c.rarity === r)) ?? 'Common'
+  );
+}
 
 export default function SlotMachineClient({
   pack,
@@ -68,11 +90,14 @@ export default function SlotMachineClient({
   // mirrored every render always holds the current id, closing that bypass.
   const customerIdRef = useRef<string | null>(customer?.id ?? null);
   customerIdRef.current = customer?.id ?? null;
-  const { muted, toggleMuted, play, vibrate } = useSound();
+  const { muted, toggleMuted, play, vibrate, sfx } = useSound();
 
   const cost = priceNumber(pack.price);
+  // Reel count — prop is the initial value (already clamped from ?count=); the
+  // player adds/removes reels in-machine. cost * reels is the batch price.
+  const [reels, setReels] = useState(count);
   // Shrink the cell so multiple reels fit across the viewport.
-  const cellSize = count > 1 ? 76 : 96;
+  const cellSize = reels > 1 ? 76 : 96;
 
   // Balance comes from the app-shell provider (identity-tagged: values from
   // another account never render — push security review). Server-returned
@@ -84,6 +109,8 @@ export default function SlotMachineClient({
   const [needsTopUp, setNeedsTopUp] = useState(false);
   const [oddsOpen, setOddsOpen] = useState(false);
   const [cooldown, setCooldown] = useState(false);
+  // Meter roll direction cue for the reel add/remove ('up'/'down', auto-resets).
+  const [meterDir, setMeterDir] = useState<'up' | 'down' | null>(null);
 
   // Won results + a nonce that remounts the reel stack to re-spin.
   const [spin, setSpin] = useState<{
@@ -104,15 +131,51 @@ export default function SlotMachineClient({
   const [offers, setOffers] = useState<(SellBackOffer | null)[]>([]);
   const [announce, setAnnounce] = useState('');
   const cooldownTimer = useRef<number | null>(null);
+  const meterTimer = useRef<number | null>(null);
+  // Reveal-phase timers (flood → transform → review). Cleared on unmount + skip.
+  const floodTimer = useRef<number | null>(null);
+  const transformTimer = useRef<number | null>(null);
+  // Winner tile screen rects, captured by the stack, consumed by the tile→slab
+  // morph in RevealStage (spec decision #16). Reset per spin.
+  const winnerRects = useRef<(DOMRect | null)[]>([]);
   useEffect(
     () => () => {
       if (cooldownTimer.current !== null) clearTimeout(cooldownTimer.current);
+      if (meterTimer.current !== null) clearTimeout(meterTimer.current);
+      if (floodTimer.current !== null) clearTimeout(floodTimer.current);
+      if (transformTimer.current !== null) clearTimeout(transformTimer.current);
     },
     [],
   );
 
-  const canAfford = balance !== null && balance >= cost * count;
+  const canAfford = balance !== null && balance >= cost * reels;
   const spinGuarded = phase === 'resolving' || phase === 'spinning';
+  const canAdjustReels = phase === 'idle' || phase === 'review';
+
+  // Flash a meter direction cue, auto-resetting after the roll finishes.
+  const cueMeter = useCallback((dir: 'up' | 'down') => {
+    setMeterDir(dir);
+    if (meterTimer.current !== null) clearTimeout(meterTimer.current);
+    meterTimer.current = window.setTimeout(
+      () => setMeterDir(null),
+      METER_CUE_MS,
+    );
+  }, []);
+
+  const addReel = useCallback(() => {
+    if (!canAdjustReels) return;
+    setReels((r) => Math.min(3, r + 1));
+    sfx('clack');
+    sfx('meterUp');
+    cueMeter('up');
+  }, [canAdjustReels, sfx, cueMeter]);
+
+  const removeReel = useCallback(() => {
+    if (!canAdjustReels) return;
+    setReels((r) => Math.max(1, r - 1));
+    sfx('meterDown');
+    cueMeter('down');
+  }, [canAdjustReels, sfx, cueMeter]);
 
   async function handleSpin() {
     if (spinGuarded) return;
@@ -120,7 +183,7 @@ export default function SlotMachineClient({
       openAuth('login');
       return;
     }
-    if (balance !== null && balance < cost * count) {
+    if (balance !== null && balance < cost * reels) {
       setNeedsTopUp(true);
       setError('Not enough credits to spin.');
       return;
@@ -129,10 +192,12 @@ export default function SlotMachineClient({
     setNeedsTopUp(false);
     setOffers([]);
     setAnnounce('');
+    winnerRects.current = [];
     setPhase('resolving');
+    sfx('ratchet');
     play('spin');
 
-    const res = await openBatch(pack.id, count);
+    const res = await openBatch(pack.id, reels);
     if (!res.ok) {
       if (res.needsAuth) openAuth('login');
       else {
@@ -273,19 +338,36 @@ export default function SlotMachineClient({
     }));
     setRecent((prev) => [...justPulled, ...prev].slice(0, 12));
 
+    // Big-win / haptics now fire on the card flip inside RevealStage; here we
+    // keep only the announce text (and the phase handoff into the reveal).
     const big = held.cards.some((c) => isTopRarity(c.rarity));
-    play(big ? 'bigwin' : 'win');
-    vibrate(big ? [40, 40, 80] : 30);
-
+    const bigPrefix = big ? 'Big win! ' : '';
     const first = held.cards[0];
     if (held.cards.length === 1 && first) {
       const firstValue =
         first.marketPriceMyr != null ? rm(first.marketPriceMyr) : first.value;
-      setAnnounce(`Won ${first.name}, ${firstValue}`);
+      setAnnounce(`${bigPrefix}Won ${first.name}, ${firstValue}`);
     } else {
-      setAnnounce(`Won ${held.cards.length} cards`);
+      setAnnounce(`${bigPrefix}Won ${held.cards.length} cards`);
     }
-    setPhase('landed');
+
+    // Enter the reveal: flood the room (rarity wash + swell), then morph the
+    // landed tiles into slabs (transform), then unlock the sell window (review).
+    // Reduced motion collapses the theater to an immediate cut to review.
+    const heldCardsCount = held.cards.length;
+    setPhase('flood');
+    sfx('swell');
+    if (floodTimer.current !== null) clearTimeout(floodTimer.current);
+    if (transformTimer.current !== null) clearTimeout(transformTimer.current);
+    floodTimer.current = window.setTimeout(
+      () => setPhase('transform'),
+      reduced ? 0 : 1650,
+    );
+    transformTimer.current = window.setTimeout(
+      () => setPhase('review'),
+      // 1650 flood → morph (600) + settle margin (250) + per-card stagger (150).
+      reduced ? 0 : 1650 + 600 + 250 + (heldCardsCount - 1) * 150,
+    );
 
     setCooldown(true);
     if (cooldownTimer.current !== null) clearTimeout(cooldownTimer.current);
@@ -296,7 +378,16 @@ export default function SlotMachineClient({
     // customerIdRef (a ref) is intentionally not a dep — the guard reads its
     // live value, so handleSettled stays stable and every caller (reel prop,
     // watchdog, stale catch closure) checks the CURRENT identity.
-  }, [pack.name, pack.image, play, vibrate, applyBalance]);
+  }, [pack.name, pack.image, sfx, applyBalance, reduced]);
+
+  // Fast-forward the post-landing theater. Lands on 'review' with card backs
+  // unflipped (beat 5's skip). Never affects the spin itself — the spin is not
+  // skippable; only what plays AFTER the reel settles.
+  const skipToCards = useCallback(() => {
+    if (floodTimer.current !== null) clearTimeout(floodTimer.current);
+    if (transformTimer.current !== null) clearTimeout(transformTimer.current);
+    setPhase('review');
+  }, []);
 
   // Settle watchdog: the customer is charged the moment openBatch returns ok,
   // but the reveal only lands when the reel engine reports completion. If that
@@ -312,23 +403,39 @@ export default function SlotMachineClient({
       () => {
         if (pending.current) handleSettled();
       },
-      spinTotalMs(count) + 2000,
+      spinTotalMs(reels) + 2000,
     );
     return () => clearTimeout(id);
-  }, [phase, spin?.nonce, count, handleSettled]);
+  }, [phase, spin?.nonce, reels, handleSettled]);
+
+  // Reel-stop clacks: the stack owns its per-column settle internally, so fire a
+  // mechanical clack at each column's stop time from here (cleared on teardown).
+  useEffect(() => {
+    if (phase !== 'spinning') return;
+    const ids: number[] = [];
+    for (let i = 0; i < reels; i++) {
+      ids.push(
+        window.setTimeout(() => sfx('clack'), columnDurationMs(i, reels)),
+      );
+    }
+    return () => ids.forEach((id) => clearTimeout(id));
+  }, [phase, spin?.nonce, reels, sfx]);
 
   const refreshBalance = applyBalance;
 
-  const wonCards = phase === 'landed' ? (spin?.cards ?? []) : [];
-  // For single-card banner: use the first card's rarity.
-  const firstTier =
-    wonCards.length === 1 ? (wonCards[0]?.rarity ?? null) : null;
-  const firstRgb =
-    wonCards.length === 1 && firstTier ? rarityRgb(firstTier) : null;
+  const inReveal =
+    phase === 'flood' || phase === 'transform' || phase === 'review';
+  // No rarity color anywhere until the reel settles: flood derives from phase.
+  const floodRgb = inReveal ? rarityRgb(topRarityOf(spin?.cards ?? [])) : null;
+  // Sprite for each landed tile's tile→slab morph (custom image, else dex gif).
+  const spriteSrcs =
+    spin?.winners.map(
+      (w) => w.image ?? (w.dex !== null ? spriteGif(w.dex) : undefined),
+    ) ?? [];
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-neutral-50">
-      {/* Top bar */}
+    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-neutral-50 pb-[env(safe-area-inset-bottom)]">
+      {/* Top plate (Task 12 restyles). */}
       <div className="flex items-center justify-between gap-4 px-fluid py-4">
         <Link
           href={`/slots/${pack.id}`}
@@ -339,149 +446,159 @@ export default function SlotMachineClient({
         <SlotStatusBar balance={balance} recent={recent} reduced={reduced} />
       </div>
 
-      {/* Center: banner + reel stack + prize. Scrolls if a short viewport can't
-          fit the reveal, so the prize + sell-back are never hidden behind the
-          fixed controls. */}
-      <div
-        className="min-h-0 flex-1 overflow-y-auto px-fluid"
-        aria-busy={phase === 'spinning'}
+      <VaultRoom
+        floodRgb={floodRgb}
+        dimmed={inReveal && phase !== 'flood'}
+        reduced={reduced}
       >
-        <div className="relative flex min-h-full flex-col items-center justify-center gap-6 py-6">
-          <div className="min-h-8 text-center">
-            {wonCards.length === 1 && firstRgb && firstTier && (
-              <p
-                className="font-heading text-2xl font-bold tracking-tight"
-                style={{ color: `rgb(${firstRgb})` }}
+        {/* Scrolls if a short viewport can't fit the reveal, so the prize +
+            sell-back are never hidden behind the fixed controls. */}
+        <div
+          className="min-h-0 flex-1 overflow-y-auto px-fluid"
+          aria-busy={phase === 'spinning'}
+        >
+          <div className="relative flex min-h-full flex-col items-center justify-center gap-6 py-6">
+            {/* Machine: entrance-choreographed column group + pedestal. */}
+            <motion.div
+              variants={{
+                hidden: {},
+                shown: reduced ? {} : { transition: { staggerChildren: 0.12 } },
+              }}
+              initial="hidden"
+              animate="shown"
+            >
+              <motion.div
+                variants={{
+                  hidden: reduced ? { opacity: 0 } : { opacity: 0, y: -60 },
+                  shown: {
+                    opacity: 1,
+                    y: 0,
+                    transition: {
+                      duration: reduced ? 0.2 : 0.55,
+                      ease: [0.16, 1, 0.3, 1],
+                    },
+                  },
+                }}
+                className={cn(
+                  'flex items-stretch gap-3 sm:gap-5',
+                  inReveal &&
+                    phase !== 'flood' &&
+                    'opacity-40 transition-opacity duration-500',
+                )}
               >
-                YOU WON — {firstTier.toUpperCase()} ·{' '}
-                {wonCards[0]!.marketPriceMyr != null
-                  ? rm(wonCards[0]!.marketPriceMyr)
-                  : wonCards[0]!.value}
-              </p>
-            )}
-            {wonCards.length > 1 && (
-              <p className="font-heading text-2xl font-bold tracking-tight text-white">
-                YOU WON {wonCards.length} CARDS
-              </p>
-            )}
-            {phase === 'spinning' && (
-              <p className="font-heading text-lg font-bold tracking-tight text-white/60">
-                SPINNING…
-              </p>
+                <SlotReelStack
+                  count={reels}
+                  cellSize={cellSize}
+                  spinKey={spin?.nonce ?? 'idle'}
+                  winners={
+                    phase === 'idle' || phase === 'resolving'
+                      ? null
+                      : (spin?.winners ?? null)
+                  }
+                  reduced={reduced}
+                  pulse={false}
+                  onAllSettled={handleSettled}
+                  onWinnerRect={(i, r) => {
+                    winnerRects.current[i] = r;
+                  }}
+                  hideWinners={phase === 'transform' || phase === 'review'}
+                />
+                <EmptyPedestal
+                  cellSize={cellSize}
+                  visible={reels < 3 && canAdjustReels}
+                  onAdd={addReel}
+                  reduced={reduced}
+                />
+              </motion.div>
+              {/* "−" handle under the reel group. */}
+              {reels > 1 && canAdjustReels && (
+                <button
+                  type="button"
+                  aria-label="Remove a reel"
+                  onClick={removeReel}
+                  className="mx-auto mt-2 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-white/50 hover:text-white"
+                >
+                  <Minus className="h-4 w-4" aria-hidden />
+                </button>
+              )}
+            </motion.div>
+
+            {/* Reveal overlay (flood → transform → review). */}
+            {inReveal && spin && (
+              <RevealStage
+                phase={phase}
+                cards={spin.cards}
+                offers={offers}
+                winnerRects={winnerRects.current}
+                spriteSrcs={spriteSrcs}
+                reduced={reduced}
+                onSkip={skipToCards}
+                onSellBack={sellBackPull}
+                onReveal={revealPull}
+                onSold={refreshBalance}
+                sfx={sfx}
+                vibrate={vibrate}
+                play={play}
+              />
             )}
           </div>
+        </div>
 
-          <SlotReelStack
-            count={count}
-            cellSize={cellSize}
-            spinKey={spin?.nonce ?? 'idle'}
-            winners={
-              phase === 'idle' || phase === 'resolving'
-                ? null
-                : (spin?.winners ?? null)
+        {/* Bottom controls (Task 12 restyles). */}
+        <div className="px-fluid pb-6 pt-2">
+          <div className="mb-3 flex items-center justify-center text-[13px] text-white/60">
+            <span>Bet </span>
+            <Meter
+              value={cost * reels}
+              direction={meterDir}
+              reduced={reduced}
+              className="ml-1.5 font-semibold text-white/85"
+            />
+            {reels > 1 && (
+              <span className="ml-2 rounded bg-amber-400/15 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">
+                × {reels}
+              </span>
+            )}
+          </div>
+          <SlotControls
+            cost={cost * reels}
+            spinning={phase === 'spinning' || phase === 'resolving'}
+            disabled={
+              spinGuarded || cooldown || (customer != null && !canAfford)
             }
-            reduced={reduced}
-            pulse={phase === 'landed'}
-            onAllSettled={handleSettled}
+            label={
+              !customer
+                ? 'Log in to spin'
+                : phase === 'review'
+                  ? 'Spin again'
+                  : 'Spin'
+            }
+            muted={muted}
+            onSpin={handleSpin}
+            onToggleMute={toggleMuted}
+            onOpenOdds={() => setOddsOpen(true)}
           />
-
-          {/* Reward: normal flow BELOW the reel on mobile; on desktop it floats as
-              an absolutely-positioned right rail so it NEVER shifts the centered
-              reel (stable for 1–3 reels). Scrolls internally if a tall multi-card
-              reveal exceeds the height. */}
-          {wonCards.length > 0 && (
-            <div className="flex w-full flex-col items-center gap-5 lg:absolute lg:right-0 lg:top-1/2 lg:max-h-full lg:w-[300px] lg:-translate-y-1/2 lg:items-stretch lg:overflow-y-auto">
-              {wonCards.map((won, i) => {
-                const species = resolveCardPokemon(won)?.name;
-                return (
-                  <div
-                    key={`${won.id}-${i}`}
-                    className="flex w-full max-w-sm flex-col gap-3 lg:max-w-none"
+          {error && (
+            <p
+              role="alert"
+              className="mt-3 text-center text-[12px] text-red-300"
+            >
+              {error}
+              {needsTopUp && (
+                <>
+                  {' '}
+                  <Link
+                    href="/vault"
+                    className="font-bold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
                   >
-                    <div className="flex items-start gap-3">
-                      <Image
-                        src={won.image}
-                        alt={won.name}
-                        width={88}
-                        height={123}
-                        className="h-[112px] w-auto shrink-0 rounded-lg object-contain"
-                      />
-                      <div className="min-w-0 flex-1 text-left">
-                        <p
-                          className="truncate text-base font-bold text-white"
-                          title={species ?? won.name}
-                        >
-                          {species ?? won.name}
-                        </p>
-                        {species && (
-                          <p
-                            className="truncate text-[12px] text-white/50"
-                            title={won.name}
-                          >
-                            {won.name}
-                          </p>
-                        )}
-                        <p className="mt-1 text-[13px] text-white/60">
-                          Value{' '}
-                          <span className="font-bold text-white">
-                            {won.marketPriceMyr != null
-                              ? rm(won.marketPriceMyr ?? 0)
-                              : won.value}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <SellBackPanel
-                      offer={offers[i] ?? null}
-                      active={phase === 'landed'}
-                      reduced={reduced}
-                      onSellBack={sellBackPull}
-                      onReveal={revealPull}
-                      onSold={refreshBalance}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+                    Add credits in your Vault →
+                  </Link>
+                </>
+              )}
+            </p>
           )}
         </div>
-      </div>
-
-      {/* Bottom controls */}
-      <div className="px-fluid pb-6 pt-2">
-        <SlotControls
-          cost={cost * count}
-          spinning={phase === 'spinning' || phase === 'resolving'}
-          disabled={spinGuarded || cooldown || (customer != null && !canAfford)}
-          label={
-            !customer
-              ? 'Log in to spin'
-              : phase === 'landed'
-                ? 'Spin again'
-                : 'Spin'
-          }
-          muted={muted}
-          onSpin={handleSpin}
-          onToggleMute={toggleMuted}
-          onOpenOdds={() => setOddsOpen(true)}
-        />
-        {error && (
-          <p role="alert" className="mt-3 text-center text-[12px] text-red-300">
-            {error}
-            {needsTopUp && (
-              <>
-                {' '}
-                <Link
-                  href="/vault"
-                  className="font-bold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
-                >
-                  Add credits in your Vault →
-                </Link>
-              </>
-            )}
-          </p>
-        )}
-      </div>
+      </VaultRoom>
 
       {/* Single consolidated announcement (settle-only). */}
       <p role="status" aria-live="polite" className="sr-only">

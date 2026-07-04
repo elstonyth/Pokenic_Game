@@ -83,6 +83,7 @@ import {
   type BoxPrizeInput,
 } from './daily-box';
 import { foldRanges, type VoucherRange } from './voucher-ranges';
+import { getCardStockByHandle } from './card-stock';
 import type { MedusaContainer } from '@medusajs/framework/types';
 
 // Postgres unique-violation detector (SQLSTATE 23505) for the commission
@@ -3969,39 +3970,68 @@ class PacksModuleService extends MedusaService({
     let creditTxnId: string | null = null;
     let resultPrize: DrawDailyBoxResult['prize'];
     let prizeSnapshot: Record<string, unknown>;
+    // Recorded prize_kind — starts as the roll's kind, degrades to 'nothing'
+    // below if the product stock/existence gate fails (Finding 1).
+    let prizeKind: 'product' | 'credit' | 'voucher' | 'nothing' = won.kind;
 
     if (won.kind === 'product') {
       const handle = payload.product_handle ?? '';
+      const qty = Number(payload.qty ?? 1);
       const display = handle
         ? (await this.resolveProductDisplay([handle], resolveContainer)).get(
             handle,
           )
         : undefined;
-      const [pull] = await this.createPulls(
-        [
-          {
-            customer_id: customerId,
-            pack_id: `reward-box-${tier}`,
-            card_id: handle,
-            order_id: null,
-            rolled_at: new Date(),
-            source: 'reward',
-          },
-        ],
-        sharedContext,
-      );
-      vaultPullId = pull.id;
-      resultPrize = {
-        kind: 'product',
-        title: display?.title,
-        image: display?.image,
-        product_handle: handle,
-      };
-      prizeSnapshot = {
-        product_handle: handle,
-        title: display?.title ?? '',
-        image: display?.image ?? '',
-      };
+
+      // Post-roll gate (§Finding 1) — degrading (not re-rolling / not
+      // pre-filtering) keeps admin-pinned locked odds honest: the authored
+      // odds table stays what was configured, and odds_snapshot below still
+      // records it truthfully. A dead/missing product or insufficient stock
+      // (< qty, Finding 2) turns this draw into 'nothing' instead of minting
+      // a Pull the shipping pipeline can't back.
+      const stockByHandle = handle
+        ? await getCardStockByHandle(resolveContainer, [handle])
+        : new Map<string, number | null>();
+      const stock = stockByHandle.get(handle);
+      const inStock =
+        Boolean(display) &&
+        stockByHandle.has(handle) &&
+        (stock === null || (stock !== undefined && stock >= qty));
+
+      if (!inStock) {
+        resultPrize = { kind: 'nothing' };
+        prizeSnapshot = { degraded_from: 'product', product_handle: handle };
+        prizeKind = 'nothing';
+      } else {
+        for (let i = 0; i < qty; i += 1) {
+          const [pull] = await this.createPulls(
+            [
+              {
+                customer_id: customerId,
+                pack_id: `reward-box-${tier}`,
+                card_id: handle,
+                order_id: null,
+                rolled_at: new Date(),
+                source: 'reward',
+              },
+            ],
+            sharedContext,
+          );
+          vaultPullId = pull.id;
+        }
+        resultPrize = {
+          kind: 'product',
+          title: display?.title,
+          image: display?.image,
+          product_handle: handle,
+        };
+        prizeSnapshot = {
+          product_handle: handle,
+          title: display?.title ?? '',
+          image: display?.image ?? '',
+          qty,
+        };
+      }
     } else if (won.kind === 'credit') {
       const amountMyr = Number(payload.amount_myr ?? 0);
       // Defense-in-depth ceiling, mirroring settleRewardDraw's MAX_REWARD_CREDIT_MYR
@@ -4041,7 +4071,10 @@ class PacksModuleService extends MedusaService({
           tier,
           draw_day: drawDay,
           draw_ordinal: drawOrdinal,
-          prize_kind: won.kind,
+          // prizeKind (not won.kind) — a degraded product prize records
+          // 'nothing' here so the audit trail matches what actually happened
+          // (no Pull, no credit), even though the roll picked 'product'.
+          prize_kind: prizeKind,
           prize_snapshot: prizeSnapshot,
           odds_snapshot: {
             tier,

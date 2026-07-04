@@ -70,16 +70,25 @@ export async function GET(
 
   // Masked puller names — first_name ONLY (leaderboard's PII rule), then
   // masked to 3 chars. Missing customer/first_name reads as "Anonymous".
-  const customerService = req.scope.resolve(Modules.CUSTOMER);
+  // ponytail: resolve() is wrapped nullsafe — if the customer module can't be
+  // resolved (or resolves to something without listCustomers, e.g. a test
+  // harness that only registers this module) the feed degrades to masking
+  // every puller as "Anonymous" rather than 500ing.
   const customerIds = [
     ...new Set(pulls.map((p) => p.customer_id).filter((id): id is string => !!id)),
   ];
-  const customers = customerIds.length
-    ? await customerService.listCustomers(
+  let customers: { id: string; first_name: string | null }[] = [];
+  if (customerIds.length) {
+    try {
+      const customerService = req.scope.resolve(Modules.CUSTOMER);
+      customers = await customerService.listCustomers(
         { id: customerIds },
         { take: customerIds.length },
-      )
-    : [];
+      );
+    } catch {
+      customers = [];
+    }
+  }
   const firstNameById = new Map(customers.map((c) => [c.id, c.first_name]));
 
   const recent = pulls

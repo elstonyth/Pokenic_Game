@@ -241,6 +241,7 @@ class PacksModuleService extends MedusaService({
   @InjectTransactionManager()
   async applyPackMemberDiff(
     diff: {
+      pack_id: string;
       create: {
         pack_id: string;
         card_id: string;
@@ -253,14 +254,35 @@ class PacksModuleService extends MedusaService({
     },
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ created_ids: string[] }> {
-    const created = diff.create.length
-      ? await this.createPackOdds(diff.create, sharedContext)
+    // The diff was computed from a PRE-transaction read, so two racing edits
+    // on the same pack could both apply stale diffs (worst case: the same
+    // card created twice, silently doubling its draw weight). Serialize per
+    // pack (same advisory-lock pattern as the per-customer credit lock), then
+    // re-validate the stale diff against a fresh read UNDER the lock — the
+    // lock alone would serialize the writes but not fix the stale reads.
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `pack:${diff.pack_id}`,
+    ]);
+    const current = await this.listPackOdds(
+      { pack_id: diff.pack_id },
+      { take: 1000 },
+      sharedContext,
+    );
+    const presentCards = new Set(current.map((o) => o.card_id));
+    const presentIds = new Set(current.map((o) => o.id));
+    const create = diff.create.filter((c) => !presentCards.has(c.card_id));
+    const remove_ids = diff.remove_ids.filter((id) => presentIds.has(id));
+    const reweigh = diff.reweigh.filter((u) => presentIds.has(u.id));
+
+    const created = create.length
+      ? await this.createPackOdds(create, sharedContext)
       : [];
-    if (diff.remove_ids.length) {
-      await this.deletePackOdds(diff.remove_ids, sharedContext);
+    if (remove_ids.length) {
+      await this.deletePackOdds(remove_ids, sharedContext);
     }
-    if (diff.reweigh.length) {
-      await this.updatePackOdds(diff.reweigh, sharedContext);
+    if (reweigh.length) {
+      await this.updatePackOdds(reweigh, sharedContext);
     }
     return { created_ids: created.map((c) => c.id) };
   }

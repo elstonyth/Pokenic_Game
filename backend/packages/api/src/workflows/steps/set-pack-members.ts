@@ -159,6 +159,7 @@ export const setPackMembersStep = createStep(
       ? survivors.map((o) => ({ id: o.id, weight: o.weight }))
       : [];
     const { created_ids: createdIds } = await packs.applyPackMemberDiff({
+      pack_id: input.pack_id,
       create: toAdd.map((card_id) => ({
         pack_id: input.pack_id,
         card_id,

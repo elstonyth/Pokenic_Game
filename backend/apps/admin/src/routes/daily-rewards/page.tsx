@@ -20,8 +20,12 @@ import {
   useDailyBoxes,
   useDailyBox,
   useSaveDailyBox,
+  useVoucherLadder,
+  useSaveVoucherRanges,
   type DailyBoxEditorDTO,
   type DailyBoxPrizeDTO,
+  type VoucherLadderDTO,
+  type VoucherRangeDTO,
 } from '../../lib/queries';
 import { getDailyBox } from '../../lib/admin-rest';
 import { fmtPct, rm } from '../../lib/format';
@@ -120,11 +124,384 @@ const DailyRewardsPage = () => {
   );
 };
 
-const VouchersTab = () => (
-  <div className="border-t px-6 py-8">
-    <Text className="text-ui-fg-subtle">Coming in the next commit.</Text>
-  </div>
-);
+// One range row in the editable buffer. String inputs so the field can hold
+// transient/invalid text (e.g. empty) while typing — parsed to numbers only
+// for validation/fold/save, same pattern as EditRow's amountInput.
+interface RangeRow {
+  localId: string;
+  fromInput: string;
+  toInput: string;
+  amountInput: string;
+}
+
+let nextRangeLocalId = 0;
+const rangeRowFromDTO = (r: VoucherRangeDTO): RangeRow => ({
+  localId: `range-${nextRangeLocalId++}`,
+  fromInput: String(r.from),
+  toInput: String(r.to),
+  amountInput: String(r.amount_myr),
+});
+
+const LEVELS = 100;
+
+// Mirrors foldRanges in packages/api src/modules/packs/voucher-ranges.ts —
+// duplicated here (not imported) so the admin app never depends on backend
+// source. Returns either the folded per-level ladder or a list of human
+// -readable problems (never both), so the caller can show every issue at
+// once instead of stopping at the first one.
+function foldRangesLocal(
+  ranges: { from: number; to: number; amountInput: string }[],
+): { levels: number[] } | { errors: string[] } {
+  const errors: string[] = [];
+  const out = new Array<number>(LEVELS).fill(-1);
+  const overlapLevels = new Set<number>();
+
+  for (const r of ranges) {
+    if (
+      !Number.isInteger(r.from) ||
+      !Number.isInteger(r.to) ||
+      r.from < 1 ||
+      r.to > LEVELS ||
+      r.from > r.to
+    ) {
+      errors.push(
+        `Range ${r.from}–${r.to} is invalid: levels must be whole numbers within 1–${LEVELS}, with from ≤ to.`,
+      );
+      continue;
+    }
+    const amt = Number(r.amountInput);
+    if (!(Number.isFinite(amt) && amt >= 0)) {
+      errors.push(`Range ${r.from}–${r.to} needs an RM amount of 0 or more.`);
+      continue;
+    }
+    if (amt > MAX_BOX_CREDIT_MYR) {
+      errors.push(
+        `Range ${r.from}–${r.to} exceeds the RM ${MAX_BOX_CREDIT_MYR.toLocaleString()} ceiling.`,
+      );
+      continue;
+    }
+    for (let level = r.from; level <= r.to; level++) {
+      if (out[level - 1] !== -1) overlapLevels.add(level);
+      out[level - 1] = amt;
+    }
+  }
+
+  if (overlapLevels.size > 0) {
+    errors.push(
+      `Ranges overlap at level${overlapLevels.size > 1 ? 's' : ''} ${summarizeLevels([...overlapLevels])}.`,
+    );
+  }
+
+  const gaps: number[] = [];
+  for (let i = 0; i < LEVELS; i++) if (out[i] === -1) gaps.push(i + 1);
+  if (gaps.length > 0) {
+    errors.push(
+      `Level${gaps.length > 1 ? 's' : ''} ${summarizeLevels(gaps)} ${gaps.length > 1 ? 'are' : 'is'} not covered by any range.`,
+    );
+  }
+
+  return errors.length > 0 ? { errors } : { levels: out };
+}
+
+// Collapses a sorted list of levels into "42" or "42–44, 90" style ranges for
+// error text, so an admin sees exactly which levels are wrong instead of a
+// raw array dump.
+function summarizeLevels(levels: number[]): string {
+  const sorted = [...levels].sort((a, b) => a - b);
+  const parts: string[] = [];
+  let start = sorted[0];
+  let prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    const cur = sorted[i];
+    if (cur === prev + 1) {
+      prev = cur;
+      continue;
+    }
+    parts.push(start === prev ? `${start}` : `${start}–${prev}`);
+    start = cur;
+    prev = cur;
+  }
+  return parts.join(', ');
+}
+
+const VouchersTab = () => {
+  const { data, isError } = useVoucherLadder();
+  const saveRanges = useSaveVoucherRanges();
+  const saving = saveRanges.isPending;
+
+  const [seededFrom, setSeededFrom] = useState<VoucherLadderDTO | undefined>(
+    undefined,
+  );
+  const [rows, setRows] = useState<RangeRow[]>([]);
+  const [reason, setReason] = useState('');
+  if (data && data !== seededFrom) {
+    setSeededFrom(data);
+    setRows(data.ranges.map(rangeRowFromDTO));
+  }
+
+  const setRow = (localId: string, patch: Partial<RangeRow>) =>
+    setRows((prev) =>
+      prev.map((r) => (r.localId === localId ? { ...r, ...patch } : r)),
+    );
+  const removeRow = (localId: string) =>
+    setRows((prev) => prev.filter((r) => r.localId !== localId));
+  const addRow = () =>
+    setRows((prev) => {
+      const lastTo = prev.reduce(
+        (max, r) => Math.max(max, Number(r.toInput) || 0),
+        0,
+      );
+      return [
+        ...prev,
+        {
+          localId: `range-${nextRangeLocalId++}`,
+          fromInput: String(Math.min(lastTo + 1, LEVELS)),
+          toInput: String(LEVELS),
+          amountInput: '0',
+        },
+      ];
+    });
+
+  const parsedRows = rows.map((r) => ({
+    from: Number(r.fromInput),
+    to: Number(r.toInput),
+    amountInput: r.amountInput,
+  }));
+  const folded =
+    rows.length === 0
+      ? { errors: ['At least one range is required.'] }
+      : foldRangesLocal(parsedRows);
+  const foldErrors = 'errors' in folded ? folded.errors : [];
+  const levels = 'levels' in folded ? folded.levels : null;
+
+  const gapLevels: number[] = [];
+  if (levels === null) {
+    // Recompute coverage alone (ignoring overlap/bounds errors) so "Fill
+    // gaps" stays available even while other range rows are mid-edit.
+    const covered = new Array<boolean>(LEVELS).fill(false);
+    for (const r of parsedRows) {
+      if (
+        Number.isInteger(r.from) &&
+        Number.isInteger(r.to) &&
+        r.from >= 1 &&
+        r.to <= LEVELS &&
+        r.from <= r.to
+      ) {
+        for (let level = r.from; level <= r.to; level++)
+          covered[level - 1] = true;
+      }
+    }
+    covered.forEach((c, i) => {
+      if (!c) gapLevels.push(i + 1);
+    });
+  }
+
+  const fillGaps = () => {
+    if (gapLevels.length === 0) return;
+    // Fill-gaps adds one range per contiguous run of uncovered levels, e.g.
+    // gaps [7,8,9,42] -> two new ranges (7-9 and 42-42), not four singles.
+    const newRows: RangeRow[] = [];
+    let start = gapLevels[0];
+    let prev = gapLevels[0];
+    const flush = () => {
+      newRows.push({
+        localId: `range-${nextRangeLocalId++}`,
+        fromInput: String(start),
+        toInput: String(prev),
+        amountInput: '0',
+      });
+    };
+    for (let i = 1; i <= gapLevels.length; i++) {
+      const cur = gapLevels[i];
+      if (cur === prev + 1) {
+        prev = cur;
+        continue;
+      }
+      flush();
+      start = cur;
+      prev = cur;
+    }
+    setRows((prevRows) => [...prevRows, ...newRows]);
+  };
+
+  const reasonValid = reason.trim().length > 0;
+  const canSave =
+    !saving && seededFrom !== undefined && reasonValid && levels !== null;
+
+  async function save() {
+    if (!canSave || levels === null) return;
+    if (levels.every((amt) => amt === 0)) {
+      const ok = window.confirm(
+        'All voucher amounts are zero — customers will stop receiving level-up vouchers. Save anyway?',
+      );
+      if (!ok) return;
+    }
+    try {
+      await saveRanges.mutateAsync({
+        ranges: rows.map((r) => ({
+          from: Number(r.fromInput),
+          to: Number(r.toInput),
+          amount_myr: Number(r.amountInput) || 0,
+        })),
+        reason: reason.trim(),
+      });
+      setReason('');
+      // useSaveVoucherRanges invalidates qk.voucherLadder → the buffer
+      // reseeds from the refetch above.
+    } catch {
+      // useSaveVoucherRanges.onError already toasts the backend message.
+    }
+  }
+
+  if (isError) {
+    return (
+      <Container className="p-6">
+        <Text className="text-ui-fg-subtle">Failed to load vouchers.</Text>
+      </Container>
+    );
+  }
+
+  return (
+    <div className="border-t">
+      {/* Range table */}
+      <Table>
+        <Table.Header>
+          <Table.Row>
+            <Table.HeaderCell>From level</Table.HeaderCell>
+            <Table.HeaderCell>To level</Table.HeaderCell>
+            <Table.HeaderCell>RM amount</Table.HeaderCell>
+            <Table.HeaderCell />
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {rows.map((r) => (
+            <Table.Row key={r.localId}>
+              <Table.Cell>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={r.fromInput}
+                  onChange={(e) =>
+                    setRow(r.localId, { fromInput: e.target.value })
+                  }
+                  className="w-20 tabular-nums"
+                />
+              </Table.Cell>
+              <Table.Cell>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={r.toInput}
+                  onChange={(e) =>
+                    setRow(r.localId, { toInput: e.target.value })
+                  }
+                  className="w-20 tabular-nums"
+                />
+              </Table.Cell>
+              <Table.Cell>
+                <div className="flex items-center gap-1">
+                  <Text size="small" className="text-ui-fg-subtle">
+                    RM
+                  </Text>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={r.amountInput}
+                    onChange={(e) =>
+                      setRow(r.localId, { amountInput: e.target.value })
+                    }
+                    className="w-28 tabular-nums"
+                  />
+                </div>
+              </Table.Cell>
+              <Table.Cell>
+                <Button
+                  size="small"
+                  variant="transparent"
+                  onClick={() => removeRow(r.localId)}
+                >
+                  Remove
+                </Button>
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
+
+      <div className="flex flex-col gap-3 px-6 py-4">
+        <div className="flex gap-2">
+          <Button size="small" variant="secondary" onClick={addRow}>
+            Add range
+          </Button>
+          {gapLevels.length > 0 && (
+            <Button size="small" variant="secondary" onClick={fillGaps}>
+              Fill gaps with RM 0
+            </Button>
+          )}
+        </div>
+
+        {foldErrors.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {foldErrors.map((err) => (
+              <Text key={err} size="small" className="text-ui-tag-red-text">
+                {err}
+              </Text>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <Label htmlFor="voucher-reason">Reason (audit trail)</Label>
+            <Input
+              id="voucher-reason"
+              placeholder="e.g. Boost mid-tier voucher payouts"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="primary"
+            onClick={save}
+            isLoading={saving}
+            disabled={!canSave}
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+
+      {/* Read-only 100-level preview, folded client-side from the rows above. */}
+      <div className="border-t px-6 py-4">
+        <Text className="mb-3 font-medium">Preview: level → RM</Text>
+        {levels === null ? (
+          <Text size="small" className="text-ui-fg-subtle">
+            Fix the errors above to see the full 100-level preview.
+          </Text>
+        ) : (
+          <div className="grid grid-cols-5 gap-x-4 gap-y-1 sm:grid-cols-10">
+            {levels.map((amt, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <Text size="small" className="text-ui-fg-subtle">
+                  {i + 1}
+                </Text>
+                <Text size="small" className="tabular-nums">
+                  {rm(amt)}
+                </Text>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const BoxesTab = () => {
   const { data: boxesData } = useDailyBoxes();

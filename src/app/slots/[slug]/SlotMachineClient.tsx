@@ -24,9 +24,8 @@ import {
 } from '@/lib/packs-data';
 import type { RecentPull } from '@/lib/data/packs';
 import { publishedOddsRows, type PublishedOdds } from '@/lib/packs-format';
-import { isTopRarity } from '@/lib/rarity';
-import { BASE_SPIN_MS, STAGGER_MS } from '@/lib/reel';
-import { priceTier, TIER_COLOR, type Tier } from '@/lib/price-tier';
+import { isTopRarity, rarityRgb } from '@/lib/rarity';
+import { spinTotalMs } from '@/lib/vault-reel';
 import { resolveCardPokemon } from '@/lib/resolve-card-pokemon';
 import { SlotReelStack, type ColumnWinner } from './SlotReelStack';
 import { SlotStatusBar } from './SlotStatusBar';
@@ -91,7 +90,6 @@ export default function SlotMachineClient({
     nonce: number;
     cards: WonCard[];
     winners: ColumnWinner[];
-    tiers: Tier[];
   } | null>(null);
   // Held until the reel settles (spoiler guard). Carries the won cards too, so
   // handleSettled reads the result from this ref (always current) instead of
@@ -152,7 +150,6 @@ export default function SlotMachineClient({
     const builtOffers: (SellBackOffer | null)[] = [];
     const winners: ColumnWinner[] = [];
     const cards: WonCard[] = [];
-    const tiers: Tier[] = [];
     // Single spin timestamp: unique per spin (drives the reel nonce) and the
     // fallback instant-offer deadline. handleSpin is a user-click async event
     // handler (never render), so this impure read is safe; the purity rule
@@ -185,8 +182,7 @@ export default function SlotMachineClient({
             : null;
         builtOffers.push(builtOffer);
 
-        // Cosmetic mapping (decides nothing): tier color + winner Pokémon.
-        const tier = priceTier(roll.marketValue);
+        // Cosmetic mapping (decides nothing): rarity color + winner Pokémon.
         const r = resolveCardPokemon(roll.card);
         const custom =
           roll.card.sprite_image && roll.card.sprite_image.trim() !== ''
@@ -198,10 +194,9 @@ export default function SlotMachineClient({
           // gif (image undefined); otherwise the neutral Poké Ball.
           image: custom ?? (r.dex === null ? POKEBALL_PLACEHOLDER : undefined),
           name: r.name ?? roll.card.name,
-          tier,
+          rarityRgb: rarityRgb(roll.card.rarity),
         });
         cards.push(roll.card);
-        tiers.push(tier);
       }
 
       pending.current = {
@@ -210,7 +205,7 @@ export default function SlotMachineClient({
         offers: builtOffers,
         cards,
       };
-      setSpin({ nonce: spinAt, cards, winners, tiers });
+      setSpin({ nonce: spinAt, cards, winners });
       setPhase('spinning');
     } catch (err) {
       // A cosmetic mapping step threw after the charge. Surface the result the
@@ -232,7 +227,7 @@ export default function SlotMachineClient({
           cards: settledCards,
         };
       }
-      setSpin({ nonce: spinAt, cards: settledCards, winners, tiers });
+      setSpin({ nonce: spinAt, cards: settledCards, winners });
       handleSettled();
     }
   }
@@ -304,12 +299,12 @@ export default function SlotMachineClient({
   }, [pack.name, pack.image, play, vibrate, applyBalance]);
 
   // Settle watchdog: the customer is charged the moment openBatch returns ok,
-  // but the reveal only lands when the reel reports transitionend. If that
-  // settle is ever missed (dropped transitionend, a remounted column, a browser
-  // that skips the event), force the same idempotent completion so a charged
-  // user is never stranded on a spinning reel. Sized from the reel's own timing
-  // (last column stops at BASE_SPIN_MS + (count-1)*STAGGER_MS) plus a buffer so
-  // it always outlasts the real animation and never pre-empts a normal spin.
+  // but the reveal only lands when the reel engine reports completion. If that
+  // settle is ever missed (a remounted column, a browser hiccup), force the
+  // same idempotent completion so a charged user is never stranded on a
+  // spinning reel. Sized from the reel engine's own total run time plus a
+  // buffer so it always outlasts the real animation and never pre-empts a
+  // normal spin.
   // ponytail: backstop only — onAllSettled -> handleSettled is the primary path.
   useEffect(() => {
     if (phase !== 'spinning') return;
@@ -317,7 +312,7 @@ export default function SlotMachineClient({
       () => {
         if (pending.current) handleSettled();
       },
-      BASE_SPIN_MS + count * STAGGER_MS + 2000,
+      spinTotalMs(count) + 2000,
     );
     return () => clearTimeout(id);
   }, [phase, spin?.nonce, count, handleSettled]);
@@ -325,10 +320,11 @@ export default function SlotMachineClient({
   const refreshBalance = applyBalance;
 
   const wonCards = phase === 'landed' ? (spin?.cards ?? []) : [];
-  // For single-card banner: use the first card's tier.
-  const firstTier = spin?.tiers[0] ?? null;
+  // For single-card banner: use the first card's rarity.
+  const firstTier =
+    wonCards.length === 1 ? (wonCards[0]?.rarity ?? null) : null;
   const firstRgb =
-    wonCards.length === 1 && firstTier ? TIER_COLOR[firstTier] : null;
+    wonCards.length === 1 && firstTier ? rarityRgb(firstTier) : null;
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-neutral-50">
@@ -385,7 +381,6 @@ export default function SlotMachineClient({
                 : (spin?.winners ?? null)
             }
             reduced={reduced}
-            baseDurationMs={BASE_SPIN_MS}
             pulse={phase === 'landed'}
             onAllSettled={handleSettled}
           />

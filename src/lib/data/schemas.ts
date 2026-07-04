@@ -156,24 +156,6 @@ export const AmountBalanceSchema = z.looseObject({
   balance: finite,
 });
 
-/** GET /store/rewards/daily — daily check-in claim state (actions/daily.ts). */
-export const DailyStatusSchema = z.looseObject({
-  enabled: z.boolean(),
-  day: z.string(),
-  claimedToday: z.boolean(),
-  streakDay: z.number().int().min(1).max(7),
-  amounts: z.array(finite),
-  todayAmount: finite,
-});
-
-/** POST /store/rewards/daily/claim success response (actions/daily.ts). */
-export const DailyClaimSchema = z.looseObject({
-  status: z.literal('claimed'),
-  streakDay: z.number().int(),
-  amount: finite,
-  balance: finite,
-});
-
 /** POST /store/vault/:id/buyback response — finite amount + balance. `percent`
  *  rides along but is NOT rendered on the sell path (consumers read amount/
  *  balance), so it stays OPTIONAL: requiring it would false-fail an idempotent

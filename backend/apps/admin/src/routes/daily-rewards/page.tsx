@@ -7,15 +7,25 @@ import {
   Switch,
   Input,
   Label,
+  Select,
+  Table,
+  FocusModal,
   toast,
 } from '@medusajs/ui';
 import { Calendar } from '@medusajs/icons';
 import type { RouteConfig } from '@mercurjs/dashboard-sdk';
+import { computeOdds } from '@acme/odds-math';
 import {
-  useDailyRewardSettings,
-  useSaveDailyRewardSettings,
+  useCards,
+  useDailyBoxes,
+  useDailyBox,
+  useSaveDailyBox,
+  type DailyBoxEditorDTO,
+  type DailyBoxPrizeDTO,
 } from '../../lib/queries';
-import type { DailyRewardSettingsDTO } from '../../lib/admin-rest';
+import { getDailyBox } from '../../lib/admin-rest';
+import { fmtPct, rm } from '../../lib/format';
+import { resolveImageUrl } from '../../lib/image-url';
 
 export const config: RouteConfig = {
   label: 'Daily Rewards',
@@ -24,115 +34,596 @@ export const config: RouteConfig = {
   rank: 5,
 };
 
-const DAYS = [1, 2, 3, 4, 5, 6, 7];
+const TIERS = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'i',
+  'j',
+  'Z',
+] as const;
 
-// Storefront /daily check-in config: one MYR amount per streak day + a kill
-// switch. Edits are audited server-side (reason mandatory) and take effect on
-// the NEXT claim — already-claimed days never change.
+const KIND_LABEL: Record<DailyBoxPrizeDTO['kind'], string> = {
+  credit: 'Credit',
+  product: 'Product',
+  voucher: 'Voucher',
+  nothing: 'Nothing',
+};
+
+// One prize row in the editable buffer. `payload` fields are flattened here
+// (rather than kept nested) so every cell binds to a single controlled input;
+// save re-nests them into DailyBoxSaveBody.prizes.
+interface EditRow {
+  localId: string;
+  kind: DailyBoxPrizeDTO['kind'];
+  amountInput: string;
+  productHandle: string | null;
+  qtyInput: string;
+  locked: boolean;
+  pctInput: string;
+}
+
+let nextLocalId = 0;
+const blankRow = (): EditRow => ({
+  localId: `new-${nextLocalId++}`,
+  kind: 'credit',
+  amountInput: '5',
+  productHandle: null,
+  qtyInput: '1',
+  locked: false,
+  pctInput: '0',
+});
+
+const rowFromPrize = (p: DailyBoxPrizeDTO): EditRow => ({
+  localId: p.id ?? `new-${nextLocalId++}`,
+  kind: p.kind,
+  amountInput: String(
+    (p.payload as { amount_myr?: number }).amount_myr ?? '5',
+  ),
+  productHandle:
+    (p.payload as { product_handle?: string }).product_handle ?? null,
+  qtyInput: String((p.payload as { qty?: number }).qty ?? '1'),
+  locked: p.locked,
+  pctInput: String(p.pct),
+});
+
 const DailyRewardsPage = () => {
-  const { data, isError } = useDailyRewardSettings();
-  const save = useSaveDailyRewardSettings();
+  const [tab, setTab] = useState<'boxes' | 'vouchers'>('boxes');
+  return (
+    <Container className="p-0">
+      <div className="flex items-center justify-between px-6 py-4">
+        <div>
+          <Heading level="h2">Daily Rewards</Heading>
+          <Text className="text-ui-fg-subtle mt-1" size="small">
+            Configure the daily box each VIP tier opens and the one-time
+            vouchers granted by level.
+          </Text>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={tab === 'boxes' ? 'primary' : 'secondary'}
+            onClick={() => setTab('boxes')}
+          >
+            Boxes
+          </Button>
+          <Button
+            variant={tab === 'vouchers' ? 'primary' : 'secondary'}
+            onClick={() => setTab('vouchers')}
+          >
+            Vouchers
+          </Button>
+        </div>
+      </div>
+      {tab === 'boxes' ? <BoxesTab /> : <VouchersTab />}
+    </Container>
+  );
+};
 
-  // Seed the editable buffer from the server snapshot during render (same
-  // pattern as the reward-pool editor) — reseeds after a post-save refetch.
-  const [seededFrom, setSeededFrom] = useState<
-    DailyRewardSettingsDTO | undefined
-  >(undefined);
+const VouchersTab = () => (
+  <div className="border-t px-6 py-8">
+    <Text className="text-ui-fg-subtle">Coming in the next commit.</Text>
+  </div>
+);
+
+const BoxesTab = () => {
+  const { data: boxesData } = useDailyBoxes();
+  const boxes = boxesData?.boxes ?? [];
+  const [tier, setTier] = useState<string>('a');
+
+  const { data, isError } = useDailyBox(tier);
+  const saveBox = useSaveDailyBox();
+  const saving = saveBox.isPending;
+
+  // Seed the editable buffer from the server snapshot during render — same
+  // buffer-from-snapshot pattern as reward-pools/packs editors.
+  const [seededFrom, setSeededFrom] = useState<DailyBoxEditorDTO | undefined>(
+    undefined,
+  );
+  const [name, setName] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [amounts, setAmounts] = useState<string[]>(DAYS.map(() => '1'));
+  const [drawsPerDay, setDrawsPerDay] = useState('1');
+  const [rows, setRows] = useState<EditRow[]>([]);
   const [reason, setReason] = useState('');
   if (data && data !== seededFrom) {
     setSeededFrom(data);
-    setEnabled(data.enabled);
-    setAmounts(data.amounts.map((n) => String(n)));
+    setName(data.box.name);
+    setEnabled(data.box.enabled);
+    setDrawsPerDay(String(data.box.draws_per_day));
+    setRows(data.prizes.map(rowFromPrize));
   }
 
-  const parsed = amounts.map((a) => Number(a));
-  const amountsValid = parsed.every((n) => Number.isFinite(n) && n > 0);
-  const reasonValid = reason.trim().length > 0;
-  // Never save the pre-fetch placeholder buffer over live config.
-  const loaded = seededFrom !== undefined;
+  // ponytail: "dirty" for the copy-from-tier confirm = the buffer has been
+  // seeded at least once (so any edit, or even the loaded state, warns before
+  // overwriting) rather than deep-equality against the last snapshot.
+  const isDirty = seededFrom !== undefined;
 
-  const onSave = () => {
-    if (!loaded) {
-      toast.error('Settings are still loading — try again in a moment.');
-      return;
-    }
-    if (!amountsValid) {
-      toast.error('Every day needs a positive MYR amount.');
-      return;
-    }
-    if (!reasonValid) {
-      toast.error('A reason is required (it goes on the audit trail).');
-      return;
-    }
-    save.mutate({ enabled, amounts: parsed, reason: reason.trim() });
+  const handleTierChange = (nextTier: string) => {
+    setTier(nextTier);
+    setSeededFrom(undefined);
+    setRows([]);
+    setName('');
+    setReason('');
   };
 
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const { data: allCards, isError: isCardsError } = useCards();
+
+  const setRow = (localId: string, patch: Partial<EditRow>) =>
+    setRows((prev) =>
+      prev.map((r) => (r.localId === localId ? { ...r, ...patch } : r)),
+    );
+  const setKind = (localId: string, kind: DailyBoxPrizeDTO['kind']) =>
+    setRow(localId, { kind, productHandle: null });
+  const removeRow = (localId: string) =>
+    setRows((prev) => prev.filter((r) => r.localId !== localId));
+  const addRow = () => setRows((prev) => [...prev, blankRow()]);
+
+  // Live preview — the same rarity-weighted math the save workflow runs
+  // (folded to `rarity: 'Common'` for every row, same as computeBoxWeights),
+  // so the % column always matches what saving would persist.
+  const oddsInputs = rows.map((r, i) => ({
+    card_id: String(i),
+    locked: r.locked,
+    pct: Number(r.pctInput) || 0,
+    rarity: 'Common',
+  }));
+  const odds = computeOdds(oddsInputs);
+  const pctByIndex = new Map(odds.computed.map((c, i) => [i, c.pct]));
+
+  // Locking captures the row's CURRENT live % so the operator pins what they
+  // see rather than letting the even-split flatten it (same UX as the packs
+  // odds editor's toggleLock).
+  const toggleLock = (r: EditRow, index: number) =>
+    setRow(r.localId, {
+      locked: !r.locked,
+      pctInput: !r.locked
+        ? String(pctByIndex.get(index) ?? r.pctInput)
+        : r.pctInput,
+    });
+
+  const drawsNum = Number(drawsPerDay);
+  const drawsValid =
+    Number.isInteger(drawsNum) && drawsNum >= 1 && drawsNum <= 10;
+  const reasonValid = reason.trim().length > 0;
+  const emptyEnabledGuard =
+    enabled && rows.length === 0
+      ? `Tier ${tier.toUpperCase()} customers would see an empty box.`
+      : null;
+  const rowErrors = rows.map((r) => {
+    if (r.kind === 'product' && !r.productHandle) return 'Pick a product.';
+    if (
+      (r.kind === 'credit' || r.kind === 'voucher') &&
+      !(Number(r.amountInput) > 0)
+    )
+      return 'Amount must be greater than 0.';
+    if (r.kind === 'product' && !(Number(r.qtyInput) >= 1))
+      return 'Qty must be at least 1.';
+    return null;
+  });
+  const firstRowError = rowErrors.find((e) => e !== null) ?? null;
+  const validationError =
+    odds.error ?? emptyEnabledGuard ?? firstRowError ?? null;
+  const canSave =
+    !saving &&
+    seededFrom !== undefined &&
+    drawsValid &&
+    reasonValid &&
+    validationError === null;
+
+  const lockedCount = rows.filter((r) => r.locked).length;
+  const totalPct = odds.computed.reduce((s, c) => s + c.pct, 0);
+  const maxPayout = rows.reduce((max, r) => {
+    if (r.kind !== 'credit' && r.kind !== 'voucher') return max;
+    const amt = Number(r.amountInput) || 0;
+    return Math.max(max, amt);
+  }, 0);
+
+  async function copyFromTier(sourceTier: string) {
+    if (!sourceTier || sourceTier === tier) return;
+    if (isDirty && rows.length > 0) {
+      const ok = window.confirm(
+        `Replace the current unsaved prizes for tier ${tier.toUpperCase()} with tier ${sourceTier.toUpperCase()}'s saved prizes?`,
+      );
+      if (!ok) return;
+    }
+    try {
+      const source = await getDailyBox(sourceTier);
+      setRows(source.prizes.map(rowFromPrize));
+      toast.success(`Copied prizes from tier ${sourceTier.toUpperCase()}.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function save() {
+    if (!canSave) return;
+    try {
+      await saveBox.mutateAsync({
+        tier,
+        body: {
+          name,
+          enabled,
+          draws_per_day: drawsNum,
+          reason: reason.trim(),
+          prizes: rows.map((r) => ({
+            kind: r.kind,
+            locked: r.locked,
+            pct: Number(r.pctInput) || 0,
+            ...(r.kind === 'credit' || r.kind === 'voucher'
+              ? { amount_myr: Number(r.amountInput) || 0 }
+              : {}),
+            ...(r.kind === 'product'
+              ? {
+                  product_handle: r.productHandle ?? undefined,
+                  qty: Number(r.qtyInput) || 1,
+                }
+              : {}),
+          })),
+        },
+      });
+      setReason('');
+      // useSaveDailyBox invalidates qk.dailyBoxes + qk.dailyBox(tier) → the
+      // buffer reseeds from the refetch above.
+    } catch {
+      // useSaveDailyBox.onError already toasts the backend message.
+    }
+  }
+
+  if (isError) {
+    return (
+      <Container className="p-6">
+        <Text className="text-ui-fg-subtle">
+          Failed to load daily boxes.
+        </Text>
+      </Container>
+    );
+  }
+
   return (
-    <Container className="p-0">
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <div>
-          <Heading level="h1">Daily Rewards</Heading>
-          <Text size="small" className="text-ui-fg-subtle">
-            The storefront check-in calendar — credit paid per streak day (day 7
-            wraps back to day 1).
-          </Text>
-        </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="daily-enabled">Enabled</Label>
-          <Switch
-            id="daily-enabled"
-            checked={enabled}
-            onCheckedChange={setEnabled}
+    <div className="border-t">
+      {/* Tier strip */}
+      <div className="flex flex-wrap gap-2 border-b px-6 py-4">
+        {TIERS.map((t) => {
+          const summary = boxes.find((b) => b.tier === t);
+          const dotColor = !summary?.enabled
+            ? 'bg-ui-fg-disabled'
+            : summary.prize_count > 0
+              ? 'bg-ui-tag-green-icon'
+              : 'bg-ui-tag-orange-icon';
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => handleTierChange(t)}
+              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${
+                tier === t
+                  ? 'border-ui-border-interactive bg-ui-bg-base'
+                  : 'border-ui-border-base hover:bg-ui-bg-base-hover'
+              }`}
+            >
+              <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+              <span className="font-medium">{t.toUpperCase()}</span>
+              {summary && (
+                <span className="text-ui-fg-subtle">
+                  · LV {summary.level_from}–{summary.level_to} ·{' '}
+                  {summary.customer_count} customers
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Box config */}
+      <div className="flex flex-wrap items-end gap-4 border-b px-6 py-4">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="box-name">Name</Label>
+          <Input
+            id="box-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-56"
           />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="box-draws">Draws per day</Label>
+          <Input
+            id="box-draws"
+            type="number"
+            min={1}
+            max={10}
+            value={drawsPerDay}
+            onChange={(e) => setDrawsPerDay(e.target.value)}
+            className="w-24 tabular-nums"
+          />
+        </div>
+        <label className="flex items-center gap-2 pb-2 text-sm">
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+          <span className="text-ui-fg-subtle">Enabled</span>
+        </label>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="copy-from-tier">Copy from tier…</Label>
+          <Select value="" onValueChange={copyFromTier}>
+            <Select.Trigger id="copy-from-tier" className="w-40">
+              <Select.Value placeholder="Choose a tier" />
+            </Select.Trigger>
+            <Select.Content>
+              {TIERS.filter((t) => t !== tier).map((t) => (
+                <Select.Item key={t} value={t}>
+                  Tier {t.toUpperCase()}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select>
         </div>
       </div>
 
-      {isError && (
-        <Text className="px-6 py-3 text-ui-fg-error" size="small">
-          Couldn&apos;t load current settings — saving now would overwrite with
-          what&apos;s shown here.
-        </Text>
-      )}
+      {/* Prize table */}
+      <Table>
+        <Table.Header>
+          <Table.Row>
+            <Table.HeaderCell>Kind</Table.HeaderCell>
+            <Table.HeaderCell>Prize</Table.HeaderCell>
+            <Table.HeaderCell className="text-center">Lock</Table.HeaderCell>
+            <Table.HeaderCell>Pct</Table.HeaderCell>
+            <Table.HeaderCell className="text-right">Odds</Table.HeaderCell>
+            <Table.HeaderCell />
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {rows.map((r, i) => (
+            <Table.Row key={r.localId}>
+              <Table.Cell>
+                <Select
+                  value={r.kind}
+                  onValueChange={(v) =>
+                    setKind(r.localId, v as DailyBoxPrizeDTO['kind'])
+                  }
+                >
+                  <Select.Trigger className="w-32">
+                    <Select.Value />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {(
+                      ['credit', 'product', 'voucher', 'nothing'] as const
+                    ).map((k) => (
+                      <Select.Item key={k} value={k}>
+                        {KIND_LABEL[k]}
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select>
+              </Table.Cell>
+              <Table.Cell>
+                {r.kind === 'credit' || r.kind === 'voucher' ? (
+                  <div className="flex items-center gap-1">
+                    <Text size="small" className="text-ui-fg-subtle">
+                      RM
+                    </Text>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={r.amountInput}
+                      onChange={(e) =>
+                        setRow(r.localId, { amountInput: e.target.value })
+                      }
+                      className="w-28 tabular-nums"
+                    />
+                  </div>
+                ) : r.kind === 'product' ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      onClick={() => setPickerFor(r.localId)}
+                    >
+                      {r.productHandle ? 'Change' : 'Choose product'}
+                    </Button>
+                    {r.productHandle &&
+                      (() => {
+                        const c = (allCards ?? []).find(
+                          (c) => c.handle === r.productHandle,
+                        );
+                        return c ? (
+                          <>
+                            <img
+                              src={resolveImageUrl(c.image)}
+                              alt=""
+                              className="h-9 w-7 shrink-0 rounded object-contain"
+                            />
+                            <span className="truncate text-sm">{c.name}</span>
+                          </>
+                        ) : (
+                          <span className="text-ui-fg-subtle text-sm">
+                            {r.productHandle}
+                          </span>
+                        );
+                      })()}
+                    <Label className="text-ui-fg-subtle text-xs">Qty</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={r.qtyInput}
+                      onChange={(e) =>
+                        setRow(r.localId, { qtyInput: e.target.value })
+                      }
+                      className="w-16 tabular-nums"
+                    />
+                  </div>
+                ) : (
+                  <Text size="small" className="text-ui-fg-subtle">
+                    Nothing — a losing draw.
+                  </Text>
+                )}
+              </Table.Cell>
+              <Table.Cell className="text-center">
+                <Switch
+                  checked={r.locked}
+                  onCheckedChange={() => toggleLock(r, i)}
+                />
+              </Table.Cell>
+              <Table.Cell>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  disabled={!r.locked}
+                  value={r.locked ? r.pctInput : ''}
+                  placeholder={r.locked ? '' : 'auto'}
+                  onChange={(e) =>
+                    setRow(r.localId, { pctInput: e.target.value })
+                  }
+                  className="w-24 tabular-nums"
+                />
+              </Table.Cell>
+              <Table.Cell className="text-right tabular-nums">
+                {fmtPct(pctByIndex.get(i) ?? 0)}
+              </Table.Cell>
+              <Table.Cell>
+                <Button
+                  size="small"
+                  variant="transparent"
+                  onClick={() => removeRow(r.localId)}
+                >
+                  Remove
+                </Button>
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
 
-      <div className="grid grid-cols-2 gap-4 px-6 py-5 md:grid-cols-4">
-        {DAYS.map((day, i) => (
-          <div key={day}>
-            <Label htmlFor={`daily-day-${day}`}>
-              Day {day} (RM){day === 7 ? ' — streak finale' : ''}
-            </Label>
+      <div className="flex flex-col gap-3 px-6 py-4">
+        <Button size="small" variant="secondary" onClick={addRow} className="self-start">
+          Add prize
+        </Button>
+
+        <Text size="small" className="text-ui-fg-subtle">
+          {rows.length} prizes · {fmtPct(totalPct)} · {lockedCount} locked ·
+          max payout {rm(maxPayout)}
+        </Text>
+
+        {validationError && (
+          <Text size="small" className="text-ui-tag-red-text">
+            {validationError}
+          </Text>
+        )}
+
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <Label htmlFor="box-reason">Reason (audit trail)</Label>
             <Input
-              id={`daily-day-${day}`}
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={amounts[i]}
-              onChange={(e) =>
-                setAmounts((prev) =>
-                  prev.map((v, j) => (j === i ? e.target.value : v)),
-                )
-              }
+              id="box-reason"
+              placeholder="e.g. Rebalance tier a odds"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
             />
           </div>
-        ))}
+          <Button
+            variant="primary"
+            onClick={save}
+            isLoading={saving}
+            disabled={!canSave}
+          >
+            Save
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-end gap-3 border-t px-6 py-4">
-        <div className="flex-1">
-          <Label htmlFor="daily-reason">Reason (audit trail)</Label>
-          <Input
-            id="daily-reason"
-            placeholder="e.g. July promo — richer day 7"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </div>
-        <Button onClick={onSave} isLoading={save.isPending} disabled={!loaded}>
-          Save
-        </Button>
-      </div>
-    </Container>
+      {/* Product picker */}
+      <FocusModal
+        open={pickerFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setPickerFor(null);
+        }}
+      >
+        <FocusModal.Content>
+          <FocusModal.Header>
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => setPickerFor(null)}
+            >
+              Close
+            </Button>
+          </FocusModal.Header>
+          <FocusModal.Body className="flex flex-col items-center overflow-auto p-10">
+            <div className="flex w-full max-w-[640px] flex-col gap-y-4">
+              <div>
+                <FocusModal.Title asChild>
+                  <Heading level="h2">Choose a product prize</Heading>
+                </FocusModal.Title>
+                <FocusModal.Description asChild>
+                  <Text className="text-ui-fg-subtle mt-1" size="small">
+                    Pick the card awarded when this entry is drawn.
+                  </Text>
+                </FocusModal.Description>
+              </div>
+              {isCardsError ? (
+                <Text className="text-ui-fg-subtle">
+                  Failed to load the product catalog.
+                </Text>
+              ) : allCards == null ? (
+                <Text className="text-ui-fg-subtle">…</Text>
+              ) : allCards.length === 0 ? (
+                <Text className="text-ui-fg-subtle">No cards available.</Text>
+              ) : (
+                <div className="divide-y rounded-lg border">
+                  {allCards.map((c) => (
+                    <button
+                      key={c.handle}
+                      type="button"
+                      className="hover:bg-ui-bg-base-hover flex w-full items-center gap-3 px-4 py-2 text-left"
+                      onClick={() => {
+                        if (pickerFor)
+                          setRow(pickerFor, { productHandle: c.handle });
+                        setPickerFor(null);
+                      }}
+                    >
+                      <img
+                        src={resolveImageUrl(c.image)}
+                        alt=""
+                        className="h-9 w-7 shrink-0 rounded object-contain"
+                      />
+                      <span className="flex-1 truncate text-sm font-medium">
+                        {c.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </FocusModal.Body>
+        </FocusModal.Content>
+      </FocusModal>
+    </div>
   );
 };
 

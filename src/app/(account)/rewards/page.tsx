@@ -1,10 +1,5 @@
-import type { Metadata } from 'next';
-import { getRewards } from '@/lib/actions/rewards';
-import RewardsClient from './RewardsClient';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'My Rewards' };
-
-export default async function RewardsPage() {
-  const res = await getRewards();
-  return <RewardsClient initial={res} />;
+export default function RewardsPage(): never {
+  redirect('/daily');
 }

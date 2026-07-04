@@ -54,6 +54,24 @@ describe('DailyStateSchema', () => {
     expect(parsed?.vouchers.claimable).toHaveLength(1);
     expect(parsed?.vouchers.claimed).toHaveLength(1);
     expect(parsed?.ship_prizes).toHaveLength(1);
+    // level is a required top-level GrantView field (packs/service.ts:199-205),
+    // not read from payload — assert it round-trips for both grant lists.
+    expect(parsed?.vouchers.claimable[0]?.level).toBe(4);
+    expect(parsed?.vouchers.claimed[0]?.level).toBe(2);
+  });
+
+  it('rejects the whole state when a voucher grant is missing level', () => {
+    const badGrant = {
+      id: 'grant_3',
+      kind: 'voucher',
+      payload: { amount_myr: 10 },
+      granted_at: '2026-07-04T00:00:00.000Z',
+    };
+    const parsed = parseOne(DailyStateSchema, {
+      ...fullFixture,
+      vouchers: { claimable: [badGrant], claimed: [] },
+    });
+    expect(parsed).toBeNull();
   });
 
   it('tolerates box: null', () => {

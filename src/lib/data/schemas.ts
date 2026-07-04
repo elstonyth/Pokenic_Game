@@ -287,11 +287,18 @@ export const MarkReadSchema = z.looseObject({
 /** A VIP voucher/frame grant row (GET /store/daily `vouchers.claimable|claimed`
  *  and the pre-consolidation GET /store/rewards `grants`). `status` is optional:
  *  the daily-state grant rows (packs/service.ts `GrantView`) never carry it —
- *  only the legacy rewards envelope did. */
+ *  only the legacy rewards envelope did. `level` is a required top-level field:
+ *  `GrantView` (packs/service.ts:199-205) declares `level: number`, and
+ *  `toGrantView` (packs/service.ts:3223-3229) always sources it from the
+ *  `VipRewardGrant.level` column (`model.number()`, non-nullable) — including
+ *  box-origin grants, which set it explicitly via `resolveMemberLevel` (never
+ *  null/undefined), NOT from `payload` (box grants' payload only carries
+ *  `amount_myr`). */
 export const RewardGrantSchema = z.looseObject({
   id: z.string(),
   kind: z.enum(['voucher', 'frame', 'box', 'prize']),
   status: z.enum(['granted', 'fulfilled', 'revoked']).optional(),
+  level: finite,
   payload: z.looseObject({}).nullable().optional(),
   granted_at: z.string(),
 });

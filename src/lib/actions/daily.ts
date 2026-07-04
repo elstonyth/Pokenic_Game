@@ -120,7 +120,7 @@ const toVoucherGrant = (
 ): VoucherGrant => ({
   id: g.id,
   kind: g.kind as 'voucher' | 'frame',
-  level: (g.payload as { level?: number } | null | undefined)?.level ?? 0,
+  level: g.level ?? 0,
   amountMyr: (g.payload as { amount_myr?: number } | null | undefined)
     ?.amount_myr,
   grantedAt: g.granted_at,

@@ -31,19 +31,7 @@ import { getDailyBox } from '../../lib/admin-rest';
 import { fmtPct, rm } from '../../lib/format';
 import { resolveImageUrl } from '../../lib/image-url';
 
-const TIERS = [
-  'a',
-  'b',
-  'c',
-  'd',
-  'e',
-  'f',
-  'g',
-  'h',
-  'i',
-  'j',
-  'Z',
-] as const;
+const TIERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'Z'] as const;
 
 const KIND_LABEL: Record<DailyBoxPrizeDTO['kind'], string> = {
   credit: 'Credit',
@@ -82,9 +70,7 @@ const blankRow = (): EditRow => ({
 const rowFromPrize = (p: DailyBoxPrizeDTO): EditRow => ({
   localId: p.id ?? `new-${nextLocalId++}`,
   kind: p.kind,
-  amountInput: String(
-    (p.payload as { amount_myr?: number }).amount_myr ?? '5',
-  ),
+  amountInput: String((p.payload as { amount_myr?: number }).amount_myr ?? '5'),
   productHandle:
     (p.payload as { product_handle?: string }).product_handle ?? null,
   qtyInput: String((p.payload as { qty?: number }).qty ?? '1'),
@@ -172,12 +158,6 @@ function foldRangesLocal(
     const amt = Number(r.amountInput);
     if (!(Number.isFinite(amt) && amt >= 0)) {
       errors.push(`Range ${r.from}–${r.to} needs an RM amount of 0 or more.`);
-      continue;
-    }
-    if (amt > MAX_BOX_CREDIT_MYR) {
-      errors.push(
-        `Range ${r.from}–${r.to} exceeds the RM ${MAX_BOX_CREDIT_MYR.toLocaleString()} ceiling.`,
-      );
       continue;
     }
     for (let level = r.from; level <= r.to; level++) {
@@ -672,9 +652,7 @@ const BoxesTab = () => {
   if (isError) {
     return (
       <Container className="p-6">
-        <Text className="text-ui-fg-subtle">
-          Failed to load daily boxes.
-        </Text>
+        <Text className="text-ui-fg-subtle">Failed to load daily boxes.</Text>
       </Container>
     );
   }
@@ -784,13 +762,13 @@ const BoxesTab = () => {
                     <Select.Value />
                   </Select.Trigger>
                   <Select.Content>
-                    {(
-                      ['credit', 'product', 'voucher', 'nothing'] as const
-                    ).map((k) => (
-                      <Select.Item key={k} value={k}>
-                        {KIND_LABEL[k]}
-                      </Select.Item>
-                    ))}
+                    {(['credit', 'product', 'voucher', 'nothing'] as const).map(
+                      (k) => (
+                        <Select.Item key={k} value={k}>
+                          {KIND_LABEL[k]}
+                        </Select.Item>
+                      ),
+                    )}
                   </Select.Content>
                 </Select>
               </Table.Cell>
@@ -896,13 +874,18 @@ const BoxesTab = () => {
       </Table>
 
       <div className="flex flex-col gap-3 px-6 py-4">
-        <Button size="small" variant="secondary" onClick={addRow} className="self-start">
+        <Button
+          size="small"
+          variant="secondary"
+          onClick={addRow}
+          className="self-start"
+        >
           Add prize
         </Button>
 
         <Text size="small" className="text-ui-fg-subtle">
-          {rows.length} prizes · {fmtPct(totalPct)} · {lockedCount} locked ·
-          max payout {rm(maxPayout)}
+          {rows.length} prizes · {fmtPct(totalPct)} · {lockedCount} locked · max
+          payout {rm(maxPayout)}
         </Text>
 
         {validationError && (

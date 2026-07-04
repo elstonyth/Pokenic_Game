@@ -46,6 +46,74 @@ async function login(page) {
     .waitFor({ state: 'detached', timeout: 15000 });
 }
 
+// Two-reel rail capture: spin count=2, skip the theater with a tap, flip, and
+// screenshot the multi-card review rail — the case where the active card must
+// stay centered and its sell footer reachable across viewport widths.
+async function captureRail(page, label) {
+  await page.goto(`${BASE}/slots/${SLUG}/spin?count=2`, {
+    waitUntil: 'domcontentloaded',
+  });
+  const spinBtn = page.getByRole('button', { name: /^spin$/i });
+  await spinBtn.waitFor({ timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(800); // balance hydrates client-side
+  if (!(await spinBtn.isEnabled().catch(() => false))) {
+    console.warn(`[${label}] rail: spin disabled (credit?) — skipped.`);
+    return;
+  }
+  await spinBtn.click();
+  // Wait out the spin, then skip the flood→transform theater with a tap in the
+  // reveal region (the reveal surface treats a pointer/click as a skip gesture).
+  await page
+    .getByRole('button', { name: /spinning/i })
+    .waitFor({ state: 'detached', timeout: 15000 })
+    .catch(() => {});
+  await page.waitForTimeout(200);
+  const vp = page.viewportSize();
+  await page.mouse.click(vp.width / 2, vp.height / 2); // skip theater
+  // With multiple cards there are N flip buttons (one per slab) — target the
+  // first. All cards flip together on any one tap.
+  const flip = page
+    .getByRole('button', { name: /flip to reveal your card/i })
+    .first();
+  await flip.waitFor({ timeout: 15000 }).catch(() => {});
+  await page
+    .waitForFunction(
+      () => {
+        const el = [...document.querySelectorAll('button')].find((b) =>
+          /flip to reveal your card/i.test(b.getAttribute('aria-label') ?? ''),
+        );
+        return el && !el.disabled;
+      },
+      { timeout: 15000 },
+    )
+    .catch(() => {});
+  if (!(await flip.isVisible().catch(() => false))) {
+    console.warn(`[${label}] rail: reveal never reached flip — skipped.`);
+    return;
+  }
+  // NB: do NOT scrollIntoView the card before flipping — the rail already sits
+  // centered in the viewport, and forcing a scroll disturbs the measured
+  // centering mid-capture (a script artifact, not real behavior).
+  await flip.click({ force: true }); // flips all cards together
+  // The rail centers off a ResizeObserver measure + a spring settle — both
+  // async. Wait it out so the capture shows the SETTLED centered state, not a
+  // mid-transition frame (a short wait races the observer and looks off-center).
+  await page.waitForTimeout(1500);
+  await snap(page, `rail-${label}`);
+
+  // Desktop: click the next chevron and confirm the NEXT card re-centers.
+  if (label === 'desktop') {
+    const next = page.getByRole('button', { name: 'Next card' });
+    if (await next.isVisible().catch(() => false)) {
+      await next.click();
+      await page.waitForTimeout(900); // spring snap settle
+      await snap(page, 'rail-desktop-next');
+    } else {
+      console.warn('[desktop] rail: next chevron not visible — skipped.');
+    }
+  }
+}
+
 const browser = await chromium.launch();
 try {
   for (const [label, viewport, reducedMotion] of [
@@ -188,6 +256,15 @@ try {
         );
       }
     }
+
+    // Rail pass (final-review fix #1 verification): a two-reel spin whose
+    // multi-card review rail must center the active card + its sell footer on
+    // BOTH mobile and desktop (the vw-based centering broke >~436px). One extra
+    // spin per non-reduced context → 2 additional spins/run max.
+    if (EMAIL && PASSWORD && (label === 'mobile' || label === 'desktop')) {
+      await captureRail(page, label);
+    }
+
     await ctx.close();
   }
 } finally {

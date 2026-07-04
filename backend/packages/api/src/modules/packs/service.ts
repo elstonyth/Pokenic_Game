@@ -30,6 +30,8 @@ import NotificationRead from './models/notification-read';
 import RewardDraw from './models/reward-draw';
 import DailyClaim from './models/daily-claim';
 import DailyRewardSettings from './models/daily-reward-settings';
+import RewardBox from './models/reward-box';
+import RewardBoxPrize from './models/reward-box-prize';
 import {
   coerceStoredAmounts,
   DAILY_STREAK_DAYS,
@@ -231,6 +233,8 @@ class PacksModuleService extends MedusaService({
   RewardDraw,
   DailyClaim,
   DailyRewardSettings,
+  RewardBox,
+  RewardBoxPrize,
 }) {
   // Apply a pack-membership diff (add rows + delete rows + renormalize
   // survivor weights) as ONE transaction. The set-pack-members workflow step

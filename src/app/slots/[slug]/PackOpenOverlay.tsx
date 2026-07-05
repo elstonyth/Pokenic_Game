@@ -117,9 +117,9 @@ export default function PackOpenOverlay({
 }) {
   const [stage, setStage] = useState<Stage>(reduced ? 'card' : 'packs');
   // Root panel ref for the shared modal-a11y contract: focus trap, Escape-to-close,
-  // body-scroll lock, and focus restore on close.
+  // body-scroll lock, and focus restore on close. The hook is wired below (after
+  // `confirmOpen` exists) so Escape can defer to the nested confirm dialog.
   const panelRef = useRef<HTMLDivElement>(null);
-  useModalA11y(panelRef, true, onClose);
   // Instant sell-back state for the card stage: idle → selling → sold.
   const [sell, setSell] = useState<
     | { phase: 'idle' }
@@ -140,6 +140,14 @@ export default function PackOpenOverlay({
   const revealPinged = useRef(false);
   // Confirm-before-sell dialog.
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Shared modal-a11y contract (focus trap, Escape, scroll-lock, focus restore).
+  // Escape closes the overlay — but while the nested SellConfirmModal is open it
+  // ALSO listens for Escape on document, so defer to it and don't tear down the
+  // whole reveal from under an open confirm.
+  useModalA11y(panelRef, true, () => {
+    if (!confirmOpen) onClose();
+  });
 
   // Fire the reveal ping ONCE when the card is shown, then drive the deadline
   // from its result (falling back to the open-response deadline on failure).
@@ -370,7 +378,7 @@ export default function PackOpenOverlay({
             e.stopPropagation();
             advanceStage();
           }}
-          className="absolute inset-0 z-10 flex cursor-default items-end justify-center pb-10 outline-none"
+          className="absolute inset-0 z-10 flex cursor-default items-end justify-center pb-10 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60"
           aria-label="Continue"
         >
           <span className="text-[11px] font-medium uppercase tracking-[0.3em] text-white/60 motion-safe:animate-pulse">
@@ -524,7 +532,7 @@ export default function PackOpenOverlay({
               initial={reduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4, ease: 'easeOut', delay: 0.66 }}
-              className="rounded-full px-4 py-2 text-[11px] font-medium uppercase tracking-[0.3em] text-white/60 outline-none transition-colors hover:text-white motion-safe:animate-pulse"
+              className="rounded-full px-4 py-2 text-[11px] font-medium uppercase tracking-[0.3em] text-white/60 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black motion-safe:animate-pulse"
             >
               ● Tap to reveal
             </motion.button>

@@ -300,7 +300,7 @@ export default function CatalogClient({
               {cat.heading}
             </h2>
             <span className="ml-auto text-[13px] text-white/60">
-              {cat.packs.length} packs
+              {cat.packs.length} {cat.packs.length === 1 ? 'pack' : 'packs'}
             </span>
           </div>
 

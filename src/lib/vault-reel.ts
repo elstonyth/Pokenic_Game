@@ -46,10 +46,18 @@ export function spinTotalMs(count: number): number {
 }
 
 /**
- * Strip offset (px, 0 → targetPx) at time `tMs`. Piecewise:
- * wind-up (dips negative) → blur (ease-in to speed) → friction (ease-out) →
- * crawl (last column only, slow readable approach) → settle (damped overshoot).
- * Callers apply as `translateY(-offset)` (same sign convention as reelTargetY).
+ * Strip offset (px) at time `tMs`, painted by the caller as `translateY(-offset)`.
+ * Cells stream TOP → BOTTOM (spec decision #22): the strip starts with the
+ * winner sitting ABOVE the payline and DESCENDS into it, so `offset` starts
+ * HIGH (target + pre-roll travel) and eases DOWN to `targetPx`. The wind-up
+ * pulls UP half a cell first (offset spikes ABOVE the start), then releases
+ * downward. Piecewise:
+ *   wind-up (offset rises above start = strip pulls up) → blur (ease-in to
+ *   speed, offset falling) → friction (ease-out, offset still falling) → crawl
+ *   (last column only, slow readable descent) → settle (damped overshoot BELOW
+ *   the target = winner dips under the payline, then rises to rest).
+ * The travel distance is bounded (friction + crawl ≈ 6-8 cells) so the descent
+ * stays within the fixed strip regardless of how high `targetPx` is.
  */
 export function spinOffset(
   tMs: number,
@@ -62,8 +70,12 @@ export function spinOffset(
   const blur = BLUR_MS + colIndex * STOP_STAGGER_MS;
   const windupPx = itemH / 2;
   const crawlPx = isLast ? itemH * 2 : 0;
-  const frictionPx = Math.min(itemH * 6, Math.max(0, targetPx - crawlPx));
+  // Pre-roll travel above the payline (bounded — independent of targetPx so the
+  // descent never runs past the top of the fixed strip).
+  const frictionPx = itemH * 6;
   const overshootPx = itemH / 2;
+  // The winner starts this far ABOVE its landed (centered) position and descends.
+  const startPx = targetPx + frictionPx + crawlPx;
 
   const t1 = WINDUP_MS;
   const t2 = t1 + blur;
@@ -71,28 +83,34 @@ export function spinOffset(
   const t4 = t3 + (isLast ? CRAWL_MS : 0);
   const t5 = t4 + SETTLE_MS;
 
-  if (tMs <= 0) return 0;
+  if (tMs <= 0) return startPx;
   if (tMs >= t5) return targetPx;
 
-  const blurEnd = targetPx - frictionPx - crawlPx;
+  // blurEnd is where the fast blur phase hands off to friction — one friction +
+  // crawl span above the target.
+  const blurEnd = targetPx + frictionPx + crawlPx;
   if (tMs < t1) {
-    return -windupPx * easeOutQuad(tMs / t1);
+    // Wind-up: strip pulls UP half a cell → offset rises ABOVE the start.
+    return startPx + windupPx * easeOutQuad(tMs / t1);
   }
   if (tMs < t2) {
-    // Accelerate from the wound-up position to blurEnd; easeInQuad ends at max
-    // velocity, handing off to the decelerating friction phase.
-    return -windupPx + (blurEnd + windupPx) * easeInQuad((tMs - t1) / blur);
+    // Accelerate downward from the wound-up position to blurEnd; easeInQuad ends
+    // at max velocity, handing off to the decelerating friction phase.
+    const from = startPx + windupPx;
+    return from + (blurEnd - from) * easeInQuad((tMs - t1) / blur);
   }
   if (tMs < t3) {
-    return blurEnd + frictionPx * easeOutCubic((tMs - t2) / FRICTION_MS);
+    // Friction: descend the friction span, decelerating.
+    return blurEnd - frictionPx * easeOutCubic((tMs - t2) / FRICTION_MS);
   }
   if (tMs < t4) {
-    // Crawl: slow, readable, near-linear approach across the last two cells.
-    return targetPx - crawlPx + crawlPx * easeOutQuad((tMs - t3) / CRAWL_MS);
+    // Crawl: slow, readable, near-linear descent across the last two cells.
+    return targetPx + crawlPx - crawlPx * easeOutQuad((tMs - t3) / CRAWL_MS);
   }
-  // Settle: damped single overshoot past the target, returning to rest.
+  // Settle: damped single overshoot BELOW the target (winner dips under the
+  // payline), returning to rest. Mirror of the upward version's sign.
   const p = (tMs - t4) / SETTLE_MS;
-  return targetPx + overshootPx * Math.sin(Math.PI * p) * (1 - p);
+  return targetPx - overshootPx * Math.sin(Math.PI * p) * (1 - p);
 }
 
 /**

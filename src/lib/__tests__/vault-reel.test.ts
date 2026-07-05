@@ -52,37 +52,44 @@ describe('spinTotalMs', () => {
 });
 
 describe('spinOffset', () => {
-  test('starts at 0 and ends exactly at target', () => {
-    expect(spinOffset(0, TARGET, 0, 1, ITEM_H)).toBe(0);
+  // Direction contract (spec decision #22): cells stream TOP → BOTTOM. The
+  // winner starts ABOVE the payline (offset HIGH = target + pre-roll travel) and
+  // DESCENDS to `target` (offset falls). Wind-up pulls UP (offset spikes above
+  // the start), settle overshoots BELOW the target (offset dips under it).
+  test('starts HIGH (above the target) and ends exactly at target', () => {
+    const start = spinOffset(0, TARGET, 0, 1, ITEM_H);
+    expect(start).toBeGreaterThan(TARGET); // winner begins above the payline
     expect(spinOffset(spinTotalMs(1), TARGET, 0, 1, ITEM_H)).toBe(TARGET);
     expect(spinOffset(spinTotalMs(1) + 5000, TARGET, 0, 1, ITEM_H)).toBe(
       TARGET,
     );
   });
-  test('wind-up moves AWAY from the target (negative territory)', () => {
+  test('wind-up pulls UP: offset rises ABOVE the start position', () => {
+    const start = spinOffset(0, TARGET, 0, 1, ITEM_H);
     const mid = spinOffset(WINDUP_MS / 2, TARGET, 0, 1, ITEM_H);
-    expect(mid).toBeLessThan(0);
-    expect(mid).toBeGreaterThanOrEqual(-ITEM_H / 2);
+    // pulled up by up to half a cell beyond the start
+    expect(mid).toBeGreaterThan(start);
+    expect(mid).toBeLessThanOrEqual(start + ITEM_H / 2 + 0.001);
   });
-  test('monotonically increasing after wind-up until settle', () => {
+  test('monotonically DECREASING (cells descend) after wind-up until settle', () => {
     const dur = columnDurationMs(0, 1);
     let prev = spinOffset(WINDUP_MS, TARGET, 0, 1, ITEM_H);
     for (let t = WINDUP_MS + 16; t <= dur - SETTLE_MS; t += 16) {
       const cur = spinOffset(t, TARGET, 0, 1, ITEM_H);
-      expect(cur).toBeGreaterThanOrEqual(prev - 0.001);
+      expect(cur).toBeLessThanOrEqual(prev + 0.001);
       prev = cur;
     }
   });
-  test('settle overshoots past target by at most 0.6 cells', () => {
+  test('settle overshoots BELOW target by at most 0.6 cells', () => {
     const dur = columnDurationMs(0, 1);
-    let maxSeen = -Infinity;
+    let minSeen = Infinity;
     for (let t = dur - SETTLE_MS; t <= dur; t += 8) {
-      maxSeen = Math.max(maxSeen, spinOffset(t, TARGET, 0, 1, ITEM_H));
+      minSeen = Math.min(minSeen, spinOffset(t, TARGET, 0, 1, ITEM_H));
     }
-    expect(maxSeen).toBeGreaterThan(TARGET); // it does overshoot
-    expect(maxSeen).toBeLessThanOrEqual(TARGET + ITEM_H * 0.6);
+    expect(minSeen).toBeLessThan(TARGET); // it does overshoot (downward)
+    expect(minSeen).toBeGreaterThanOrEqual(TARGET - ITEM_H * 0.6);
   });
-  test('non-last column skips crawl (reaches target sooner)', () => {
+  test('non-last column skips crawl (still lands exactly on target)', () => {
     const durNonLast = columnDurationMs(0, 2);
     expect(spinOffset(durNonLast, TARGET, 0, 2, ITEM_H)).toBe(TARGET);
   });

@@ -24,6 +24,8 @@ import {
   getCustomerAudit,
   getCustomerGacha,
   getCustomerCommissions,
+  getCustomerTransactions,
+  getCustomerPulls,
   getEconomyReport,
   getFxRate,
   getPulls,
@@ -45,6 +47,8 @@ import {
   type AdminCommissionRow,
   type CustomerAudit,
   type CustomerGacha,
+  type SupportTransaction,
+  type SupportPull,
   type DailyBoxEditorDTO,
   type DailyBoxSaveBody,
   type DailyBoxSummary,
@@ -140,6 +144,26 @@ export const useCustomerAudit = (
   useQuery({
     queryKey: qk.customerAudit(id ?? '', page),
     queryFn: () => getCustomerAudit(id!, page),
+    enabled: !!id,
+  });
+
+export const useCustomerTransactions = (
+  id: string | null,
+  page = 0,
+): UseQueryResult<{ items: SupportTransaction[]; total: number }> =>
+  useQuery({
+    queryKey: qk.customerTransactions(id ?? '', page),
+    queryFn: () => getCustomerTransactions(id!, page),
+    enabled: !!id,
+  });
+
+export const useCustomerPulls = (
+  id: string | null,
+  page = 0,
+): UseQueryResult<{ items: SupportPull[]; total: number }> =>
+  useQuery({
+    queryKey: qk.customerPulls(id ?? '', page),
+    queryFn: () => getCustomerPulls(id!, page),
     enabled: !!id,
   });
 
@@ -295,6 +319,7 @@ export const useAdjustCredits = () => {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
+      qc.invalidateQueries({ queryKey: qk.customerTransactionsKey(vars.id) });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });

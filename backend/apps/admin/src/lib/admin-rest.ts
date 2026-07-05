@@ -157,6 +157,16 @@ export async function getCustomerGacha(id: string): Promise<CustomerGacha> {
   );
 }
 
+export const getCustomerTransactions = (id: string, page = 0, limit = 25) =>
+  getJson<{ items: SupportTransaction[]; total: number }>(
+    `/admin/customers/${encodeURIComponent(id)}/transactions?limit=${limit}&offset=${page * limit}`,
+  );
+
+export const getCustomerPulls = (id: string, page = 0, limit = 25) =>
+  getJson<{ items: SupportPull[]; total: number }>(
+    `/admin/customers/${encodeURIComponent(id)}/pulls?limit=${limit}&offset=${page * limit}`,
+  );
+
 // ── Customer 360: referral tree + commissions (Phase 4 P4.1) ─────────────────
 
 export interface ReferralTreeNode {

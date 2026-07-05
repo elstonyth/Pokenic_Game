@@ -17,11 +17,21 @@ export const qk = {
     ['admin', 'customer', id, 'commissions', page] as const,
   customerAudit: (id: string, page: number) =>
     ['admin', 'customer', id, 'audit', page] as const,
+  customerTransactions: (id: string, page: number) =>
+    ['admin', 'customer', id, 'transactions', page] as const,
+  customerPulls: (id: string, page: number) =>
+    ['admin', 'customer', id, 'pulls', page] as const,
   // 4-segment prefix — invalidates ALL pages of a customer's commissions in one call
   customerCommissionsKey: (id: string) =>
     ['admin', 'customer', id, 'commissions'] as const,
   // 4-segment prefix — invalidates ALL pages of a customer's audit in one call
   customerAuditKey: (id: string) => ['admin', 'customer', id, 'audit'] as const,
+  // 4-segment prefix — invalidates ALL pages of a customer's transaction ledger in one call
+  customerTransactionsKey: (id: string) =>
+    ['admin', 'customer', id, 'transactions'] as const,
+  // 4-segment prefix — invalidates ALL pages of a customer's pull history in one call
+  customerPullsKey: (id: string) =>
+    ['admin', 'customer', id, 'pulls'] as const,
   // 4-segment prefix — invalidates ALL depths of a customer's referral tree in one call
   referralTreeKey: (id: string) =>
     ['admin', 'customer', id, 'referral-tree'] as const,

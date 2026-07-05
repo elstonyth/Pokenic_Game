@@ -216,7 +216,7 @@ export default function LeaderboardClient({
               <Link
                 href="/"
                 className={cn(
-                  pillVariants({ size: 'sm' }),
+                  pillVariants({ size: 'md' }),
                   'shrink-0 text-[13px]',
                 )}
               >

@@ -32,7 +32,7 @@ export default function NotificationBell() {
     <Link
       href="/notifications"
       aria-label={`Notifications${count ? `, ${count} unread` : ''}`}
-      className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+      className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
     >
       <Bell className="h-5 w-5" aria-hidden />
       {count > 0 && (

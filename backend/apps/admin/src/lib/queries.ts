@@ -304,6 +304,7 @@ export const useFreezeCustomer = () => {
     mutationFn: (vars: { id: string; reason: string }) =>
       freezeCustomer(vars.id, vars.reason),
     onSuccess: (_data, vars) => {
+      toast.success('Customer frozen');
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
       qc.invalidateQueries({ queryKey: qk.referralTreeKey(vars.id) });
@@ -318,6 +319,7 @@ export const useUnfreezeCustomer = () => {
     mutationFn: (vars: { id: string; reason: string }) =>
       unfreezeCustomer(vars.id, vars.reason),
     onSuccess: (_data, vars) => {
+      toast.success('Customer unfrozen');
       qc.invalidateQueries({ queryKey: qk.customerGacha(vars.id) });
       qc.invalidateQueries({ queryKey: qk.customerAuditKey(vars.id) });
       qc.invalidateQueries({ queryKey: qk.referralTreeKey(vars.id) });
@@ -335,6 +337,7 @@ export const useReverseCommission = () => {
       reason: string;
     }) => reverseCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
+      toast.success('Commission reversed');
       qc.invalidateQueries({
         queryKey: qk.customerCommissionsKey(vars.customerId),
       });
@@ -353,6 +356,7 @@ export const useSuspendCommission = () => {
       reason: string;
     }) => suspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
+      toast.success('Commission suspended');
       qc.invalidateQueries({
         queryKey: qk.customerCommissionsKey(vars.customerId),
       });
@@ -371,6 +375,7 @@ export const useUnsuspendCommission = () => {
       reason: string;
     }) => unsuspendCommission(vars.commId, vars.reason),
     onSuccess: (_data, vars) => {
+      toast.success('Commission unsuspended');
       qc.invalidateQueries({
         queryKey: qk.customerCommissionsKey(vars.customerId),
       });

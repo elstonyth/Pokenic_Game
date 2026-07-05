@@ -364,9 +364,7 @@ function PartyCard({
               <div
                 className={cn(
                   'h-full rounded-full',
-                  ended
-                    ? 'bg-white/25'
-                    : 'bg-buyback',
+                  ended ? 'bg-white/25' : 'bg-buyback',
                 )}
                 style={{ width: `${pct}%` }}
               />

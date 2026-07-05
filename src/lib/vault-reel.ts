@@ -188,6 +188,11 @@ export function spinOffset(
 const CYL_MAX_RAD = (82 * Math.PI) / 180;
 /** Projected drum depth (px) — how far the rim recedes at full wrap (#36). */
 const CYL_DEPTH_PX = 150;
+/** Center bulge (#39): the payline row swells this much toward the viewer, so
+ *  the winning Pokémon is the biggest cell; eases to 0 (scale 1) at the rim. */
+const CYL_BULGE = 0.3;
+/** cos at the wrap cap — the bulge normalizer so the rim lands exactly at 1. */
+const CYL_COS_MIN = Math.cos(CYL_MAX_RAD);
 
 /**
  * TRUE CYLINDER projection driven by ARC angle (spec decisions #36 + #37b —
@@ -227,7 +232,10 @@ export function cellCurve(
   const cos = Math.cos(theta);
   return {
     rotateXDeg: -((theta * 180) / Math.PI) * sign + 0, // coerce signed zero
-    scale: 1,
+    // Center bulge (#39): biggest dead-center (cos=1 → 1+CYL_BULGE), easing to
+    // exactly 1 at the rim (cos=CYL_COS_MIN). Never below 1 — a cylinder front
+    // never shrinks below its true width; apparent shrink is perspective depth.
+    scale: 1 + CYL_BULGE * ((cos - CYL_COS_MIN) / (1 - CYL_COS_MIN)),
     brightness: 0.22 + 0.78 * cos,
     translateZPx: -CYL_DEPTH_PX * (1 - cos) + 0, // coerce signed zero
     // Remap to the projected position; constant past the cap so far cells

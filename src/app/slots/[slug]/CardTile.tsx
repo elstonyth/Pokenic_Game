@@ -38,7 +38,10 @@ export function CardTile({
         dex={dex}
         name={name}
         tier="common"
-        size={Math.round(size * 0.88)}
+        // 0.74 of the cell (was 0.88): neighbors sit smaller so the center
+        // bulge (#39, up to 1.30×) makes the payline Pokémon the clear hero
+        // and the drum falloff reads stronger — bulged center ≈ 0.96 of cell.
+        size={Math.round(size * 0.74)}
         landed={false}
         reduced
         eager={eager}

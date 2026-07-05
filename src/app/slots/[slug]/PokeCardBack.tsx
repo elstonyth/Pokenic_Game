@@ -88,20 +88,20 @@ export function PokeCardBack({
           </textPath>
         </text>
       </g>
-      {/* Poké Ball — the landing target. Big enough that the resting sprite
-          (~0.88 · cell) sits inside it at reel scale. */}
+      {/* Poké Ball — the landing target. r 128 (was 122) so the bulged center
+          sprite (#39, ~0.96 · cell) still frames inside the ring. */}
       <circle
         cx="150"
         cy="210"
-        r="122"
+        r="128"
         fill="none"
         stroke={etch}
         strokeWidth="4"
       />
       {/* band, drawn only OUTSIDE the center ring so it never crosses the
           landed sprite's face */}
-      <line x1="28" y1="210" x2="112" y2="210" stroke={etch} strokeWidth="4" />
-      <line x1="188" y1="210" x2="272" y2="210" stroke={etch} strokeWidth="4" />
+      <line x1="22" y1="210" x2="112" y2="210" stroke={etch} strokeWidth="4" />
+      <line x1="188" y1="210" x2="278" y2="210" stroke={etch} strokeWidth="4" />
       {/* center button: double ring */}
       <circle
         cx="150"

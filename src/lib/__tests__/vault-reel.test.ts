@@ -234,13 +234,14 @@ describe('buildVaultStrip', () => {
 });
 
 describe('cellCurve', () => {
-  test('center cell is identity', () => {
+  test('center cell faces the viewer: no tilt/depth, full brightness, bulged', () => {
     const c = cellCurve(0, 280);
     expect(c.rotateXDeg).toBe(0);
-    expect(c.scale).toBe(1);
     expect(c.brightness).toBe(1);
     expect(c.translateZPx).toBe(0);
     expect(c.translateYPx).toBe(0);
+    // spec #39: the payline row bulges toward the viewer (biggest cell)
+    expect(c.scale).toBeCloseTo(1.3, 2);
   });
   test('symmetric rotation, mirrored sign', () => {
     const up = cellCurve(-140, 280);
@@ -272,9 +273,18 @@ describe('cellCurve', () => {
     expect(edge.brightness).toBeLessThanOrEqual(0.42);
     expect(edge.translateZPx).toBeLessThanOrEqual(-100);
   });
-  test('cylinder: width is constant (no uniform shrink)', () => {
-    expect(cellCurve(140, 280).scale).toBe(1);
-    expect(cellCurve(420, 280).scale).toBe(1);
+  test('cylinder: center bulges toward viewer, rim unscaled (spec #39)', () => {
+    // NOT a uniform rim-shrink (the #35 fold): the CENTER is enlarged and the
+    // rim is exactly 1.0 — closest-is-biggest, like a real drum front.
+    expect(cellCurve(0, 280).scale).toBeCloseTo(1.3, 2); // dead-center = 1+bulge
+    expect(cellCurve(420, 280).scale).toBeCloseTo(1, 5); // rim (past cap) = 1
+    // monotonic: closer to the payline = bigger
+    expect(cellCurve(60, 280).scale).toBeGreaterThan(cellCurve(180, 280).scale);
+    expect(cellCurve(180, 280).scale).toBeGreaterThan(
+      cellCurve(260, 280).scale,
+    );
+    // never smaller than 1 (a cylinder front never shrinks below its true width)
+    expect(cellCurve(200, 280).scale).toBeGreaterThanOrEqual(1);
   });
   test('cylinder: rows bunch toward the rims (projected spacing)', () => {
     // A cell one radius out projects to R·sin(1 rad) ≈ 0.84·R — pulled toward

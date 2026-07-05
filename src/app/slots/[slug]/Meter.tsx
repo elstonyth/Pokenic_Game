@@ -36,25 +36,34 @@ export function Meter({
     >
       {cells.map((cell, i) =>
         cell.digit ? (
+          // The cell keeps `overflow: visible` and takes its baseline from an
+          // invisible in-flow anchor glyph — an overflow-hidden inline-block
+          // instead baselines at its box BOTTOM, which dropped the rolling
+          // digits ~8px off the RM/decimal line (spec decision #32, measured).
+          // The rolling 0-9 column lives in a SEPARATE absolutely-positioned
+          // clip element, so clipping never touches the cell's baseline.
           <span
             key={`d-${i}`}
-            className="relative inline-block h-[1em] w-[0.62em] overflow-hidden"
+            className="relative inline-block leading-none"
             aria-hidden
           >
-            <motion.span
-              className="absolute left-0 top-0 flex flex-col items-center leading-none"
-              animate={{ y: `-${Number(cell.char)}em` }}
-              transition={{
-                duration: direction === 'down' ? 0.3 : 0.4,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-            >
-              {DIGITS.map((d) => (
-                <span key={d} className="h-[1em]">
-                  {d}
-                </span>
-              ))}
-            </motion.span>
+            <span className="invisible">{cell.char}</span>
+            <span className="absolute inset-0 overflow-hidden">
+              <motion.span
+                className="absolute inset-x-0 top-0 flex flex-col items-center leading-none"
+                animate={{ y: `-${Number(cell.char)}em` }}
+                transition={{
+                  duration: direction === 'down' ? 0.3 : 0.4,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+              >
+                {DIGITS.map((d) => (
+                  <span key={d} className="h-[1em]">
+                    {d}
+                  </span>
+                ))}
+              </motion.span>
+            </span>
           </span>
         ) : (
           <AnimatePresence key={`s-${i}`} mode="popLayout" initial={false}>

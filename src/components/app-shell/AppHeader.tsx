@@ -9,6 +9,7 @@ import AuthModal from '@/components/AuthModal';
 import { openAuth } from '@/components/AuthButton';
 import { useAuth } from '@/components/auth/AuthProvider';
 import NotificationBell from '@/components/NotificationBell';
+import { Pill } from '@/components/ui/pill';
 import { useTopUp } from './TopUpProvider';
 import { TABS, isTabActive } from './tabs';
 
@@ -88,7 +89,10 @@ export default function AppHeader() {
                 }
                 className="flex h-10 items-center gap-2 rounded-full bg-neutral-800 py-1 pl-3.5 pr-1 transition-colors hover:bg-neutral-700"
               >
-                <span className="text-[13px] font-semibold tabular-nums text-white">
+                {/* DESIGN.md "Money Is Display": the balance is the app's most
+                    repeated RM value — set it in the Nekst ledger voice, not
+                    Geist chrome. tabular-nums keeps digits from jittering. */}
+                <span className="font-heading text-[15px] leading-none tabular-nums text-white">
                   {balance == null ? 'RM —' : rm(balance)}
                 </span>
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-50 text-neutral-950">
@@ -104,21 +108,17 @@ export default function AppHeader() {
             />
           ) : (
             <>
-              <button
-                type="button"
+              <Pill
+                variant="secondary"
+                size="sm"
                 onClick={() => openAuth('login')}
-                className="flex h-10 items-center gap-2 rounded-full bg-neutral-800 px-4 text-sm font-semibold text-white transition-colors hover:bg-neutral-700"
               >
                 <LogIn className="h-4 w-4" aria-hidden />
                 Login
-              </button>
-              <button
-                type="button"
-                onClick={() => openAuth('signup')}
-                className="flex h-10 items-center justify-center whitespace-nowrap rounded-full bg-neutral-50 px-4 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
-              >
+              </Pill>
+              <Pill size="sm" onClick={() => openAuth('signup')}>
                 Join
-              </button>
+              </Pill>
             </>
           )}
         </div>

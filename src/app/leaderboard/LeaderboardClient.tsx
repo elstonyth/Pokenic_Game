@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { pillVariants } from '@/components/ui/pill';
 import type { LeaderboardEntry } from '@/lib/data/leaderboard';
 
 const PERIODS = ['This Week', 'All Time'] as const;
@@ -170,7 +171,7 @@ export default function LeaderboardClient({
                       {entry.volume} · {entry.pulls} pulls
                     </p>
                   </div>
-                  <span className="font-heading shrink-0 text-base text-white">
+                  <span className="font-heading shrink-0 text-base tabular-nums text-white">
                     {entry.points}
                   </span>
                 </li>
@@ -189,13 +190,17 @@ export default function LeaderboardClient({
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                   Your rank
                 </p>
-                <p className="font-heading text-2xl text-white">#{own.rank}</p>
+                <p className="font-heading text-2xl tabular-nums text-white">
+                  #{own.rank}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                   Points
                 </p>
-                <p className="font-heading text-chase text-2xl">{own.points}</p>
+                <p className="font-heading text-chase text-2xl tabular-nums">
+                  {own.points}
+                </p>
               </div>
             </div>
           ) : (
@@ -210,7 +215,10 @@ export default function LeaderboardClient({
               </div>
               <Link
                 href="/"
-                className="inline-flex h-10 shrink-0 items-center rounded-full bg-neutral-50 px-4 text-[13px] font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
+                className={cn(
+                  pillVariants({ size: 'sm' }),
+                  'shrink-0 text-[13px]',
+                )}
               >
                 Rip a pack
               </Link>

@@ -8,6 +8,7 @@ import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import Reveal from '@/components/Reveal';
 import { PrizeReveal } from '@/components/rewards/PrizeReveal';
 import { WithdrawForm } from '@/components/rewards/WithdrawForm';
+import { Pill } from '@/components/ui/pill';
 import {
   getDaily,
   drawDailyBox,
@@ -165,15 +166,15 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
           </p>
         )}
 
-        <button
-          type="button"
+        <Pill
           onClick={handleDraw}
           disabled={!canDraw}
-          className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-neutral-50 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98] disabled:opacity-40"
+          size="lg"
+          className="mt-5 w-full"
         >
           <Sparkles className="h-4 w-4" aria-hidden />
           {drawLabel}
-        </button>
+        </Pill>
       </Reveal>
 
       {/* ---- 2. Vouchers ---- */}

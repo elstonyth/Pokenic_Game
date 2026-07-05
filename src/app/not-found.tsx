@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Press_Start_2P } from 'next/font/google';
 import { features } from '@/lib/features';
+import { cn } from '@/lib/utils';
+import { pillVariants } from '@/components/ui/pill';
 
 // Clone of the live custom 404 (wave-2 audit: captured on /lucky-draw, which
 // 404s on live — shots in docs/research/audit/shots/lucky-draw/live-*.png):
@@ -86,7 +88,10 @@ export default function NotFound() {
         </Link>
         <Link
           href="/"
-          className="inline-flex h-12 w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 text-sm font-medium text-neutral-200 transition-colors hover:bg-white/10 sm:w-auto"
+          className={cn(
+            pillVariants({ variant: 'ghost', size: 'lg' }),
+            'w-full font-medium sm:w-auto',
+          )}
         >
           Go home
         </Link>

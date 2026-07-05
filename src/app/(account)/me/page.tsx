@@ -14,6 +14,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { getCustomer } from '@/lib/data/customer';
+import { cn } from '@/lib/utils';
+import { pillVariants } from '@/components/ui/pill';
 import { getOwnProfileHandle } from '@/lib/data/profiles';
 import { getWallet } from '@/lib/actions/wallet';
 import { getVip } from '@/lib/actions/vip';
@@ -104,7 +106,7 @@ export default async function MePage() {
               <TopUpButton />
               <Link
                 href="/bank-withdrawal"
-                className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-neutral-800 text-sm font-semibold text-white transition-colors hover:bg-neutral-700"
+                className={cn(pillVariants({ variant: 'secondary' }), 'flex-1')}
               >
                 Withdraw
               </Link>

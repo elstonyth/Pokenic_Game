@@ -171,6 +171,7 @@ Flat, tonally layered, glow-reserved. Depth comes from the three-step neutral ra
 
 ### Buttons
 
+- **Component:** `src/components/ui/pill.tsx` — `<Pill variant="primary|secondary|ghost" size="sm|md|lg">` for `<button>`s; `pillVariants({ variant, size })` fed through `cn()` for `<Link>`/`<a>`. Single source of truth for the states below (focus ring, disabled, reduced-motion press are baked in). Toolbar filter/sort chips and the balance chip are a separate _chip_ pattern — don't route them through `Pill`.
 - **Shape:** Full pill (999px), height ≥48px for primary, ≥40px secondary.
 - **Primary:** Paper White bg, Ink Black text (#fafafa/#0a0a0a), Geist 600. One per zone (screen footer, sticky card, sheet).
 - **Hover/Active:** Pure white bg + scale 0.98 on press; focus-visible ring 2px white/40.

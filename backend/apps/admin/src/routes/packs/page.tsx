@@ -308,6 +308,7 @@ const PacksListPage = () => {
               <Table.HeaderCell>{t('packs.list.pack')}</Table.HeaderCell>
               <Table.HeaderCell>{t('packs.list.category')}</Table.HeaderCell>
               <Table.HeaderCell>{t('packs.list.status')}</Table.HeaderCell>
+              <Table.HeaderCell>Odds</Table.HeaderCell>
               <Table.HeaderCell>{t('packs.list.price')}</Table.HeaderCell>
               <Table.HeaderCell className="text-right">
                 {t('packs.list.actions')}
@@ -366,6 +367,11 @@ const PacksListPage = () => {
                 <Table.Cell>
                   <StatusBadge color={p.status === 'active' ? 'green' : 'grey'}>
                     {p.status}
+                  </StatusBadge>
+                </Table.Cell>
+                <Table.Cell>
+                  <StatusBadge color={p.published_odds ? 'green' : 'orange'}>
+                    {p.published_odds ? 'Published' : 'Not set'}
                   </StatusBadge>
                 </Table.Cell>
                 <Table.Cell className="tabular-nums">{rm(p.price)}</Table.Cell>

@@ -224,6 +224,9 @@ const DeliveriesPage = () => {
                   {detail.address.city} {detail.address.postal_code}{' '}
                   {detail.address.country_code.toUpperCase()}
                 </Text>
+                <Text className="text-ui-fg-subtle" size="small">
+                  Customer: {detail.customer_email ?? detail.customer_id}
+                </Text>
                 <div className="flex flex-col gap-y-2">
                   <Text size="small" weight="plus">
                     Status

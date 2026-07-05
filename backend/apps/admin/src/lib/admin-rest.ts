@@ -526,6 +526,10 @@ export interface DailyBoxPrizeDTO {
 export interface DailyBoxEditorDTO {
   box: { tier: string; name: string; enabled: boolean; draws_per_day: number };
   prizes: DailyBoxPrizeDTO[];
+  /** Server-side ceiling for a credit/voucher prize's RM amount — served here
+   *  (not hardcoded client-side) so the row validation always matches the
+   *  backend's actual limit. */
+  max_box_credit_myr: number;
 }
 
 export interface DailyBoxSaveBody {

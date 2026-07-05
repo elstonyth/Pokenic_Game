@@ -354,6 +354,7 @@ const GachaCardsPage = () => {
                   )}
                 </Table.Cell>
                 <Table.Cell
+                  title="Negative = units owed to winners; 0 = buyback-only; ∞ = untracked"
                   className={
                     // Negative = units OWED to winners (wins keep counting
                     // below 0 by design) — red beats orange for "act now".

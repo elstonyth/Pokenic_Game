@@ -43,9 +43,6 @@ const KIND_LABEL: Record<DailyBoxPrizeDTO['kind'], string> = {
   nothing: 'Nothing',
 };
 
-// Mirrors MAX_BOX_CREDIT_MYR in packages/api src/modules/packs/daily-box.ts — keep in sync.
-const MAX_BOX_CREDIT_MYR = 10_000;
-
 // One prize row in the editable buffer. `payload` fields are flattened here
 // (rather than kept nested) so every cell binds to a single controlled input;
 // save re-nests them into DailyBoxSaveBody.prizes.
@@ -566,6 +563,10 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const { data: allCards, isError: isCardsError } = useCards();
 
+  // Server-served ceiling (route GET spreads MAX_BOX_CREDIT_MYR) — falls back
+  // to the current server default only before the first box has loaded.
+  const maxCredit = seededFrom?.max_box_credit_myr ?? 10_000;
+
   const setRow = (localId: string, patch: Partial<EditRow>) =>
     setRows((prev) =>
       prev.map((r) => (r.localId === localId ? { ...r, ...patch } : r)),
@@ -611,8 +612,8 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
     if (r.kind === 'product' && !r.productHandle) return 'Pick a product.';
     if (r.kind === 'credit' || r.kind === 'voucher') {
       const amt = Number(r.amountInput);
-      if (!(amt > 0) || amt > MAX_BOX_CREDIT_MYR)
-        return `RM amount must be between 0 and ${MAX_BOX_CREDIT_MYR}.`;
+      if (!(amt > 0) || amt > maxCredit)
+        return `RM amount must be between 0 and ${maxCredit}.`;
     }
     if (r.kind === 'product' && !(Number(r.qtyInput) >= 1))
       return 'Qty must be at least 1.';

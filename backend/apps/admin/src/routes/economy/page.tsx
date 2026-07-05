@@ -224,12 +224,14 @@ const EconomyPage = () => {
                     {p.rtp_pct === null ? (
                       "—"
                     ) : (
-                      <Badge
-                        size="2xsmall"
-                        color={p.rtp_pct > 100 ? "red" : "grey"}
-                      >
-                        {p.rtp_pct.toFixed(2)}%
-                      </Badge>
+                      <span title="RTP > 100% means players receive more value than the pack price on average — the house loses money on this pack.">
+                        <Badge
+                          size="2xsmall"
+                          color={p.rtp_pct > 100 ? "red" : "grey"}
+                        >
+                          {p.rtp_pct.toFixed(2)}%
+                        </Badge>
+                      </span>
                     )}
                   </Table.Cell>
                 </Table.Row>

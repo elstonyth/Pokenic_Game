@@ -15,7 +15,11 @@ export function SlotStatusBar({
   reduced: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+    // min-w-0: as a flex item this plate must SHRINK to the space the top row
+    // gives it — without it the w-max marquee track below sets the item's
+    // min-content width and pushes the plate past the viewport edge on phones
+    // (spec decision #28). The marquee then clips inside via overflow-hidden.
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-5">
         {balance !== null && (
           <div>

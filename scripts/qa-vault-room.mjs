@@ -136,7 +136,24 @@ try {
     });
     await page.waitForTimeout(300); // mid-entrance
     await snap(page, `${label}-entrance`);
-    await page.waitForTimeout(1600); // idle
+    // Bare-sprite tiles (decision #17) render nothing until the external
+    // sprite images load — a fixed wait captures an empty-looking column on a
+    // cold cache. Wait for the visible reel sprites to finish loading first.
+    await page
+      .waitForFunction(
+        () => {
+          const imgs = [...document.images].filter((i) =>
+            /sprites|showdown|pokeapi/i.test(i.src),
+          );
+          const visible = imgs.filter(
+            (i) => i.getBoundingClientRect().height > 0,
+          );
+          return visible.length > 0 && visible.every((i) => i.complete);
+        },
+        { timeout: 10000 },
+      )
+      .catch(() => {});
+    await page.waitForTimeout(1600); // idle (entrance fully settled)
     await snap(page, `${label}-idle`);
     // add a reel → meter + 2 columns
     const add = page.getByRole('button', { name: 'Add a reel' });
@@ -221,7 +238,10 @@ try {
           // Infinity repeat), so Playwright treats it as permanently "not
           // stable". Scroll manually via evaluate instead.
           await card.evaluate((el) => el.scrollIntoView({ block: 'center' }));
-          await page.waitForTimeout(150);
+          // The machine fades out over ~500ms when the reveal starts
+          // (decision #19) — outwait it so the capture shows the emptied
+          // room, not a half-faded reel.
+          await page.waitForTimeout(800);
           await snap(page, 'slab-back'); // card on stage, not yet flipped
 
           // force: true for the same reason as the scroll above.

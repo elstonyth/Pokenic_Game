@@ -50,7 +50,11 @@ export function SlotStatusBar({
           <div
             className={cn(
               'flex w-max gap-4',
-              !reduced && 'animate-[sp-scroll-x_30s_linear_infinite]',
+              // 60s (was 30s) = calmer scroll; will-change-transform keeps the
+              // track composited for jank-free motion (spec #41). Linear +
+              // translate3d(-50%) over doubled content = seamless loop.
+              !reduced &&
+                'will-change-transform animate-[sp-scroll-x_60s_linear_infinite]',
             )}
           >
             {[...recent, ...recent].map((p, i) => (

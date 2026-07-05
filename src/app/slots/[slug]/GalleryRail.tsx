@@ -24,9 +24,9 @@ export function GalleryRail({
 }) {
   const clamp = (i: number) => Math.max(0, Math.min(count - 1, i));
 
-  // Center by MEASURED px, not by a vw formula: each item is w-[78vw]
-  // max-w-[340px], so once 78vw clamps to 340px the vw step no longer matches
-  // the item width and the active card lands off-screen (>~436px viewport).
+  // Center by MEASURED px, not by a vw formula: each item is w-[70vw]
+  // max-w-[320px], so once 70vw clamps to 320px the vw step no longer matches
+  // the item width and the active card lands off-screen (>~457px viewport).
   // A ResizeObserver (not a one-shot layout read) is required: the rail mounts
   // during the reveal theater and its items start at width 0 until the flex
   // resolves — a single measure races that and leaves x=0 (track left-aligned,
@@ -99,10 +99,22 @@ export function GalleryRail({
                 <motion.div
                   key={i}
                   ref={i === 0 ? itemRef : undefined}
-                  className="w-[78vw] max-w-[340px] shrink-0 px-2"
+                  // 70vw (was 78vw) leaves ~40px of neighbor inside a 390px
+                  // viewport — the peek that makes swiping discoverable (spec
+                  // decision #30). Origin anchors to the INNER edge so the
+                  // 0.9 shrink can't pull that peek back off-screen.
+                  className="w-[70vw] max-w-[320px] shrink-0 px-2"
+                  style={{
+                    transformOrigin:
+                      i < activeIndex
+                        ? '100% 50%'
+                        : i > activeIndex
+                          ? '0% 50%'
+                          : '50% 50%',
+                  }}
                   animate={{
-                    scale: isActive ? 1 : 0.82,
-                    opacity: isActive ? 1 : 0.45,
+                    scale: isActive ? 1 : 0.9,
+                    opacity: isActive ? 1 : 0.55,
                     rotateY: reduced ? 0 : (i - activeIndex) * -14,
                   }}
                   transition={

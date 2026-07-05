@@ -47,7 +47,7 @@ export default async function HomePage() {
     : null;
 
   return (
-    <div className="px-fluid mx-auto w-full max-w-md pt-4 lg:max-w-5xl">
+    <div className="px-fluid mx-auto w-full max-w-md pt-6 lg:max-w-5xl">
       {featured && <FeaturedChase pack={featured} chase={featuredChase} />}
 
       <TrustRow />

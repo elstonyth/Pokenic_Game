@@ -43,7 +43,7 @@ export default function LeaderboardClient({
       : (entries.find((e) => e.handle === ownHandle) ?? null);
 
   return (
-    <div className="px-fluid mx-auto w-full max-w-md pt-4 lg:max-w-3xl">
+    <div className="px-fluid mx-auto w-full max-w-md pt-6 lg:max-w-3xl">
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-3xl text-white">LEADERBOARD</h1>
       </div>

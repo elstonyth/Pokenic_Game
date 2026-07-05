@@ -243,16 +243,18 @@ export default function VaultClient({
       {/* Stat strip */}
       <div className="mt-4 grid grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-neutral-900 py-4">
         {[
-          { label: 'Vault value', value: rm(vaultValue) },
+          // rm0 (whole ringgit) keeps both money stats from clipping in the
+          // 3-col strip on narrow phones; exact figures live per-card and in
+          // the header chip.
+          { label: 'Vault value', value: rm0(vaultValue) },
           { label: 'Cards', value: String(items.length) },
-          // rm0: whole ringgit — the exact balance lives in the header chip.
           { label: 'Balance', value: rm0(providerBalance ?? balance) },
         ].map((stat) => (
           <div key={stat.label} className="px-4 text-center">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
               {stat.label}
             </p>
-            <p className="font-heading mt-0.5 truncate text-lg text-white">
+            <p className="font-heading mt-0.5 truncate text-base tabular-nums text-white lg:text-lg">
               {stat.value}
             </p>
           </div>

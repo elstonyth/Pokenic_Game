@@ -87,7 +87,7 @@ export default function AppHeader() {
                     ? 'Top up credits'
                     : `Balance ${rm(balance)} — top up`
                 }
-                className="flex h-10 items-center gap-2 rounded-full bg-neutral-800 py-1 pl-3.5 pr-1 transition-colors hover:bg-neutral-700"
+                className="flex h-11 items-center gap-2 rounded-full bg-neutral-800 py-1 pl-3.5 pr-1 transition-colors hover:bg-neutral-700"
               >
                 {/* DESIGN.md "Money Is Display": the balance is the app's most
                     repeated RM value — set it in the Nekst ledger voice, not
@@ -110,13 +110,13 @@ export default function AppHeader() {
             <>
               <Pill
                 variant="secondary"
-                size="sm"
+                size="md"
                 onClick={() => openAuth('login')}
               >
                 <LogIn className="h-4 w-4" aria-hidden />
                 Login
               </Pill>
-              <Pill size="sm" onClick={() => openAuth('signup')}>
+              <Pill size="md" onClick={() => openAuth('signup')}>
                 Join
               </Pill>
             </>

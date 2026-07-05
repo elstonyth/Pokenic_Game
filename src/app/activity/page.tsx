@@ -20,7 +20,7 @@ const STATS = [
 
 type TxType = 'BUY' | 'CLAW' | 'SALE' | 'LIST';
 const TYPE_TONE: Record<TxType, string> = {
-  BUY: 'bg-emerald-500/15 text-emerald-400',
+  BUY: 'bg-buyback/15 text-buyback-fg',
   CLAW: 'bg-sky-500/15 text-sky-400',
   SALE: 'bg-amber-500/15 text-amber-400',
   LIST: 'bg-fuchsia-500/15 text-fuchsia-400',
@@ -85,7 +85,7 @@ export default function ActivityPage() {
             className="h-20 w-20 object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] [animation:coinSpin_3.5s_linear_infinite] motion-reduce:[animation:none]"
           />
         </div>
-        <h1 className="font-heading bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
+        <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
           Marketplace Activity
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm text-white/55 sm:text-base">

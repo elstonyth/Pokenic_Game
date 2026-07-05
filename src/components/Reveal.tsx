@@ -39,8 +39,10 @@ export default function Reveal({
       ref={ref}
       {...(ariaLabelledBy && { 'aria-labelledby': ariaLabelledBy })}
       className={cn(
+        // opacity + transform already composite on the GPU, so no will-change:
+        // it was leaking one live layer per revealed element across the page.
         !reduced &&
-          'transition-all duration-700 ease-out will-change-[opacity,transform] motion-reduce:transition-none',
+          'transition-all duration-700 ease-out motion-reduce:transition-none',
         visible ? 'translate-y-0 opacity-100' : 'opacity-0',
         className,
       )}

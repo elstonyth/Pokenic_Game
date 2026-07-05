@@ -88,7 +88,7 @@ export default function RecentPullsSection({
           </p>
           <h2
             id="recent-pulls-heading"
-            className="font-heading mt-1.5 bg-gradient-to-b from-white to-neutral-400 bg-clip-text text-2xl font-bold leading-tight tracking-tight text-transparent md:text-3xl"
+            className="font-heading mt-1.5 text-2xl font-bold leading-tight tracking-tight text-white md:text-3xl"
           >
             Recent Pulls
           </h2>
@@ -102,7 +102,7 @@ export default function RecentPullsSection({
             users a clear indicator; aria-labelledby names it from the section
             heading instead of a duplicated literal. */}
         {pulls.length === 0 ? (
-          <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-[13px] text-white/40">
+          <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-[13px] text-white/60">
             No pulls yet — be the first to open a pack.
           </div>
         ) : (

@@ -18,6 +18,7 @@ import SellConfirmModal from '@/components/SellConfirmModal';
 import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import { RARITY_ORDER, rarityRgb } from '@/lib/rarity';
 import { cn } from '@/lib/utils';
+import { Pill, pillVariants } from '@/components/ui/pill';
 
 // The customer's vault: every pulled card still held, each with a sell-back
 // offer (current FMV × the flat buyback rate — the server quotes the percent).
@@ -242,16 +243,18 @@ export default function VaultClient({
       {/* Stat strip */}
       <div className="mt-4 grid grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-neutral-900 py-4">
         {[
-          { label: 'Vault value', value: rm(vaultValue) },
+          // rm0 (whole ringgit) keeps both money stats from clipping in the
+          // 3-col strip on narrow phones; exact figures live per-card and in
+          // the header chip.
+          { label: 'Vault value', value: rm0(vaultValue) },
           { label: 'Cards', value: String(items.length) },
-          // rm0: whole ringgit — the exact balance lives in the header chip.
           { label: 'Balance', value: rm0(providerBalance ?? balance) },
         ].map((stat) => (
           <div key={stat.label} className="px-4 text-center">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
               {stat.label}
             </p>
-            <p className="font-heading mt-0.5 truncate text-lg text-white">
+            <p className="font-heading mt-0.5 truncate text-base tabular-nums text-white lg:text-lg">
               {stat.value}
             </p>
           </div>
@@ -329,7 +332,7 @@ export default function VaultClient({
           </p>
           <Link
             href="/"
-            className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-neutral-50 px-6 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
+            className={cn(pillVariants({ size: 'md' }), 'mt-5 px-6')}
           >
             Open packs
           </Link>
@@ -341,16 +344,17 @@ export default function VaultClient({
             {query ? ` “${query.trim()}”` : ''}
             {rarityFilter ? ` in ${rarityFilter}` : ''}.
           </p>
-          <button
-            type="button"
+          <Pill
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setQuery('');
               setRarityFilter(null);
             }}
-            className="mt-3 inline-flex h-9 items-center rounded-full bg-neutral-800 px-4 text-[13px] font-semibold text-white"
+            className="mt-3 h-9 text-[13px]"
           >
             Clear filters
-          </button>
+          </Pill>
         </div>
       ) : (
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -466,16 +470,17 @@ export default function VaultClient({
                   from {item.packTitle}
                 </p>
                 {!selectMode && (
-                  <button
-                    type="button"
+                  <Pill
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setConfirmItem(item)}
                     disabled={sellingId !== null}
-                    className="mt-2.5 inline-flex h-9 items-center justify-center rounded-full bg-neutral-800 text-[12px] font-semibold text-green-400 transition-colors hover:bg-neutral-700 disabled:opacity-50"
+                    className="mt-2.5 h-9 text-[12px] text-buyback-fg"
                   >
                     {sellingId === item.pullId
                       ? 'Selling…'
                       : `Sell · ${rm(item.buyback.amount)} (${item.buyback.percent}%)`}
-                  </button>
+                  </Pill>
                 )}
               </div>
             );
@@ -496,25 +501,21 @@ export default function VaultClient({
             <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
               {selected.size} selected · FMV {rm(selectedFmv)}
             </span>
-            <span className="text-[13px] font-semibold text-green-400">
+            <span className="text-[13px] font-semibold text-buyback-fg">
               Sell for {rm(selectedBuyback)}
             </span>
           </div>
           <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setConfirmBulkSell(true)}
-              className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-neutral-50 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
-            >
+            <Pill onClick={() => setConfirmBulkSell(true)} className="flex-1">
               Sell {selected.size}
-            </button>
-            <button
-              type="button"
+            </Pill>
+            <Pill
+              variant="secondary"
               onClick={() => setDeliverOpen(true)}
-              className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-neutral-800 text-sm font-semibold text-white transition-colors hover:bg-neutral-700"
+              className="flex-1"
             >
               Deliver {selected.size}
-            </button>
+            </Pill>
           </div>
         </div>
       )}

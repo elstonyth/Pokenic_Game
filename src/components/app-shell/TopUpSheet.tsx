@@ -5,6 +5,7 @@ import { CheckCircle2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { rm, rm0 } from '@/lib/format';
 import { topUpCredits } from '@/lib/actions/vault';
+import { Pill } from '@/components/ui/pill';
 
 const PRESETS = [10, 25, 50, 100];
 
@@ -125,7 +126,7 @@ export default function TopUpSheet({
 
         {done ? (
           <div className="mt-6 flex flex-col items-center text-center">
-            <CheckCircle2 className="h-12 w-12 text-green-400" aria-hidden />
+            <CheckCircle2 className="h-12 w-12 text-buyback-fg" aria-hidden />
             <p className="mt-3 font-heading text-2xl text-white">
               {rm(done.amount)} ADDED
             </p>
@@ -135,13 +136,9 @@ export default function TopUpSheet({
                 {rm(done.balance)}
               </span>
             </p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-full bg-neutral-50 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
-            >
+            <Pill onClick={onClose} size="lg" className="mt-6 w-full">
               Done
-            </button>
+            </Pill>
           </div>
         ) : (
           <>
@@ -188,7 +185,7 @@ export default function TopUpSheet({
               </div>
               <div className="mt-2 flex items-center justify-between text-neutral-400">
                 <span>You top up</span>
-                <span className="font-semibold text-green-400">
+                <span className="font-semibold text-buyback-fg">
                   {amountValid ? `+ ${rm(amount)}` : '—'}
                 </span>
               </div>
@@ -206,18 +203,18 @@ export default function TopUpSheet({
               </p>
             )}
 
-            <button
-              type="button"
+            <Pill
               onClick={submit}
               disabled={submitting || !amountValid}
-              className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full bg-neutral-50 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98] disabled:opacity-40"
+              size="lg"
+              className="mt-4 w-full"
             >
               {submitting
                 ? 'Processing…'
                 : amountValid
                   ? `Proceed — add ${rm(amount)}`
                   : 'Enter an amount'}
-            </button>
+            </Pill>
 
             <p className="mt-3 text-[12px] leading-relaxed text-neutral-500">
               Demo checkout: only the amount leaves your browser. Amounts ending

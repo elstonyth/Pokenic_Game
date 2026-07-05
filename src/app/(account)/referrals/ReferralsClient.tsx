@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check, Copy, Share2 } from 'lucide-react';
+import { Pill } from '@/components/ui/pill';
 
 /** Invite-link card: copy + native share sheet (showgo's "Share Invite Link"). */
 export default function ReferralsClient({ inviteUrl }: { inviteUrl: string }) {
@@ -53,20 +54,16 @@ export default function ReferralsClient({ inviteUrl }: { inviteUrl: string }) {
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-700 text-neutral-200 transition-colors hover:text-white"
         >
           {copied ? (
-            <Check className="h-4 w-4 text-green-400" aria-hidden />
+            <Check className="h-4 w-4 text-buyback-fg" aria-hidden />
           ) : (
             <Copy className="h-4 w-4" aria-hidden />
           )}
         </button>
       </div>
-      <button
-        type="button"
-        onClick={share}
-        className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-neutral-50 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
-      >
+      <Pill onClick={share} size="lg" className="mt-3 w-full">
         <Share2 className="h-4 w-4" aria-hidden />
         Share invite link
-      </button>
+      </Pill>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-02T08:00:00+08:00",
+  "generatedAt": "2026-07-05T20:47:00+08:00",
   "title": "Design System: Pokenic",
   "extensions": {
     "colorMeta": {
@@ -32,7 +32,12 @@
       "buyback-green": {
         "role": "secondary",
         "displayName": "Buyback Green",
-        "canonical": "#4ade80"
+        "canonical": "#118c4f"
+      },
+      "buyback-green-fg": {
+        "role": "secondary",
+        "displayName": "Buyback Green FG",
+        "canonical": "#2fbf6e"
       },
       "tier-starter": {
         "role": "tertiary",
@@ -94,7 +99,7 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one white pill per zone. Thumb-height, full-width in sheets and sticky cards.",
+      "description": "The one white pill per zone (Pill primitive, variant=primary). Thumb-height, full-width in sheets and sticky cards.",
       "html": "<button class=\"ds-btn-primary\">Proceed — add RM 25</button>",
       "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 48px; width: 100%; background: #fafafa; color: #0a0a0a; border: none; border-radius: 999px; font-weight: 600; font-size: 14px; transition: transform 120ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background: #ffffff; } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: 2px; }"
     },
@@ -102,9 +107,17 @@
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Graphite pill for the non-primary action beside a white pill.",
+      "description": "Graphite pill for the non-primary action beside a white pill (Pill primitive, variant=secondary).",
       "html": "<button class=\"ds-btn-secondary\">Withdraw</button>",
       "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 24px; background: #262626; color: #fafafa; border: none; border-radius: 999px; font-weight: 600; font-size: 14px; transition: background 150ms; } .ds-btn-secondary:hover { background: #333333; } .ds-btn-secondary:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Lowest-emphasis pill (Pill primitive, variant=ghost): hairline border on a faint white wash, for a tertiary action beside a primary.",
+      "html": "<button class=\"ds-btn-ghost\">Go home</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; background: rgba(255,255,255,0.05); color: #e5e5e5; border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; font-weight: 600; font-size: 14px; transition: background 150ms; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.1); } .ds-btn-ghost:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: 2px; }"
     },
     {
       "name": "Filter Chip",
@@ -126,9 +139,9 @@
       "name": "Balance Chip",
       "kind": "custom",
       "refersTo": "balance-chip",
-      "description": "Header wallet chip: balance + white plus-disc opening the top-up sheet. Present on every screen.",
+      "description": "Header wallet chip: balance (Nekst, Money Is Display) + white plus-disc opening the top-up sheet. 44px tap target, present on every screen.",
       "html": "<button class=\"ds-balance\"><span class=\"ds-balance-amt\">RM 4.49</span><span class=\"ds-balance-plus\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></span></button>",
-      "css": ".ds-balance { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 4px 4px 4px 14px; background: #262626; border: none; border-radius: 999px; cursor: pointer; transition: background 150ms; } .ds-balance:hover { background: #333333; } .ds-balance-amt { color: #ffffff; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; } .ds-balance-plus { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; background: #fafafa; color: #0a0a0a; }"
+      "css": ".ds-balance { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 4px 4px 4px 14px; background: #262626; border: none; border-radius: 999px; cursor: pointer; transition: background 150ms; } .ds-balance:hover { background: #333333; } .ds-balance-amt { color: #ffffff; font-family: Nekst, ui-sans-serif; font-weight: 900; font-size: 15px; line-height: 1; font-variant-numeric: tabular-nums; } .ds-balance-plus { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; background: #fafafa; color: #0a0a0a; }"
     },
     {
       "name": "Tab Bar Item",

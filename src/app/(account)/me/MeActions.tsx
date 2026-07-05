@@ -6,18 +6,15 @@ import { LogOut, Plus } from 'lucide-react';
 import { logout } from '@/lib/actions/auth';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useTopUp } from '@/components/app-shell/TopUpProvider';
+import { Pill } from '@/components/ui/pill';
 
 export function TopUpButton() {
   const { openTopUp } = useTopUp();
   return (
-    <button
-      type="button"
-      onClick={openTopUp}
-      className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-50 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
-    >
+    <Pill onClick={openTopUp} className="flex-1">
       <Plus className="h-4 w-4" strokeWidth={3} aria-hidden />
       Top Up
-    </button>
+    </Pill>
   );
 }
 

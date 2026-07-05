@@ -10,7 +10,8 @@ colors:
   paper-white: '#fafafa'
   silver-text: '#a3a3a3'
   chase-gold: '#ffb020'
-  buyback-green: '#4ade80'
+  buyback-green: '#118c4f'
+  buyback-green-fg: '#2fbf6e'
   alarm-red: '#f87171'
   tier-starter: '#ef4444'
   tier-silver: '#60a5fa'
@@ -127,7 +128,7 @@ A committed dark palette where chrome stays monochrome and every hue is a signal
 
 ### Secondary
 
-- **Buyback Green** (#4ade80): Money-positive only — credited amounts, buyback quotes, reward chips, "+RM" deltas. Never decoration, never success-toast filler.
+- **Buyback Green** (#118c4f): Money-positive only — credited amounts, buyback quotes, reward chips, "+RM" deltas, success confirmations. Never decoration, never success-toast filler. The deep base carries fills, tints (`/10`), and borders (white text sits on it); its lighter sibling **Buyback Green FG** (#2fbf6e) is the legible money-in _text_ color on dark, since the base itself drops below 4.5:1 at small text sizes.
 - **Alarm Red** (#f87171): Errors and destructive confirmation only.
 
 ### Tertiary — Tier Band
@@ -171,6 +172,7 @@ Flat, tonally layered, glow-reserved. Depth comes from the three-step neutral ra
 
 ### Buttons
 
+- **Component:** `src/components/ui/pill.tsx` — `<Pill variant="primary|secondary|ghost" size="sm|md|lg">` for `<button>`s; `pillVariants({ variant, size })` fed through `cn()` for `<Link>`/`<a>`. Single source of truth for the states below (focus ring, disabled, reduced-motion press are baked in). Toolbar filter/sort chips and the balance chip are a separate _chip_ pattern — don't route them through `Pill`.
 - **Shape:** Full pill (999px), height ≥48px for primary, ≥40px secondary.
 - **Primary:** Paper White bg, Ink Black text (#fafafa/#0a0a0a), Geist 600. One per zone (screen footer, sticky card, sheet).
 - **Hover/Active:** Pure white bg + scale 0.98 on press; focus-visible ring 2px white/40.
@@ -180,7 +182,7 @@ Flat, tonally layered, glow-reserved. Depth comes from the three-step neutral ra
 ### Chips (filters, quick amounts, reward tags)
 
 - **Style:** Graphite pill, Silver label text; selected = Paper White bg, Ink text (exactly the 90scard Daily/Weekly toggle inverted).
-- **Money chips:** Buyback Green text on green/10 tint bg ("+RM 1,000").
+- **Money chips:** Buyback Green FG (#2fbf6e) text on a buyback/10 tint ("+RM 1,000").
 
 ### Cards / Containers
 

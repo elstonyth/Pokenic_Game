@@ -17,7 +17,7 @@ export default async function DailyPage() {
 
   if (result.ok) {
     return (
-      <div className="px-fluid py-8">
+      <div className="px-fluid pt-6">
         <DailyClient initial={result.state} />
       </div>
     );

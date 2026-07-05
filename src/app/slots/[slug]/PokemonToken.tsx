@@ -20,6 +20,9 @@ type PokemonTokenProps = {
   eager?: boolean;
   /** Render this exact image instead of a dex sprite (non-Pokémon card fallback, §2/G5). */
   imageSrc?: string;
+  /** Extra CSS filter applied to the sprite itself (e.g. a landed rarity glow
+   *  drop-shadow that hugs the sprite's silhouette — spec decision #17). */
+  filter?: string;
 };
 
 /** Opaque footprint of a sprite's figure, in natural image pixels. */
@@ -155,6 +158,7 @@ export function PokemonToken({
   reduced = false,
   eager = false,
   imageSrc,
+  filter,
 }: PokemonTokenProps) {
   const [src, setSrc] = useState(imageSrc ?? spriteGif(dex));
   // Re-sync if a recycled cell receives a new dex or image override.
@@ -215,7 +219,7 @@ export function PokemonToken({
           setSrc((s) => (s === spritePng(dex) ? s : spritePng(dex)));
         }}
         className={imgClassName}
-        style={imgStyle}
+        style={filter ? { ...imgStyle, filter } : imgStyle}
       />
     </div>
   );

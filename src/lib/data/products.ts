@@ -1,27 +1,21 @@
 /**
  * Marketplace catalog data seam.
  *
- * Single source for the marketplace listing grid, the category tabs, and
- * card-detail lookups. Cards are read live from the Medusa + Mercur Store API
- * (`backend/`) — they are seeded as products of an "open" house seller, priced
- * in USD, with card-specific facts (fmv/points/grade/grader/set/rarity/year) on
+ * Single source for the marketplace listing grid and the category tabs. Cards
+ * are read live from the Medusa + Mercur Store API (`backend/`) — they are
+ * seeded as products of an "open" house seller, priced in USD, with
+ * card-specific facts (fmv/points/grade/grader/set/rarity/year) on
  * `product.metadata`. See `backend/packages/api/src/scripts/seed.ts`.
+ * Single-card detail lookups live in `@/lib/data/cards` (`getCard`).
  *
  * Resilience: every getter degrades gracefully if the backend is unreachable
- * (e.g. a storefront build with no running backend) — the grid falls back to an
- * empty list and card-detail falls back to the deterministic mock pool, so the
- * build never hard-fails on a transient backend outage.
+ * (e.g. a storefront build with no running backend) — the grid falls back to
+ * an empty list, so the build never hard-fails on a transient backend outage.
  */
 
 import type { HttpTypes } from '@medusajs/types';
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
-import {
-  cardOrGeneric,
-  type Grader,
-  type MockCard,
-  type Rarity,
-} from '@/lib/mock/cards';
 
 export interface MarketplaceCard {
   id: string;
@@ -122,20 +116,6 @@ function getFxRate(): Promise<number> {
   return fxRatePromise;
 }
 
-const VALID_RARITIES: readonly Rarity[] = [
-  'Legendary',
-  'Mythical',
-  'Rare',
-  'Uncommon',
-  'Common',
-];
-const VALID_GRADERS: readonly Grader[] = ['PSA', 'CGC', 'Fanatics'];
-
-const toRarity = (v: unknown): Rarity =>
-  (VALID_RARITIES as readonly unknown[]).includes(v) ? (v as Rarity) : 'Common';
-const toGrader = (v: unknown): Grader =>
-  (VALID_GRADERS as readonly unknown[]).includes(v) ? (v as Grader) : 'CGC';
-
 // Coerce an untrusted `metadata` value to a finite number, else fall back —
 // guards against a malformed seed value silently becoming `NaN` in the UI.
 const toFinite = (v: unknown, fallback: number): number => {
@@ -170,24 +150,6 @@ function toMarketplaceCard(
   };
 }
 
-function toMockCard(p: HttpTypes.StoreProduct): MockCard {
-  const meta = p.metadata ?? {};
-  const price = priceOf(p);
-  return {
-    id: p.handle,
-    name: p.title,
-    set: String(meta.set ?? ''),
-    grader: toGrader(meta.grader),
-    grade: String(meta.grade ?? ''),
-    rarity: toRarity(meta.rarity),
-    image: imageOf(p),
-    fmv: toFinite(meta.fmv, price),
-    price,
-    points: toFinite(meta.points, 0),
-    year: toFinite(meta.year, 0),
-  };
-}
-
 // Category tabs match the live marketplace (icons localized to
 // public/pack-index-icons/). Static this phase: all seeded cards are Pokémon
 // and the tab icons are local assets, not backend-derived.
@@ -217,40 +179,4 @@ export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
 /** Marketplace category tabs. Static this phase (local-asset icons). */
 export function getMarketplaceCategories(): MarketplaceCategory[] {
   return CATEGORIES;
-}
-
-/**
- * Card detail by handle. Retrieves the seeded product from the Store API and
- * maps it to the card-detail shape; falls back to the deterministic mock pool
- * for any non-seeded slug (so every `/card/<id>` link across the site resolves).
- */
-export async function getCardById(handle: string): Promise<MockCard> {
-  try {
-    const region_id = await getStoreRegionId();
-    const { products } = await sdk.store.product.list({
-      handle,
-      region_id,
-      fields: PRODUCT_FIELDS,
-      limit: 1,
-    });
-    const product = products[0];
-    if (product) return toMockCard(product);
-  } catch (error) {
-    logger.error(`[card] failed to load "${handle}" from backend:`, error);
-  }
-  return cardOrGeneric(handle);
-}
-
-/** Seeded product handles for `generateStaticParams` (empty on backend failure). */
-export async function getCardHandles(): Promise<string[]> {
-  try {
-    const { products } = await sdk.store.product.list({
-      fields: 'handle',
-      limit: PRODUCT_LIST_LIMIT,
-    });
-    return products.map((p) => p.handle);
-  } catch (error) {
-    logger.error('[card] failed to load product handles from backend:', error);
-    return [];
-  }
 }

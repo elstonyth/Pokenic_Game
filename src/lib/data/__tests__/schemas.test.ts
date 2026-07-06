@@ -13,6 +13,7 @@ import {
   WonCardSchema,
   OpenBuybackSchema,
   BuybackResultSchema,
+  CardDetailSchema,
   CREDIT_REASONS,
 } from '../schemas';
 
@@ -227,5 +228,43 @@ describe('credit-reason enum drift guard (plans/005)', () => {
     expect(parseList(CreditTransactionSchema, rows)).toHaveLength(
       BACKEND_CREDIT_REASONS.length,
     );
+  });
+});
+
+describe('CardDetailSchema', () => {
+  const valid = {
+    handle: 'cd-card',
+    name: 'CD Test Card PSA 10',
+    set: 'Test Set',
+    grader: 'PSA',
+    grade: '10',
+    image: '/cdn/test-card.webp',
+    rarity: 'Rare',
+    marketPriceMyr: 480,
+    pcSyncedAt: null,
+    priceHistory: [{ date: '2026-07-01T03:00:00Z', valueMyr: 432 }],
+  };
+
+  it('accepts a valid payload', () => {
+    expect(parseOne(CardDetailSchema, valid)).toMatchObject(valid);
+  });
+
+  it('rejects a non-finite price (whole object -> null)', () => {
+    expect(
+      parseOne(CardDetailSchema, { ...valid, marketPriceMyr: NaN }),
+    ).toBeNull();
+  });
+
+  it('degrades an unknown rarity to null instead of dropping the card', () => {
+    expect(
+      parseOne(CardDetailSchema, { ...valid, rarity: 'Bogus' })?.rarity,
+    ).toBeNull();
+  });
+
+  it('degrades malformed history to [] instead of dropping the card', () => {
+    expect(
+      parseOne(CardDetailSchema, { ...valid, priceHistory: 'nope' })
+        ?.priceHistory,
+    ).toEqual([]);
   });
 });

@@ -573,6 +573,9 @@ export type Routes = {
         sellers: typeof import("@mercurjs/core/api/store/sellers/route") & {
             $id: typeof import("@mercurjs/core/api/store/sellers/[id]/route");
         };
+        cards: {
+            $handle: typeof import("../../src/api/store/cards/[handle]/route");
+        };
         credits: typeof import("../../src/api/store/credits/route") & {
             topup: typeof import("../../src/api/store/credits/topup/route");
         };

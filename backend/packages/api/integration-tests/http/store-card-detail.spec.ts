@@ -1,0 +1,115 @@
+import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
+import { Modules } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../src/modules/packs';
+import type PacksModuleService from '../../src/modules/packs/service';
+
+jest.setTimeout(240 * 1000);
+
+const PACK_SLUG = 'cd-pack';
+const CARD_HANDLE = 'cd-card';
+// FMV 100 × manual FX 4.0 × multiplier 1.2 = 480 (same golden vector as
+// vault-market-price.spec.ts, so price math parity is asserted cross-route).
+const FMV = 100;
+const OLD_FMV = 90; // history point → 90 × 4.0 × 1.2 = 432
+const MULTIPLIER = 1.2;
+const MANUAL_RATE = 4.0;
+
+medusaIntegrationTestRunner({
+  inApp: true,
+  testSuite: ({ api, getContainer }) => {
+    describe('GET /store/cards/:handle', () => {
+      let storeHeaders: Record<string, string>;
+
+      beforeEach(async () => {
+        const container = getContainer();
+        const apiKeyModule = container.resolve(Modules.API_KEY);
+        const key = await apiKeyModule.createApiKeys({
+          title: 'card-detail-test',
+          type: 'publishable',
+          created_by: 'card-detail-test',
+        });
+        storeHeaders = { 'x-publishable-api-key': key.token };
+
+        const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
+        await packs.createFxRates([
+          {
+            pair: 'USD_MYR',
+            rate: 9.9, // decoy — manual override must win
+            source: 'test',
+            fetched_at: new Date(),
+            manual_override: true,
+            manual_rate: MANUAL_RATE,
+          },
+        ]);
+        await packs.createPacks([
+          {
+            slug: PACK_SLUG,
+            title: 'CD Test Pack',
+            category: 'pokemon',
+            price: 10,
+            image: '/cdn/test-pack.webp',
+          },
+        ]);
+        const [card] = await packs.createCards([
+          {
+            handle: CARD_HANDLE,
+            name: 'CD Test Card PSA 10',
+            set: 'Test Set',
+            grader: 'PSA',
+            grade: '10',
+            market_value: FMV,
+            market_multiplier: MULTIPLIER,
+            image: '/cdn/test-card.webp',
+          },
+        ]);
+        await packs.createPackOdds([
+          {
+            pack_id: PACK_SLUG,
+            card_id: CARD_HANDLE,
+            weight: 100,
+            locked: false,
+            rarity: 'Rare' as const,
+          },
+        ]);
+        // Two history rows inside the 30-day window (created_at defaults to now).
+        await packs.createCardPriceHistories([
+          { card_id: card.id, value: OLD_FMV },
+          { card_id: card.id, value: FMV },
+        ]);
+      });
+
+      it('returns display fields, MYR price with markup, rarity fallback and MYR history', async () => {
+        const res = await api
+          .get(`/store/cards/${CARD_HANDLE}`, { headers: storeHeaders })
+          .catch((e: { response: unknown }) => e.response);
+        expect(res.status).toBe(200);
+        const { card } = res.data;
+        expect(card).toMatchObject({
+          handle: CARD_HANDLE,
+          name: 'CD Test Card PSA 10',
+          set: 'Test Set',
+          grader: 'PSA',
+          grade: '10',
+          image: '/cdn/test-card.webp',
+          rarity: 'Rare',
+          marketPriceMyr: 480,
+        });
+        expect(card.pcSyncedAt).toBeNull();
+        expect(card.priceHistory).toHaveLength(2);
+        expect(
+          card.priceHistory.map((p: { valueMyr: number }) => p.valueMyr),
+        ).toEqual([432, 480]);
+        expect(typeof card.priceHistory[0].date).toBe('string');
+        // 🔒 no secret odds data anywhere in the payload
+        expect(JSON.stringify(res.data)).not.toContain('weight');
+      });
+
+      it('404s an unknown handle', async () => {
+        const res = await api
+          .get('/store/cards/definitely-not-a-card', { headers: storeHeaders })
+          .catch((e: { response: unknown }) => e.response);
+        expect(res.status).toBe(404);
+      });
+    });
+  },
+});

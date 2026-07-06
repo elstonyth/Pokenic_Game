@@ -156,6 +156,3 @@ export function cardOrGeneric(id: string): MockCard {
     year: YEARS[h % YEARS.length] ?? YEARS[0]!,
   };
 }
-
-export const moreFromSet = (card: MockCard, n = 6): MockCard[] =>
-  MOCK_CARDS.filter((c) => c.set === card.set && c.id !== card.id).slice(0, n);

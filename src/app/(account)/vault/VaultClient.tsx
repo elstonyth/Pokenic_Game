@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Search, Star } from 'lucide-react';
+import { Eye, Search, Star } from 'lucide-react';
 import { SlabImage } from '@/components/SlabImage';
 import { rm, rm0 } from '@/lib/format';
 import {
@@ -19,6 +19,11 @@ import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import { RARITY_ORDER, rarityRgb } from '@/lib/rarity';
 import { cn } from '@/lib/utils';
 import { Pill, pillVariants } from '@/components/ui/pill';
+import {
+  CardDetailOverlay,
+  type CardSeed,
+} from '@/components/cards/CardDetailOverlay';
+import { formatValue, isRarity } from '@/lib/packs-format';
 
 // The customer's vault: every pulled card still held, each with a sell-back
 // offer (current FMV × the flat buyback rate — the server quotes the percent).
@@ -42,6 +47,7 @@ export default function VaultClient({
   );
   const [confirmItem, setConfirmItem] = useState<VaultItem | null>(null);
   const [showcasingId, setShowcasingId] = useState<string | null>(null);
+  const [openCard, setOpenCard] = useState<CardSeed | null>(null);
 
   // Two-way sync with the header chip: sells push fresh balances up via
   // applyBalance; top-ups made in the global sheet flow back down through
@@ -428,6 +434,25 @@ export default function VaultClient({
                     {art}
                     <button
                       type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenCard({
+                          handle: item.card.handle,
+                          name: item.card.name,
+                          image: item.card.image,
+                          value: formatValue(item.card.marketPriceMyr),
+                          rarity: isRarity(item.card.rarity)
+                            ? item.card.rarity
+                            : null,
+                        });
+                      }}
+                      aria-label={`View details for ${item.card.name}`}
+                      className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-950/70 text-white/80 backdrop-blur transition-colors hover:bg-neutral-950/90 hover:text-white"
+                    >
+                      <Eye className="h-4 w-4" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleToggleShowcase(item)}
                       disabled={showcasingId !== null}
                       aria-pressed={item.showcased}
@@ -580,6 +605,8 @@ export default function VaultClient({
           setDeliverOpen(false);
         }}
       />
+
+      <CardDetailOverlay seed={openCard} onClose={() => setOpenCard(null)} />
     </>
   );
 }

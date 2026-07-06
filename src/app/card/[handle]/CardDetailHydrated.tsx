@@ -1,0 +1,21 @@
+'use client';
+
+import { useCardPrice } from '@/lib/use-card-price';
+import { CardDetail } from '@/components/cards/CardDetail';
+import type { CardSeed } from '@/components/cards/CardDetailOverlay';
+import type { CardDetailData } from '@/lib/data/cards';
+import { rm } from '@/lib/format';
+
+/** Full-page variant: server data is the seed AND the initial detail; the 60s
+ *  visibility-gated refresh keeps a long-lived tab current. */
+export function CardDetailHydrated({ initial }: { initial: CardDetailData }) {
+  const detail = useCardPrice(initial.handle, initial) ?? initial;
+  const seed: CardSeed = {
+    handle: initial.handle,
+    name: initial.name,
+    image: initial.image,
+    value: rm(initial.marketPriceMyr),
+    rarity: initial.rarity,
+  };
+  return <CardDetail seed={seed} detail={detail} />;
+}

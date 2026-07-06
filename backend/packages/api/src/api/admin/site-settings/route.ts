@@ -26,7 +26,9 @@ function reqSlabFrameUrl(body: unknown): string | null {
   if (
     trimmed.length > 0 &&
     trimmed.length <= 2048 &&
-    (trimmed.startsWith('/') ||
+    // '//' would be protocol-relative (an off-origin URL in disguise) — only
+    // true same-origin paths and explicit http(s) URLs pass.
+    ((trimmed.startsWith('/') && !trimmed.startsWith('//')) ||
       trimmed.startsWith('http://') ||
       trimmed.startsWith('https://'))
   ) {

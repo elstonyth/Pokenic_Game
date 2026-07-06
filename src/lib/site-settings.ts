@@ -17,7 +17,11 @@ export function getSlabFrameUrl(): Promise<string> {
   if (!framePromise || Date.now() - frameCachedAt > CACHE_TTL_MS) {
     frameCachedAt = Date.now();
     framePromise = sdk.client
-      .fetch<{ slab_frame_url: string | null }>('/store/site-settings')
+      .fetch<{ slab_frame_url: string | null }>('/store/site-settings', {
+        // Root-layout awaits this on a cold cache — cap how long a slow
+        // backend can hold up the shell; the catch falls back to the default.
+        signal: AbortSignal.timeout(3000),
+      })
       .then((data) => data.slab_frame_url || DEFAULT_SLAB_FRAME)
       .catch((error) => {
         framePromise = null;

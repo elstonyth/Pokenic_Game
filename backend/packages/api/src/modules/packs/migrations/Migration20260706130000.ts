@@ -9,6 +9,10 @@ export class Migration20260706130000 extends Migration {
     this.addSql(
       `alter table if exists "pack_odds" add column if not exists "top_hit_order" integer null;`,
     );
+    // Inner join is intentional: an odds row whose card is gone can't render
+    // in Top Hits anyway, so it correctly ends up unordered. The deleted_at
+    // filter keeps the row_number() deterministic if a soft-deleted card ever
+    // shares a handle with a live one.
     this.addSql(`update "pack_odds" set "top_hit_order" = t."rn"
       from (
         select po."id", row_number() over (
@@ -16,7 +20,7 @@ export class Migration20260706130000 extends Migration {
           order by c."market_value" desc nulls last, po."id"
         ) as "rn"
         from "pack_odds" po
-        join "card" c on c."handle" = po."card_id"
+        join "card" c on c."handle" = po."card_id" and c."deleted_at" is null
         where po."top_hit" = true
       ) t
       where "pack_odds"."id" = t."id";`);

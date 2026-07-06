@@ -12,7 +12,8 @@ export class Migration20260706120000 extends Migration {
       "created_at" timestamptz not null default now(),
       "updated_at" timestamptz not null default now(),
       "deleted_at" timestamptz null,
-      constraint "site_settings_pkey" primary key ("id")
+      constraint "site_settings_pkey" primary key ("id"),
+      constraint "site_settings_singleton_id_check" check ("id" = 'global')
     );`);
     this.addSql(
       `create index if not exists "IDX_site_settings_deleted_at" on "site_settings" ("deleted_at") where deleted_at is null;`,

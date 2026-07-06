@@ -404,7 +404,9 @@ class PacksModuleService extends MedusaService({
         sharedContext,
       );
     } else {
-      await this.createSiteSettings([data], sharedContext);
+      // Fixed id — the DB CHECK ("id" = 'global') enforces the singleton, so
+      // a create race can never leave two rows.
+      await this.createSiteSettings([{ id: 'global', ...data }], sharedContext);
     }
     await this.createAdminActionAudits(
       [

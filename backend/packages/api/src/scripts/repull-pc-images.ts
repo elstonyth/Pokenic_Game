@@ -90,16 +90,31 @@ export default async function repullPcImages({ container, args }: ExecArgs) {
     };
   };
 
-  const allCards = await packs.listCards({}, { take: 1000 });
+  // Page through everything — a fixed take would silently skip catalog
+  // entries once the dataset outgrows it.
+  const listAll = async <T>(
+    page: (skip: number, take: number) => Promise<T[]>,
+  ): Promise<T[]> => {
+    const TAKE = 200;
+    const out: T[] = [];
+    for (let skip = 0; ; skip += TAKE) {
+      const batch = await page(skip, TAKE);
+      out.push(...batch);
+      if (batch.length < TAKE) return out;
+    }
+  };
+
+  const allCards = await listAll((skip, take) =>
+    packs.listCards({}, { skip, take }),
+  );
   const cardByHandle = new Map(allCards.map((c) => [c.handle, c]));
 
   let replaced = 0;
   const kept: string[] = [];
 
   // ---- 1. The whole marketplace catalog -----------------------------------
-  const products = await productModule.listProducts(
-    only ? { handle: only } : {},
-    { take: 1000 },
+  const products = await listAll((skip, take) =>
+    productModule.listProducts(only ? { handle: only } : {}, { skip, take }),
   );
   logger.info(
     `repull-pc-images: ${products.length} product(s)${only ? ` (--only ${only})` : ''}, ${allCards.length} gacha card(s).`,

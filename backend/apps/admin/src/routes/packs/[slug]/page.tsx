@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -127,9 +127,24 @@ const PackOddsEditorPage = () => {
           x.card_id === cardId ? { ...x, topHitInput: value } : x,
         ) ?? null,
     );
+  // Ref-mirror of rows so a queued re-commit reads the LATEST buffer, not the
+  // render that scheduled it; topHitRecommit queues (rather than drops) a
+  // blur/Enter that lands while a save is still in flight — the follow-up
+  // save runs once the current one settles, so no edit is ever lost and two
+  // saves can't race out of order.
+  const rowsRef = useRef<EditRow[] | null>(null);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+  const topHitRecommit = useRef(false);
   const commitTopHits = async () => {
-    if (!rows || saveTopHits.isPending) return;
-    const card_ids = rows
+    const cur = rowsRef.current;
+    if (!cur) return;
+    if (saveTopHits.isPending) {
+      topHitRecommit.current = true;
+      return;
+    }
+    const card_ids = cur
       .filter((x) => {
         const n = Number(x.topHitInput.trim());
         return x.topHitInput.trim() !== '' && Number.isFinite(n) && n > 0;
@@ -140,6 +155,11 @@ const PackOddsEditorPage = () => {
       await saveTopHits.mutateAsync({ slug, card_ids });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (topHitRecommit.current) {
+        topHitRecommit.current = false;
+        void commitTopHits();
+      }
     }
   };
 

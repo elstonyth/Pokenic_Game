@@ -97,6 +97,17 @@ medusaIntegrationTestRunner({
         expect(res.status).toBe(400);
       });
 
+      it('POST → 400 for a protocol-relative URL (//host/… is off-origin in disguise)', async () => {
+        const res = await unwrapResponse(
+          api.post(
+            '/admin/site-settings',
+            { slab_frame_url: '//evil.example/frame.webp', reason: 'x' },
+            { headers: adminHeaders() },
+          ),
+        );
+        expect(res.status).toBe(400);
+      });
+
       it('POST → 400 when slab_frame_url is missing entirely', async () => {
         const res = await unwrapResponse(
           api.post(

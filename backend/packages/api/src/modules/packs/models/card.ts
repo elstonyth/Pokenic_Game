@@ -20,6 +20,13 @@ export const Card = model.define('card', {
   // a numeric column; model.number() would map to integer and truncate the cents.
   market_value: model.bigNumber(),
   image: model.text(),
+  // Baked graded-slab composite (frame + photo, one webp) — public URL plus
+  // the file provider's id. The key exists ONLY so a re-bake can delete the
+  // previous file; it is never exposed on any API or mirrored into product
+  // metadata. Null = raw card (empty grader), not yet baked, or bake failed —
+  // all three render the bare `image`.
+  slab_image: model.text().nullable(),
+  slab_image_key: model.text().nullable(),
   // Standalone sale price (RM decimal — it mirrors onto the MYR product
   // variant price). The card's *intended* marketplace price,
   // kept here even while `for_sale` is off so toggling it back on has a price to

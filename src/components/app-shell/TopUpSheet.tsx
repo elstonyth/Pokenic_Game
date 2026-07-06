@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { rm, rm0 } from '@/lib/format';
 import { topUpCredits } from '@/lib/actions/vault';
 import { Pill } from '@/components/ui/pill';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 const PRESETS = [10, 25, 50, 100];
 
@@ -41,19 +42,8 @@ export default function TopUpSheet({
     amount <= 10_000 &&
     Math.abs(amount * 100 - Math.round(amount * 100)) < 1e-6;
 
-  // Escape closes; body scroll locks while open.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    panelRef.current?.focus();
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open, onClose]);
+  // Focus-in, Tab trap, Escape, scroll lock + focus restore on close.
+  useModalA11y(panelRef, open, onClose);
 
   // Reset transient state each time the sheet opens.
   useEffect(() => {
@@ -87,10 +77,12 @@ export default function TopUpSheet({
 
   return (
     <div className="fixed inset-0 z-[70]" role="presentation">
-      {/* Scrim */}
+      {/* Scrim: mouse-only close affordance, hidden from the a11y tree and tab
+          order — the X button and Esc cover AT/keyboard (matches AuthModal). */}
       <button
         type="button"
-        aria-label="Close top up"
+        aria-hidden="true"
+        tabIndex={-1}
         onClick={onClose}
         className="absolute inset-0 h-full w-full cursor-default bg-black/60"
       />
@@ -117,7 +109,7 @@ export default function TopUpSheet({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-800 text-neutral-300 transition-colors hover:text-white"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-800 text-neutral-300 transition-colors hover:text-white"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
@@ -151,7 +143,7 @@ export default function TopUpSheet({
                     type="button"
                     onClick={() => setAmountText(String(preset))}
                     className={cn(
-                      'inline-flex h-10 items-center justify-center rounded-full px-4 text-[13px] font-semibold transition-colors',
+                      'inline-flex h-11 items-center justify-center rounded-full px-4 text-[13px] font-semibold transition-colors',
                       selected
                         ? 'bg-neutral-50 text-neutral-950'
                         : 'bg-neutral-800 text-neutral-400 hover:text-white',
@@ -198,7 +190,10 @@ export default function TopUpSheet({
             </div>
 
             {error && (
-              <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-300">
+              <p
+                role="alert"
+                className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-300"
+              >
                 {error}
               </p>
             )}
@@ -216,7 +211,7 @@ export default function TopUpSheet({
                   : 'Enter an amount'}
             </Pill>
 
-            <p className="mt-3 text-[12px] leading-relaxed text-neutral-500">
+            <p className="mt-3 text-[12px] leading-relaxed text-neutral-400">
               Demo checkout: only the amount leaves your browser. Amounts ending
               in .13 are declined on purpose so you can see the error path.
             </p>

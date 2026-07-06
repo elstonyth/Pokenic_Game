@@ -88,7 +88,7 @@ export default async function MePage() {
 
       {/* Wallet card */}
       <section className="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-400">
           Wallet
         </p>
         {walletResult.ok ? (
@@ -127,7 +127,7 @@ export default async function MePage() {
         <div className="rounded-2xl border border-white/10 bg-neutral-900 p-5">
           <Link href="/vip" className="block hover:opacity-90">
             <div className="flex items-baseline justify-between">
-              <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-400">
                 VIP
               </p>
               <span className="font-heading text-chase text-xl">
@@ -226,7 +226,7 @@ export default async function MePage() {
 
       {/* Quick access grid */}
       <section className="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-400">
           Quick access
         </p>
         <div className="mt-4 grid grid-cols-4 gap-y-5">

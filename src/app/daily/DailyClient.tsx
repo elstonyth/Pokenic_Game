@@ -153,7 +153,7 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
                     {rm(p.amountMyr ?? 0)}
                   </span>
                 ) : (
-                  <Gift className="h-5 w-5 text-neutral-600" aria-hidden />
+                  <Gift className="h-5 w-5 text-neutral-400" aria-hidden />
                 )}
               </div>
             ))}
@@ -161,7 +161,10 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
         )}
 
         {drawError && (
-          <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] font-medium text-red-300">
+          <p
+            role="alert"
+            className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] font-medium text-red-300"
+          >
             {drawError}
           </p>
         )}
@@ -181,7 +184,7 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
       <Reveal className="mt-8" as="section" aria-labelledby="vouchers-heading">
         <h2
           id="vouchers-heading"
-          className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500"
+          className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400"
         >
           <Gift className="h-4 w-4" aria-hidden />
           Vouchers
@@ -210,7 +213,7 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
                       type="button"
                       disabled={isBusy || !redemptionEnabled}
                       onClick={() => handleClaim(grant)}
-                      className="shrink-0 rounded-lg bg-buyback px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+                      className="h-11 shrink-0 rounded-lg bg-buyback px-4 text-[13px] font-bold text-white disabled:opacity-50"
                     >
                       {isBusy
                         ? 'Claiming…'
@@ -220,7 +223,10 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
                     </button>
                   </div>
                   {err && (
-                    <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+                    <p
+                      role="alert"
+                      className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300"
+                    >
                       {err}
                     </p>
                   )}
@@ -232,7 +238,7 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
 
         {vouchers.claimed.length > 0 && (
           <details className="mt-3">
-            <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
               Claimed
             </summary>
             <div className="mt-2 space-y-2">
@@ -244,7 +250,7 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
                   <p className="font-heading text-lg text-white/50">
                     {voucherLabel(grant)}
                   </p>
-                  <span className="text-[12px] text-neutral-500">Claimed</span>
+                  <span className="text-[12px] text-neutral-400">Claimed</span>
                 </div>
               ))}
             </div>
@@ -257,7 +263,7 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
         <Reveal className="mt-8" as="section" aria-labelledby="ship-heading">
           <h2
             id="ship-heading"
-            className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500"
+            className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400"
           >
             <Package className="h-4 w-4" aria-hidden />
             Prizes to ship
@@ -293,7 +299,7 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-white">{title}</p>
-                      <p className="mt-0.5 text-[12px] text-neutral-500">
+                      <p className="mt-0.5 text-[12px] text-neutral-400">
                         Won {prize.drawDay}
                       </p>
                       {!isWithdrawing ? (

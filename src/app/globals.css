@@ -18,8 +18,9 @@
   /* DESIGN.md "Buyback Green" — money-in / success only (The Signal Rule).
      Base carries fills, tints, and borders (white text sits on it); -fg is the
      lighter sibling for money text on dark, which the dark base is too
-     low-contrast to serve legibly. */
-  --color-buyback: #118c4f;
+     low-contrast to serve legibly. Base is tuned so white text passes AA at
+     small sizes (#10834a = 4.81:1 vs white; the old #118c4f was 4.30:1). */
+  --color-buyback: #10834a;
   --color-buyback-fg: #2fbf6e;
   --color-ring: var(--ring);
   --color-input: var(--input);

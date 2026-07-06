@@ -40,13 +40,14 @@ import {
   type EditRow,
 } from '../../../lib/odds-rows';
 import { resolveImageUrl } from '../../../lib/image-url';
+import { LoadingSkeleton } from '../../../components/LoadingSkeleton';
 
 const PackOddsEditorPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { slug = '' } = useParams();
 
-  const { data, isError: loadError } = usePackOdds(slug);
+  const { data, isError: loadError, refetch } = usePackOdds(slug);
   const saveOdds = useSaveOdds();
   const saveMembersMut = useSaveMembers();
   const saveTopHits = useSaveTopHits();
@@ -220,8 +221,11 @@ const PackOddsEditorPage = () => {
 
   if (loadError) {
     return (
-      <Container className="p-6">
+      <Container className="flex flex-col items-start gap-3 p-6">
         <Text className="text-ui-fg-subtle">{t('packs.editor.loadError')}</Text>
+        <Button size="small" variant="secondary" onClick={() => refetch()}>
+          Retry
+        </Button>
       </Container>
     );
   }
@@ -316,10 +320,11 @@ const PackOddsEditorPage = () => {
 
       {rows === null ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">…</Text>
+          <LoadingSkeleton />
         </div>
       ) : (
         <>
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Pack odds table">
           <Table>
             <Table.Header>
               <Table.Row>
@@ -384,7 +389,10 @@ const PackOddsEditorPage = () => {
                         value={r.rarity}
                         onValueChange={(v) => setRow(r.card_id, { rarity: v })}
                       >
-                        <Select.Trigger className="w-32">
+                        <Select.Trigger
+                          className="w-32"
+                          aria-label={`${t('packs.editor.rarity')}: ${r.name}`}
+                        >
                           <Select.Value />
                         </Select.Trigger>
                         <Select.Content>
@@ -422,6 +430,7 @@ const PackOddsEditorPage = () => {
                     <Table.Cell className="text-center">
                       <Switch
                         checked={r.locked}
+                        aria-label={`${t('packs.editor.lock')}: ${r.name}`}
                         onCheckedChange={() => toggleLock(r)}
                       />
                     </Table.Cell>
@@ -432,6 +441,7 @@ const PackOddsEditorPage = () => {
                         max={100}
                         step={0.01}
                         disabled={!r.locked}
+                        aria-label={`${t('packs.editor.winRate')}: ${r.name}`}
                         value={r.locked ? r.pctInput : ''}
                         placeholder={r.locked ? '' : 'auto'}
                         onChange={(e) =>
@@ -455,6 +465,7 @@ const PackOddsEditorPage = () => {
               })}
             </Table.Body>
           </Table>
+          </div>
 
           <div className="flex flex-col gap-3 px-6 py-4">
             {noneLocked && (
@@ -551,7 +562,7 @@ const PackOddsEditorPage = () => {
                 </div>
               </div>
               {allCards === null ? (
-                <Text className="text-ui-fg-subtle">…</Text>
+                <LoadingSkeleton />
               ) : allCards.length === 0 ? (
                 <Text className="text-ui-fg-subtle">
                   {t('packs.pool.noCards')}
@@ -667,10 +678,11 @@ const PublishedOddsSection = ({
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <div className="flex flex-col gap-y-1">
-          <Label size="xsmall" weight="plus">
+          <Label size="xsmall" weight="plus" htmlFor="published-overall">
             {t('packs.published.overall')}
           </Label>
           <Input
+            id="published-overall"
             type="number"
             min={0}
             max={100}
@@ -681,10 +693,11 @@ const PublishedOddsSection = ({
         </div>
         {RARITIES.map((r) => (
           <div key={r} className="flex flex-col gap-y-1">
-            <Label size="xsmall" weight="plus">
+            <Label size="xsmall" weight="plus" htmlFor={`published-tier-${r}`}>
               {r}
             </Label>
             <Input
+              id={`published-tier-${r}`}
               type="number"
               min={0}
               max={100}

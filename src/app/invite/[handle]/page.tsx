@@ -1,7 +1,16 @@
 import type { Metadata } from 'next';
 import InviteClient from './InviteClient';
 
-export const metadata: Metadata = { title: 'Join' };
+// The param arrives URI-encoded — decode it for the title and the client
+// (mirrors /profile/[user]).
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ handle: string }>;
+}): Promise<Metadata> {
+  const { handle } = await params;
+  return { title: `Join ${decodeURIComponent(handle)} on Pokenic` };
+}
 
 export default async function InvitePage({
   params,
@@ -9,5 +18,5 @@ export default async function InvitePage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
-  return <InviteClient handle={handle} />;
+  return <InviteClient handle={decodeURIComponent(handle)} />;
 }

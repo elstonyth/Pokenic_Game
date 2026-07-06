@@ -13,8 +13,9 @@ import {
   FocusModal,
   Prompt,
   toast,
+  usePrompt,
 } from '@medusajs/ui';
-import { Sparkles } from '@medusajs/icons';
+import { Link, Sparkles } from '@medusajs/icons';
 import type { RouteConfig } from '@mercurjs/dashboard-sdk';
 import { type AdminCard, type AdminCardUpdate } from '../../lib/packs-api';
 import {
@@ -29,12 +30,13 @@ import { rm, timeAgo, myrToUsd } from '../../lib/format';
 import RegisterCardModal from './RegisterCardModal';
 import CardPokemonFields from './CardPokemonFields';
 import { GachaPipelineHint } from '../../components/GachaPipelineHint';
+import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 
 export const config: RouteConfig = {
   label: 'Gacha Cards',
   icon: Sparkles,
-  nested: '/gacha',
-  rank: 1,
+  nested: '/products',
+  rank: 2,
 };
 
 // Edit-only form state (inventory-first: NEW cards are registered from an
@@ -93,7 +95,8 @@ const gradeLabel = (c: AdminCard): string =>
 
 const GachaCardsPage = () => {
   const { t } = useTranslation();
-  const { data: cards = null, isError } = useCards();
+  const prompt = usePrompt();
+  const { data: cards = null, isError, refetch } = useCards();
   const updateCard = useUpdateCard();
   const removeCard = useDeleteCard();
   const uploadImg = useUploadImage();
@@ -181,6 +184,14 @@ const GachaCardsPage = () => {
   const unlink = async () => {
     const card = cards?.find((c) => c.handle === form?.handle);
     if (!form || !card) return;
+    const confirmed = await prompt({
+      title: t('cards.form.unlink'),
+      description:
+        'Remove the PriceCharting link? Price syncs stop until the card is linked again.',
+      confirmText: t('cards.form.unlink'),
+      cancelText: t('cards.form.cancel'),
+    });
+    if (!confirmed) return;
     try {
       await updateCard.mutateAsync({
         handle: card.handle,
@@ -237,15 +248,20 @@ const GachaCardsPage = () => {
       return va < vb ? -sort.dir : va > vb ? sort.dir : 0;
     });
 
+  const ariaSort = (key: 'name' | 'value' | 'stock') =>
+    sort?.key === key
+      ? sort.dir === 1
+        ? ('ascending' as const)
+        : ('descending' as const)
+      : undefined;
+
   const sortHeader = (key: 'name' | 'value' | 'stock', label: string) => (
     <button
       type="button"
       className="inline-flex items-center gap-1 hover:text-ui-fg-base"
       onClick={() =>
         setSort((s) =>
-          s?.key === key
-            ? { key, dir: s.dir === 1 ? -1 : 1 }
-            : { key, dir: 1 },
+          s?.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 },
         )
       }
     >
@@ -266,6 +282,7 @@ const GachaCardsPage = () => {
         <Input
           className="w-56"
           placeholder="Search name or handle…"
+          aria-label="Search cards by name or handle"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -289,113 +306,132 @@ const GachaCardsPage = () => {
       )}
 
       {isError ? (
-        <div className="px-6 py-8">
+        <div className="flex flex-col items-start gap-y-3 px-6 py-8">
           <Text className="text-ui-fg-subtle">{t('cards.list.loadError')}</Text>
+          <Button size="small" variant="secondary" onClick={() => refetch()}>
+            Retry
+          </Button>
         </div>
       ) : cards === null ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">…</Text>
+          <LoadingSkeleton />
         </div>
       ) : cards.length === 0 ? (
         <div className="px-6 py-8">
           <Text className="text-ui-fg-subtle">{t('cards.list.empty')}</Text>
         </div>
       ) : (
-        <Table>
-          <Table.Header>
-            <Table.Row>
-              <Table.HeaderCell>
-                {sortHeader('name', t('cards.list.card'))}
-              </Table.HeaderCell>
-              <Table.HeaderCell>{t('cards.list.grade')}</Table.HeaderCell>
-              <Table.HeaderCell className="text-right">
-                {sortHeader('value', t('cards.list.value'))}
-              </Table.HeaderCell>
-              <Table.HeaderCell className="text-right">
-                {t('cards.list.price')}
-              </Table.HeaderCell>
-              <Table.HeaderCell className="text-right">
-                {sortHeader('stock', t('cards.list.stock'))}
-              </Table.HeaderCell>
-              <Table.HeaderCell>{t('cards.list.status')}</Table.HeaderCell>
-              <Table.HeaderCell className="text-right">
-                {t('cards.list.actions')}
-              </Table.HeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {visible.map((c) => (
-              <Table.Row key={c.handle}>
-                <Table.Cell>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={resolveImageUrl(c.image)}
-                      alt=""
-                      className="h-10 w-8 shrink-0 rounded object-contain"
-                    />
-                    <div className="flex flex-col">
-                      <span className="max-w-[22rem] truncate font-medium">
-                        {c.name}
-                      </span>
-                      <span className="text-ui-fg-subtle text-xs">{c.set}</span>
-                    </div>
-                  </div>
-                </Table.Cell>
-                <Table.Cell className="text-ui-fg-subtle">
-                  {gradeLabel(c) || '—'}
-                </Table.Cell>
-                <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
-                  {rm(c.priceBreakdown.marketMyr)}
-                </Table.Cell>
-                <Table.Cell className="text-right tabular-nums">
-                  {rm(c.price ?? c.priceBreakdown.displayPrice)}
-                  {c.price === null && (
-                    <span className="text-ui-fg-muted ml-1 text-xs">FMV</span>
-                  )}
-                </Table.Cell>
-                <Table.Cell
-                  title="Negative = units owed to winners; 0 = buyback-only; ∞ = untracked"
-                  className={
-                    // Negative = units OWED to winners (wins keep counting
-                    // below 0 by design) — red beats orange for "act now".
-                    c.stock !== null && c.stock < 0
-                      ? 'text-ui-tag-red-text text-right font-medium tabular-nums'
-                      : c.stock === 0
-                        ? 'text-ui-tag-orange-text text-right tabular-nums'
-                        : 'text-ui-fg-subtle text-right tabular-nums'
-                  }
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Cards table">
+          <Table>
+            <Table.Header>
+              <Table.Row>
+                <Table.HeaderCell aria-sort={ariaSort('name')}>
+                  {sortHeader('name', t('cards.list.card'))}
+                </Table.HeaderCell>
+                <Table.HeaderCell>{t('cards.list.grade')}</Table.HeaderCell>
+                <Table.HeaderCell
+                  aria-sort={ariaSort('value')}
+                  className="text-right"
                 >
-                  {c.stock === null ? '∞' : c.stock.toLocaleString('en-US')}
-                </Table.Cell>
-                <Table.Cell>
-                  <StatusBadge color={c.for_sale ? 'green' : 'grey'}>
-                    {c.for_sale
-                      ? t('cards.list.listed')
-                      : t('cards.list.hidden')}
-                  </StatusBadge>
-                </Table.Cell>
-                <Table.Cell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      onClick={() => setForm(formFromCard(c))}
-                    >
-                      {t('cards.list.edit')}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="transparent"
-                      onClick={() => setDeleteTarget(c)}
-                    >
-                      {t('cards.list.delete')}
-                    </Button>
-                  </div>
-                </Table.Cell>
+                  {sortHeader('value', t('cards.list.value'))}
+                </Table.HeaderCell>
+                <Table.HeaderCell className="text-right">
+                  {t('cards.list.price')}
+                </Table.HeaderCell>
+                <Table.HeaderCell
+                  aria-sort={ariaSort('stock')}
+                  className="text-right"
+                >
+                  {sortHeader('stock', t('cards.list.stock'))}
+                </Table.HeaderCell>
+                <Table.HeaderCell>{t('cards.list.status')}</Table.HeaderCell>
+                <Table.HeaderCell className="text-right">
+                  {t('cards.list.actions')}
+                </Table.HeaderCell>
               </Table.Row>
-            ))}
-          </Table.Body>
-        </Table>
+            </Table.Header>
+            <Table.Body>
+              {visible.map((c) => (
+                <Table.Row key={c.handle}>
+                  <Table.Cell>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={resolveImageUrl(c.image)}
+                        alt=""
+                        className="h-10 w-8 shrink-0 rounded object-contain"
+                      />
+                      <div className="flex flex-col">
+                        <span className="max-w-[22rem] truncate font-medium">
+                          {c.name}
+                        </span>
+                        <span className="text-ui-fg-subtle text-xs">
+                          {c.set}
+                        </span>
+                      </div>
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell className="text-ui-fg-subtle">
+                    {gradeLabel(c) || '—'}
+                  </Table.Cell>
+                  <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
+                    {rm(c.priceBreakdown.marketMyr)}
+                  </Table.Cell>
+                  <Table.Cell className="text-right tabular-nums">
+                    {rm(c.price ?? c.priceBreakdown.displayPrice)}
+                    {c.price === null && (
+                      <span className="text-ui-fg-muted ml-1 text-xs">FMV</span>
+                    )}
+                  </Table.Cell>
+                  <Table.Cell
+                    title="Negative = units owed to winners; 0 = buyback-only; ∞ = untracked"
+                    className={
+                      // Negative = units OWED to winners (wins keep counting
+                      // below 0 by design) — red beats orange for "act now".
+                      c.stock !== null && c.stock < 0
+                        ? 'text-ui-tag-red-text text-right font-medium tabular-nums'
+                        : c.stock === 0
+                          ? 'text-ui-tag-orange-text text-right tabular-nums'
+                          : 'text-ui-fg-subtle text-right tabular-nums'
+                    }
+                  >
+                    {c.stock === null ? '∞' : c.stock.toLocaleString('en-US')}
+                    {c.stock !== null && c.stock < 0 && (
+                      <span className="ml-1 text-xs">owed</span>
+                    )}
+                    {c.stock === 0 && (
+                      <span className="ml-1 text-xs">buyback-only</span>
+                    )}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <StatusBadge color={c.for_sale ? 'green' : 'grey'}>
+                      {c.for_sale
+                        ? t('cards.list.listed')
+                        : t('cards.list.hidden')}
+                    </StatusBadge>
+                  </Table.Cell>
+                  <Table.Cell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onClick={() => setForm(formFromCard(c))}
+                      >
+                        {t('cards.list.edit')}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="transparent"
+                        onClick={() => setDeleteTarget(c)}
+                      >
+                        {t('cards.list.delete')}
+                      </Button>
+                    </div>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table>
+        </div>
       )}
 
       <RegisterCardModal
@@ -445,7 +481,7 @@ const GachaCardsPage = () => {
 
                 {/* Image */}
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="card-image-url">
                     {t('cards.form.image')}
                   </Label>
                   <div className="flex items-center gap-4">
@@ -478,6 +514,7 @@ const GachaCardsPage = () => {
                         {t('cards.form.uploadImage')}
                       </Button>
                       <Input
+                        id="card-image-url"
                         placeholder={t('cards.form.imageUrlPlaceholder')}
                         value={form.image}
                         onChange={(e) => patch({ image: e.target.value })}
@@ -491,17 +528,18 @@ const GachaCardsPage = () => {
 
                 {/* Handle (immutable key) */}
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="card-handle">
                     {t('cards.form.handle')}
                   </Label>
-                  <Input value={form.handle} disabled />
+                  <Input id="card-handle" value={form.handle} disabled />
                 </div>
 
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="card-name">
                     {t('cards.form.name')}
                   </Label>
                   <Input
+                    id="card-name"
                     value={form.name}
                     onChange={(e) => patch({ name: e.target.value })}
                   />
@@ -509,37 +547,41 @@ const GachaCardsPage = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-y-2">
-                    <Label size="small" weight="plus">
+                    <Label size="small" weight="plus" htmlFor="card-set">
                       {t('cards.form.set')}
                     </Label>
                     <Input
+                      id="card-set"
                       value={form.set}
                       onChange={(e) => patch({ set: e.target.value })}
                     />
                   </div>
                   <div className="flex flex-col gap-y-2">
-                    <Label size="small" weight="plus">
+                    <Label size="small" weight="plus" htmlFor="card-grader">
                       {t('cards.form.grader')}
                     </Label>
                     <Input
+                      id="card-grader"
                       value={form.grader}
                       onChange={(e) => patch({ grader: e.target.value })}
                     />
                   </div>
                   <div className="flex flex-col gap-y-2">
-                    <Label size="small" weight="plus">
+                    <Label size="small" weight="plus" htmlFor="card-grade">
                       {t('cards.form.grade')}
                     </Label>
                     <Input
+                      id="card-grade"
                       value={form.grade}
                       onChange={(e) => patch({ grade: e.target.value })}
                     />
                   </div>
                   <div className="flex flex-col gap-y-2">
-                    <Label size="small" weight="plus">
+                    <Label size="small" weight="plus" htmlFor="card-fmv">
                       {t('cards.form.marketValue')}
                     </Label>
                     <Input
+                      id="card-fmv"
                       type="number"
                       min={0}
                       step={0.01}
@@ -548,10 +590,11 @@ const GachaCardsPage = () => {
                     />
                   </div>
                   <div className="flex flex-col gap-y-2">
-                    <Label size="small" weight="plus">
+                    <Label size="small" weight="plus" htmlFor="card-price">
                       {t('cards.form.price')}
                     </Label>
                     <Input
+                      id="card-price"
                       type="number"
                       min={0}
                       step={0.01}
@@ -564,7 +607,7 @@ const GachaCardsPage = () => {
 
                 <div className="bg-ui-bg-subtle flex items-center justify-between rounded-lg px-4 py-3">
                   <div className="flex flex-col">
-                    <Label size="small" weight="plus">
+                    <Label size="small" weight="plus" htmlFor="card-for-sale">
                       {t('cards.form.forSale')}
                     </Label>
                     <Text className="text-ui-fg-subtle text-xs">
@@ -572,6 +615,7 @@ const GachaCardsPage = () => {
                     </Text>
                   </div>
                   <Switch
+                    id="card-for-sale"
                     checked={form.for_sale}
                     onCheckedChange={(v) => patch({ for_sale: v })}
                   />
@@ -580,8 +624,12 @@ const GachaCardsPage = () => {
                 {form.pc_product_id && (
                   <div className="bg-ui-bg-subtle flex flex-col gap-y-3 rounded-lg p-4">
                     <div className="flex items-center justify-between gap-4">
-                      <Text size="small" weight="plus">
-                        🔗{' '}
+                      <Text
+                        size="small"
+                        weight="plus"
+                        className="flex items-center gap-x-1.5"
+                      >
+                        <Link className="shrink-0" aria-hidden />
                         {t('cards.form.linked', {
                           synced: form.pc_synced_at
                             ? timeAgo(form.pc_synced_at)
@@ -600,10 +648,11 @@ const GachaCardsPage = () => {
                       </Button>
                     </div>
                     <div className="flex flex-col gap-y-2">
-                      <Label size="small" weight="plus">
+                      <Label size="small" weight="plus" htmlFor="card-markup">
                         {t('cards.form.markup')}
                       </Label>
                       <Input
+                        id="card-markup"
                         type="number"
                         step={1}
                         value={form.market_multiplier_pct}

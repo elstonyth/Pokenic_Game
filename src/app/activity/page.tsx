@@ -6,6 +6,7 @@ import { SlabImage } from '@/components/SlabImage';
 import { rm } from '@/lib/format';
 import { MOCK_CARDS } from '@/lib/mock/cards';
 import { MOCK_USERS, findUser } from '@/lib/mock/users';
+import { DEMO_STATS } from '@/lib/demo-stats';
 
 export const metadata: Metadata = {
   title: 'Marketplace Activity',
@@ -14,19 +15,21 @@ export const metadata: Metadata = {
 };
 
 const STATS = [
-  { value: '2.6M', label: 'transactions' },
-  { value: 'RM 322.7MM', label: 'volume' },
-  { value: '19.8K', label: 'listings' },
+  { value: DEMO_STATS.transactions, label: 'transactions' },
+  { value: DEMO_STATS.volume, label: 'volume' },
+  { value: DEMO_STATS.listings, label: 'listings' },
 ];
 
 type TxType = 'BUY' | 'CLAW' | 'SALE' | 'LIST';
+// Neutral tones everywhere except SALE — the seller receives funds, and
+// buyback green is reserved for money-in.
 const TYPE_TONE: Record<TxType, string> = {
-  BUY: 'bg-buyback/15 text-buyback-fg',
-  CLAW: 'bg-sky-500/15 text-sky-400',
-  SALE: 'bg-amber-500/15 text-amber-400',
-  LIST: 'bg-fuchsia-500/15 text-fuchsia-400',
+  BUY: 'bg-white/10 text-white/70',
+  CLAW: 'bg-white/10 text-white/70',
+  SALE: 'bg-buyback/15 text-buyback-fg',
+  LIST: 'bg-white/10 text-white/70',
 };
-const CLAW = 'Claw Machine';
+const CLAW = 'Slots';
 const MARKET = 'Marketplace';
 
 // Mock transaction feed (real-time stream is a backend/Socket.io feed).
@@ -113,7 +116,7 @@ export default function ActivityPage() {
       <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03]">
         <table className="w-full min-w-[680px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-left text-[12px] uppercase tracking-wide text-white/40">
+            <tr className="border-b border-white/10 text-left text-[12px] uppercase tracking-wide text-white/60">
               <th className="px-4 py-3 font-medium">Item</th>
               <th className="px-4 py-3 font-medium">Price</th>
               <th className="px-4 py-3 font-medium">Type</th>
@@ -151,7 +154,7 @@ export default function ActivityPage() {
                   <span
                     className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${TYPE_TONE[row.type]}`}
                   >
-                    {row.type}
+                    {row.type === 'CLAW' ? 'SLOTS' : row.type}
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5">
@@ -160,7 +163,7 @@ export default function ActivityPage() {
                 <td className="whitespace-nowrap px-4 py-2.5">
                   <Actor name={row.to} />
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-right text-[12px] text-white/40">
+                <td className="whitespace-nowrap px-4 py-2.5 text-right text-[12px] text-white/60">
                   {row.time}
                 </td>
               </tr>
@@ -168,7 +171,7 @@ export default function ActivityPage() {
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-center text-[11px] text-white/35">
+      <p className="mt-3 text-center text-[11px] text-white/55">
         Demo feed — the live activity stream goes live with the backend.
       </p>
     </div>

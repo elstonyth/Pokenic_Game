@@ -39,7 +39,7 @@ export function StatCards({
           key={s.label}
           className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
         >
-          <p className="text-[11px] uppercase tracking-wide text-white/40">
+          <p className="text-[11px] uppercase tracking-wide text-white/60">
             {s.label}
           </p>
           <p className="mt-1 font-heading text-2xl font-bold text-white">
@@ -63,7 +63,7 @@ export function MockTable({
     <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03]">
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b border-white/10 text-left text-[12px] uppercase tracking-wide text-white/40">
+          <tr className="border-b border-white/10 text-left text-[12px] uppercase tracking-wide text-white/60">
             {head.map((h) => (
               <th key={h} className="px-4 py-3 font-medium">
                 {h}

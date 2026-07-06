@@ -316,23 +316,30 @@ export default function SlotMachineClient({
 
     try {
       for (const roll of res.rolls) {
+        // MYR display price; marketValue is raw USD FMV and must NEVER
+        // render behind "RM" — when an older backend omits marketPriceMyr,
+        // fall back to 0 (the vault seam's policy, actions/vault.ts) and let
+        // SellConfirmModal show "—" for an unknown value. The offer's amount
+        // fallbacks derive from this SAME figure so a single offer can never
+        // mix currencies.
+        const displayFmv = roll.card.marketPriceMyr ?? 0;
         // Build the sell-back offer for this roll.
         const builtOffer: SellBackOffer | null =
           roll.pullId !== null
             ? {
                 pullId: roll.pullId,
-                fmv: roll.marketValue,
+                fmv: displayFmv,
                 cardName: roll.card.name,
                 image: roll.card.image,
                 percent: roll.buyback?.percent ?? FLAT_BUYBACK_PERCENT,
                 amount:
                   roll.buyback?.amount ??
-                  Math.round(roll.marketValue * FLAT_BUYBACK_PERCENT) / 100,
+                  Math.round(displayFmv * FLAT_BUYBACK_PERCENT) / 100,
                 vaultPercent:
                   roll.buyback?.vaultPercent ?? FLAT_BUYBACK_PERCENT,
                 vaultAmount:
                   roll.buyback?.vaultAmount ??
-                  Math.round(roll.marketValue * FLAT_BUYBACK_PERCENT) / 100,
+                  Math.round(displayFmv * FLAT_BUYBACK_PERCENT) / 100,
                 instantDeadlineMs:
                   roll.buyback?.instantDeadlineMs ?? spinAt + 30_000,
               }
@@ -538,8 +545,9 @@ export default function SlotMachineClient({
           >
             <ArrowLeft className="h-4 w-4" aria-hidden /> Exit
           </Link>
+          {/* Neutral badge — amber reads as chase gold (prize-only signal). */}
           {isDemo && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-300">
+            <span className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white/70">
               Demo
             </span>
           )}

@@ -83,8 +83,8 @@ export default function RecentPullsSection({
       <div className="mx-auto w-full">
         {/* Header */}
         <div className="mx-auto mb-10 flex max-w-2xl flex-col items-center text-center">
-          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-white/50">
-            Live from the claw
+          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-white/60">
+            Live from the slots
           </p>
           <h2
             id="recent-pulls-heading"

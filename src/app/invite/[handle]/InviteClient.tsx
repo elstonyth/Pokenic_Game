@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { openAuth } from '@/components/AuthButton';
@@ -16,10 +17,6 @@ export default function InviteClient({ handle }: { handle: string }) {
   const { customer, isLoading } = useAuth();
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: 'idle' });
-
-  function openLogin() {
-    openAuth('login');
-  }
 
   async function join() {
     setState({ kind: 'busy' });
@@ -45,16 +42,37 @@ export default function InviteClient({ handle }: { handle: string }) {
         {isLoading ? (
           <div className="mt-6 h-10 w-32 animate-pulse rounded-xl bg-neutral-700 mx-auto" />
         ) : !customer ? (
-          <button
-            onClick={openLogin}
-            className="mt-6 rounded-xl bg-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-950 transition-colors hover:bg-white"
-          >
-            Log in to join
-          </button>
+          // Invitees are new users — lead with signup, keep login secondary.
+          <>
+            <button
+              onClick={() => openAuth('signup')}
+              className="mt-6 rounded-xl bg-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-950 transition-colors hover:bg-white"
+            >
+              Sign up to join
+            </button>
+            <p className="mt-3 text-[13px] text-neutral-400">
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => openAuth('login')}
+                className="font-semibold text-white hover:underline"
+              >
+                Log in
+              </button>
+            </p>
+          </>
         ) : state.kind === 'done' ? (
-          <p className="mt-6 text-sm text-buyback-fg">
-            You&apos;re on {handle}&apos;s team. Welcome aboard!
-          </p>
+          <>
+            <p className="mt-6 text-sm text-buyback-fg">
+              You&apos;re on {handle}&apos;s team. Welcome aboard!
+            </p>
+            <Link
+              href="/slots"
+              className="mt-4 inline-block rounded-xl bg-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-950 transition-colors hover:bg-white"
+            >
+              Rip your first pack
+            </Link>
+          </>
         ) : (
           <button
             onClick={join}
@@ -66,7 +84,9 @@ export default function InviteClient({ handle }: { handle: string }) {
         )}
 
         {state.kind === 'error' && (
-          <p className="mt-3 text-sm text-amber-400">{state.msg}</p>
+          <p role="alert" className="mt-3 text-sm text-red-400">
+            {state.msg}
+          </p>
         )}
       </div>
     </main>

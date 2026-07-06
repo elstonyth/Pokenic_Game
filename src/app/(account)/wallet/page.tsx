@@ -62,7 +62,6 @@ export default async function WalletPage() {
       <StatCards
         items={[
           { label: 'Total balance', value: rm(w.balance) },
-          { label: 'Available', value: rm(w.available) },
           { label: 'Locked', value: rm(w.locked) },
         ]}
       />

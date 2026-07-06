@@ -127,7 +127,7 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
           {/* price block */}
           <div className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-white/40">
+              <p className="text-[11px] uppercase tracking-wide text-white/60">
                 Price
               </p>
               <p className="font-heading text-3xl font-bold text-white">
@@ -135,7 +135,7 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-white/40">
+              <p className="text-[11px] uppercase tracking-wide text-white/60">
                 Fair Market Value
               </p>
               <p className="text-lg font-semibold text-white/80">
@@ -202,11 +202,12 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
               <h2 className="text-sm font-semibold text-white">
                 Price history
               </h2>
-              <span className="text-[11px] text-white/35">demo data</span>
+              <span className="text-[11px] text-white/55">demo data</span>
             </div>
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
+              aria-hidden="true"
               className="h-24 w-full"
             >
               <polyline
@@ -217,7 +218,7 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
                 vectorEffect="non-scaling-stroke"
               />
             </svg>
-            <div className="mt-2 flex justify-between text-[11px] text-white/40">
+            <div className="mt-2 flex justify-between text-[11px] text-white/60">
               <span>24 sales</span>
               <span>Last: {rm(card.fmv)}</span>
             </div>

@@ -108,7 +108,7 @@ export default function SellConfirmModal({
           type="button"
           onClick={() => !busy && onCancel()}
           aria-label="Close"
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/5 hover:text-white"
+          className="absolute right-2.5 top-2.5 flex h-11 w-11 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/5 hover:text-white"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -137,7 +137,9 @@ export default function SellConfirmModal({
             <dt className="text-white/55">
               {bulk ? 'Total market value' : 'Market value'}
             </dt>
-            <dd className="text-white/85">{rm(fmv)}</dd>
+            {/* 0 means the MYR price is unknown (older backend) — show a dash
+                rather than a fake RM 0.00 on a money confirm. */}
+            <dd className="text-white/85">{fmv > 0 ? rm(fmv) : '—'}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-white/55">
@@ -173,7 +175,7 @@ export default function SellConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-amber-400 text-sm font-bold text-neutral-950 transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-buyback text-sm font-bold text-white transition-colors hover:bg-buyback/90 disabled:opacity-60"
           >
             {busy ? 'Selling…' : `Sell for ${rm(netCredit)}`}
           </button>

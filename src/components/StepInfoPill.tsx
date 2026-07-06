@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { ArrowRight, HelpCircle, Globe, DollarSign, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Variant = 'packs' | 'buyback' | 'ships';
 
@@ -24,19 +25,10 @@ export default function StepInfoPill({
   sub: string;
 }) {
   const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // lock scroll + close on Escape while the modal is open
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+  // focus-in, Tab trap, Escape close, scroll lock + focus restore while open
+  useModalA11y(panelRef, open, () => setOpen(false));
 
   const Label = (
     <div className="min-w-0 flex-1">
@@ -115,7 +107,11 @@ export default function StepInfoPill({
               onClick={() => setOpen(false)}
             />
             {/* dialog — original panel is 480px wide, radius 16px */}
-            <div className="relative z-10 w-full max-w-[480px] rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-2xl motion-safe:animate-[modalIn_0.25s_ease-out] sm:p-7">
+            <div
+              ref={panelRef}
+              tabIndex={-1}
+              className="relative z-10 w-full max-w-[480px] rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-2xl outline-none motion-safe:animate-[modalIn_0.25s_ease-out] sm:p-7"
+            >
               <button
                 type="button"
                 onClick={() => setOpen(false)}

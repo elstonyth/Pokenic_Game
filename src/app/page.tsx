@@ -54,9 +54,9 @@ export default async function HomePage() {
 
       <section aria-labelledby="packs-heading" className="mt-8">
         <div className="flex items-baseline justify-between">
-          <h2 id="packs-heading" className="font-heading text-2xl text-white">
+          <h1 id="packs-heading" className="font-heading text-2xl text-white">
             RIP A PACK
-          </h2>
+          </h1>
           <Link
             href="/slots"
             className="flex items-center gap-1 text-[13px] font-semibold text-neutral-400 transition-colors hover:text-white"
@@ -66,7 +66,7 @@ export default async function HomePage() {
           </Link>
         </div>
         {packs.length === 0 ? (
-          <p className="mt-4 rounded-2xl border border-white/10 bg-neutral-900 px-4 py-10 text-center text-[13px] text-neutral-500">
+          <p className="mt-4 rounded-2xl border border-white/10 bg-neutral-900 px-4 py-10 text-center text-[13px] text-neutral-400">
             No packs available right now — check back soon.
           </p>
         ) : (
@@ -107,7 +107,7 @@ function FeaturedChase({
     >
       <div className="flex min-w-0 flex-1 flex-col justify-between p-5">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
             Top chase
           </p>
           {chase ? (
@@ -123,7 +123,7 @@ function FeaturedChase({
             <p className="font-heading mt-1 text-3xl text-white">{pack.name}</p>
           )}
         </div>
-        <span className="mt-5 inline-flex h-11 w-fit items-center gap-2 whitespace-nowrap rounded-full bg-neutral-50 px-5 text-sm font-semibold text-neutral-950">
+        <span className="mt-5 inline-flex min-h-11 w-fit items-center gap-2 rounded-full bg-neutral-50 px-5 text-sm font-semibold leading-tight text-neutral-950">
           Rip it — {pack.price}
           <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
         </span>
@@ -207,7 +207,7 @@ function PackTile({ pack, chase }: { pack: Pack; chase: PackCard | null }) {
         {pack.price}
       </span>
       {chase && (
-        <p className="mt-1 truncate text-[11px] text-neutral-500">
+        <p className="mt-1 truncate text-[11px] text-neutral-400">
           Top chase <span className="text-neutral-300">{chase.value}</span>
         </p>
       )}

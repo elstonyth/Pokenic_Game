@@ -17,12 +17,13 @@ import { useDeliveryOrders, useUpdateDeliveryOrder } from '../../lib/queries';
 import type { AdminDeliveryOrder, DeliveryStatus } from '../../lib/admin-rest';
 import { resolveImageUrl } from '../../lib/image-url';
 import { Pager } from '../../components/Pager';
+import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 
 export const config: RouteConfig = {
   label: 'Deliveries',
   icon: TruckFast,
-  nested: '/operations',
-  rank: 1,
+  nested: '/orders',
+  rank: 2,
 };
 
 const STATUSES: DeliveryStatus[] = [
@@ -38,6 +39,14 @@ const TONE: Record<DeliveryStatus, 'orange' | 'blue' | 'green' | 'grey'> = {
   shipped: 'blue',
   delivered: 'green',
   canceled: 'grey',
+};
+// Display labels only — state/API keep the raw lowercase values.
+const STATUS_LABEL: Record<DeliveryStatus, string> = {
+  requested: 'Requested',
+  packing: 'Packing',
+  shipped: 'Shipped',
+  delivered: 'Delivered',
+  canceled: 'Canceled',
 };
 
 const DeliveriesPage = () => {
@@ -94,14 +103,14 @@ const DeliveriesPage = () => {
             setFilter(v === 'all' ? undefined : (v as DeliveryStatus));
           }}
         >
-          <Select.Trigger className="w-44">
+          <Select.Trigger className="w-44" aria-label="Filter by status">
             <Select.Value />
           </Select.Trigger>
           <Select.Content>
             <Select.Item value="all">All statuses</Select.Item>
             {STATUSES.map((s) => (
               <Select.Item key={s} value={s}>
-                {s}
+                {STATUS_LABEL[s]}
               </Select.Item>
             ))}
           </Select.Content>
@@ -114,67 +123,80 @@ const DeliveriesPage = () => {
         </div>
       ) : orders === null ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">…</Text>
+          <LoadingSkeleton />
         </div>
       ) : orders.length === 0 ? (
         <div className="px-6 py-8">
           <Text className="text-ui-fg-subtle">No delivery orders.</Text>
         </div>
       ) : (
-        <Table>
-          <Table.Header>
-            <Table.Row>
-              <Table.HeaderCell>Order</Table.HeaderCell>
-              <Table.HeaderCell>Customer</Table.HeaderCell>
-              <Table.HeaderCell>Cards</Table.HeaderCell>
-              <Table.HeaderCell>Status</Table.HeaderCell>
-              <Table.HeaderCell className="text-right">Actions</Table.HeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {orders.map((o) => (
-              <Table.Row key={o.id}>
-                <Table.Cell className="font-mono text-xs">
-                  #{o.id.slice(-6)}
-                </Table.Cell>
-                <Table.Cell className="text-ui-fg-subtle">
-                  {o.customer_email ?? o.customer_id}
-                </Table.Cell>
-                <Table.Cell>
-                  <div className="flex items-center gap-1">
-                    {o.items.slice(0, 4).map((it) =>
-                      it.card ? (
-                        <img
-                          key={it.pull_id}
-                          src={resolveImageUrl(it.card.image)}
-                          alt=""
-                          className="h-8 w-6 rounded object-contain"
-                        />
-                      ) : null,
-                    )}
-                    {o.items.length > 4 && (
-                      <span className="text-ui-fg-subtle text-xs">
-                        +{o.items.length - 4}
-                      </span>
-                    )}
-                  </div>
-                </Table.Cell>
-                <Table.Cell>
-                  <StatusBadge color={TONE[o.status]}>{o.status}</StatusBadge>
-                </Table.Cell>
-                <Table.Cell className="text-right">
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    onClick={() => openDetail(o)}
-                  >
-                    Manage
-                  </Button>
-                </Table.Cell>
+        <div
+          className="overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label="Deliveries table"
+        >
+          <Table>
+            <Table.Header>
+              <Table.Row>
+                <Table.HeaderCell>Order</Table.HeaderCell>
+                <Table.HeaderCell>Customer</Table.HeaderCell>
+                <Table.HeaderCell>Cards</Table.HeaderCell>
+                <Table.HeaderCell>Status</Table.HeaderCell>
+                <Table.HeaderCell className="text-right">
+                  Actions
+                </Table.HeaderCell>
               </Table.Row>
-            ))}
-          </Table.Body>
-        </Table>
+            </Table.Header>
+            <Table.Body>
+              {orders.map((o) => (
+                <Table.Row key={o.id}>
+                  <Table.Cell className="font-mono text-xs">
+                    #{o.id.slice(-6)}
+                  </Table.Cell>
+                  <Table.Cell className="text-ui-fg-subtle">
+                    {o.customer_email ?? o.customer_id}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <div className="flex items-center gap-1">
+                      {o.items
+                        .slice(0, 4)
+                        .map((it) =>
+                          it.card ? (
+                            <img
+                              key={it.pull_id}
+                              src={resolveImageUrl(it.card.image)}
+                              alt={it.card.name}
+                              className="h-8 w-6 rounded object-contain"
+                            />
+                          ) : null,
+                        )}
+                      {o.items.length > 4 && (
+                        <span className="text-ui-fg-subtle text-xs">
+                          +{o.items.length - 4}
+                        </span>
+                      )}
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <StatusBadge color={TONE[o.status]}>
+                      {STATUS_LABEL[o.status]}
+                    </StatusBadge>
+                  </Table.Cell>
+                  <Table.Cell className="text-right">
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      onClick={() => openDetail(o)}
+                    >
+                      Manage
+                    </Button>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table>
+        </div>
       )}
 
       {data && (
@@ -228,36 +250,45 @@ const DeliveriesPage = () => {
                   Customer: {detail.customer_email ?? detail.customer_id}
                 </Text>
                 <div className="flex flex-col gap-y-2">
-                  <Text size="small" weight="plus">
+                  <Text size="small" weight="plus" id="delivery-status-label">
                     Status
                   </Text>
                   <Select
                     value={nextStatus}
                     onValueChange={(v) => setNextStatus(v as DeliveryStatus)}
                   >
-                    <Select.Trigger>
+                    <Select.Trigger aria-labelledby="delivery-status-label">
                       <Select.Value />
                     </Select.Trigger>
                     <Select.Content>
                       {STATUSES.map((s) => (
                         <Select.Item key={s} value={s}>
-                          {s}
+                          {STATUS_LABEL[s]}
                         </Select.Item>
                       ))}
                     </Select.Content>
                   </Select>
                 </div>
                 <div className="flex flex-col gap-y-2">
-                  <Text size="small" weight="plus">
+                  <Text size="small" weight="plus" id="delivery-tracking-label">
                     Tracking number
                   </Text>
                   <Input
+                    aria-labelledby="delivery-tracking-label"
                     value={tracking}
                     onChange={(e) => setTracking(e.target.value)}
                     placeholder="Required to mark shipped"
+                    aria-invalid={trackingRequired || undefined}
+                    aria-describedby={
+                      trackingRequired ? 'tracking-error' : undefined
+                    }
                   />
                   {trackingRequired && (
-                    <Text size="small" className="text-ui-fg-error">
+                    <Text
+                      id="tracking-error"
+                      size="small"
+                      className="text-ui-fg-error"
+                    >
                       Tracking number required to mark shipped.
                     </Text>
                   )}

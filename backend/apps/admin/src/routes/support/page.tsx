@@ -30,8 +30,8 @@ import { Pager } from "../../components/Pager";
 export const config: RouteConfig = {
   label: "Customer Support",
   icon: Buildings,
-  nested: "/operations",
-  rank: 2,
+  nested: "/customers",
+  rank: 1,
 };
 
 const SupportPage = () => {
@@ -169,7 +169,18 @@ const SupportPage = () => {
                       className="cursor-pointer"
                       onClick={() => open(c.id)}
                     >
-                      <Table.Cell>{c.email}</Table.Cell>
+                      <Table.Cell>
+                        <button
+                          type="button"
+                          className="focus-visible:shadow-borders-interactive-with-focus rounded-md text-left outline-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            open(c.id);
+                          }}
+                        >
+                          {c.email}
+                        </button>
+                      </Table.Cell>
                       <Table.Cell className="text-ui-fg-subtle">
                         {c.first_name ?? "—"}
                       </Table.Cell>

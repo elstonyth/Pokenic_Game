@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Badge } from '@/components/account/ui';
 import { SlabImage } from '@/components/SlabImage';
+import { Pill } from '@/components/ui/pill';
 import {
   addAddress,
   editDeliveryAddress,
@@ -10,6 +11,7 @@ import {
   type AddressView,
   type AddAddressInput,
 } from '@/lib/actions/delivery';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Tone = 'green' | 'sky' | 'amber' | 'neutral';
 
@@ -91,6 +93,9 @@ function EditAddressModal({
     postalCode: '',
     countryCode: '',
   });
+  // Only mounted while open, so `open` is always true here.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalA11y(panelRef, true, onClose);
 
   async function saveAddress() {
     setBusy(true);
@@ -141,7 +146,14 @@ function EditAddressModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-neutral-900 p-5">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit shipping address"
+        tabIndex={-1}
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-5 outline-none"
+      >
         <h2 className="font-heading text-lg font-bold text-white">
           Edit shipping address
         </h2>
@@ -173,7 +185,7 @@ function EditAddressModal({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="text-[12px] font-semibold text-buyback-fg"
+              className="text-[12px] font-semibold text-white/80 hover:text-white"
             >
               + Add a new address
             </button>
@@ -257,23 +269,24 @@ function EditAddressModal({
               <input
                 aria-label="Country code"
                 autoComplete="country"
-                placeholder="e.g. US"
+                placeholder="e.g. MY"
+                maxLength={2}
                 value={form.countryCode}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, countryCode: e.target.value }))
+                  setForm((f) => ({
+                    ...f,
+                    countryCode: e.target.value.toUpperCase(),
+                  }))
                 }
                 className={INPUT_CLASS}
               />
             </label>
             <div className="col-span-2 flex gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={saveAddress}
-                className="rounded-lg bg-buyback px-3 py-2 text-[13px] font-bold text-white disabled:opacity-50"
-              >
+              {/* Neutral-light primary (Pill): saving an address isn't money-in,
+                  so no buyback green. */}
+              <Pill disabled={busy} onClick={saveAddress} className="px-4">
                 Save address
-              </button>
+              </Pill>
               {addresses.length > 0 && (
                 <button
                   type="button"
@@ -288,7 +301,10 @@ function EditAddressModal({
         )}
 
         {error && (
-          <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300"
+          >
             {error}
           </p>
         )}
@@ -301,14 +317,9 @@ function EditAddressModal({
           >
             Cancel
           </button>
-          <button
-            type="button"
-            disabled={busy || adding || !selectedAddr}
-            onClick={submit}
-            className="rounded-lg bg-buyback px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
-          >
+          <Pill disabled={busy || adding || !selectedAddr} onClick={submit}>
             {busy ? 'Saving…' : 'Save address'}
-          </button>
+          </Pill>
         </div>
       </div>
     </div>
@@ -366,7 +377,7 @@ export default function OrdersClient({
                       {o.trackingNumber}
                     </span>
                   ) : (
-                    <span className="text-white/35">—</span>
+                    <span className="text-white/55">—</span>
                   )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-white/80">

@@ -29,7 +29,7 @@ export default async function TransactionsPage() {
     <>
       <AccountHeader
         title="Transactions"
-        sub="Every top-up and spend on your account."
+        sub="Your latest 50 top-ups and spends."
       />
       <StatCards
         items={[

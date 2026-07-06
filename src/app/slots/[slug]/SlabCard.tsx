@@ -9,12 +9,11 @@
 // reel tile's rect (same aspect ratio) to its on-stage box, reading as one
 // object growing; the tile's pixel sprite rides along and fades mid-growth.
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import Image from 'next/image';
 import { motion } from 'motion/react';
 import type { WonCard } from '@/lib/actions/packs';
 import { rm } from '@/lib/format';
 import { isTopRarity } from '@/lib/rarity';
-import { CARD_ASPECT } from '@/lib/vault-reel';
+import { SlabImage, SLAB_ASPECT } from '@/components/SlabImage';
 import { cn } from '@/lib/utils';
 import { PokeCardBack } from './PokeCardBack';
 
@@ -102,7 +101,11 @@ export function SlabCard({
         className="relative block w-[64vw] max-w-[300px] [transform-style:preserve-3d]"
         style={
           {
-            aspectRatio: String(CARD_ASPECT), // shape-synced morph (spec #16) — shared with CardTile
+            // Slab proportions since the frame overlay shipped: the reel tile
+            // is still CARD_ASPECT, so the shape-synced morph (spec #16) is a
+            // uniform-scale grow with a slight height drift — invisible at
+            // 0.6s; the flip reveal (the stare moment) stays exact.
+            aspectRatio: String(SLAB_ASPECT),
             perspective: '1200px',
           } as CSSProperties
         }
@@ -158,24 +161,26 @@ export function SlabCard({
             />
           )}
         </span>
-        {/* FRONT — the actual slab photo */}
+        {/* FRONT — the pull as a graded slab: raw card photo inside the
+            admin-configurable case overlay. drop-shadow (not box-shadow)
+            follows the slab's alpha silhouette instead of drawing a rectangle
+            behind the transparent frame margins. */}
         <span
           className={cn(
-            'absolute inset-0 flex items-center justify-center rounded-xl bg-neutral-900 [backface-visibility:hidden] [transform:rotateY(180deg)]',
+            'absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]',
             reduced && !flipped && 'hidden',
           )}
           style={
             {
-              boxShadow: `0 18px 50px rgba(0,0,0,0.6), 0 0 46px rgba(${rarityRgb}, 0.35)`,
+              filter: `drop-shadow(0 18px 30px rgba(0,0,0,0.6)) drop-shadow(0 0 26px rgba(${rarityRgb}, 0.35))`,
             } as CSSProperties
           }
         >
-          <Image
+          <SlabImage
             src={card.image}
             alt={card.name}
-            fill
             sizes="(max-width: 640px) 64vw, 300px"
-            className="rounded-xl object-contain"
+            className="absolute inset-0"
           />
           {/* Glare sweep removed (decision #24): it parked at x:110% off the
               card's right edge and read as a weird persistent "glass" streak. */}

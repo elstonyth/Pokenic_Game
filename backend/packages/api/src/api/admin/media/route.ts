@@ -4,6 +4,7 @@ import { MedusaError } from '@medusajs/framework/utils';
 import { uploadFilesWorkflow } from '@medusajs/medusa/core-flows';
 import sharp from 'sharp';
 import { validateImage, type ImageKind } from './validate';
+import { keyMagentaFrame } from './key-frame';
 
 // POST /admin/media — validate an uploaded image and store the ORIGINAL,
 // untouched, via the configured file provider (local in dev, S3/R2 in prod).
@@ -33,10 +34,15 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 
   const rawKind = (req.body as { kind?: string } | undefined)?.kind;
-  if (rawKind !== 'pack' && rawKind !== 'card' && rawKind !== 'sprite') {
+  if (
+    rawKind !== 'pack' &&
+    rawKind !== 'card' &&
+    rawKind !== 'sprite' &&
+    rawKind !== 'frame'
+  ) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
-      "Field 'kind' must be 'pack', 'card', or 'sprite'.",
+      "Field 'kind' must be 'pack', 'card', 'sprite', or 'frame'.",
     );
   }
   const kind: ImageKind = rawKind;
@@ -70,7 +76,31 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     throw new MedusaError(MedusaError.Types.INVALID_DATA, verdict.message);
   }
 
-  // Store the original bytes as-is (lossless master).
+  // Frames generated from the AI prompt templates arrive with a flat magenta
+  // chroma-key window/background — key it to transparency server-side so the
+  // operator can upload the model's output directly. Already-transparent
+  // frames (and every other kind) store their original bytes untouched.
+  let content = file.buffer;
+  let mimeType = file.mimetype;
+  let filename = path.basename(file.originalname.replace(/\\/g, '/'));
+  if (kind === 'frame') {
+    let keyed: Buffer | null = null;
+    try {
+      keyed = await keyMagentaFrame(file.buffer);
+    } catch {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        'Could not process the frame image — try a PNG/WebP export.',
+      );
+    }
+    if (keyed) {
+      content = keyed;
+      mimeType = 'image/webp';
+      filename = filename.replace(/\.[a-z0-9]+$/i, '') + '-keyed.webp';
+    }
+  }
+
+  // Store the (possibly keyed) master via the configured file provider.
   const { result } = await uploadFilesWorkflow(req.scope).run({
     input: {
       files: [
@@ -79,9 +109,9 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
           // (the local file provider preserves dir segments in the key) — keeps
           // writes inside the storage root. Normalize "\" → "/" first so the
           // guard is OS-agnostic (posix path.basename wouldn't split on "\").
-          filename: path.basename(file.originalname.replace(/\\/g, '/')),
-          mimeType: file.mimetype,
-          content: file.buffer.toString('base64'),
+          filename,
+          mimeType,
+          content: content.toString('base64'),
           access: 'public',
         },
       ],

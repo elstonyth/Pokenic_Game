@@ -170,8 +170,8 @@ interface BackendOddsEntry {
    *  request time; absent on an older backend → fall back to market_value. */
   marketPriceMyr?: number;
   image: string;
-  /** Admin-picked Top Hit flag (display only). */
-  top_hit?: boolean;
+  /** Admin-picked Top Hit display order (1-based; null/absent = not one). */
+  top_hit_order?: number | null;
 }
 
 export interface PackDetail {
@@ -244,10 +244,13 @@ export async function getPackDetail(slug: string): Promise<PackDetail | null> {
     );
     const pool: PackCard[] = sorted.map(toCard);
 
-    // Top Hits = the admin-flagged cards (value-sorted). No flags on this
-    // pack → fall back to the five highest-value cards.
-    const flagged = sorted.filter((o) => o.top_hit === true);
-    const topHits = flagged.length > 0 ? flagged.map(toCard) : pool.slice(0, 5);
+    // Top Hits = the admin-ordered cards (order 1 renders first/leftmost).
+    // No ordered cards on this pack → EMPTY (the page hides the section);
+    // the old highest-value fallback made un-curated packs look curated.
+    const topHits = valid
+      .filter((o) => o.top_hit_order != null)
+      .sort((a, b) => (a.top_hit_order ?? 0) - (b.top_hit_order ?? 0))
+      .map(toCard);
 
     return {
       topHits,

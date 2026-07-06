@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Search, Star } from 'lucide-react';
+import { SlabImage } from '@/components/SlabImage';
 import { rm, rm0 } from '@/lib/format';
 import {
   sellBackPull,
@@ -373,19 +373,18 @@ export default function VaultClient({
             const isSelected = selected.has(item.pullId);
             const glow = rarityRgb(item.card.rarity);
             const art = (
+              // drop-shadow (not box-shadow/border) so the rarity glow hugs the
+              // slab silhouette instead of drawing a rectangle behind the
+              // frame's transparent margins.
               <div
-                className="relative aspect-[3/4] w-full overflow-hidden rounded-lg border"
-                style={{
-                  borderColor: `rgba(${glow}, 0.55)`,
-                  boxShadow: `0 0 16px -8px rgba(${glow}, 0.6)`,
-                }}
+                className="w-full"
+                style={{ filter: `drop-shadow(0 0 8px rgba(${glow}, 0.5))` }}
               >
-                <Image
+                <SlabImage
                   src={item.card.image}
                   alt={item.card.name}
-                  fill
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  className="object-contain"
+                  className="w-full"
                 />
               </div>
             );

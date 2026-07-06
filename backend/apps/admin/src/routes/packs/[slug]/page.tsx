@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -113,30 +113,53 @@ const PackOddsEditorPage = () => {
       return next;
     });
 
-  // Top-hit toggle — optimistic buffer flip + immediate save of the complete
-  // flagged set (idempotent). Reverted on failure. Deliberately no query
-  // invalidation (see useSaveTopHits) so in-progress win-rate edits survive.
-  const toggleTopHit = async (cardId: string) => {
-    if (!rows || saveTopHits.isPending) return;
-    const next = rows.map((x) =>
-      x.card_id === cardId ? { ...x, topHit: !x.topHit } : x,
+  // Top-hit ORDER (1 = leftmost on the pack page; empty = not a Top Hit).
+  // Typed freely into the row buffer, saved on blur/Enter as the complete
+  // ordered list (sorted by the typed numbers; gaps/ties normalize to 1..n
+  // server-side by list index — displayed numbers resync on next load, NOT
+  // after save, so an order field the operator is currently typing in never
+  // gets clobbered). Deliberately no query invalidation (see useSaveTopHits)
+  // so in-progress win-rate edits survive.
+  const setTopHitInput = (cardId: string, value: string) =>
+    setRows(
+      (cur) =>
+        cur?.map((x) =>
+          x.card_id === cardId ? { ...x, topHitInput: value } : x,
+        ) ?? null,
     );
-    setRows(next);
+  // Ref-mirror of rows so a queued re-commit reads the LATEST buffer, not the
+  // render that scheduled it; topHitRecommit queues (rather than drops) a
+  // blur/Enter that lands while a save is still in flight — the follow-up
+  // save runs once the current one settles, so no edit is ever lost and two
+  // saves can't race out of order.
+  const rowsRef = useRef<EditRow[] | null>(null);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+  const topHitRecommit = useRef(false);
+  const commitTopHits = async () => {
+    const cur = rowsRef.current;
+    if (!cur) return;
+    if (saveTopHits.isPending) {
+      topHitRecommit.current = true;
+      return;
+    }
+    const card_ids = cur
+      .filter((x) => {
+        const n = Number(x.topHitInput.trim());
+        return x.topHitInput.trim() !== '' && Number.isFinite(n) && n > 0;
+      })
+      .sort((a, b) => Number(a.topHitInput) - Number(b.topHitInput))
+      .map((x) => x.card_id);
     try {
-      await saveTopHits.mutateAsync({
-        slug,
-        card_ids: next.filter((x) => x.topHit).map((x) => x.card_id),
-      });
+      await saveTopHits.mutateAsync({ slug, card_ids });
     } catch (err) {
-      // Flip back ONLY this card's flag — a whole-array snapshot restore would
-      // discard rate/lock edits made on other rows while the save was in flight.
-      setRows(
-        (cur) =>
-          cur?.map((x) =>
-            x.card_id === cardId ? { ...x, topHit: !x.topHit } : x,
-          ) ?? null,
-      );
       toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (topHitRecommit.current) {
+        topHitRecommit.current = false;
+        void commitTopHits();
+      }
     }
   };
 
@@ -402,11 +425,20 @@ const PackOddsEditorPage = () => {
                       </Select>
                     </Table.Cell>
                     <Table.Cell className="text-center">
-                      <Checkbox
-                        checked={r.topHit}
-                        disabled={saveTopHits.isPending}
+                      <Input
+                        size="small"
+                        inputMode="numeric"
+                        placeholder="—"
+                        className="mx-auto w-14 text-center tabular-nums"
+                        value={r.topHitInput}
                         aria-label={`${t('packs.editor.topHit')}: ${r.name}`}
-                        onCheckedChange={() => void toggleTopHit(r.card_id)}
+                        onChange={(e) =>
+                          setTopHitInput(r.card_id, e.target.value)
+                        }
+                        onBlur={() => void commitTopHits()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur();
+                        }}
                       />
                     </Table.Cell>
                     <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">

@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import Reveal from '@/components/Reveal';
+import { SlabImage } from '@/components/SlabImage';
 import { features } from '@/lib/features';
 import { rm } from '@/lib/format';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -81,16 +82,13 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
               boxShadow: `0 0 60px -20px rgba(${ring},0.6)`,
             }}
           >
-            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-[radial-gradient(120%_80%_at_50%_12%,#2e2e2e_0%,#1c1c1c_55%,#121212_100%)]">
-              <Image
-                src={card.image}
-                alt={card.name}
-                fill
-                priority
-                sizes="(max-width: 1024px) 90vw, 480px"
-                className="object-contain p-4"
-              />
-            </div>
+            <SlabImage
+              src={card.image}
+              alt={card.name}
+              priority
+              sizes="(max-width: 1024px) 90vw, 480px"
+              className="w-full"
+            />
           </div>
         </Reveal>
 
@@ -241,13 +239,12 @@ export default function CardDetailClient({ card }: { card: MockCard }) {
                   href={`/card/${c.id}`}
                   className="group block h-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-800 transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
                 >
-                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
-                    <Image
+                  <div className="relative w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)] p-3">
+                    <SlabImage
                       src={c.image}
                       alt={c.name}
-                      fill
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                      className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
+                      className="w-full transition-transform duration-300 group-hover:scale-[1.04]"
                     />
                   </div>
                   <div className="p-2.5">

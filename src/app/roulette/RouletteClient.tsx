@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Sparkles, RotateCcw, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SlabImage } from '@/components/SlabImage';
 import { usePrefersReducedMotion } from '@/lib/use-reveal';
 import { rm } from '@/lib/format';
 import {
@@ -24,22 +25,21 @@ const TIERS: { rarity: Rarity; chance: string }[] = [
 function Thumb({ card, w }: { card: MockCard; w?: number }) {
   const ring = RARITY_RGB[card.rarity];
   return (
-    <div className="shrink-0 px-1" style={w ? { width: w } : undefined}>
-      <div
-        className="overflow-hidden rounded-xl border bg-neutral-900 p-1.5"
-        style={{
-          borderColor: `rgba(${ring},0.55)`,
-          boxShadow: `0 0 16px -8px rgba(${ring},0.6)`,
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={card.image}
-          alt={card.name}
-          loading="lazy"
-          className="aspect-[3/4] w-full rounded-md object-contain"
-        />
-      </div>
+    <div
+      className="shrink-0 px-1"
+      style={{
+        ...(w ? { width: w } : undefined),
+        // Rarity glow as drop-shadow: box-shadow would draw a rectangle
+        // behind the slab's transparent margins.
+        filter: `drop-shadow(0 0 10px rgba(${ring},0.45))`,
+      }}
+    >
+      <SlabImage
+        src={card.image}
+        alt={card.name}
+        sizes="116px"
+        className="w-full"
+      />
     </div>
   );
 }

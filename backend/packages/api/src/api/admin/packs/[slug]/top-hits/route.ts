@@ -3,10 +3,12 @@ import { MedusaError } from '@medusajs/framework/utils';
 import PacksModuleService from '../../../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../../../modules/packs';
 
-// POST /admin/packs/:slug/top-hits — set which cards are the pack's Top Hits
+// POST /admin/packs/:slug/top-hits — set the pack's Top Hits IN DISPLAY ORDER
 // (storefront display only; never touches weights/locks). Body:
-// { card_ids: string[] } — the COMPLETE flagged set; every other member row
-// is unflagged. Idempotent set semantics, so the admin UI can save per click.
+// { card_ids: string[] } — the COMPLETE ordered list: index 0 renders first
+// (leftmost, order 1), index 1 second, and so on; every member row not listed
+// loses its order (not a Top Hit). Idempotent list semantics, so the admin UI
+// can save per edit.
 export async function POST(
   req: MedusaRequest,
   res: MedusaResponse,
@@ -24,7 +26,14 @@ export async function POST(
       'Body must include a `card_ids` string array.',
     );
   }
-  const wanted = new Set(body.card_ids as string[]);
+  const ordered = body.card_ids as string[];
+  if (new Set(ordered).size !== ordered.length) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      '`card_ids` must not contain duplicates.',
+    );
+  }
+  const wanted = new Set(ordered);
 
   const [pack] = await packs.listPacks({ slug }, { take: 1 });
   if (!pack) {
@@ -47,11 +56,15 @@ export async function POST(
     }
   }
 
-  // Flip only the rows whose flag actually changes.
+  // Write only the rows whose order actually changes. Order = 1-based index
+  // in the submitted list; null for everything else.
+  const orderOf = new Map(ordered.map((id, i) => [id, i + 1]));
   const updates = cardRows
-    .filter((o) => (o.top_hit === true) !== wanted.has(o.card_id))
-    .map((o) => ({ id: o.id, top_hit: wanted.has(o.card_id) }));
+    .filter(
+      (o) => (o.top_hit_order ?? null) !== (orderOf.get(o.card_id) ?? null),
+    )
+    .map((o) => ({ id: o.id, top_hit_order: orderOf.get(o.card_id) ?? null }));
   if (updates.length > 0) await packs.updatePackOdds(updates);
 
-  res.json({ top_hits: [...wanted], changed: updates.length });
+  res.json({ top_hits: ordered, changed: updates.length });
 }

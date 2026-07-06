@@ -61,6 +61,9 @@ export const OddsEntrySchema = z.looseObject({
   rarity,
   market_value: finite,
   marketPriceMyr: finite.optional(),
+  /** Admin-picked Top Hit display order (1-based; null/absent = not one).
+   *  Malformed values degrade to null instead of dropping the whole row. */
+  top_hit_order: z.number().int().positive().nullable().catch(null).optional(),
 });
 
 /** GET /store/pulls/recent row — handle + name + known rarity + finite value.

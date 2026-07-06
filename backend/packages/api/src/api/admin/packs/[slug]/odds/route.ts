@@ -32,8 +32,8 @@ type OddsRow = {
   weight: number;
   locked: boolean;
   pct: number;
-  /** Admin-picked Top Hit flag (storefront display only). */
-  top_hit: boolean;
+  /** Admin-picked Top Hit display order (1-based; null = not a Top Hit). */
+  top_hit_order: number | null;
 };
 
 // GET /admin/packs/:slug/odds — load the editor state (admin-only, auto-protected).
@@ -89,7 +89,7 @@ export async function GET(
       weight: o.weight,
       locked: o.locked,
       pct: round2((o.weight / total) * 100),
-      top_hit: o.top_hit === true,
+      top_hit_order: o.top_hit_order ?? null,
     });
   }
   // Rarest-by-value first so the high-value cards sit at the top of the form.

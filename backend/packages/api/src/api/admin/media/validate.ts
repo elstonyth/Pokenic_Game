@@ -13,7 +13,7 @@
 // relaxed profile. PriceCharting card photos are small (their largest variant often
 // serves under 300px wide), so the curated 600×840 card minimum can't apply; the
 // security gates (type sniff, byte cap, bomb guard) run unchanged.
-export type ImageKind = 'pack' | 'card' | 'sprite' | 'pc-card';
+export type ImageKind = 'pack' | 'card' | 'sprite' | 'pc-card' | 'frame';
 
 export interface ImageFacts {
   width: number;
@@ -91,6 +91,15 @@ export const IMAGE_RULES = {
       minHeight: 128,
       targetRatio: 5 / 7,
       aspectTolerance: 0.25,
+    },
+    // Slab-frame overlay (site-settings): PSA-slab proportions (3.31" × 5.35"
+    // ≈ 0.62), transparent card window. Tolerance admits hand-made frames a
+    // few percent off; the storefront letterboxes object-contain regardless.
+    frame: {
+      minWidth: 400,
+      minHeight: 640,
+      targetRatio: 0.62,
+      aspectTolerance: 0.08,
     },
   } satisfies Record<ImageKind, ProfileRule>,
 } as const;

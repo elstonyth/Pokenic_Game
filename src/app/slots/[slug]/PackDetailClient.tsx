@@ -29,6 +29,7 @@ import {
   priceNumber,
 } from '@/lib/packs-data';
 import { rarityRgb } from '@/lib/rarity';
+import { SlabImage } from '@/components/SlabImage';
 import { PublishedOddsList } from './OddsSheet';
 import { publishedOddsRows } from '@/lib/packs-format';
 import { useLiveRecentPulls } from '@/lib/use-recent-pulls';
@@ -44,15 +45,12 @@ function CardThumb({ card, w }: { card: PackCard; w?: number }) {
           boxShadow: `0 0 16px -8px rgba(${rarityRgb(card.rarity)},0.6)`,
         }}
       >
-        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md">
-          <Image
-            src={card.image}
-            alt={card.name}
-            fill
-            sizes="(max-width: 768px) 30vw, 160px"
-            className="object-contain"
-          />
-        </div>
+        <SlabImage
+          src={card.image}
+          alt={card.name}
+          sizes="(max-width: 768px) 30vw, 160px"
+          className="w-full"
+        />
       </div>
     </div>
   );
@@ -177,22 +175,20 @@ export default function PackDetailClient({
             />
           </div>
 
-          {/* Top Hits */}
-          <Reveal as="section">
-            <div className="mb-1 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-chase" aria-hidden />
-              <h2 className="font-heading text-lg font-bold tracking-tight text-white">
-                Top Hits
-              </h2>
-            </div>
-            <p className="mb-3 text-[13px] text-white/70">
-              The top items available in this pack.
-            </p>
-            {topHits.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-[13px] text-white/60">
-                No cards in this pack yet — check back soon.
+          {/* Top Hits — admin-ordered (1 = leftmost). Hidden entirely when the
+              admin picked none: an un-curated pack must not fake a curated
+              section (the old fallback showed the 5 highest-value cards). */}
+          {topHits.length > 0 && (
+            <Reveal as="section">
+              <div className="mb-1 flex items-center gap-2">
+                <Flame className="h-4 w-4 text-chase" aria-hidden />
+                <h2 className="font-heading text-lg font-bold tracking-tight text-white">
+                  Top Hits
+                </h2>
               </div>
-            ) : (
+              <p className="mb-3 text-[13px] text-white/70">
+                The top items available in this pack.
+              </p>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
                 {topHits.map((c) => (
                   <div key={c.id} className="flex flex-col gap-1.5">
@@ -206,8 +202,8 @@ export default function PackDetailClient({
                   </div>
                 ))}
               </div>
-            )}
-          </Reveal>
+            </Reveal>
+          )}
         </div>
 
         {/* ---- RIGHT column: configurator ---- */}

@@ -32,10 +32,11 @@ export const PackOdds = model
     // locked rows keep their admin-set % verbatim on every save; unlocked rows
     // split the remaining (10000 − Σlocked) bps evenly. Phase 6b.
     locked: model.boolean().default(false),
-    // Admin-picked "Top Hits" flag — flagged cards ARE the pack page's Top
-    // Hits section (display only, no effect on the draw). No flags on a pack
-    // ⇒ the storefront falls back to its highest-value cards.
-    top_hit: model.boolean().default(false),
+    // Admin-picked "Top Hits" display order (display only, no effect on the
+    // draw): 1 renders leftmost on the pack page, then 2, 3, … null = not a
+    // Top Hit. No ordered rows on a pack ⇒ the storefront HIDES the section
+    // (no highest-value fallback — that made empty packs look curated).
+    top_hit_order: model.number().nullable(),
     // A2 — reward prize entry columns. kind is model-owned (db:generate emits
     // the single-col CHECK); the cross-col payout CHECK is hand-written below.
     kind: model.enum(['product', 'credit', 'nothing']).nullable(),

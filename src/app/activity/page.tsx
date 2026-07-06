@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import Reveal from '@/components/Reveal';
+import { SlabImage } from '@/components/SlabImage';
 import { rm } from '@/lib/format';
 import { MOCK_CARDS } from '@/lib/mock/cards';
 import { MOCK_USERS, findUser } from '@/lib/mock/users';
@@ -135,12 +136,11 @@ export default function ActivityPage() {
                     href={`/card/${row.card.id}`}
                     className="flex items-center gap-2.5 hover:underline"
                   >
-                    <Image
+                    <SlabImage
                       src={row.card.image}
                       alt=""
-                      width={28}
-                      height={40}
-                      className="h-10 w-7 shrink-0 rounded object-contain"
+                      sizes="28px"
+                      className="w-7 shrink-0"
                     />
                     <span className="max-w-[260px] truncate text-white/85">
                       {row.card.name}

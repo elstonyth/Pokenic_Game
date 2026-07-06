@@ -22,7 +22,7 @@ async function errorMessage(res: Response): Promise<string> {
 // profile (pack ≈ square, card ≈ 5:7).
 export async function uploadImage(
   file: File,
-  kind: 'pack' | 'card' | 'sprite',
+  kind: 'pack' | 'card' | 'sprite' | 'frame',
 ): Promise<string> {
   const body = new FormData();
   body.append('files', file);
@@ -610,3 +610,17 @@ export const getRewardsSettings = () =>
 export const saveRewardsSettings = (
   body: Partial<RewardsSettingsView> & { reason: string },
 ) => postJson<RewardsSettingsView>('/admin/rewards-settings', body);
+
+// ── Site settings (storefront presentation) ─────────────────────────────────
+
+// Slab-frame overlay the storefront layers over every card photo. null URL =
+// the storefront's bundled default frame.
+export interface SiteSettingsView {
+  slab_frame_url: string | null;
+}
+
+export const getSiteSettings = () =>
+  getJson<SiteSettingsView>('/admin/site-settings');
+
+export const saveSiteSettings = (body: SiteSettingsView & { reason: string }) =>
+  postJson<SiteSettingsView>('/admin/site-settings', body);

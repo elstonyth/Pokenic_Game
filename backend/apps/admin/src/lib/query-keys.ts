@@ -30,8 +30,7 @@ export const qk = {
   customerTransactionsKey: (id: string) =>
     ['admin', 'customer', id, 'transactions'] as const,
   // 4-segment prefix — invalidates ALL pages of a customer's pull history in one call
-  customerPullsKey: (id: string) =>
-    ['admin', 'customer', id, 'pulls'] as const,
+  customerPullsKey: (id: string) => ['admin', 'customer', id, 'pulls'] as const,
   // 4-segment prefix — invalidates ALL depths of a customer's referral tree in one call
   referralTreeKey: (id: string) =>
     ['admin', 'customer', id, 'referral-tree'] as const,
@@ -43,7 +42,9 @@ export const qk = {
   fxRate: ['admin', 'pricing', 'fx'] as const,
   fxHistory: ['admin', 'pricing', 'fx', 'history'] as const,
   dailyBoxes: ['admin', 'daily-rewards', 'boxes'] as const,
-  dailyBox: (tier: string) => ['admin', 'daily-rewards', 'boxes', tier] as const,
+  dailyBox: (tier: string) =>
+    ['admin', 'daily-rewards', 'boxes', tier] as const,
   voucherLadder: ['admin', 'daily-rewards', 'vouchers'] as const,
   rewardsSettings: ['admin', 'rewards-settings'] as const,
+  siteSettings: ['admin', 'site-settings'] as const,
 };

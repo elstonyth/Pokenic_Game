@@ -11,13 +11,15 @@ import type PacksModuleService from '../../../modules/packs/service';
 import { reqReason } from '../rewards-settings/validate';
 import { rebakeAllGradedCards } from '../media/bake-slab';
 
-// GET /admin/site-settings — current storefront presentation config.
+// GET /admin/site-settings — current storefront presentation config. Scoped
+// to the slab frame; the avatar-frame catalog has its own /admin/avatar-frames.
 export async function GET(
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse,
 ): Promise<void> {
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
-  res.json(await packs.siteSettings());
+  const { slab_frame_url } = await packs.siteSettings();
+  res.json({ slab_frame_url });
 }
 
 // slab_frame_url: null resets to the storefront's bundled default; otherwise

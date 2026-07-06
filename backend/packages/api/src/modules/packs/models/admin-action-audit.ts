@@ -35,6 +35,7 @@ export const AdminActionAudit = model
       'edit_voucher_ladder',
       'edit_fx_rate',
       'edit_site_settings',
+      'edit_avatar_frames',
     ]),
     before: model.json().nullable(),
     after: model.json().nullable(),

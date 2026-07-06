@@ -36,13 +36,15 @@ export default function SettingsForm({ customer }: Props) {
 
     if (result.ok) {
       // Sync the header's user menu (AuthCustomer has no phone — drop it).
-      // The profile handle is name-independent — carry the current one over.
+      // The profile handle and avatar are name-independent — carry the
+      // current ones over.
       setCustomer({
         id: result.customer.id,
         email: result.customer.email,
         first_name: result.customer.first_name,
         last_name: result.customer.last_name,
         handle: authCustomer?.handle ?? null,
+        avatar_url: authCustomer?.avatar_url ?? null,
       });
       setNote({ ok: true, text: 'Changes saved.' });
       router.refresh();

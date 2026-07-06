@@ -54,6 +54,8 @@ export interface PublicProfile {
   handle: string;
   name: string;
   seed: number;
+  avatar_url?: string | null;
+  equipped_frame_level?: number | null;
   joined_at: string;
   stats: {
     pulls: number;

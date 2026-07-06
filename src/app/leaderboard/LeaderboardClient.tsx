@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { pillVariants } from '@/components/ui/pill';
+import { FramedAvatar } from '@/components/FramedAvatar';
 import type { LeaderboardEntry } from '@/lib/data/leaderboard';
 
 const PERIODS = ['This Week', 'All Time'] as const;
@@ -141,14 +142,10 @@ export default function LeaderboardClient({
                   >
                     {entry.rank}
                   </span>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <FramedAvatar
                     src={entry.avatar}
-                    alt=""
-                    width={36}
-                    height={36}
-                    loading="lazy"
-                    className="h-9 w-9 shrink-0 rounded-full object-cover"
+                    frameSrc={entry.frame}
+                    size={36}
                   />
                   <div className="min-w-0 flex-1">
                     {entry.handle ? (

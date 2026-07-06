@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { userOrGeneric } from '@/lib/mock/users';
 import { getPublicProfile } from '@/lib/data/profiles';
+import { getAvatarFrames } from '@/lib/data/avatar-frames';
 import { mockProfileView, toProfileView } from '@/lib/profile-view';
 import ProfileClient from './ProfileClient';
 
@@ -32,9 +33,12 @@ export default async function ProfilePage({
 }) {
   const { user } = await params;
   const handle = decodeURIComponent(user);
-  const profile = await getPublicProfile(handle);
+  const [profile, avatarFrames] = await Promise.all([
+    getPublicProfile(handle),
+    getAvatarFrames(),
+  ]);
   const view = profile
-    ? toProfileView(profile)
+    ? toProfileView(profile, avatarFrames)
     : mockProfileView(userOrGeneric(handle));
   return <ProfileClient user={view} />;
 }

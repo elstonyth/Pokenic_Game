@@ -29,6 +29,7 @@ export type AuthCustomer = {
   /** Public profile handle (lazily assigned by the backend) — null only if
    * the handle fetch failed; /api/me refreshes it. */
   handle: string | null;
+  avatar_url: string | null;
 };
 
 export type AuthResult =
@@ -46,6 +47,10 @@ const toAuthCustomer = (
   first_name: c.first_name,
   last_name: c.last_name,
   handle,
+  avatar_url:
+    typeof (c.metadata ?? {})['avatar_url'] === 'string'
+      ? ((c.metadata ?? {})['avatar_url'] as string)
+      : null,
 });
 
 // Known backend errors → friendly copy (patterns local to auth; never raw).

@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccountHeader, Panel, StatCards } from '@/components/account/ui';
+import { getDaily } from '@/lib/actions/daily';
 import { getVip } from '@/lib/actions/vip';
 import { rm } from '@/lib/format';
+import { VipVouchers } from './VipVouchers';
 
 export const metadata: Metadata = { title: 'VIP' };
 
@@ -19,7 +21,7 @@ function rewardLabel(r: {
 }
 
 export default async function VipPage() {
-  const res = await getVip();
+  const [res, dailyRes] = await Promise.all([getVip(), getDaily()]);
   if (!res.ok) {
     return (
       <>
@@ -70,15 +72,37 @@ export default async function VipPage() {
           </p>
         </Panel>
       )}
+      {dailyRes.ok ? (
+        <VipVouchers
+          initialClaimable={dailyRes.state.vouchers.claimable.filter(
+            (g) => g.kind === 'voucher',
+          )}
+          initialClaimed={dailyRes.state.vouchers.claimed.filter(
+            (g) => g.kind === 'voucher',
+          )}
+          redemptionEnabled={dailyRes.state.redemptionEnabled}
+        />
+      ) : (
+        <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+          Couldn&apos;t load your vouchers right now — refresh to try again.
+        </p>
+      )}
       <p className="mt-4 text-[13px] text-white/60">
-        View your daily box and reward grants on the{' '}
+        Your free{' '}
         <Link
-          href="/rewards"
+          href="/daily"
           className="text-white/80 underline-offset-2 hover:text-white hover:underline"
         >
-          My Rewards
+          daily box
         </Link>{' '}
-        page.
+        upgrades with your level. Frames are equipped on{' '}
+        <Link
+          href="/me"
+          className="text-white/80 underline-offset-2 hover:text-white hover:underline"
+        >
+          your profile
+        </Link>
+        .
       </p>
     </>
   );

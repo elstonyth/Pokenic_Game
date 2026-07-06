@@ -38,11 +38,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     rawKind !== 'pack' &&
     rawKind !== 'card' &&
     rawKind !== 'sprite' &&
-    rawKind !== 'frame'
+    rawKind !== 'frame' &&
+    rawKind !== 'avatar-frame'
   ) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
-      "Field 'kind' must be 'pack', 'card', 'sprite', or 'frame'.",
+      "Field 'kind' must be 'pack', 'card', 'sprite', 'frame', or 'avatar-frame'.",
     );
   }
   const kind: ImageKind = rawKind;
@@ -83,7 +84,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   let content = file.buffer;
   let mimeType = file.mimetype;
   let filename = path.basename(file.originalname.replace(/\\/g, '/'));
-  if (kind === 'frame') {
+  if (kind === 'frame' || kind === 'avatar-frame') {
     let keyed: Buffer | null = null;
     try {
       keyed = await keyMagentaFrame(file.buffer);

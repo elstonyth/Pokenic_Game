@@ -32,6 +32,7 @@ export interface LeaderboardEntry {
   pulls: string;
   points: string;
   avatar: string;
+  frame: string | null;
 }
 
 // One row from GET /store/leaderboard (numbers + an avatar seed, no PII).
@@ -43,6 +44,8 @@ interface BackendEntry {
   pulls: number;
   points: number;
   seed: number;
+  avatar_url?: string | null;
+  equipped_frame_level?: number | null;
 }
 
 // Avatar mapping is shared with the profile page (lib/profile-view.ts) so the
@@ -55,12 +58,17 @@ interface BackendEntry {
  */
 export async function getLeaderboard(
   period: LeaderboardPeriod = 'weekly',
+  // Accepts the pending catalog promise so callers can start this fetch and
+  // getAvatarFrames() concurrently — frames are only needed for enrichment
+  // after the entries arrive, never to start the request.
+  framesInput: Record<string, string> | Promise<Record<string, string>> = {},
 ): Promise<LeaderboardEntry[]> {
   try {
     const { entries } = await sdk.client.fetch<{ entries: BackendEntry[] }>(
       `/store/leaderboard?period=${period}`,
     );
     if (!Array.isArray(entries) || entries.length === 0) return [];
+    const frames = await framesInput;
 
     return (
       parseList(LeaderboardEntrySchema, entries) as unknown as BackendEntry[]
@@ -71,7 +79,10 @@ export async function getLeaderboard(
       volume: rm(e.volume),
       pulls: String(e.pulls),
       points: Math.round(e.points).toLocaleString('en-US'),
-      avatar: avatarForSeed(e.seed),
+      avatar: e.avatar_url ?? avatarForSeed(e.seed),
+      frame: e.equipped_frame_level
+        ? (frames[String(e.equipped_frame_level)] ?? null)
+        : null,
     }));
   } catch (error) {
     logger.error(`[leaderboard] failed to load (${period}):`, error);

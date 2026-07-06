@@ -22,6 +22,7 @@ import {
   createVaultBuybackRateLimit,
 } from './utils/rate-limit';
 import { createResetTokenSingleUseGuard } from './utils/reset-token-guard';
+import { rejectCustomerMetadata } from './utils/customer-metadata-guard';
 
 // Custom-route middleware. /store/* is NOT a default customer-protected prefix
 // (only /store/customers/me/* is), so every customer-owned route here must opt
@@ -131,6 +132,14 @@ export default defineMiddlewares({
       matcher: '/auth/*/emailpass/update',
       method: 'POST',
       middlewares: [createResetTokenSingleUseGuard()],
+    },
+    {
+      // /store/customers/me is framework-authenticated; this guard rejects
+      // client-supplied `metadata` (reserved for server-validated keys — see
+      // utils/customer-metadata-guard.ts).
+      matcher: '/store/customers/me',
+      method: 'POST',
+      middlewares: [rejectCustomerMetadata],
     },
     {
       matcher: '/store/packs/*/open',
@@ -326,6 +335,28 @@ export default defineMiddlewares({
         deliveryWriteRateLimit,
       ],
     },
+    {
+      // Customer profile-photo upload (POST /store/profile/avatar): bearer
+      // auth, write-tier budget, then multipart parse (shared 20 MB edge cap —
+      // the route enforces the tighter 5 MB avatar cap).
+      matcher: '/store/profile/avatar',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        deliveryWriteRateLimit,
+        mediaUploadMiddleware,
+      ],
+    },
+    {
+      // Frame equip/unequip (POST /store/profile/frame) — state write, same
+      // write-tier budget.
+      matcher: '/store/profile/frame',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        deliveryWriteRateLimit,
+      ],
+    },
     // Admin money-mutation routes — already auth-protected by the framework
     // admin auth, so no explicit authenticate() entry is needed here. All share
     // one limiter instance (one budget + one Redis connection). The limiter keys
@@ -394,6 +425,13 @@ export default defineMiddlewares({
       // Site-settings write (slab-frame overlay URL). Not a money mutation,
       // but it repaints every card on the storefront — same admin budget.
       matcher: '/admin/site-settings',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
+    {
+      // Avatar-frame catalog write — cosmetic but repaints avatars storefront
+      // -wide; same admin money-mutation budget as site-settings.
+      matcher: '/admin/avatar-frames',
       method: 'POST',
       middlewares: [adminActionRateLimit],
     },

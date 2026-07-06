@@ -163,11 +163,20 @@ export async function GET(
 
   const seed = seedOf(customer.id);
   const first = (customer.first_name || '').trim();
+  const custMeta = (customer.metadata ?? {}) as Record<string, unknown>;
+  const avatarUrl =
+    typeof custMeta.avatar_url === 'string' ? custMeta.avatar_url : null;
+  const equippedFrameLevel =
+    typeof custMeta.equipped_frame_level === 'number'
+      ? custMeta.equipped_frame_level
+      : null;
 
   res.json({
     handle,
     name: first.length > 0 ? first : `Collector ${String(seed).slice(0, 4)}`,
     seed,
+    avatar_url: avatarUrl,
+    equipped_frame_level: equippedFrameLevel,
     joined_at: customer.created_at,
     stats: {
       pulls: pulls.length,

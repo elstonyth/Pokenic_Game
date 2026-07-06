@@ -18,6 +18,10 @@ export async function GET() {
           first_name: customer.first_name,
           last_name: customer.last_name,
           handle,
+          avatar_url:
+            typeof (customer.metadata ?? {})['avatar_url'] === 'string'
+              ? ((customer.metadata ?? {})['avatar_url'] as string)
+              : null,
         }
       : null,
   });

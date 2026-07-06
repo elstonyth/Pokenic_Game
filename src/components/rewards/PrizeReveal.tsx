@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { rm } from '@/lib/format';
 import type { DrawPrize } from '@/lib/actions/daily';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -108,7 +109,14 @@ export function PrizeReveal({
                 +{rm(prize.amountMyr ?? 0)}
               </p>
               <p className="text-sm text-white/50">
-                Added to your claimable vouchers.
+                Voucher added —{' '}
+                <Link
+                  href="/vip"
+                  className="text-white/80 underline underline-offset-2 hover:text-white"
+                >
+                  claim it on the VIP page
+                </Link>
+                .
               </p>
             </>
           )}

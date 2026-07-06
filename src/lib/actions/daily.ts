@@ -49,6 +49,8 @@ export type VoucherGrant = {
   id: string;
   kind: 'voucher' | 'frame';
   level: number;
+  /** 'ladder' = one-time level-up reward; 'box' = won from a daily box. */
+  origin: 'ladder' | 'box';
   amountMyr?: number;
   grantedAt: string;
 };
@@ -121,6 +123,7 @@ const toVoucherGrant = (
   id: g.id,
   kind: g.kind as 'voucher' | 'frame',
   level: g.level ?? 0,
+  origin: g.origin ?? 'ladder',
   amountMyr: (g.payload as { amount_myr?: number } | null | undefined)
     ?.amount_myr,
   grantedAt: g.granted_at,

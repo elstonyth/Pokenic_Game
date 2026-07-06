@@ -11,6 +11,7 @@ import type { Context, HttpTypes } from '@medusajs/framework/types';
 import type { OddsRarity } from '@acme/odds-math';
 import { validateDeliveryRequest, snapshotAddress } from './delivery';
 import { rewardsRedemptionEnabled } from './rewards-gate';
+import { FRAME_LEVELS } from './avatar-frames';
 import Pack from './models/pack';
 import Card from './models/card';
 import CardPriceHistory from './models/card-price-history';
@@ -208,6 +209,8 @@ export type GrantView = {
   level: number;
   payload: unknown;
   granted_at: string;
+  /** 'ladder' = one-time level-up reward; 'box' = won from a daily box. */
+  origin: 'ladder' | 'box';
 };
 
 /** A vaulted reward-prize Pull, same shape as the old GET /store/rewards `prizes`. */
@@ -373,13 +376,26 @@ class PacksModuleService extends MedusaService({
   }
 
   // Storefront presentation globals. Reads the singleton row; falls back to
-  // defaults when absent (null slab frame → storefront bundles its own).
+  // defaults when absent (null slab frame → storefront bundles its own;
+  // avatar_frames → {} until the admin uploads milestone frames).
   @InjectManager()
-  async siteSettings(
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<{ slab_frame_url: string | null }> {
+  async siteSettings(@MedusaContext() sharedContext: Context = {}): Promise<{
+    slab_frame_url: string | null;
+    avatar_frames: Record<string, string>;
+  }> {
     const [row] = await this.listSiteSettings({}, { take: 1 }, sharedContext);
-    return { slab_frame_url: row?.slab_frame_url ?? null };
+    return {
+      slab_frame_url: row?.slab_frame_url ?? null,
+      // Cleared levels are persisted as explicit nulls (see editAvatarFrames)
+      // — filter them out so consumers only ever see level → URL strings.
+      avatar_frames: Object.fromEntries(
+        Object.entries(
+          (row?.avatar_frames as Record<string, string | null> | null) ?? {},
+        ).filter((entry): entry is [string, string] => {
+          return typeof entry[1] === 'string';
+        }),
+      ),
+    };
   }
 
   // Admin edit of the site-settings singleton — upserts and writes an audit
@@ -423,6 +439,61 @@ class PacksModuleService extends MedusaService({
       sharedContext,
     );
     return data;
+  }
+
+  // Admin edit of the avatar-frame catalog — upsert + audit, same discipline
+  // as editSiteSettings (which owns slab_frame_url; this method never touches
+  // it and vice versa).
+  @InjectTransactionManager()
+  async editAvatarFrames(
+    input: {
+      frames: Record<string, string>;
+      adminId: string;
+      reason: string;
+    },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ avatar_frames: Record<string, string> }> {
+    const [row] = await this.listSiteSettings({}, { take: 1 }, sharedContext);
+    const before = {
+      avatar_frames:
+        (row?.avatar_frames as Record<string, string> | null) ?? {},
+    };
+    // The ORM MERGES json columns on update (an omitted key survives a
+    // "replace" — caught by the null-clear http test), so persist every
+    // milestone key explicitly: null overwrites a stale entry. Reads
+    // (siteSettings) filter the nulls back out.
+    const full: Record<string, string | null> = {};
+    for (const level of FRAME_LEVELS) {
+      full[String(level)] = input.frames[String(level)] ?? null;
+    }
+    const data = { avatar_frames: full };
+    if (row) {
+      await this.updateSiteSettings(
+        { selector: { id: row.id }, data },
+        sharedContext,
+      );
+    } else {
+      await this.createSiteSettings(
+        [{ id: 'global', slab_frame_url: null, ...data }],
+        sharedContext,
+      );
+    }
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'site_settings',
+          entity_id: row?.id ?? 'global',
+          action: 'edit_avatar_frames',
+          before,
+          after: data,
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    // Public shape: only configured levels, never the null placeholders.
+    return { avatar_frames: input.frames };
   }
 
   // The instant/flat sell-back offer for a pull, composed from the SAME pure
@@ -3373,6 +3444,7 @@ class PacksModuleService extends MedusaService({
       level: g.level,
       payload: g.payload,
       granted_at: g.created_at.toISOString(),
+      origin: (g.origin as 'ladder' | 'box' | null) ?? 'ladder',
     });
     const vouchers = {
       claimable: grantRows

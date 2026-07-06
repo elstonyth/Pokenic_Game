@@ -65,6 +65,14 @@ jobs:
       #
       # Mock gateway: customer flows fund themselves via /store/credits/topup.
       ALLOW_MOCK_TOPUP: 'true'
+      # CORS: locally these live in the gitignored backend .env; in CI they're
+      # unset, so the browser's auth preflight comes back without
+      # allow-origin and the login POST never fires (observed: only OPTIONS
+      # 204s in backend.log). Admin dev server is :7000, storefront :4000.
+      ADMIN_CORS: http://localhost:7000
+      VENDOR_CORS: http://localhost:7000
+      AUTH_CORS: http://localhost:7000,http://localhost:4000
+      STORE_CORS: http://localhost:4000
       # Ephemeral CI-only credential — the DB lives and dies with this job. A
       # PW_ADMIN_PASSWORD repo secret overrides it when wired; the fallback
       # keeps the nightly green either way (audit C2: no-fallback = red run).

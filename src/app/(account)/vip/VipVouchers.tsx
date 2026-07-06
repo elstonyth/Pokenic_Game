@@ -27,11 +27,15 @@ export function VipVouchers({
   const [claimed, setClaimed] = useState(initialClaimed);
   const [claiming, setClaiming] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Section-level message for grants that vanish from the list (a per-row
+  // error can't render once its row is removed).
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function handleClaim(grant: VoucherGrant) {
     if (claiming[grant.id]) return;
     setClaiming((p) => ({ ...p, [grant.id]: true }));
     setErrors((p) => ({ ...p, [grant.id]: '' }));
+    setNotice(null);
     const res = await claimVoucher(grant.id);
     setClaiming((p) => ({ ...p, [grant.id]: false }));
     if (!res.ok) {
@@ -39,10 +43,12 @@ export function VipVouchers({
       return;
     }
     if (!res.claimed) {
-      setErrors((p) => ({
-        ...p,
-        [grant.id]: 'Already claimed or no longer available.',
-      }));
+      // The server invalidated this grant (claimed elsewhere or revoked) —
+      // drop it from the list instead of offering an endless failing retry.
+      setClaimable((p) => p.filter((g) => g.id !== grant.id));
+      setNotice(
+        `${voucherLabel(grant)} is no longer claimable — it may have been claimed in another tab.`,
+      );
       return;
     }
     setClaimable((p) => p.filter((g) => g.id !== grant.id));
@@ -62,6 +68,15 @@ export function VipVouchers({
         Earned once each time you level up — not daily. Box-won vouchers land
         here too.
       </p>
+
+      {notice && (
+        <p
+          role="status"
+          className="mb-3 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-[13px] text-neutral-300"
+        >
+          {notice}
+        </p>
+      )}
 
       {claimable.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

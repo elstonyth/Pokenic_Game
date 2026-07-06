@@ -102,7 +102,13 @@ export async function validateImageFile(
   const profile = PROFILES[kind];
   if (dim.width < profile.minWidth || dim.height < profile.minHeight) {
     const label =
-      kind === 'card' ? 'Card' : kind === 'pack' ? 'Pack' : 'Sprite';
+      kind === 'card'
+        ? 'Card'
+        : kind === 'pack'
+          ? 'Pack'
+          : kind === 'frame' || kind === 'avatar-frame'
+            ? 'Frame'
+            : 'Sprite';
     return `${label} art must be at least ${profile.minWidth}×${profile.minHeight}px.`;
   }
 

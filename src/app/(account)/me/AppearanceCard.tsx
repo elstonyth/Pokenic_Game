@@ -75,7 +75,7 @@ export function AppearanceCard({
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          disabled={busy === 'photo'}
+          disabled={busy !== null}
           aria-label="Change profile photo"
           className="group relative rounded-full outline-offset-4 disabled:opacity-60"
         >
@@ -106,7 +106,7 @@ export function AppearanceCard({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            disabled={busy === 'photo'}
+            disabled={busy !== null}
             className="mt-1 text-[12px] font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline disabled:opacity-60"
           >
             {busy === 'photo' ? 'Uploading…' : 'Change photo'}

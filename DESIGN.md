@@ -10,7 +10,7 @@ colors:
   paper-white: '#fafafa'
   silver-text: '#a3a3a3'
   chase-gold: '#ffb020'
-  buyback-green: '#118c4f'
+  buyback-green: '#10834a'
   buyback-green-fg: '#2fbf6e'
   alarm-red: '#f87171'
   tier-starter: '#ef4444'

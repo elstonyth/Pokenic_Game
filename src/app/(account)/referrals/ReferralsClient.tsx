@@ -51,7 +51,7 @@ export default function ReferralsClient({ inviteUrl }: { inviteUrl: string }) {
           type="button"
           onClick={copy}
           aria-label={copied ? 'Copied' : 'Copy invite link'}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-700 text-neutral-200 transition-colors hover:text-white"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-700 text-neutral-200 transition-colors hover:text-white"
         >
           {copied ? (
             <Check className="h-4 w-4 text-buyback-fg" aria-hidden />

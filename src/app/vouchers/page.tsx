@@ -90,7 +90,7 @@ export default async function VouchersPage() {
                     <p className="text-sm font-semibold text-white">
                       {voucherLabel(grant)}
                     </p>
-                    <p className="text-[12px] text-white/50">
+                    <p className="text-[12px] text-white/60">
                       VIP LV {grant.level} · {relativeTime(grant.grantedAt)}
                     </p>
                   </div>
@@ -142,7 +142,7 @@ export default async function VouchersPage() {
                   <p className="text-sm font-semibold text-white/70">
                     {voucherLabel(grant)}
                   </p>
-                  <p className="text-[12px] text-white/40">
+                  <p className="text-[12px] text-white/60">
                     VIP LV {grant.level} · {relativeTime(grant.grantedAt)}
                   </p>
                 </div>

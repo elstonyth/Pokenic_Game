@@ -55,7 +55,7 @@ export default async function VipPage() {
           </div>
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full rounded-full bg-buyback"
+              className="h-full rounded-full bg-chase"
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -70,11 +70,11 @@ export default async function VipPage() {
           </p>
         </Panel>
       )}
-      <p className="mt-4 text-[13px] text-white/40">
+      <p className="mt-4 text-[13px] text-white/60">
         View your daily box and reward grants on the{' '}
         <Link
           href="/rewards"
-          className="text-buyback-fg underline-offset-2 hover:underline"
+          className="text-white/80 underline-offset-2 hover:text-white hover:underline"
         >
           My Rewards
         </Link>{' '}

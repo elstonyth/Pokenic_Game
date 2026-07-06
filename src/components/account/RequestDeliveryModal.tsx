@@ -10,6 +10,7 @@ import {
 } from '@/lib/actions/delivery';
 import type { VaultItem } from '@/lib/actions/vault';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { Pill } from '@/components/ui/pill';
 
 type Props = {
   open: boolean;
@@ -101,7 +102,7 @@ export default function RequestDeliveryModal({
         aria-modal="true"
         aria-label="Request delivery"
         tabIndex={-1}
-        className="w-full max-w-lg rounded-2xl border border-white/10 bg-neutral-900 p-5 outline-none"
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-5 outline-none"
       >
         <h2 className="font-heading text-lg font-bold text-white">
           Request delivery
@@ -152,7 +153,7 @@ export default function RequestDeliveryModal({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="text-[12px] font-semibold text-buyback-fg"
+              className="text-[12px] font-semibold text-white/80 hover:text-white"
             >
               + Add a new address
             </button>
@@ -238,23 +239,24 @@ export default function RequestDeliveryModal({
               <input
                 aria-label="Country code"
                 autoComplete="country"
-                placeholder="e.g. US"
+                placeholder="e.g. MY"
+                maxLength={2}
                 value={form.countryCode}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, countryCode: e.target.value }))
+                  setForm((f) => ({
+                    ...f,
+                    countryCode: e.target.value.toUpperCase(),
+                  }))
                 }
                 className={INPUT_CLASS}
               />
             </label>
             <div className="col-span-2 flex gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={saveAddress}
-                className="rounded-lg bg-buyback px-3 py-2 text-[13px] font-bold text-white disabled:opacity-50"
-              >
+              {/* Neutral-light primary (Pill): saving an address isn't money-in,
+                  so no buyback green. */}
+              <Pill disabled={busy} onClick={saveAddress} className="px-4">
                 Save address
-              </button>
+              </Pill>
               {addrList.length > 0 && (
                 <button
                   type="button"
@@ -269,7 +271,10 @@ export default function RequestDeliveryModal({
         )}
 
         {error && (
-          <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300"
+          >
             {error}
           </p>
         )}
@@ -282,14 +287,9 @@ export default function RequestDeliveryModal({
           >
             Cancel
           </button>
-          <button
-            type="button"
-            disabled={busy || adding || !selectedAddr}
-            onClick={submit}
-            className="rounded-lg bg-buyback px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
-          >
+          <Pill disabled={busy || adding || !selectedAddr} onClick={submit}>
             {busy ? 'Requesting…' : 'Request delivery'}
-          </button>
+          </Pill>
         </div>
       </div>
     </div>

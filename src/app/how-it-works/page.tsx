@@ -16,17 +16,19 @@ import {
 import FaqAccordion, { type FaqItem } from '@/components/FaqAccordion';
 import Reveal from '@/components/Reveal';
 import HowItWorksSteps from '@/components/HowItWorksSteps';
+import HeroVideo from '@/components/HeroVideo';
+import { DEMO_STATS } from '@/lib/demo-stats';
 
 export const metadata: Metadata = {
   title: 'How It Works',
   description:
-    'Open packs of real graded cards, own them instantly, and ship to your door or sell on the marketplace.',
+    'Open packs of real graded cards, own them instantly, and ship to your door or sell back at up to 90% of market value.',
 };
 
 const STATS = [
-  { value: '1.9M', label: 'Transactions' },
-  { value: 'RM 167.9M', label: 'Volume traded' },
-  { value: '24K', label: 'Active listings' },
+  { value: DEMO_STATS.transactions, label: 'Transactions' },
+  { value: DEMO_STATS.volume, label: 'Volume traded' },
+  { value: DEMO_STATS.listings, label: 'Active listings' },
 ];
 
 type VaultCard = { icon: LucideIcon; title: string; body: string };
@@ -91,22 +93,32 @@ const TESTIMONIALS: Testimonial[] = [
 ];
 
 type Capability = { icon: LucideIcon; title: string; body: string };
+// Marketplace/games cards only show while their feature flags are on — the
+// page must not advertise features the deploy has gated off.
 const CAPABILITIES: Capability[] = [
   {
     icon: Layers,
     title: 'Open Packs',
     body: 'Hundreds of Pokémon packs. New drops every week.',
   },
-  {
-    icon: Store,
-    title: 'Marketplace',
-    body: 'Buy and sell cards with other collectors. Real cards, real ownership, instant transfers.',
-  },
-  {
-    icon: Gamepad2,
-    title: 'Games',
-    body: 'Pack Party, Duel, Draft. Compete with friends and other collectors for real cards.',
-  },
+  ...(features.marketplace
+    ? [
+        {
+          icon: Store,
+          title: 'Marketplace',
+          body: 'Buy and sell cards with other collectors. Real cards, real ownership, instant transfers.',
+        },
+      ]
+    : []),
+  ...(features.packParty
+    ? [
+        {
+          icon: Gamepad2,
+          title: 'Games',
+          body: 'Pack Party, Duel, Draft. Compete with friends and other collectors for real cards.',
+        },
+      ]
+    : []),
   {
     icon: Trophy,
     title: 'Leaderboard',
@@ -125,11 +137,14 @@ const FAQS: FaqItem[] = [
   },
   {
     q: "What if I don't like my pull?",
-    a: 'You can sell any card back instantly for 85-90% of its market value, or list it on the marketplace at your own price. Many collectors also trade cards with each other directly on the platform.',
+    // Marketplace copy only while the flag is on (see CAPABILITIES above).
+    a: features.marketplace
+      ? 'You can sell any card back instantly for 85-90% of its market value, or list it on the marketplace at your own price. Many collectors also trade cards with each other directly on the platform.'
+      : 'You can sell any card back instantly for 85-90% of its market value — the credit lands on your balance immediately, ready for the next rip.',
   },
   {
     q: 'How are pulls determined? Is it fair?',
-    a: 'Every pull is determined by a provably fair system using public VRF (Verifiable Random Function). The odds for each pack are published transparently, and every result can be independently verified on-chain. No one, including us, can influence the outcome.',
+    a: 'Every pull is determined by a provably fair system: each result is committed to before the pull and verifiable afterwards (commit-reveal). The odds for each pack are published transparently, and every result can be independently checked. No one, including us, can influence the outcome.',
   },
   {
     q: 'Where are my cards stored?',
@@ -137,7 +152,10 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Can I sell my cards?',
-    a: 'Absolutely. You can list any card on the Pokenic marketplace and set your own price. When it sells, funds are available immediately. You can also use the instant sell-back feature for a guaranteed payout at 85-90% of market value.',
+    // Marketplace copy only while the flag is on (see CAPABILITIES above).
+    a: features.marketplace
+      ? 'Absolutely. You can list any card on the Pokenic marketplace and set your own price. When it sells, funds are available immediately. You can also use the instant sell-back feature for a guaranteed payout at 85-90% of market value.'
+      : 'Absolutely. Every card comes with an instant sell-back at 85-90% of its market value — a guaranteed payout, with funds available immediately.',
   },
 ];
 
@@ -173,9 +191,9 @@ export default function HowItWorksPage() {
             <Reveal
               as="p"
               delay={0}
-              className="mb-3 text-[11px] font-medium uppercase tracking-widest text-white/40 lg:text-[13px]"
+              className="mb-3 text-[11px] font-medium uppercase tracking-widest text-white/60 lg:text-[13px]"
             >
-              Trusted by 100,000+ collectors
+              Built for collectors, backed by graded-card buyback
             </Reveal>
             <Reveal
               as="h1"
@@ -191,7 +209,7 @@ export default function HowItWorksPage() {
               className="mt-4 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base 2xl:text-lg"
             >
               Open packs of real graded cards, own them instantly, and ship to
-              your door or sell on the marketplace.
+              your door or sell back at up to 90% of market value.
             </Reveal>
             <Reveal delay={270} className="mt-6 flex flex-wrap gap-3">
               <Link
@@ -281,15 +299,10 @@ export default function HowItWorksPage() {
           sub="Watch a pack opening from start to finish."
         />
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
-          <video
+          <HeroVideo
             src="/videos/pack-opening-demo.mp4"
             poster="/images/claw/elite-pack-icon.webp"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            aria-label="Pack opening demo"
+            label="Pack opening demo"
             className="h-full w-full object-cover"
           />
         </div>
@@ -451,7 +464,7 @@ export default function HowItWorksPage() {
           Ready to start collecting?
         </h2>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/60">
-          Join 100,000+ collectors opening packs and trading real cards every
+          Join the collectors opening packs and pulling real graded cards every
           day.
         </p>
         <Link

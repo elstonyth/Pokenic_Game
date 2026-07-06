@@ -13,7 +13,13 @@ export default function ResetPasswordPage() {
   return (
     // useSearchParams (the token/email live in the query string) requires a
     // Suspense boundary around the client component.
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <main className="px-fluid flex min-h-[70vh] items-center justify-center py-16">
+          <p className="text-sm text-white/50">Loading…</p>
+        </main>
+      }
+    >
       <ResetPasswordClient />
     </Suspense>
   );

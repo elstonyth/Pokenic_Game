@@ -8,9 +8,10 @@ export const metadata: Metadata = { title: 'Settings' };
 // Per-customer data behind the auth gate — always rendered fresh.
 export const dynamic = 'force-dynamic';
 
-// Static visual preferences — these don't persist yet (no backend representation;
-// 2FA/notifications are tracked as launch follow-ups in docs/note.md).
-const TOGGLES = [
+// No backend representation yet (2FA/notifications are launch follow-ups in
+// docs/note.md) — so these render as plain "coming soon" rows, NOT as live
+// toggles. A money product must never show a 2FA switch that does nothing.
+const UPCOMING = [
   'Email notifications',
   'Pull alerts',
   'Marketplace activity',
@@ -49,19 +50,17 @@ export default async function SettingsPage() {
             Notifications &amp; security
           </h2>
           <ul className="flex flex-col divide-y divide-white/5">
-            {TOGGLES.map((t, i) => (
+            {UPCOMING.map((t) => (
               <li key={t} className="flex items-center justify-between py-3">
                 <span className="text-sm text-white/80">{t}</span>
-                <span
-                  className={`flex h-6 w-11 items-center rounded-full p-0.5 ${i % 2 === 0 ? 'justify-end bg-buyback/80' : 'justify-start bg-white/15'}`}
-                >
-                  <span className="h-5 w-5 rounded-full bg-white" />
+                <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/60">
+                  Coming soon
                 </span>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-[11px] text-white/35">
-            Preferences are illustrative and don&apos;t persist yet.
+          <p className="mt-3 text-[12px] text-white/55">
+            These controls unlock as each feature ships.
           </p>
         </Panel>
       </div>

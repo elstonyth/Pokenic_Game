@@ -32,7 +32,7 @@ export default function TabBar() {
                 'flex flex-1 flex-col items-center justify-center gap-1 transition-colors',
                 active
                   ? 'text-neutral-50'
-                  : 'text-neutral-500 hover:text-neutral-300',
+                  : 'text-neutral-400 hover:text-neutral-300',
               )}
             >
               <Icon

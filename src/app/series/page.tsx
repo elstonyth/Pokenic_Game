@@ -67,7 +67,7 @@ export default function SeriesPage() {
     <div className="mx-auto w-full px-fluid py-6">
       <Reveal as="header" className="mb-6">
         <div className="flex items-center gap-2.5">
-          <Library className="h-5 w-5 text-sky-400" aria-hidden />
+          <Library className="h-5 w-5 text-white/70" aria-hidden />
           <h1 className="font-heading text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Series
           </h1>
@@ -89,13 +89,13 @@ export default function SeriesPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={s.image}
-                  alt={s.name}
+                  alt=""
                   loading="lazy"
                   className="h-full w-full object-contain p-1.5 transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-white/40">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-white/60">
                   {s.sub}
                 </p>
                 <h2
@@ -114,7 +114,7 @@ export default function SeriesPage() {
           </Reveal>
         ))}
       </div>
-      <p className="mt-4 text-center text-[11px] text-white/35">
+      <p className="mt-4 text-center text-[11px] text-white/55">
         Demo catalog — the full set index is served by the backend.
       </p>
     </div>

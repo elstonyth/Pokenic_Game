@@ -1,9 +1,10 @@
 'use client';
 
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { type CSSProperties, useRef } from 'react';
 import Image from 'next/image';
 import { rm } from '@/lib/format';
 import type { DrawPrize } from '@/lib/actions/daily';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /** A minimal reveal animation for the daily box prize (adapted from the slab aesthetic). */
 export function PrizeReveal({
@@ -15,36 +16,9 @@ export function PrizeReveal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Focus the dialog on mount so keyboard/SR users land inside it, not on
-    // whatever was behind it. Escape closes; Tab is trapped to the dialog's
-    // own focusable elements since nothing behind it should be reachable.
-    dialogRef.current?.focus();
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusable || focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  // Focus-in, Tab trap, Escape close, body scroll lock + focus restore on
+  // close. Only mounted while open, so `open` is always true here.
+  useModalA11y(dialogRef, true, onClose);
 
   return (
     <div
@@ -64,7 +38,7 @@ export function PrizeReveal({
               alt={prize.title ?? 'Prize'}
               fill
               sizes="200px"
-              className="object-contain drop-shadow-[0_0_40px_rgba(251,146,60,0.5)]"
+              className="object-contain drop-shadow-[0_0_40px_rgba(255,176,32,0.5)]"
             />
           </div>
         ) : (
@@ -74,9 +48,11 @@ export function PrizeReveal({
               {
                 background:
                   prize.kind === 'credit'
-                    ? 'radial-gradient(circle, rgba(52,211,153,0.25), rgba(52,211,153,0.05))'
+                    ? // buyback-fg #2fbf6e
+                      'radial-gradient(circle, rgba(47,191,110,0.25), rgba(47,191,110,0.05))'
                     : prize.kind === 'voucher'
-                      ? 'radial-gradient(circle, rgba(251,191,36,0.25), rgba(251,191,36,0.05))'
+                      ? // chase gold #ffb020
+                        'radial-gradient(circle, rgba(255,176,32,0.25), rgba(255,176,32,0.05))'
                       : 'radial-gradient(circle, rgba(163,163,163,0.2), rgba(163,163,163,0.05))',
               } as CSSProperties
             }
@@ -86,7 +62,7 @@ export function PrizeReveal({
                 RM
               </span>
             ) : prize.kind === 'voucher' ? (
-              <span className="font-heading text-4xl font-black text-amber-400">
+              <span className="font-heading text-4xl font-black text-chase">
                 RM
               </span>
             ) : (
@@ -99,7 +75,7 @@ export function PrizeReveal({
         <div className="space-y-1">
           {prize.kind === 'product' && (
             <>
-              <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-amber-400/70">
+              <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-chase/70">
                 Prize Won
               </p>
               <p className="font-heading text-2xl font-bold text-white">
@@ -125,10 +101,10 @@ export function PrizeReveal({
           )}
           {prize.kind === 'voucher' && (
             <>
-              <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-amber-400/70">
+              <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-chase/70">
                 Voucher Won
               </p>
-              <p className="font-heading text-3xl font-black text-amber-400">
+              <p className="font-heading text-3xl font-black text-chase">
                 +{rm(prize.amountMyr ?? 0)}
               </p>
               <p className="text-sm text-white/50">

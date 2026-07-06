@@ -230,14 +230,15 @@ export default function PackDetailClient({
             <div className="flex flex-col gap-4 px-5 py-4">
               {/* Free demo spin — guests only (hidden once logged in; a real
                   account opens real packs). Routes to the slot reel in demo
-                  mode: no login, no charge, nothing real won. */}
+                  mode: no login, no charge, nothing real won. Neutral ghost
+                  styling — buyback green is reserved for money-in actions. */}
               {!customer && demoPool.length > 0 && (
                 <Link
                   href={`/slots/${active.id}/spin?demo=1`}
-                  className="group flex h-12 items-center justify-between rounded-xl border border-buyback/40 bg-buyback/10 px-4 text-sm font-semibold text-buyback-fg shadow-[0_0_24px_-10px_rgba(17,140,79,0.8)] transition-all hover:border-buyback/70 hover:bg-buyback/20 hover:shadow-[0_0_32px_-8px_rgba(17,140,79,0.9)]"
+                  className="group flex h-12 items-center justify-between rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
                 >
                   <span className="flex items-center gap-2.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-buyback text-white transition-transform duration-200 group-hover:scale-110">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-white transition-transform duration-200 group-hover:scale-110">
                       <Play
                         className="ml-0.5 h-3.5 w-3.5 fill-current"
                         aria-hidden
@@ -245,7 +246,7 @@ export default function PackDetailClient({
                     </span>
                     <span className="flex flex-col leading-tight">
                       Try a free demo spin
-                      <span className="text-[11px] font-normal text-white/45">
+                      <span className="text-[11px] font-normal text-white/60">
                         No login · nothing charged
                       </span>
                     </span>

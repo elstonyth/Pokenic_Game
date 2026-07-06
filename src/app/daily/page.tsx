@@ -40,11 +40,11 @@ export default async function DailyPage() {
     );
   }
 
-  // Backend error (not an auth issue): existing amber error-panel pattern.
+  // Backend error (not an auth issue): red error panel, matching DailyClient.
   return (
     <div className="px-fluid mx-auto w-full max-w-md py-10 text-center">
       <h1 className="font-heading text-3xl text-white">DAILY REWARDS</h1>
-      <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3.5 text-left text-sm font-medium text-amber-300">
+      <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3.5 text-left text-sm font-medium text-red-300">
         <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
         {result.error}
       </div>

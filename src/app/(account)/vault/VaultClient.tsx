@@ -71,7 +71,12 @@ export default function VaultClient({
       return next;
     });
   const selectedItems = items.filter((i) => selected.has(i.pullId));
-  const selectedFmv = selectedItems.reduce((s, i) => s + i.card.marketValue, 0);
+  // Money display must use the MYR price (marketPriceMyr) — card.marketValue
+  // is the raw USD FMV from PriceCharting and must never render behind "RM".
+  const selectedFmv = selectedItems.reduce(
+    (s, i) => s + (i.card.marketPriceMyr ?? 0),
+    0,
+  );
   const selectedBuyback = selectedItems.reduce(
     (s, i) => s + i.buyback.amount,
     0,
@@ -84,7 +89,10 @@ export default function VaultClient({
   const selectedPercent =
     selectedItems[0]?.buyback.percent ?? FLAT_BUYBACK_PERCENT;
 
-  const vaultValue = items.reduce((sum, i) => sum + i.card.marketValue, 0);
+  const vaultValue = items.reduce(
+    (sum, i) => sum + (i.card.marketPriceMyr ?? 0),
+    0,
+  );
 
   const raritiesPresent = useMemo(() => {
     const present = new Set(items.map((i) => i.card.rarity));
@@ -251,7 +259,7 @@ export default function VaultClient({
           { label: 'Balance', value: rm0(providerBalance ?? balance) },
         ].map((stat) => (
           <div key={stat.label} className="px-4 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
               {stat.label}
             </p>
             <p className="font-heading mt-0.5 truncate text-base tabular-nums text-white lg:text-lg">
@@ -317,7 +325,10 @@ export default function VaultClient({
       )}
 
       {error && (
-        <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] font-medium text-red-300">
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] font-medium text-red-300"
+        >
           {error}
         </p>
       )}
@@ -427,7 +438,7 @@ export default function VaultClient({
                           : 'Feature on profile'
                       }
                       className={cn(
-                        'absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 transition-colors disabled:opacity-50',
+                        'absolute left-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 transition-colors disabled:opacity-50',
                         item.showcased
                           ? 'text-chase'
                           : 'text-neutral-400 hover:text-white',
@@ -464,7 +475,7 @@ export default function VaultClient({
                   </span>
                 </div>
                 <p
-                  className="mt-0.5 truncate text-[11px] text-neutral-500"
+                  className="mt-0.5 truncate text-[11px] text-neutral-400"
                   title={item.packTitle}
                 >
                   from {item.packTitle}
@@ -488,7 +499,7 @@ export default function VaultClient({
         </div>
       )}
 
-      <p className="mt-5 text-[12px] text-neutral-500">
+      <p className="mt-5 text-[12px] text-neutral-400">
         Sell-back credits your site balance instantly at the flat{' '}
         {FLAT_BUYBACK_PERCENT}% buyback rate. Physical shipping of vaulted cards
         arrives with checkout.
@@ -498,8 +509,9 @@ export default function VaultClient({
       {selectMode && selected.size > 0 && (
         <div className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-md rounded-2xl border border-white/10 bg-neutral-900 p-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)] lg:bottom-8">
           <div className="flex items-baseline justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-              {selected.size} selected · FMV {rm(selectedFmv)}
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+              {selected.size} selected · FMV{' '}
+              {selectedFmv > 0 ? rm(selectedFmv) : '—'}
             </span>
             <span className="text-[13px] font-semibold text-buyback-fg">
               Sell for {rm(selectedBuyback)}
@@ -525,7 +537,7 @@ export default function VaultClient({
           open
           cardName={confirmItem.card.name}
           image={confirmItem.card.image}
-          fmv={confirmItem.card.marketValue}
+          fmv={confirmItem.card.marketPriceMyr ?? 0}
           rateType="flat"
           percent={confirmItem.buyback.percent}
           netCredit={confirmItem.buyback.amount}

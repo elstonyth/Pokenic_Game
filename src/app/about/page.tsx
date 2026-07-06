@@ -26,7 +26,7 @@ const STEPS: Step[] = [
   {
     icon: ShoppingBag,
     title: 'Buy a Pack',
-    body: 'Purchase digitally with card or crypto. Real physical cards from our inventory.',
+    body: 'Purchase digitally with your card. Real physical cards from our inventory.',
   },
   {
     icon: Sparkles,
@@ -55,9 +55,9 @@ const FEATURES: Feature[] = [
   },
   {
     icon: Layers,
-    stat: '100K+',
-    label: 'Cards tokenized',
-    body: 'Own digital representations backed by real cards. Best of both worlds combined.',
+    stat: '100%',
+    label: 'Graded cards vaulted',
+    body: 'Every digital card is backed by a real graded card in the vault. Best of both worlds combined.',
   },
   {
     icon: Zap,
@@ -131,7 +131,7 @@ export default function AboutPage() {
                 className="h-1.5 w-1.5 rounded-full bg-buyback"
                 aria-hidden
               />{' '}
-              Powering 100K+ collectibles
+              Graded cards, real buyback
             </span>
           </Reveal>
           <Reveal
@@ -240,7 +240,7 @@ export default function AboutPage() {
       >
         <div className="grid gap-8 md:grid-cols-2 md:items-center">
           <div>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-widest text-white/40">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-widest text-white/60">
               For Brands
             </p>
             <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl">
@@ -271,7 +271,7 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
-            <p className="mb-3 text-[11px] font-medium uppercase tracking-widest text-white/40">
+            <p className="mb-3 text-[11px] font-medium uppercase tracking-widest text-white/60">
               Featured Partner
             </p>
             <h3 className="font-heading text-xl font-bold text-white">

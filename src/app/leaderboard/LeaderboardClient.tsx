@@ -48,9 +48,10 @@ export default function LeaderboardClient({
         <h1 className="font-heading text-3xl text-white">LEADERBOARD</h1>
       </div>
 
-      {/* Period toggle — 90scard's Past / This Week pills. */}
+      {/* Period toggle — 90scard's Past / This Week pills. Plain toggle
+          buttons (aria-pressed), not ARIA tabs — there are no tab panels. */}
       <div
-        role="tablist"
+        role="group"
         aria-label="Leaderboard timeframe"
         className="mt-4 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-neutral-900 p-1"
       >
@@ -58,11 +59,10 @@ export default function LeaderboardClient({
           <button
             key={p}
             type="button"
-            role="tab"
-            aria-selected={period === p}
+            aria-pressed={period === p}
             onClick={() => setPeriod(p)}
             className={cn(
-              'rounded-full px-3 py-2 text-center text-sm font-semibold transition-colors',
+              'rounded-full px-3 py-2.5 text-center text-sm font-semibold transition-colors',
               period === p
                 ? 'bg-neutral-50 text-neutral-950'
                 : 'text-neutral-400 hover:text-white',
@@ -89,8 +89,9 @@ export default function LeaderboardClient({
                     : i === 1
                       ? 'text-neutral-300'
                       : i === 2
-                        ? 'text-amber-700'
-                        : 'text-neutral-500',
+                        ? // amber-600: bronze that still clears AA on neutral-900
+                          'text-amber-600'
+                        : 'text-neutral-400',
                 )}
               >
                 {tier.place}
@@ -101,7 +102,7 @@ export default function LeaderboardClient({
             </div>
           ))}
         </div>
-        <p className="mt-1.5 text-[12px] text-neutral-500">
+        <p className="mt-1.5 text-[12px] text-neutral-400">
           Points come from every ringgit you spend on packs. The weekly board
           covers the last 7 days.
         </p>
@@ -167,7 +168,7 @@ export default function LeaderboardClient({
                         {entry.name}
                       </span>
                     )}
-                    <p className="truncate text-[12px] text-neutral-500">
+                    <p className="truncate text-[12px] text-neutral-400">
                       {entry.volume} · {entry.pulls} pulls
                     </p>
                   </div>
@@ -187,7 +188,7 @@ export default function LeaderboardClient({
           {own ? (
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                   Your rank
                 </p>
                 <p className="font-heading text-2xl tabular-nums text-white">
@@ -195,7 +196,7 @@ export default function LeaderboardClient({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                   Points
                 </p>
                 <p className="font-heading text-chase text-2xl tabular-nums">
@@ -206,7 +207,7 @@ export default function LeaderboardClient({
           ) : (
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                   Your rank
                 </p>
                 <p className="text-sm font-semibold text-white">

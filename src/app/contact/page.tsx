@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { MessageCircle, Vault, HelpCircle, ChevronRight } from 'lucide-react';
 import Reveal from '@/components/Reveal';
 
 export const metadata: Metadata = {
   title: 'Contact',
-  description:
-    'How can we help? Our team typically responds within a few minutes.',
+  description: 'How can we help? Our team typically responds within a day.',
 };
 
 const VAULTS = [
@@ -55,7 +55,7 @@ export default function ContactPage() {
           delay={90}
           className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/60 sm:text-base"
         >
-          Our team typically responds within a few minutes.
+          Our team typically responds within a day.
         </Reveal>
         <Reveal delay={160} className="relative mt-6">
           <a
@@ -101,7 +101,7 @@ export default function ContactPage() {
                     <div className="text-[13px] font-medium text-buyback-fg">
                       {v.status}
                     </div>
-                    <div className="text-[11px] text-white/40">{v.note}</div>
+                    <div className="text-[11px] text-white/60">{v.note}</div>
                   </div>
                 </li>
               ))}
@@ -124,7 +124,7 @@ export default function ContactPage() {
             <ul className="flex flex-col gap-1.5">
               {FAQS.map((q) => (
                 <li key={q}>
-                  <a
+                  <Link
                     href="/how-it-works"
                     className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-[13px] font-medium text-white/80 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
                   >
@@ -133,7 +133,7 @@ export default function ContactPage() {
                       className="h-4 w-4 shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5 group-hover:text-white/60"
                       aria-hidden
                     />
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

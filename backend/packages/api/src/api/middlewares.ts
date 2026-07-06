@@ -335,6 +335,18 @@ export default defineMiddlewares({
         deliveryWriteRateLimit,
       ],
     },
+    {
+      // Customer profile-photo upload (POST /store/profile/avatar): bearer
+      // auth, write-tier budget, then multipart parse (shared 20 MB edge cap —
+      // the route enforces the tighter 5 MB avatar cap).
+      matcher: '/store/profile/avatar',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        deliveryWriteRateLimit,
+        mediaUploadMiddleware,
+      ],
+    },
     // Admin money-mutation routes — already auth-protected by the framework
     // admin auth, so no explicit authenticate() entry is needed here. All share
     // one limiter instance (one budget + one Redis connection). The limiter keys

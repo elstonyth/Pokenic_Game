@@ -105,7 +105,7 @@
       "draftBanner": "Draft — hidden from the storefront. Add cards to the prize pool, save win rates, then activate.",
       "draftReadyBanner": "Draft — hidden from the storefront. The prize pool has cards; activate when the win rates look right.",
       "unitsOwed": "{{count}} owed to winners",
-      "topHit": "Top hit"
+      "topHit": "Top hit #"
     }
   },
   "pcAdd": {

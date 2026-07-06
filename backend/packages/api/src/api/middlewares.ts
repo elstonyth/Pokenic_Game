@@ -390,5 +390,12 @@ export default defineMiddlewares({
       method: 'POST',
       middlewares: [adminActionRateLimit],
     },
+    {
+      // Site-settings write (slab-frame overlay URL). Not a money mutation,
+      // but it repaints every card on the storefront — same admin budget.
+      matcher: '/admin/site-settings',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
   ],
 });

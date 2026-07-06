@@ -1,0 +1,14 @@
+import type { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import { PACKS_MODULE } from '../../../modules/packs';
+import type PacksModuleService from '../../../modules/packs/service';
+
+// GET /store/site-settings — storefront presentation config (currently just
+// the slab-frame overlay URL). Public, read-only, no customer auth (display
+// chrome carries no PII) — same stance as /store/pricing/fx.
+export async function GET(
+  req: MedusaRequest,
+  res: MedusaResponse,
+): Promise<void> {
+  const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
+  res.json(await packs.siteSettings());
+}

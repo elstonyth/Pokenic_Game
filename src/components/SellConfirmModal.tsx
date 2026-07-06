@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
 import { X } from 'lucide-react';
+import { SlabImage } from '@/components/SlabImage';
 import { rm } from '@/lib/format';
 
 const FOCUSABLE =
@@ -115,12 +115,11 @@ export default function SellConfirmModal({
 
         <div className="flex items-center gap-3">
           {!bulk && (
-            <Image
+            <SlabImage
               src={image}
               alt={cardName}
-              width={56}
-              height={78}
-              className="h-[78px] w-auto rounded-md object-contain"
+              sizes="48px"
+              className="w-12 shrink-0"
             />
           )}
           <div className="min-w-0">

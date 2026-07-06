@@ -6,9 +6,11 @@ import AppHeader from '@/components/app-shell/AppHeader';
 import TabBar from '@/components/app-shell/TabBar';
 import { TopUpProvider } from '@/components/app-shell/TopUpProvider';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { SlabFrameProvider } from '@/components/SlabFrameProvider';
 import SkipLink from '@/components/SkipLink';
 import CookieConsent from '@/components/CookieConsent';
 import { SITE_URL } from '@/lib/site';
+import { getSlabFrameUrl } from '@/lib/site-settings';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -53,11 +55,14 @@ export const metadata: Metadata = {
   // Favicon + apple-touch icon come from src/app/icon.png + apple-icon.png.
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Admin-configurable slab-frame overlay (TTL-cached; falls back to the
+  // bundled default when the backend is unreachable, e.g. at build time).
+  const slabFrameUrl = await getSlabFrameUrl();
   return (
     <html
       lang="en"
@@ -79,18 +84,20 @@ export default function RootLayout({
             features.
           </div>
         </noscript>
-        <AuthProvider>
-          <TopUpProvider>
-            <SkipLink />
-            <AppHeader />
-            {/* pb clears the fixed bottom TabBar on phones; none needed lg+. */}
-            <main id="main" className="flex-1 pb-24 lg:pb-8">
-              {children}
-            </main>
-            <TabBar />
-            <CookieConsent />
-          </TopUpProvider>
-        </AuthProvider>
+        <SlabFrameProvider frameUrl={slabFrameUrl}>
+          <AuthProvider>
+            <TopUpProvider>
+              <SkipLink />
+              <AppHeader />
+              {/* pb clears the fixed bottom TabBar on phones; none needed lg+. */}
+              <main id="main" className="flex-1 pb-24 lg:pb-8">
+                {children}
+              </main>
+              <TabBar />
+              <CookieConsent />
+            </TopUpProvider>
+          </AuthProvider>
+        </SlabFrameProvider>
       </body>
     </html>
   );

@@ -36,11 +36,13 @@ import {
   getVoucherLadder,
   getReferralTree,
   getRewardsSettings,
+  getSiteSettings,
   listDeliveryOrders,
   listEligibleProducts,
   reverseCommission,
   saveDailyBox,
   saveRewardsSettings,
+  saveSiteSettings,
   saveVoucherRanges,
   setFxRate,
   suspendCommission,
@@ -64,6 +66,7 @@ import {
   type FxRateState,
   type ReferralTree,
   type RewardsSettingsView,
+  type SiteSettingsView,
   type VoucherLadderDTO,
   type VoucherRangeDTO,
 } from './admin-rest';
@@ -434,8 +437,10 @@ export const useUnsuspendCommission = () => {
 
 export const useUploadImage = () =>
   useMutation({
-    mutationFn: (vars: { file: File; kind: 'pack' | 'card' | 'sprite' }) =>
-      uploadImage(vars.file, vars.kind),
+    mutationFn: (vars: {
+      file: File;
+      kind: 'pack' | 'card' | 'sprite' | 'frame';
+    }) => uploadImage(vars.file, vars.kind),
   });
 
 export const useUpdateDeliveryOrder = () => {
@@ -451,8 +456,7 @@ export const useUpdateDeliveryOrder = () => {
         tracking_number: vars.tracking_number,
       }),
     // Status filters + pages vary, so drop the whole delivery-orders namespace.
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: qk.deliveryOrdersKey }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.deliveryOrdersKey }),
   });
 };
 
@@ -516,6 +520,23 @@ export const useSaveRewardsSettings = () => {
     onSuccess: () => {
       toast.success('Engine settings saved');
       qc.invalidateQueries({ queryKey: qk.rewardsSettings });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+};
+
+export type { SiteSettingsView } from './admin-rest';
+
+export const useSiteSettings = (): UseQueryResult<SiteSettingsView> =>
+  useQuery({ queryKey: qk.siteSettings, queryFn: getSiteSettings });
+
+export const useSaveSiteSettings = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: saveSiteSettings,
+    onSuccess: () => {
+      toast.success('Slab frame saved');
+      qc.invalidateQueries({ queryKey: qk.siteSettings });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import Image from 'next/image';
+import { SlabImage } from '@/components/SlabImage';
 import {
   requestDelivery,
   addAddress,
@@ -114,18 +114,13 @@ export default function RequestDeliveryModal({
         {/* Selected cards */}
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {items.map((i) => (
-            <div
+            <SlabImage
               key={i.pullId}
-              className="relative h-20 w-15 shrink-0 overflow-hidden rounded"
-            >
-              <Image
-                src={i.card.image}
-                alt={i.card.name}
-                fill
-                sizes="60px"
-                className="object-contain"
-              />
-            </div>
+              src={i.card.image}
+              alt={i.card.name}
+              sizes="60px"
+              className="w-15 shrink-0"
+            />
           ))}
         </div>
 

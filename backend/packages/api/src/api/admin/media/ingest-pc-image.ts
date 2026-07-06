@@ -122,19 +122,53 @@ export async function ingestPcImage(
     badImage(verdict.message);
   }
 
+  // Round the card corners INTO the file: PC's digital renders bake the
+  // card's rounded corners (arc ≈ 5% of width) with flat WHITE outside the
+  // arc, which glares on the slab's black card well. A rounded-rect alpha
+  // mask (1% inset, 4% radius — concentric just inside the baked arc) makes
+  // the corners + a hairline edge transparent so the well shows through,
+  // like a real cased card. Output becomes WebP (needs alpha). Best-effort:
+  // any sharp failure stores the original bytes unchanged.
+  let outBytes: Buffer = bytes;
+  let outMime = mimeType;
+  let outExt: string | null = null;
+  try {
+    const w = meta.width ?? 0;
+    const h = meta.height ?? 0;
+    const inset = Math.round(w * 0.01);
+    const radius = Math.round(w * 0.04);
+    const mask = Buffer.from(
+      `<svg width="${w}" height="${h}"><rect x="${inset}" y="${inset}" width="${w - 2 * inset}" height="${h - 2 * inset}" rx="${radius}" ry="${radius}" fill="#fff"/></svg>`,
+    );
+    const masked = await sharp(bytes)
+      .composite([{ input: mask, blend: 'dest-in' }])
+      .webp({ quality: 92, alphaQuality: 90 })
+      .toBuffer();
+    if (masked.length <= IMAGE_RULES.maxBytes) {
+      outBytes = masked;
+      outMime = 'image/webp';
+      outExt = '.webp';
+    }
+  } catch {
+    // keep the untouched original
+  }
+
   // Filename keyed by PC's content hash (the path segment before the size),
   // so re-ingesting the same card is at least recognizable in storage.
   const segments = new URL(sourceUrl).pathname.split('/').filter(Boolean);
   const hash = segments.length >= 2 ? segments[segments.length - 2] : 'unknown';
-  const filename = `pc-${hash}-${path.basename(new URL(sourceUrl).pathname)}`;
+  const basename = path.basename(new URL(sourceUrl).pathname);
+  const filename = `pc-${hash}-${
+    outExt ? basename.replace(/\.[a-z0-9]+$/i, outExt) : basename
+  }`;
 
   const { result } = await uploadFilesWorkflow(container).run({
     input: {
       files: [
         {
           filename,
-          mimeType,
-          content: bytes.toString('base64'),
+          mimeType: outMime,
+          content: outBytes.toString('base64'),
           access: 'public',
         },
       ],

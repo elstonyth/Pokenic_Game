@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Trophy, Layers, TrendingUp, CalendarDays, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
+import { SlabImage } from '@/components/SlabImage';
 import { rm, num, compact } from '@/lib/format';
 import { type ProfileViewUser } from '@/lib/profile-view';
 
@@ -144,13 +145,12 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                   href={`/card/${c.id}`}
                   className="group block h-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-800 transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
                 >
-                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)]">
-                    <Image
+                  <div className="relative w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)] p-3">
+                    <SlabImage
                       src={c.image}
                       alt={c.name}
-                      fill
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                      className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
+                      className="w-full transition-transform duration-300 group-hover:scale-[1.04]"
                     />
                   </div>
                   <div className="p-2.5">
@@ -174,12 +174,11 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
               key={i}
               className="flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0"
             >
-              <Image
+              <SlabImage
                 src={a.card.image}
                 alt=""
-                width={32}
-                height={44}
-                className="h-11 w-8 shrink-0 rounded object-contain"
+                sizes="32px"
+                className="w-8 shrink-0"
               />
               <p className="min-w-0 flex-1 truncate text-[13px] text-white/80">
                 <span className="text-white/50">{a.verb}</span>{' '}

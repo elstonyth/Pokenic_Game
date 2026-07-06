@@ -136,8 +136,8 @@ export interface OddsRow {
   locked: boolean;
   /** Current win % = weight / Σweight × 100. */
   pct: number;
-  /** Admin-picked Top Hit flag (storefront display only). */
-  top_hit: boolean;
+  /** Admin-picked Top Hit display order (1-based; null = not a Top Hit). */
+  top_hit_order: number | null;
 }
 
 export interface PackOddsResponse {
@@ -216,6 +216,7 @@ type PacksApi = {
           }>;
         };
         'top-hits': {
+          // card_ids is ORDERED: index 0 = display order 1 (leftmost).
           mutate: (input: { $slug: string; card_ids: string[] }) => Promise<{
             top_hits: string[];
             changed: number;

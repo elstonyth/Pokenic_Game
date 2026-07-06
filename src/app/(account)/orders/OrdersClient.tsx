@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Badge } from '@/components/account/ui';
+import { SlabImage } from '@/components/SlabImage';
 import {
   addAddress,
   editDeliveryAddress,
@@ -47,13 +48,11 @@ function DeliveryItems({ items }: { items: DeliveryOrderView['items'] }) {
   return (
     <span className="flex items-center gap-2">
       {first?.card?.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SlabImage
           src={first.card.image}
           alt=""
-          width={24}
-          height={32}
-          className="h-8 w-6 shrink-0 rounded object-contain"
+          sizes="24px"
+          className="w-6 shrink-0"
         />
       )}
       <span className="max-w-[220px] truncate">{first?.card?.name ?? '—'}</span>

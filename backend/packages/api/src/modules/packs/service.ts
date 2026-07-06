@@ -22,6 +22,7 @@ import DeliveryOrder from './models/delivery-order';
 import DeliveryOrderItem from './models/delivery-order-item';
 import VipLevel from './models/vip-level';
 import RewardsSettings from './models/rewards-settings';
+import SiteSettings from './models/site-settings';
 import ReferralRelationship from './models/referral-relationship';
 import Commission from './models/commission';
 import CustomerAccountState from './models/customer-account-state';
@@ -266,6 +267,7 @@ class PacksModuleService extends MedusaService({
   DeliveryOrderItem,
   VipLevel,
   RewardsSettings,
+  SiteSettings,
   ReferralRelationship,
   Commission,
   CustomerAccountState,
@@ -368,6 +370,57 @@ class PacksModuleService extends MedusaService({
       overrideGenerationCap: row ? Number(row.override_generation_cap) : 100,
       withdrawals_per_day: row ? Number(row.withdrawals_per_day) : 1,
     };
+  }
+
+  // Storefront presentation globals. Reads the singleton row; falls back to
+  // defaults when absent (null slab frame → storefront bundles its own).
+  @InjectManager()
+  async siteSettings(
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ slab_frame_url: string | null }> {
+    const [row] = await this.listSiteSettings({}, { take: 1 }, sharedContext);
+    return { slab_frame_url: row?.slab_frame_url ?? null };
+  }
+
+  // Admin edit of the site-settings singleton — upserts and writes an audit
+  // row. Named `editSiteSettings` to avoid shadowing the MedusaService-
+  // generated `updateSiteSettings` CRUD method (same convention as
+  // editRewardsSettings).
+  @InjectTransactionManager()
+  async editSiteSettings(
+    input: {
+      slabFrameUrl: string | null;
+      adminId: string;
+      reason: string;
+    },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ slab_frame_url: string | null }> {
+    const [row] = await this.listSiteSettings({}, { take: 1 }, sharedContext);
+    const before = { slab_frame_url: row?.slab_frame_url ?? null };
+    const data = { slab_frame_url: input.slabFrameUrl };
+    if (row) {
+      await this.updateSiteSettings(
+        { selector: { id: row.id }, data },
+        sharedContext,
+      );
+    } else {
+      await this.createSiteSettings([data], sharedContext);
+    }
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'site_settings',
+          entity_id: row?.id ?? 'singleton',
+          action: 'edit_site_settings',
+          before,
+          after: data,
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return data;
   }
 
   // The instant/flat sell-back offer for a pull, composed from the SAME pure
@@ -3284,7 +3337,10 @@ class PacksModuleService extends MedusaService({
             };
           }
           if (p.kind === 'credit' || p.kind === 'voucher') {
-            return { kind: p.kind, amount_myr: Number(payload.amount_myr ?? 0) };
+            return {
+              kind: p.kind,
+              amount_myr: Number(payload.amount_myr ?? 0),
+            };
           }
           return { kind: 'nothing' };
         });
@@ -3628,7 +3684,12 @@ class PacksModuleService extends MedusaService({
     }
 
     const metaRows = await em.execute<
-      { box_tier: string; customer_count: string; level_from: number; level_to: number }[]
+      {
+        box_tier: string;
+        customer_count: string;
+        level_from: number;
+        level_to: number;
+      }[]
     >(
       `SELECT vl.box_tier AS box_tier,
               COUNT(DISTINCT vms.customer_id) AS customer_count,
@@ -3664,8 +3725,19 @@ class PacksModuleService extends MedusaService({
     tier: string,
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{
-    box: { tier: string; name: string; enabled: boolean; draws_per_day: number };
-    prizes: { id: string; kind: string; payload: unknown; locked: boolean; pct: number }[];
+    box: {
+      tier: string;
+      name: string;
+      enabled: boolean;
+      draws_per_day: number;
+    };
+    prizes: {
+      id: string;
+      kind: string;
+      payload: unknown;
+      locked: boolean;
+      pct: number;
+    }[];
   }> {
     const [rewardBox] = await this.listRewardBoxes(
       { tier },
@@ -3713,7 +3785,12 @@ class PacksModuleService extends MedusaService({
       adminId: string;
     },
     @MedusaContext() sharedContext: Context = {},
-  ): Promise<{ tier: string; prize_count: number; enabled: boolean; draws_per_day: number }> {
+  ): Promise<{
+    tier: string;
+    prize_count: number;
+    enabled: boolean;
+    draws_per_day: number;
+  }> {
     const [rewardBox] = await this.listRewardBoxes(
       { tier: input.tier },
       { take: 1 },

@@ -4,7 +4,7 @@
 // operator instant feedback instead of a round-trip. KEEP THESE NUMBERS IN
 // SYNC with validate.ts.
 
-export type ImageKind = 'pack' | 'card' | 'sprite';
+export type ImageKind = 'pack' | 'card' | 'sprite' | 'frame';
 
 const ALLOWED_MIME = [
   'image/webp',
@@ -41,6 +41,12 @@ const PROFILES: Record<
     minHeight: 64,
     targetRatio: 1,
     aspectTolerance: 0.25,
+  },
+  frame: {
+    minWidth: 400,
+    minHeight: 640,
+    targetRatio: 0.62,
+    aspectTolerance: 0.08,
   },
 };
 
@@ -89,7 +95,8 @@ export async function validateImageFile(
 
   const profile = PROFILES[kind];
   if (dim.width < profile.minWidth || dim.height < profile.minHeight) {
-    const label = kind === 'card' ? 'Card' : kind === 'pack' ? 'Pack' : 'Sprite';
+    const label =
+      kind === 'card' ? 'Card' : kind === 'pack' ? 'Pack' : 'Sprite';
     return `${label} art must be at least ${profile.minWidth}×${profile.minHeight}px.`;
   }
 

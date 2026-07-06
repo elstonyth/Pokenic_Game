@@ -112,29 +112,32 @@ const PackOddsEditorPage = () => {
       return next;
     });
 
-  // Top-hit toggle — optimistic buffer flip + immediate save of the complete
-  // flagged set (idempotent). Reverted on failure. Deliberately no query
-  // invalidation (see useSaveTopHits) so in-progress win-rate edits survive.
-  const toggleTopHit = async (cardId: string) => {
-    if (!rows || saveTopHits.isPending) return;
-    const next = rows.map((x) =>
-      x.card_id === cardId ? { ...x, topHit: !x.topHit } : x,
+  // Top-hit ORDER (1 = leftmost on the pack page; empty = not a Top Hit).
+  // Typed freely into the row buffer, saved on blur/Enter as the complete
+  // ordered list (sorted by the typed numbers; gaps/ties normalize to 1..n
+  // server-side by list index — displayed numbers resync on next load, NOT
+  // after save, so an order field the operator is currently typing in never
+  // gets clobbered). Deliberately no query invalidation (see useSaveTopHits)
+  // so in-progress win-rate edits survive.
+  const setTopHitInput = (cardId: string, value: string) =>
+    setRows(
+      (cur) =>
+        cur?.map((x) =>
+          x.card_id === cardId ? { ...x, topHitInput: value } : x,
+        ) ?? null,
     );
-    setRows(next);
+  const commitTopHits = async () => {
+    if (!rows || saveTopHits.isPending) return;
+    const card_ids = rows
+      .filter((x) => {
+        const n = Number(x.topHitInput.trim());
+        return x.topHitInput.trim() !== '' && Number.isFinite(n) && n > 0;
+      })
+      .sort((a, b) => Number(a.topHitInput) - Number(b.topHitInput))
+      .map((x) => x.card_id);
     try {
-      await saveTopHits.mutateAsync({
-        slug,
-        card_ids: next.filter((x) => x.topHit).map((x) => x.card_id),
-      });
+      await saveTopHits.mutateAsync({ slug, card_ids });
     } catch (err) {
-      // Flip back ONLY this card's flag — a whole-array snapshot restore would
-      // discard rate/lock edits made on other rows while the save was in flight.
-      setRows(
-        (cur) =>
-          cur?.map((x) =>
-            x.card_id === cardId ? { ...x, topHit: !x.topHit } : x,
-          ) ?? null,
-      );
       toast.error(err instanceof Error ? err.message : String(err));
     }
   };
@@ -394,11 +397,20 @@ const PackOddsEditorPage = () => {
                       </Select>
                     </Table.Cell>
                     <Table.Cell className="text-center">
-                      <Checkbox
-                        checked={r.topHit}
-                        disabled={saveTopHits.isPending}
+                      <Input
+                        size="small"
+                        inputMode="numeric"
+                        placeholder="—"
+                        className="mx-auto w-14 text-center tabular-nums"
+                        value={r.topHitInput}
                         aria-label={`${t('packs.editor.topHit')}: ${r.name}`}
-                        onCheckedChange={() => void toggleTopHit(r.card_id)}
+                        onChange={(e) =>
+                          setTopHitInput(r.card_id, e.target.value)
+                        }
+                        onBlur={() => void commitTopHits()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur();
+                        }}
                       />
                     </Table.Cell>
                     <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">

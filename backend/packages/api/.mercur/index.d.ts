@@ -63,7 +63,9 @@ export type Routes = {
                 credits: typeof import("../../src/api/admin/customers/[id]/credits/route");
                 freeze: typeof import("../../src/api/admin/customers/[id]/freeze/route");
                 gacha: typeof import("../../src/api/admin/customers/[id]/gacha/route");
+                pulls: typeof import("../../src/api/admin/customers/[id]/pulls/route");
                 referralTree: typeof import("../../src/api/admin/customers/[id]/referral-tree/route");
+                transactions: typeof import("../../src/api/admin/customers/[id]/transactions/route");
                 unfreeze: typeof import("../../src/api/admin/customers/[id]/unfreeze/route");
             };
         };
@@ -473,10 +475,13 @@ export type Routes = {
             search: typeof import("../../src/api/admin/pricecharting/search/route");
         };
         pricing: {
-            fx: typeof import("../../src/api/admin/pricing/fx/route");
+            fx: typeof import("../../src/api/admin/pricing/fx/route") & {
+                history: typeof import("../../src/api/admin/pricing/fx/history/route");
+            };
         };
         pulls: typeof import("../../src/api/admin/pulls/route");
         rewardsSettings: typeof import("../../src/api/admin/rewards-settings/route");
+        siteSettings: typeof import("../../src/api/admin/site-settings/route");
     };
     auth: {
         $actorType: {
@@ -611,6 +616,7 @@ export type Routes = {
             };
             withdraw: typeof import("../../src/api/store/rewards/withdraw/route");
         };
+        siteSettings: typeof import("../../src/api/store/site-settings/route");
         vault: typeof import("../../src/api/store/vault/route") & {
             $id: {
                 buyback: typeof import("../../src/api/store/vault/[id]/buyback/route");

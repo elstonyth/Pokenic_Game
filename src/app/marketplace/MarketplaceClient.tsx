@@ -4,12 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import {
-  PEDESTAL_BG,
-  PEDESTAL_FRAME_HOVER,
-  PEDESTAL_IMAGE,
-} from '@/components/card-pedestal';
+import { PEDESTAL_BG, PEDESTAL_FRAME_HOVER } from '@/components/card-pedestal';
 import Reveal from '@/components/Reveal';
+import { SlabImage } from '@/components/SlabImage';
 import {
   Filter,
   X,
@@ -203,12 +200,7 @@ function MarketCard({ card }: { card: MarketplaceCard }) {
       )}
     >
       {/* Image area on a dark radial pedestal */}
-      <div
-        className={cn(
-          'relative aspect-[3/4] w-full overflow-hidden',
-          PEDESTAL_BG,
-        )}
-      >
+      <div className={cn('relative w-full overflow-hidden', PEDESTAL_BG)}>
         {/* +pts badge, top-left */}
         <span className="absolute left-2 top-2 z-10 rounded-full bg-buyback/90 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
           +{card.points}pts
@@ -223,15 +215,14 @@ function MarketCard({ card }: { card: MarketplaceCard }) {
         </button>
         <Link
           href={`/card/${card.id}`}
-          className="relative block h-full w-full"
+          className="block p-3"
           aria-label={card.title}
         >
-          <Image
+          <SlabImage
             src={card.image}
             alt={card.title}
-            fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-            className={cn(PEDESTAL_IMAGE, 'p-3')}
+            className="w-full transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"
           />
         </Link>
       </div>

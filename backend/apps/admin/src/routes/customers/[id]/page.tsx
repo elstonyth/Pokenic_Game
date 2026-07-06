@@ -103,19 +103,13 @@ const Customer360Page = () => {
   function applyFreeze() {
     if (!customerId || !reason.trim()) return;
     closeModal();
-    freeze.mutate(
-      { id: customerId, reason },
-      { onSuccess: () => toast.success('Customer frozen') },
-    );
+    freeze.mutate({ id: customerId, reason });
   }
 
   function applyUnfreeze() {
     if (!customerId || !reason.trim()) return;
     closeModal();
-    unfreeze.mutate(
-      { id: customerId, reason },
-      { onSuccess: () => toast.success('Customer unfrozen') },
-    );
+    unfreeze.mutate({ id: customerId, reason });
   }
 
   function applyAdjustCredits() {
@@ -137,18 +131,9 @@ const Customer360Page = () => {
     if (!customerId || !targetCommId || !reason.trim()) return;
     const vars = { commId: targetCommId, customerId, reason };
     closeModal();
-    if (modal === 'reverse')
-      reverseComm.mutate(vars, {
-        onSuccess: () => toast.success('Commission reversed'),
-      });
-    else if (modal === 'suspend')
-      suspendComm.mutate(vars, {
-        onSuccess: () => toast.success('Commission suspended'),
-      });
-    else if (modal === 'unsuspend')
-      unsuspendComm.mutate(vars, {
-        onSuccess: () => toast.success('Commission unsuspended'),
-      });
+    if (modal === 'reverse') reverseComm.mutate(vars);
+    else if (modal === 'suspend') suspendComm.mutate(vars);
+    else if (modal === 'unsuspend') unsuspendComm.mutate(vars);
   }
 
   // ── Prompt titles / descriptions per modal kind ──────────────────────────

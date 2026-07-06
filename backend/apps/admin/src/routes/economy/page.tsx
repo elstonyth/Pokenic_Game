@@ -51,6 +51,7 @@ const FxCard = () => {
       description:
         "This reprices every card on the storefront immediately. Continue?",
       confirmText: "Save rate",
+      variant: "confirmation",
     });
     if (!confirmed) return;
     setFx.mutate({

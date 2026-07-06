@@ -166,18 +166,21 @@ const SupportPage = () => {
                   {results.map((c) => (
                     <Table.Row
                       key={c.id}
-                      role="button"
-                      tabIndex={0}
-                      className="cursor-pointer focus-visible:bg-ui-bg-base-hover focus-visible:outline-none"
+                      className="cursor-pointer"
                       onClick={() => open(c.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          open(c.id);
-                        }
-                      }}
                     >
-                      <Table.Cell>{c.email}</Table.Cell>
+                      <Table.Cell>
+                        <button
+                          type="button"
+                          className="focus-visible:shadow-borders-interactive-with-focus rounded-md text-left outline-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            open(c.id);
+                          }}
+                        >
+                          {c.email}
+                        </button>
+                      </Table.Cell>
                       <Table.Cell className="text-ui-fg-subtle">
                         {c.first_name ?? "—"}
                       </Table.Cell>

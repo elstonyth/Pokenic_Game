@@ -98,30 +98,37 @@ const DailyRewardsPage = () => {
   };
   return (
     <Container className="p-0">
-      <div className="flex items-center justify-between px-6 py-4">
-        <div>
-          <Heading level="h2">Daily Rewards</Heading>
-          <Text className="text-ui-fg-subtle mt-1" size="small">
-            Configure the daily box each VIP tier opens and the one-time
-            vouchers granted by level.
-          </Text>
-        </div>
-        <Tabs
-          value={tab}
-          onValueChange={(v) =>
-            switchTab(v as 'boxes' | 'vouchers' | 'settings')
-          }
-        >
+      <Tabs
+        value={tab}
+        onValueChange={(v) =>
+          switchTab(v as 'boxes' | 'vouchers' | 'settings')
+        }
+        activationMode="manual"
+      >
+        <div className="flex items-center justify-between px-6 py-4">
+          <div>
+            <Heading level="h2">Daily Rewards</Heading>
+            <Text className="text-ui-fg-subtle mt-1" size="small">
+              Configure the daily box each VIP tier opens and the one-time
+              vouchers granted by level.
+            </Text>
+          </div>
           <Tabs.List>
             <Tabs.Trigger value="boxes">Boxes</Tabs.Trigger>
             <Tabs.Trigger value="vouchers">Vouchers</Tabs.Trigger>
             <Tabs.Trigger value="settings">Engine settings</Tabs.Trigger>
           </Tabs.List>
-        </Tabs>
-      </div>
-      {tab === 'boxes' && <BoxesTab dirtyRef={boxesDirty} />}
-      {tab === 'vouchers' && <VouchersTab />}
-      {tab === 'settings' && <SettingsTab />}
+        </div>
+        <Tabs.Content value="boxes">
+          <BoxesTab dirtyRef={boxesDirty} />
+        </Tabs.Content>
+        <Tabs.Content value="vouchers">
+          <VouchersTab />
+        </Tabs.Content>
+        <Tabs.Content value="settings">
+          <SettingsTab />
+        </Tabs.Content>
+      </Tabs>
     </Container>
   );
 };
@@ -333,6 +340,7 @@ const VouchersTab = () => {
         description:
           'All voucher amounts are zero — customers will stop receiving level-up vouchers. Save anyway?',
         confirmText: 'Save anyway',
+        variant: 'confirmation',
       });
       if (!ok) return;
     }

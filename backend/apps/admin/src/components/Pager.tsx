@@ -20,7 +20,10 @@ export const Pager = ({
   const hasMore =
     total !== null ? (page + 1) * pageSize < total : count === pageSize;
   return (
-    <div className="flex items-center justify-between border-t px-6 py-3">
+    <nav
+      aria-label="Pagination"
+      className="flex items-center justify-between border-t px-6 py-3"
+    >
       <Text size="small" className="text-ui-fg-subtle tabular-nums">
         {total !== null
           ? `${from}–${to} of ${total.toLocaleString('en-US')}`
@@ -44,6 +47,6 @@ export const Pager = ({
           Next
         </Button>
       </div>
-    </div>
+    </nav>
   );
 };

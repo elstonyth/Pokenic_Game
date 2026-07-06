@@ -26,6 +26,7 @@ import {
 import { resolveImageUrl } from '../../lib/image-url';
 import { rm, usdToMyr, myrToUsd } from '../../lib/format';
 import CardPokemonFields from './CardPokemonFields';
+import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 
 // Register an EXISTING inventory product as a gacha card (inventory-first: the
 // item is created in the product catalog beforehand; this dialog only adds the
@@ -67,7 +68,7 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
   const registerCard = useRegisterCard();
   // FMV is tracked in USD (PriceCharting-native); operators read/enter RM. fx is
   // the live USD→MYR rate used to show RM and to convert back to USD on save.
-  const { data: fx } = useFxRate();
+  const { data: fx, isError: fxError } = useFxRate();
   const fxEff = fx?.effective ?? null;
   // Non-marked-up MYR label for a grade-tier chip; raw USD until FX loads.
   const tierLabel = (usd: number): string =>
@@ -178,7 +179,8 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
   const applyPrice = (grade: string, usd: number) =>
     setFields((f) => ({
       ...f,
-      market_value: fxEff !== null ? String(usdToMyr(usd, fxEff)) : f.market_value,
+      market_value:
+        fxEff !== null ? String(usdToMyr(usd, fxEff)) : f.market_value,
       grade: f.grade.trim() ? f.grade : grade,
     }));
 
@@ -255,10 +257,15 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
 
             {/* 1 — pick the inventory product */}
             <div className="flex flex-col gap-y-2">
-              <Label size="small" weight="plus">
+              <Label
+                size="small"
+                weight="plus"
+                htmlFor="register-product-search"
+              >
                 {t('cards.register.product')}
               </Label>
               <Input
+                id="register-product-search"
                 placeholder={t('cards.register.searchPlaceholder')}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -268,9 +275,7 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
                   {t('cards.register.loadError')}
                 </Text>
               ) : products === null ? (
-                <Text className="text-ui-fg-subtle" size="small">
-                  …
-                </Text>
+                <LoadingSkeleton />
               ) : products.length === 0 ? (
                 <Text className="text-ui-fg-subtle" size="small">
                   {t('cards.register.noEligible')}
@@ -327,11 +332,12 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
 
             {/* 2 — market value via PriceCharting (or manual) */}
             <div className="bg-ui-bg-subtle flex flex-col gap-y-3 rounded-lg p-4">
-              <Label size="small" weight="plus">
+              <Label size="small" weight="plus" htmlFor="register-pc-search">
                 {t('cards.register.pcTitle')}
               </Label>
               <div className="flex gap-2">
                 <Input
+                  id="register-pc-search"
                   placeholder={t('cards.register.pcPlaceholder')}
                   value={pcQuery}
                   onChange={(e) => setPcQuery(e.target.value)}
@@ -403,6 +409,11 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
                   )}
                 </div>
               )}
+              {fxError && fxEff === null && (
+                <Text className="text-ui-fg-error" size="small">
+                  Exchange rate unavailable — try again later.
+                </Text>
+              )}
               <Text className="text-ui-fg-subtle text-xs">
                 {t('cards.register.pcHint')}
               </Text>
@@ -411,10 +422,11 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
             {/* 3 — gacha facts */}
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="register-fmv">
                   {t('cards.form.marketValue')}
                 </Label>
                 <Input
+                  id="register-fmv"
                   type="number"
                   min={0}
                   step={0.01}
@@ -423,37 +435,41 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
                 />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="register-set">
                   {t('cards.form.set')}
                 </Label>
                 <Input
+                  id="register-set"
                   value={fields.set}
                   onChange={(e) => patch({ set: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="register-grader">
                   {t('cards.form.grader')}
                 </Label>
                 <Input
+                  id="register-grader"
                   value={fields.grader}
                   onChange={(e) => patch({ grader: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="register-grade">
                   {t('cards.form.grade')}
                 </Label>
                 <Input
+                  id="register-grade"
                   value={fields.grade}
                   onChange={(e) => patch({ grade: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="register-markup">
                   {t('cards.form.markup')}
                 </Label>
                 <Input
+                  id="register-markup"
                   type="number"
                   min={0}
                   max={1000}

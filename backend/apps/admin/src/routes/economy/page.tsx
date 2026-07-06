@@ -6,14 +6,17 @@ import {
   Container,
   Heading,
   Input,
+  Label,
   Switch,
   Table,
   Text,
+  usePrompt,
 } from "@medusajs/ui";
 import { CurrencyDollar } from "@medusajs/icons";
 import type { RouteConfig } from "@mercurjs/dashboard-sdk";
 import { useEconomy, useFxHistory, useFxRate, useSetFxRate } from "../../lib/queries";
 import { rm } from "../../lib/format";
+import { LoadingSkeleton } from "../../components/LoadingSkeleton";
 
 export const config: RouteConfig = {
   label: "Economy",
@@ -25,6 +28,7 @@ const FxCard = () => {
   const { data: fx } = useFxRate();
   const { data: history } = useFxHistory();
   const setFx = useSetFxRate();
+  const prompt = usePrompt();
   const [override, setOverride] = useState(false);
   const [rate, setRate] = useState("");
   const [reason, setReason] = useState("");
@@ -40,14 +44,16 @@ const FxCard = () => {
     !override || (Number.isFinite(rateNum) && rateNum > 0 && rateNum <= 1000);
   const canSave = !setFx.isPending && rateValid && reason.trim().length > 0;
 
-  const save = () => {
+  const save = async () => {
     if (!canSave) return;
-    if (
-      !window.confirm(
+    const confirmed = await prompt({
+      title: "Save exchange rate",
+      description:
         "This reprices every card on the storefront immediately. Continue?",
-      )
-    )
-      return;
+      confirmText: "Save rate",
+      variant: "confirmation",
+    });
+    if (!confirmed) return;
     setFx.mutate({
       manual_override: override,
       manual_rate: override ? rateNum : null,
@@ -68,13 +74,16 @@ const FxCard = () => {
       <div className="flex flex-wrap items-end gap-4 border-t px-6 py-4">
         <div className="flex items-center gap-2">
           <Switch checked={override} onCheckedChange={setOverride} id="fx-ovr" />
-          <Text size="small">Manual override</Text>
+          <Label htmlFor="fx-ovr" size="small">
+            Manual override
+          </Label>
         </div>
         <div className="flex flex-col gap-y-1">
-          <Text size="small" weight="plus">
+          <Label htmlFor="fx-rate" size="small" weight="plus">
             Rate
-          </Text>
+          </Label>
           <Input
+            id="fx-rate"
             className="w-32"
             value={rate}
             disabled={!override}
@@ -83,10 +92,11 @@ const FxCard = () => {
           />
         </div>
         <div className="flex min-w-64 flex-1 flex-col gap-y-1">
-          <Text size="small" weight="plus">
+          <Label htmlFor="fx-reason" size="small" weight="plus">
             Reason
-          </Text>
+          </Label>
           <Input
+            id="fx-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Required — why is the rate changing?"
@@ -158,7 +168,7 @@ const EconomyPage = () => {
           </div>
         ) : !data ? (
           <div className="border-t px-6 py-8">
-            <Text className="text-ui-fg-subtle">…</Text>
+            <LoadingSkeleton />
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-px border-t bg-ui-border-base md:grid-cols-3">
@@ -224,14 +234,12 @@ const EconomyPage = () => {
                     {p.rtp_pct === null ? (
                       "—"
                     ) : (
-                      <span title="RTP > 100% means players receive more value than the pack price on average — the house loses money on this pack.">
-                        <Badge
-                          size="2xsmall"
-                          color={p.rtp_pct > 100 ? "red" : "grey"}
-                        >
-                          {p.rtp_pct.toFixed(2)}%
-                        </Badge>
-                      </span>
+                      <Badge
+                        size="2xsmall"
+                        color={p.rtp_pct > 100 ? "red" : "grey"}
+                      >
+                        {p.rtp_pct.toFixed(2)}%
+                      </Badge>
                     )}
                   </Table.Cell>
                 </Table.Row>

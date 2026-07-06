@@ -29,6 +29,7 @@ import {
 } from '../../../lib/queries';
 import { rm } from '../../../lib/format';
 import type { ReferralTreeNode } from '../../../lib/admin-rest';
+import { LoadingSkeleton } from '../../../components/LoadingSkeleton';
 
 // ponytail: no config export — keeps route out of sidebar nav (mirrors packs/[slug]/page.tsx)
 
@@ -57,10 +58,11 @@ const Customer360Page = () => {
   const { id = '' } = useParams();
   const customerId = id || null;
 
-  const { data: view } = useCustomerGacha(customerId);
-  const { data: tree } = useReferralTree(customerId);
-  const { data: commissionsData } = useCustomerCommissions(customerId);
-  const { data: auditData } = useCustomerAudit(customerId);
+  const { data: view, isError: viewError } = useCustomerGacha(customerId);
+  const { data: tree, isError: treeError } = useReferralTree(customerId);
+  const { data: commissionsData, isError: commissionsError } =
+    useCustomerCommissions(customerId);
+  const { data: auditData, isError: auditError } = useCustomerAudit(customerId);
 
   const freeze = useFreezeCustomer();
   const unfreeze = useUnfreezeCustomer();
@@ -201,6 +203,11 @@ const Customer360Page = () => {
                 })}
               </Text>
             )}
+            {viewError && (
+              <Text size="small" className="text-ui-fg-error mt-1">
+                Failed to load.
+              </Text>
+            )}
           </div>
           {view && (
             <div className="flex items-center gap-2">
@@ -262,7 +269,7 @@ const Customer360Page = () => {
                   {t('customer360.vipSpend')}
                 </Text>
                 <Heading level="h1" className="mt-1 tabular-nums">
-                  RM {view.vip.spend.toFixed(2)}
+                  {rm(view.vip.spend)}
                 </Heading>
                 <Text size="small" className="text-ui-fg-subtle">
                   {t('customer360.vipPeakLevel', { level: view.vip.highest_level_ever })}
@@ -350,11 +357,18 @@ const Customer360Page = () => {
           </div>
         )}
 
-        {!tree ? (
+        {treeError ? (
           <div className="border-t px-6 py-6">
-            <Text className="text-ui-fg-subtle">…</Text>
+            <Text size="small" className="text-ui-fg-error">
+              Failed to load.
+            </Text>
+          </div>
+        ) : !tree ? (
+          <div className="border-t px-6 py-6">
+            <LoadingSkeleton />
           </div>
         ) : (
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Referral tree table">
           <Table>
             <Table.Header>
               <Table.Row>
@@ -415,6 +429,7 @@ const Customer360Page = () => {
               ))}
             </Table.Body>
           </Table>
+          </div>
         )}
       </Container>
 
@@ -427,15 +442,22 @@ const Customer360Page = () => {
           </Text>
         </div>
 
-        {!commissionsData ? (
+        {commissionsError ? (
           <div className="border-t px-6 py-6">
-            <Text className="text-ui-fg-subtle">…</Text>
+            <Text size="small" className="text-ui-fg-error">
+              Failed to load.
+            </Text>
+          </div>
+        ) : !commissionsData ? (
+          <div className="border-t px-6 py-6">
+            <LoadingSkeleton />
           </div>
         ) : commissions.length === 0 ? (
           <div className="border-t px-6 py-6">
             <Text className="text-ui-fg-subtle">{t('customer360.commissionsEmpty')}</Text>
           </div>
         ) : (
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Commissions table">
           <Table>
             <Table.Header>
               <Table.Row>
@@ -463,7 +485,7 @@ const Customer360Page = () => {
                     </StatusBadge>
                   </Table.Cell>
                   <Table.Cell className="text-right tabular-nums">
-                    RM {parseFloat(c.amount).toFixed(2)}
+                    {rm(parseFloat(c.amount))}
                   </Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle">
                     {c.opener.handle ?? c.opener.customer_id ?? '—'}
@@ -476,31 +498,31 @@ const Customer360Page = () => {
                   <Table.Cell>
                     <div className="flex items-center gap-1">
                       {c.status !== 'reversed' && (
-                        <button
-                          type="button"
-                          className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
+                        <Button
+                          size="small"
+                          variant="secondary"
                           onClick={() => openModal('reverse', c.id)}
                         >
                           {t('customer360.commReverse')}
-                        </button>
+                        </Button>
                       )}
                       {c.status === 'available' && (
-                        <button
-                          type="button"
-                          className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
+                        <Button
+                          size="small"
+                          variant="secondary"
                           onClick={() => openModal('suspend', c.id)}
                         >
                           {t('customer360.commSuspend')}
-                        </button>
+                        </Button>
                       )}
                       {c.status === 'suspended' && (
-                        <button
-                          type="button"
-                          className="text-ui-fg-subtle hover:text-ui-fg-base text-xs underline"
+                        <Button
+                          size="small"
+                          variant="secondary"
                           onClick={() => openModal('unsuspend', c.id)}
                         >
                           {t('customer360.commUnsuspend')}
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </Table.Cell>
@@ -508,6 +530,7 @@ const Customer360Page = () => {
               ))}
             </Table.Body>
           </Table>
+          </div>
         )}
       </Container>
 
@@ -557,9 +580,15 @@ const Customer360Page = () => {
           </div>
         )}
 
-        {!auditData ? (
+        {auditError ? (
           <div className="border-t px-6 py-6">
-            <Text className="text-ui-fg-subtle">…</Text>
+            <Text size="small" className="text-ui-fg-error">
+              Failed to load.
+            </Text>
+          </div>
+        ) : !auditData ? (
+          <div className="border-t px-6 py-6">
+            <LoadingSkeleton />
           </div>
         ) : auditActions.length === 0 ? (
           <div className="border-t px-6 py-6">

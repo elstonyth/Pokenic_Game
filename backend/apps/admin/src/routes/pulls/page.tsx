@@ -8,12 +8,13 @@ import { usePulls } from "../../lib/queries";
 import { resolveImageUrl } from "../../lib/image-url";
 import { rm, timeAgo } from "../../lib/format";
 import { Pager } from "../../components/Pager";
+import { LoadingSkeleton } from "../../components/LoadingSkeleton";
 
 export const config: RouteConfig = {
   label: "Pull Ledger",
   icon: ChartBar,
-  nested: "/gacha",
-  rank: 3,
+  nested: "/orders",
+  rank: 1,
 };
 
 const PullLedgerPage = () => {
@@ -38,7 +39,7 @@ const PullLedgerPage = () => {
           </div>
         ) : !data ? (
           <div className="border-t px-6 py-8">
-            <Text className="text-ui-fg-subtle">…</Text>
+            <LoadingSkeleton />
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-px border-t bg-ui-border-base md:grid-cols-3">
@@ -90,6 +91,7 @@ const PullLedgerPage = () => {
           <Heading level="h2">{t("pulls.recent")}</Heading>
         </div>
         {data && data.pulls.length > 0 ? (
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Pulls table">
           <Table>
             <Table.Header>
               <Table.Row>
@@ -114,7 +116,7 @@ const PullLedgerPage = () => {
                     </div>
                   </Table.Cell>
                   <Table.Cell>{p.card?.rarity ? <Badge size="2xsmall">{p.card.rarity}</Badge> : "—"}</Table.Cell>
-                  <Table.Cell className="text-ui-fg-subtle text-right tabular-nums">
+                  <Table.Cell className="text-ui-fg-subtle text-right tabular-nums whitespace-nowrap">
                     {rm(p.card?.market_value ?? null)}
                   </Table.Cell>
                   <Table.Cell className="text-ui-fg-subtle">
@@ -130,7 +132,7 @@ const PullLedgerPage = () => {
                       t("pulls.anon")
                     )}
                   </Table.Cell>
-                  <Table.Cell className="text-ui-fg-subtle">{p.pack_title ?? p.pack_id.slice(0, 8)}</Table.Cell>
+                  <Table.Cell className="text-ui-fg-subtle break-words">{p.pack_title ?? p.pack_id}</Table.Cell>
                   <Table.Cell>
                     {p.status === "bought_back" ? (
                       <StatusBadge color="orange">
@@ -145,6 +147,7 @@ const PullLedgerPage = () => {
               ))}
             </Table.Body>
           </Table>
+          </div>
         ) : (
           <div className="border-t px-6 py-8">
             <Text className="text-ui-fg-subtle">{t("pulls.empty")}</Text>

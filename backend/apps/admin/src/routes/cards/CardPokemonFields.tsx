@@ -50,7 +50,11 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
     const q = filter.trim().toLowerCase();
     if (!q) return [] as { dex: number; name: string }[];
     const out: { dex: number; name: string }[] = [];
-    for (let i = 0; i < POKEDEX_NAMES.length && out.length < PICKER_LIMIT; i++) {
+    for (
+      let i = 0;
+      i < POKEDEX_NAMES.length && out.length < PICKER_LIMIT;
+      i++
+    ) {
       if (POKEDEX_NAMES[i].toLowerCase().includes(q)) {
         out.push({ dex: i + 1, name: POKEDEX_NAMES[i] });
       }
@@ -69,8 +73,14 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
   // Escape clears the search.
   const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
-      setFilter('');
-      setActiveIndex(0);
+      // Consume Escape only when it clears the filter — otherwise it bubbles
+      // to the enclosing FocusModal and closes the whole editor mid-edit.
+      if (filter !== '') {
+        e.preventDefault();
+        e.stopPropagation();
+        setFilter('');
+        setActiveIndex(0);
+      }
       return;
     }
     if (matches.length === 0) return;
@@ -115,7 +125,7 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
 
   return (
     <div className="bg-ui-bg-subtle flex flex-col gap-y-3 rounded-lg p-4">
-      <Label size="small" weight="plus">
+      <Label size="small" weight="plus" htmlFor="card-pokemon-search">
         Pixel Pokémon
       </Label>
 
@@ -151,6 +161,7 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
 
       {/* Dex picker — searchable combobox; arrow keys + Enter to assign */}
       <Input
+        id="card-pokemon-search"
         placeholder="Search a Pokémon by name to assign…"
         aria-label="Search a Pokémon by name to assign"
         role="combobox"

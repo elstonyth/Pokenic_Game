@@ -9,8 +9,10 @@ import {
   Label,
   Select,
   Table,
+  Tabs,
   FocusModal,
   toast,
+  usePrompt,
 } from '@medusajs/ui';
 import { Calendar } from '@medusajs/icons';
 import type { RouteConfig } from '@mercurjs/dashboard-sdk';
@@ -32,6 +34,7 @@ import {
 import { getDailyBox } from '../../lib/admin-rest';
 import { fmtPct, rm } from '../../lib/format';
 import { resolveImageUrl } from '../../lib/image-url';
+import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { snapshotOf } from './box-snapshot';
 
 const TIERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'Z'] as const;
@@ -81,50 +84,49 @@ const rowFromPrize = (p: DailyBoxPrizeDTO): EditRow => ({
 const DailyRewardsPage = () => {
   const [tab, setTab] = useState<'boxes' | 'vouchers' | 'settings'>('boxes');
   const boxesDirty = useRef(false);
-  const switchTab = (next: 'boxes' | 'vouchers' | 'settings') => {
-    if (
-      tab === 'boxes' &&
-      next !== 'boxes' &&
-      boxesDirty.current &&
-      !window.confirm('Discard unsaved box changes?')
-    )
-      return;
+  const prompt = usePrompt();
+  const switchTab = async (next: 'boxes' | 'vouchers' | 'settings') => {
+    if (tab === 'boxes' && next !== 'boxes' && boxesDirty.current) {
+      const confirmed = await prompt({
+        title: 'Discard changes?',
+        description: 'Discard unsaved box changes?',
+        confirmText: 'Discard',
+      });
+      if (!confirmed) return;
+    }
     setTab(next);
   };
   return (
     <Container className="p-0">
-      <div className="flex items-center justify-between px-6 py-4">
-        <div>
-          <Heading level="h2">Daily Rewards</Heading>
-          <Text className="text-ui-fg-subtle mt-1" size="small">
-            Configure the daily box each VIP tier opens and the one-time
-            vouchers granted by level.
-          </Text>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => switchTab(v as 'boxes' | 'vouchers' | 'settings')}
+        activationMode="manual"
+      >
+        <div className="flex items-center justify-between px-6 py-4">
+          <div>
+            <Heading level="h2">Daily Rewards</Heading>
+            <Text className="text-ui-fg-subtle mt-1" size="small">
+              Configure the daily box each VIP tier opens and the one-time
+              vouchers granted by level.
+            </Text>
+          </div>
+          <Tabs.List>
+            <Tabs.Trigger value="boxes">Boxes</Tabs.Trigger>
+            <Tabs.Trigger value="vouchers">Vouchers</Tabs.Trigger>
+            <Tabs.Trigger value="settings">Engine settings</Tabs.Trigger>
+          </Tabs.List>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={tab === 'boxes' ? 'primary' : 'secondary'}
-            onClick={() => switchTab('boxes')}
-          >
-            Boxes
-          </Button>
-          <Button
-            variant={tab === 'vouchers' ? 'primary' : 'secondary'}
-            onClick={() => switchTab('vouchers')}
-          >
-            Vouchers
-          </Button>
-          <Button
-            variant={tab === 'settings' ? 'primary' : 'secondary'}
-            onClick={() => switchTab('settings')}
-          >
-            Engine settings
-          </Button>
-        </div>
-      </div>
-      {tab === 'boxes' && <BoxesTab dirtyRef={boxesDirty} />}
-      {tab === 'vouchers' && <VouchersTab />}
-      {tab === 'settings' && <SettingsTab />}
+        <Tabs.Content value="boxes">
+          <BoxesTab dirtyRef={boxesDirty} />
+        </Tabs.Content>
+        <Tabs.Content value="vouchers">
+          <VouchersTab />
+        </Tabs.Content>
+        <Tabs.Content value="settings">
+          <SettingsTab />
+        </Tabs.Content>
+      </Tabs>
     </Container>
   );
 };
@@ -227,6 +229,7 @@ const VouchersTab = () => {
   const { data, isError } = useVoucherLadder();
   const saveRanges = useSaveVoucherRanges();
   const saving = saveRanges.isPending;
+  const prompt = usePrompt();
 
   const [seededFrom, setSeededFrom] = useState<VoucherLadderDTO | undefined>(
     undefined,
@@ -330,9 +333,13 @@ const VouchersTab = () => {
   async function save() {
     if (!canSave || levels === null) return;
     if (levels.every((amt) => amt === 0)) {
-      const ok = window.confirm(
-        'All voucher amounts are zero — customers will stop receiving level-up vouchers. Save anyway?',
-      );
+      const ok = await prompt({
+        title: 'All voucher amounts are zero',
+        description:
+          'All voucher amounts are zero — customers will stop receiving level-up vouchers. Save anyway?',
+        confirmText: 'Save anyway',
+        variant: 'confirmation',
+      });
       if (!ok) return;
     }
     try {
@@ -445,7 +452,7 @@ const VouchersTab = () => {
         {foldErrors.length > 0 && (
           <div className="flex flex-col gap-1">
             {foldErrors.map((err) => (
-              <Text key={err} size="small" className="text-ui-tag-red-text">
+              <Text key={err} size="small" className="text-ui-fg-error">
                 {err}
               </Text>
             ))}
@@ -510,6 +517,7 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   const { data, isError } = useDailyBox(tier);
   const saveBox = useSaveDailyBox();
   const saving = saveBox.isPending;
+  const prompt = usePrompt();
 
   // Seed the editable buffer from the server snapshot during render — same
   // buffer-from-snapshot pattern as reward-pools/packs editors.
@@ -549,13 +557,16 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
     dirtyRef.current = hasUnsavedEdits;
   }, [dirtyRef, hasUnsavedEdits]);
 
-  const handleTierChange = (nextTier: string) => {
+  const handleTierChange = async (nextTier: string) => {
     if (nextTier === tier) return;
-    if (
-      hasUnsavedEdits &&
-      !window.confirm(`Discard unsaved changes to tier ${tier.toUpperCase()}?`)
-    )
-      return;
+    if (hasUnsavedEdits) {
+      const confirmed = await prompt({
+        title: 'Discard changes?',
+        description: `Discard unsaved changes to tier ${tier.toUpperCase()}?`,
+        confirmText: 'Discard',
+      });
+      if (!confirmed) return;
+    }
     setTier(nextTier);
     setSeededFrom(undefined);
     setRows([]);
@@ -645,9 +656,11 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   async function copyFromTier(sourceTier: string) {
     if (!sourceTier || sourceTier === tier) return;
     if (hasUnsavedEdits) {
-      const ok = window.confirm(
-        `Replace the current unsaved prizes for tier ${tier.toUpperCase()} with tier ${sourceTier.toUpperCase()}'s saved prizes?`,
-      );
+      const ok = await prompt({
+        title: 'Replace unsaved prizes?',
+        description: `Replace the current unsaved prizes for tier ${tier.toUpperCase()} with tier ${sourceTier.toUpperCase()}'s saved prizes?`,
+        confirmText: 'Replace',
+      });
       if (!ok) return;
     }
     try {
@@ -712,6 +725,11 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
             : summary.prize_count > 0
               ? 'bg-ui-tag-green-icon'
               : 'bg-ui-tag-orange-icon';
+          const dotLabel = !summary?.enabled
+            ? 'disabled'
+            : summary.prize_count > 0
+              ? 'enabled'
+              : 'enabled, no prizes';
           return (
             <button
               key={t}
@@ -723,7 +741,11 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
                   : 'border-ui-border-base hover:bg-ui-bg-base-hover'
               }`}
             >
-              <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`}
+                title={dotLabel}
+              />
+              <span className="sr-only">{dotLabel}</span>
               <span className="font-medium">{t.toUpperCase()}</span>
               {summary && (
                 <span className="text-ui-fg-subtle">
@@ -862,8 +884,14 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
                           </span>
                         );
                       })()}
-                    <Label className="text-ui-fg-subtle text-xs">Qty</Label>
+                    <Label
+                      htmlFor={`qty-${r.localId}`}
+                      className="text-ui-fg-subtle text-xs"
+                    >
+                      Qty
+                    </Label>
                     <Input
+                      id={`qty-${r.localId}`}
                       type="number"
                       min={1}
                       max={1}
@@ -934,7 +962,7 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
         </Text>
 
         {validationError && (
-          <Text size="small" className="text-ui-tag-red-text">
+          <Text size="small" className="text-ui-fg-error">
             {validationError}
           </Text>
         )}
@@ -994,7 +1022,7 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
                   Failed to load the product catalog.
                 </Text>
               ) : allCards == null ? (
-                <Text className="text-ui-fg-subtle">…</Text>
+                <LoadingSkeleton />
               ) : allCards.length === 0 ? (
                 <Text className="text-ui-fg-subtle">No cards available.</Text>
               ) : (
@@ -1061,7 +1089,10 @@ const SettingsTab = () => {
   if (!Number.isInteger(wdN) || wdN < 1)
     errors.push('Withdrawals/day must be an integer ≥ 1.');
   const canSave =
-    !save.isPending && seeded && errors.length === 0 && reason.trim().length > 0;
+    !save.isPending &&
+    seeded &&
+    errors.length === 0 &&
+    reason.trim().length > 0;
 
   const submit = () => {
     if (!canSave) return;
@@ -1083,15 +1114,26 @@ const SettingsTab = () => {
     );
 
   const field = (
+    id: string,
     label: string,
     value: string,
     set: (v: string) => void,
     hint: string,
   ) => (
     <div className="flex flex-col gap-y-1">
-      <Text size="small" weight="plus">{label}</Text>
-      <Input className="w-40" value={value} onChange={(e) => set(e.target.value)} />
-      <Text size="small" className="text-ui-fg-subtle">{hint}</Text>
+      <Label htmlFor={id} size="small" weight="plus">
+        {label}
+      </Label>
+      <Input
+        id={id}
+        type="number"
+        className="w-40"
+        value={value}
+        onChange={(e) => set(e.target.value)}
+      />
+      <Text size="small" className="text-ui-fg-subtle">
+        {hint}
+      </Text>
     </div>
   );
 
@@ -1101,18 +1143,51 @@ const SettingsTab = () => {
         Commission-engine knobs. Changes are clamped and audited server-side.
       </Text>
       <div className="flex flex-wrap gap-6">
-        {field('Commission cooldown (days)', cooldown, setCooldown, 'Days before a commission matures.')}
-        {field('Team override (%)', overridePct, setOverridePct, 'Whole percent, 1–99. Stored as a fraction.')}
-        {field('Override generation cap', genCap, setGenCap, 'How many upline generations earn override.')}
-        {field('Withdrawals per day', withdrawals, setWithdrawals, 'Per-customer daily withdrawal limit.')}
+        {field(
+          'settings-cooldown',
+          'Commission cooldown (days)',
+          cooldown,
+          setCooldown,
+          'Days before a commission matures.',
+        )}
+        {field(
+          'settings-override-pct',
+          'Team override (%)',
+          overridePct,
+          setOverridePct,
+          'Whole percent, 1–99. Stored as a fraction.',
+        )}
+        {field(
+          'settings-gen-cap',
+          'Override generation cap',
+          genCap,
+          setGenCap,
+          'How many upline generations earn override.',
+        )}
+        {field(
+          'settings-withdrawals',
+          'Withdrawals per day',
+          withdrawals,
+          setWithdrawals,
+          'Per-customer daily withdrawal limit.',
+        )}
       </div>
       {errors.length > 0 && (
-        <Text size="small" className="text-ui-fg-error">{errors[0]}</Text>
+        <div className="flex flex-col gap-1">
+          {errors.map((err) => (
+            <Text key={err} size="small" className="text-ui-fg-error">
+              {err}
+            </Text>
+          ))}
+        </div>
       )}
       <div className="flex items-end gap-4">
         <div className="flex min-w-64 flex-1 flex-col gap-y-1">
-          <Text size="small" weight="plus">Reason</Text>
+          <Label htmlFor="settings-reason" size="small" weight="plus">
+            Reason
+          </Label>
           <Input
+            id="settings-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Required — audit note for this change"
@@ -1131,6 +1206,6 @@ export default DailyRewardsPage;
 export const config: RouteConfig = {
   label: 'Daily Rewards',
   icon: Calendar,
-  nested: '/gacha',
-  rank: 5,
+  nested: '/promotions',
+  rank: 1,
 };

@@ -31,14 +31,15 @@ import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
 import { rm } from '../../lib/format';
 import { GachaPipelineHint } from '../../components/GachaPipelineHint';
+import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 
 // Sidebar entry. The label is literal (internal single-operator tool); switch to
 // RouteConfig.translationNs if this dashboard is ever localized.
 export const config: RouteConfig = {
   label: 'Gacha Packs',
   icon: Gift,
-  nested: '/gacha',
-  rank: 2,
+  nested: '/products',
+  rank: 3,
 };
 
 // Known pack categories — the storefront maps these to labels + icons, so the
@@ -97,7 +98,7 @@ const formFromPack = (p: AdminPack): FormState => ({
 const PacksListPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: packs = null, isError } = usePacks();
+  const { data: packs = null, isError, refetch } = usePacks();
   const createPack = useCreatePack();
   const updatePack = useUpdatePack();
   const removePack = useDeletePack();
@@ -255,6 +256,7 @@ const PacksListPage = () => {
         <Input
           className="w-56"
           placeholder="Search title…"
+          aria-label="Search packs by title"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -264,7 +266,7 @@ const PacksListPage = () => {
             setStatusFilter(v === 'draft' || v === 'active' ? v : 'all')
           }
         >
-          <Select.Trigger className="w-44">
+          <Select.Trigger className="w-44" aria-label="Filter by status">
             <Select.Value />
           </Select.Trigger>
           <Select.Content>
@@ -289,18 +291,22 @@ const PacksListPage = () => {
       )}
 
       {isError ? (
-        <div className="px-6 py-8">
+        <div className="flex flex-col items-start gap-3 px-6 py-8">
           <Text className="text-ui-fg-subtle">{t('packs.list.loadError')}</Text>
+          <Button size="small" variant="secondary" onClick={() => refetch()}>
+            Retry
+          </Button>
         </div>
       ) : packs === null ? (
         <div className="px-6 py-8">
-          <Text className="text-ui-fg-subtle">…</Text>
+          <LoadingSkeleton />
         </div>
       ) : packs.length === 0 ? (
         <div className="px-6 py-8">
           <Text className="text-ui-fg-subtle">{t('packs.list.empty')}</Text>
         </div>
       ) : (
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Packs table">
         <Table>
           <Table.Header>
             <Table.Row>
@@ -414,6 +420,7 @@ const PacksListPage = () => {
             })}
           </Table.Body>
         </Table>
+        </div>
       )}
 
       <FocusModal
@@ -461,7 +468,7 @@ const PacksListPage = () => {
 
               {/* Image */}
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="pack-image">
                   {t('packs.form.image')}
                 </Label>
                 <div className="flex items-center gap-4">
@@ -494,6 +501,7 @@ const PacksListPage = () => {
                       {t('packs.form.uploadImage')}
                     </Button>
                     <Input
+                      id="pack-image"
                       placeholder={t('packs.form.imageUrlPlaceholder')}
                       value={form.image}
                       onChange={(e) => patch({ image: e.target.value })}
@@ -504,12 +512,13 @@ const PacksListPage = () => {
 
               {/* Slug (create only — immutable key) */}
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="pack-slug">
                   {t('packs.form.slug')}
                 </Label>
                 {mode === 'create' ? (
                   <>
                     <Input
+                      id="pack-slug"
                       placeholder="legend-pack"
                       value={form.slug}
                       onChange={(e) =>
@@ -521,15 +530,16 @@ const PacksListPage = () => {
                     </Text>
                   </>
                 ) : (
-                  <Input value={form.slug} disabled />
+                  <Input id="pack-slug" value={form.slug} disabled />
                 )}
               </div>
 
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus">
+                <Label size="small" weight="plus" htmlFor="pack-title">
                   {t('packs.form.titleField')}
                 </Label>
                 <Input
+                  id="pack-title"
                   value={form.title}
                   onChange={(e) => patch({ title: e.target.value })}
                 />
@@ -537,14 +547,14 @@ const PacksListPage = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="pack-category">
                     {t('packs.form.category')}
                   </Label>
                   <Select
                     value={form.category}
                     onValueChange={(v) => patch({ category: v })}
                   >
-                    <Select.Trigger>
+                    <Select.Trigger id="pack-category">
                       <Select.Value />
                     </Select.Trigger>
                     <Select.Content>
@@ -557,7 +567,7 @@ const PacksListPage = () => {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="pack-status">
                     {t('packs.form.statusField')}
                   </Label>
                   {/* Create is draft-only (the backend rejects an active
@@ -565,7 +575,11 @@ const PacksListPage = () => {
                       lives on the pack page once cards are assigned. */}
                   {mode === 'create' ? (
                     <>
-                      <Input value={t('packs.form.draft')} disabled />
+                      <Input
+                        id="pack-status"
+                        value={t('packs.form.draft')}
+                        disabled
+                      />
                       <Text className="text-ui-fg-subtle text-xs">
                         {t('packs.form.statusCreateHint')}
                       </Text>
@@ -577,7 +591,7 @@ const PacksListPage = () => {
                         patch({ status: v === 'draft' ? 'draft' : 'active' })
                       }
                     >
-                      <Select.Trigger>
+                      <Select.Trigger id="pack-status">
                         <Select.Value />
                       </Select.Trigger>
                       <Select.Content>
@@ -592,10 +606,11 @@ const PacksListPage = () => {
                   )}
                 </div>
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="pack-price">
                     {t('packs.form.price')}
                   </Label>
                   <Input
+                    id="pack-price"
                     type="number"
                     min={0}
                     step={1}
@@ -604,10 +619,11 @@ const PacksListPage = () => {
                   />
                 </div>
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="pack-rank">
                     {t('packs.form.rank')}
                   </Label>
                   <Input
+                    id="pack-rank"
                     type="number"
                     step={1}
                     value={form.rank}
@@ -615,10 +631,11 @@ const PacksListPage = () => {
                   />
                 </div>
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="pack-buyback">
                     {t('packs.form.buybackPercent')}
                   </Label>
                   <Input
+                    id="pack-buyback"
                     type="number"
                     min={90}
                     max={100}
@@ -634,7 +651,7 @@ const PacksListPage = () => {
 
               <div className="bg-ui-bg-subtle flex items-center justify-between rounded-lg px-4 py-3">
                 <div className="flex flex-col">
-                  <Label size="small" weight="plus">
+                  <Label size="small" weight="plus" htmlFor="pack-boost">
                     {t('packs.form.boost')}
                   </Label>
                   <Text className="text-ui-fg-subtle text-xs">
@@ -642,6 +659,7 @@ const PacksListPage = () => {
                   </Text>
                 </div>
                 <Switch
+                  id="pack-boost"
                   checked={form.boost}
                   onCheckedChange={(v) => patch({ boost: v })}
                 />

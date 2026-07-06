@@ -10,6 +10,7 @@ import {
   Button,
   StatusBadge,
   toast,
+  clx,
 } from '@medusajs/ui';
 import type { RouteConfig } from '@mercurjs/dashboard-sdk';
 import {
@@ -30,6 +31,7 @@ import CardPokemonFields, {
   type CardPokemonValue,
 } from '../../cards/CardPokemonFields';
 import { GachaPipelineHint } from '../../../components/GachaPipelineHint';
+import { LoadingSkeleton } from '../../../components/LoadingSkeleton';
 
 export const config: RouteConfig = {
   label: 'Add from PriceCharting',
@@ -76,7 +78,7 @@ const isPcImageUrl = (url: string): boolean => {
 
 const AddFromPriceChartingPage = () => {
   const { t } = useTranslation();
-  const { data: fx } = useFxRate();
+  const { data: fx, isError: fxError } = useFxRate();
   const createProduct = useCreateProductFromPriceCharting();
   const uploadImg = useUploadImage();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -253,11 +255,12 @@ const AddFromPriceChartingPage = () => {
       <div className="flex flex-col gap-y-6 px-6 py-6">
         {/* Step 1 — search */}
         <div className="flex flex-col gap-y-2">
-          <Label size="small" weight="plus">
+          <Label size="small" weight="plus" htmlFor="pc-search">
             {t('pcAdd.search.label')}
           </Label>
           <div className="flex gap-2">
             <Input
+              id="pc-search"
               placeholder={t('pcAdd.search.placeholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -292,9 +295,10 @@ const AddFromPriceChartingPage = () => {
                   type="button"
                   onClick={() => void pickMatch(m)}
                   disabled={pcLoadingId !== null}
-                  className={`hover:bg-ui-bg-base-hover flex w-full flex-col px-4 py-2 text-left ${
-                    match?.id === m.id ? 'bg-ui-bg-base-pressed' : ''
-                  }`}
+                  className={clx(
+                    'hover:bg-ui-bg-base-hover flex w-full flex-col px-4 py-2 text-left',
+                    match?.id === m.id && 'bg-ui-bg-base-pressed',
+                  )}
                 >
                   <span className="truncate text-sm font-medium">{m.name}</span>
                   <span className="text-ui-fg-subtle text-xs">{m.set}</span>
@@ -311,9 +315,7 @@ const AddFromPriceChartingPage = () => {
               {t('pcAdd.grade.label')}
             </Label>
             {pcLoadingId === match.id ? (
-              <Text className="text-ui-fg-subtle" size="small">
-                …
-              </Text>
+              <LoadingSkeleton rows={2} />
             ) : pcProduct === null ? (
               <Text className="text-ui-fg-subtle" size="small">
                 {t('pcAdd.grade.loadError')}
@@ -357,9 +359,15 @@ const AddFromPriceChartingPage = () => {
         {pcGrade !== null && marketValue !== null && (
           <div className="bg-ui-bg-subtle rounded-lg p-4">
             {fxEffective === null ? (
-              <Text className="text-ui-fg-subtle" size="small">
-                {t('pcAdd.preview.loading')}
-              </Text>
+              fxError ? (
+                <Text className="text-ui-fg-error" size="small">
+                  Exchange rate unavailable — try again later.
+                </Text>
+              ) : (
+                <Text className="text-ui-fg-subtle" size="small">
+                  {t('pcAdd.preview.loading')}
+                </Text>
+              )
             ) : (
               <Text size="small">
                 {t('pcAdd.preview.line', {
@@ -375,10 +383,11 @@ const AddFromPriceChartingPage = () => {
         {/* Step 3b — stock quantity */}
         {pcGrade !== null && (
           <div className="flex flex-col gap-y-2">
-            <Label size="small" weight="plus">
+            <Label size="small" weight="plus" htmlFor="pc-stock">
               {t('pcAdd.stock.label')}
             </Label>
             <Input
+              id="pc-stock"
               type="number"
               min={0}
               step={1}
@@ -396,7 +405,7 @@ const AddFromPriceChartingPage = () => {
         {pcGrade !== null && (
           <div className="flex flex-col gap-y-2">
             <div className="flex items-center gap-2">
-              <Label size="small" weight="plus">
+              <Label size="small" weight="plus" htmlFor="pc-image-url">
                 {t('pcAdd.image.label')}
               </Label>
               {imageAutoFilled && (
@@ -435,6 +444,7 @@ const AddFromPriceChartingPage = () => {
                   {image ? t('pcAdd.image.replace') : t('pcAdd.image.upload')}
                 </Button>
                 <Input
+                  id="pc-image-url"
                   placeholder={t('pcAdd.image.urlPlaceholder')}
                   value={image}
                   onChange={(e) => setImage(e.target.value)}

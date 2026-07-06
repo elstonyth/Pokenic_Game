@@ -122,3 +122,6 @@ GEMINI.md
 
 # impeccable design-hook cache (per-app artifacts)
 **/.impeccable/
+
+# local dev credentials for scripts/*.mjs (login sweeps)
+/scripts/.dev-logins

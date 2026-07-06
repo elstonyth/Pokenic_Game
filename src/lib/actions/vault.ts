@@ -39,6 +39,7 @@ export type VaultItem = {
     handle: string;
     name: string;
     image: string;
+    slabImage: string | null;
     rarity: string;
     marketValue: number;
     marketPriceMyr: number;
@@ -66,6 +67,7 @@ interface BackendVaultItem {
     handle: string;
     name: string;
     image: string;
+    slab_image?: string | null;
     rarity: string;
     market_value: number;
     marketPriceMyr?: number;
@@ -129,6 +131,7 @@ export async function getVault(): Promise<VaultResult> {
         handle: i.card.handle,
         name: i.card.name,
         image: i.card.image,
+        slabImage: i.card.slab_image ?? null,
         rarity: i.card.rarity,
         marketValue: i.card.market_value,
         marketPriceMyr: i.card.marketPriceMyr ?? 0,

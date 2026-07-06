@@ -25,6 +25,7 @@ export type WonCard = {
   id: string;
   name: string;
   image: string;
+  slab_image: string | null;
   value: string;
   rarity: Rarity;
   pokemon_dex: number | null;
@@ -73,6 +74,7 @@ interface BackendWonCard {
   handle: string;
   name: string;
   image: string;
+  slab_image?: string | null;
   market_value: number;
   rarity: string;
   pokemon_dex?: number | null;
@@ -153,6 +155,7 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
         id: wonCard.handle,
         name: wonCard.name,
         image: card.image,
+        slab_image: card.slab_image ?? null,
         value: formatValue(wonCard.market_value),
         rarity: wonCard.rarity as Rarity,
         pokemon_dex: wonCard.pokemon_dex ?? null,

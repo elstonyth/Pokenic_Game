@@ -14,6 +14,7 @@ export function CardDetailHydrated({ initial }: { initial: CardDetailData }) {
     handle: initial.handle,
     name: initial.name,
     image: initial.image,
+    slabImage: initial.slab_image,
     value: rm(initial.marketPriceMyr),
     rarity: initial.rarity,
   };

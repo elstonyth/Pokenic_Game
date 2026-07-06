@@ -440,6 +440,7 @@ export default function VaultClient({
                           handle: item.card.handle,
                           name: item.card.name,
                           image: item.card.image,
+                          slabImage: item.card.slabImage,
                           value: formatValue(item.card.marketPriceMyr),
                           rarity: isRarity(item.card.rarity)
                             ? item.card.rarity

@@ -12,6 +12,7 @@ export interface ProfileViewCard {
   id: string;
   name: string;
   image: string;
+  slabImage: string | null;
   grader: string;
   grade: string;
   price: number;
@@ -61,6 +62,7 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
       id: c.handle,
       name: c.name,
       image: c.image,
+      slabImage: c.slab_image ?? null,
       grader: c.grader,
       grade: c.grade,
       // Live MYR display value; raw USD FMV only as an old-backend fallback.
@@ -77,6 +79,7 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
     id: p.card.handle,
     name: p.card.name,
     image: p.card.image,
+    slabImage: p.card.slab_image ?? null,
     grader: p.card.grader,
     grade: p.card.grade,
     price: p.card.marketPriceMyr ?? p.card.market_value,

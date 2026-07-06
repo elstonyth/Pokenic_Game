@@ -170,6 +170,7 @@ interface BackendOddsEntry {
    *  request time; absent on an older backend → fall back to market_value. */
   marketPriceMyr?: number;
   image: string;
+  slab_image?: string | null;
   /** Admin-picked Top Hit display order (1-based; null/absent = not one). */
   top_hit_order?: number | null;
 }
@@ -234,6 +235,7 @@ export async function getPackDetail(slug: string): Promise<PackDetail | null> {
       id: o.handle,
       name: o.name,
       image: o.image,
+      slabImage: o.slab_image ?? null,
       value: formatValue(o.marketPriceMyr ?? o.market_value),
       rarity: o.rarity as Rarity,
     });
@@ -271,6 +273,7 @@ interface BackendRecentPull {
   handle: string;
   name: string;
   image: string;
+  slab_image?: string | null;
   market_value: number;
   /** Live MYR display price — same optional contract as BackendOddsEntry. */
   marketPriceMyr?: number;
@@ -290,6 +293,7 @@ export interface RecentPull {
   handle: string;
   name: string;
   image: string;
+  slabImage: string | null;
   value: string;
   rarity: Rarity;
   /** Source pack name + icon (for the feed's pack label). */
@@ -325,6 +329,7 @@ export async function getRecentPulls(): Promise<RecentPull[]> {
       handle: p.handle,
       name: p.name,
       image: p.image,
+      slabImage: p.slab_image ?? null,
       value: formatValue(p.marketPriceMyr ?? p.market_value),
       rarity: p.rarity as Rarity,
       // Pack label straight from the backend catalog (source of truth) — a

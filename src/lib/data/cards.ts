@@ -20,6 +20,7 @@ export interface CardDetailData {
   grader: string;
   grade: string;
   image: string;
+  slab_image: string | null;
   marketPriceMyr: number;
   rarity: Rarity | null;
   pcSyncedAt: string | null;

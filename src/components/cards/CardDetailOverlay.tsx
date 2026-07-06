@@ -16,6 +16,7 @@ export interface CardSeed {
   handle: string;
   name: string;
   image: string;
+  slabImage: string | null;
   value: string;
   rarity: Rarity | null;
 }

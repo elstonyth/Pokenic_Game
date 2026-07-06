@@ -247,6 +247,7 @@ export default function SlotMachineClient({
         }
         cards.push({
           ...drawn,
+          slab_image: drawn.slabImage,
           pokemon_dex: null,
           sprite_image: null,
           marketPriceMyr: null,
@@ -418,6 +419,7 @@ export default function SlotMachineClient({
         handle: won.id,
         name: won.name,
         image: won.image,
+        slabImage: won.slab_image,
         value: won.marketPriceMyr != null ? rm(won.marketPriceMyr) : won.value,
         rarity: won.rarity,
         who: 'You',

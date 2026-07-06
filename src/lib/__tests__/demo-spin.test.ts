@@ -18,6 +18,7 @@ const card = (id: string, rarity: Rarity): PackCard => ({
   id,
   name: id,
   image: `/x/${id}.webp`,
+  slabImage: null,
   value: 'RM 10.00',
   rarity,
 });

@@ -22,6 +22,7 @@ import {
   createVaultBuybackRateLimit,
 } from './utils/rate-limit';
 import { createResetTokenSingleUseGuard } from './utils/reset-token-guard';
+import { rejectCustomerMetadata } from './utils/customer-metadata-guard';
 
 // Custom-route middleware. /store/* is NOT a default customer-protected prefix
 // (only /store/customers/me/* is), so every customer-owned route here must opt
@@ -131,6 +132,14 @@ export default defineMiddlewares({
       matcher: '/auth/*/emailpass/update',
       method: 'POST',
       middlewares: [createResetTokenSingleUseGuard()],
+    },
+    {
+      // /store/customers/me is framework-authenticated; this guard rejects
+      // client-supplied `metadata` (reserved for server-validated keys — see
+      // utils/customer-metadata-guard.ts).
+      matcher: '/store/customers/me',
+      method: 'POST',
+      middlewares: [rejectCustomerMetadata],
     },
     {
       matcher: '/store/packs/*/open',

@@ -439,6 +439,7 @@ export type Routes = {
             invite: typeof import("@mercurjs/core/api/admin/sellers/invite/route");
             $id: typeof import("@mercurjs/core/api/admin/sellers/[id]/route");
         };
+        avatarFrames: typeof import("../../src/api/admin/avatar-frames/route");
         cards: typeof import("../../src/api/admin/cards/route") & {
             $handle: typeof import("../../src/api/admin/cards/[handle]/route");
         };
@@ -573,9 +574,7 @@ export type Routes = {
         sellers: typeof import("@mercurjs/core/api/store/sellers/route") & {
             $id: typeof import("@mercurjs/core/api/store/sellers/[id]/route");
         };
-        cards: {
-            $handle: typeof import("../../src/api/store/cards/[handle]/route");
-        };
+        avatarFrames: typeof import("../../src/api/store/avatar-frames/route");
         credits: typeof import("../../src/api/store/credits/route") & {
             topup: typeof import("../../src/api/store/credits/topup/route");
         };
@@ -601,6 +600,10 @@ export type Routes = {
         };
         pricing: {
             fx: typeof import("../../src/api/store/pricing/fx/route");
+        };
+        profile: {
+            avatar: typeof import("../../src/api/store/profile/avatar/route");
+            frame: typeof import("../../src/api/store/profile/frame/route");
         };
         profiles: {
             $handle: typeof import("../../src/api/store/profiles/[handle]/route");

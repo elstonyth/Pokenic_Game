@@ -14,20 +14,41 @@ mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
 
-// Login via the header AuthModal — the app has no standalone /login route
-// (see src/components/AuthModal.tsx); the "Login" pill in AppHeader opens it.
-await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
-await page
-  .getByRole('button', { name: 'Accept' })
-  .click({ timeout: 5_000 })
-  .catch(() => {}); // cookie consent, best-effort
-await page.getByRole('button', { name: 'Login' }).first().click();
-await page.getByPlaceholder('Email').last().fill(EMAIL);
-await page.getByPlaceholder('Password').fill(PASSWORD);
-await page.keyboard.press('Enter');
-// The modal closes itself on success (no URL change) — wait for the header
-// balance chip, proof both login and the balance fetch landed.
-await page.waitForSelector('text=/RM /', { timeout: 20_000 });
+// Login via the global header auth modal (name-attribute selectors, per
+// tests/e2e/helpers/storefront.ts). Success signal = the header balance chip
+// ("Balance RM X — top up"), which is pack-independent — an "Open Pack" CTA
+// flip needs a pack slug that exists in the target DB, and a bare RM-text
+// wait can match public pack prices while still logged out.
+let loggedIn = false;
+for (let attempt = 0; attempt < 4 && !loggedIn; attempt++) {
+  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  // Cookie consent renders late and its overlay intercepts clicks — wait for
+  // it properly on the first pass (absent on later passes once accepted).
+  const accept = page.getByRole('button', { name: 'Accept' });
+  if (
+    await accept
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    await accept.click();
+    await accept.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+  }
+  await page
+    .getByRole('button', { name: /^login$/i })
+    .first()
+    .click();
+  await page.fill('input[name="email"]', EMAIL);
+  await page.fill('input[name="password"]', PASSWORD);
+  await page.press('input[name="password"]', 'Enter');
+  loggedIn = await page
+    .getByRole('button', { name: /Balance .* top up/i })
+    .waitFor({ timeout: 12_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!loggedIn) await page.waitForTimeout(8_000); // 429 backoff, then retry
+}
+if (!loggedIn) throw new Error('login never completed — no balance chip');
 
 for (const path of ['daily', 'vip', 'vouchers', 'me', 'leaderboard']) {
   await page.goto(`${BASE}/${path}`, { waitUntil: 'networkidle' });

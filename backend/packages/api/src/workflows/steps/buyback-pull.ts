@@ -158,14 +158,12 @@ export const buybackPullStep = createStep(
     // 2. Flip the pull. If this fails, remove the credit row so nothing is
     //    half-applied (compensation only covers later-step failures).
     try {
-      await packs.updatePulls([
-        {
-          id: pull.id,
-          status: 'bought_back' as const,
-          buyback_amount: amount,
-          buyback_at: new Date(),
-        },
-      ]);
+      await packs.transitionPullStatus({
+        ids: [pull.id],
+        from: 'vaulted',
+        to: 'bought_back',
+        set: { buyback_amount: amount, buyback_at: new Date() },
+      });
     } catch (error) {
       // The undo itself failing leaves credit-without-flip — loud trail so the
       // inconsistent pair (pull, txn) can be repaired by hand.

@@ -2830,6 +2830,51 @@ class PacksModuleService extends MedusaService({
       instant_deadline_ms: instantDeadlineMs(pull.rolled_at, pull.revealed_at),
     };
   }
+
+  // Atomic, guarded pull-status transition — THE seam every vaulted→X flip must
+  // use (buyback, delivery request, deliver/cancel). One conditional UPDATE
+  // (`WHERE status = from`) inside a transaction: if ANY requested pull is not
+  // currently in `from`, the whole batch throws and rolls back — closing the
+  // read-then-unconditional-write race that let one pull be sold back AND
+  // shipped (2026-07-07 audit #1). `set` carries the buyback snapshot columns
+  // so the flip and its money stamp are one atomic statement.
+  @InjectTransactionManager()
+  async transitionPullStatus(
+    input: {
+      ids: string[];
+      from: 'vaulted' | 'delivering';
+      to: 'vaulted' | 'bought_back' | 'delivering' | 'delivered';
+      set?: { buyback_amount?: number; buyback_at?: Date };
+    },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<void> {
+    if (input.ids.length === 0) return;
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const setCols = ['status = ?', 'updated_at = NOW()'];
+    const params: unknown[] = [input.to];
+    if (input.set?.buyback_amount !== undefined) {
+      setCols.splice(1, 0, 'buyback_amount = ?');
+      params.push(input.set.buyback_amount);
+    }
+    if (input.set?.buyback_at !== undefined) {
+      setCols.splice(setCols.length - 1, 0, 'buyback_at = ?');
+      params.push(input.set.buyback_at);
+    }
+    const placeholders = input.ids.map(() => '?').join(', ');
+    const rows = await em.execute<{ id: string }[]>(
+      `UPDATE pull SET ${setCols.join(', ')} ` +
+        `WHERE id IN (${placeholders}) AND status = ? AND deleted_at IS NULL ` +
+        'RETURNING id',
+      [...params, ...input.ids, input.from],
+    );
+    if (rows.length !== input.ids.length) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'One or more cards changed state — refresh and try again.',
+      );
+    }
+  }
+
   // Atomic credit adjustment + audit: writes the ledger row AND the
   // admin_action_audit row in the same transaction so both commit or neither
   // does. adminId comes from the session (auth_context.actor_id) — never from

@@ -125,9 +125,11 @@ export const requestDeliveryStep = createStep(
 
     // 5. Flip pulls vaulted → delivering (manual undo on failure).
     try {
-      await packs.updatePulls(
-        input.pull_ids.map((id) => ({ id, status: "delivering" as const })),
-      );
+      await packs.transitionPullStatus({
+        ids: input.pull_ids,
+        from: "vaulted",
+        to: "delivering",
+      });
     } catch (error) {
       try {
         await packs.deleteDeliveryOrderItems(itemIds);

@@ -141,14 +141,18 @@ export const updateDeliveryOrderStep = createStep(
     let prevPullStatus: 'delivering' | 'delivered' | null = null;
     if (input.status === 'delivered' && pullIds.length) {
       prevPullStatus = 'delivering';
-      await packs.updatePulls(
-        pullIds.map((id) => ({ id, status: 'delivered' as const })),
-      );
+      await packs.transitionPullStatus({
+        ids: pullIds,
+        from: 'delivering',
+        to: 'delivered',
+      });
     } else if (input.status === 'canceled' && pullIds.length) {
       prevPullStatus = 'delivering';
-      await packs.updatePulls(
-        pullIds.map((id) => ({ id, status: 'vaulted' as const })),
-      );
+      await packs.transitionPullStatus({
+        ids: pullIds,
+        from: 'delivering',
+        to: 'vaulted',
+      });
     }
 
     void logger;

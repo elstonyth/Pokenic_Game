@@ -396,3 +396,27 @@ export const DeliveryOrderSchema = z.looseObject({
     )
     .optional(),
 });
+
+// --- data/cards.ts ------------------------------------------------------------
+
+/** GET /store/cards/:handle history point — MYR-converted by the backend. */
+const CardPricePointSchema = z.looseObject({
+  date: z.string(),
+  valueMyr: finite,
+});
+
+/** GET /store/cards/:handle — single-card display payload. rarity/pcSyncedAt/
+ *  priceHistory degrade gracefully (`catch`) instead of nulling the whole card:
+ *  a bad optional section must not take down the detail view. */
+export const CardDetailSchema = z.looseObject({
+  handle: z.string(),
+  name: z.string(),
+  set: z.string(),
+  grader: z.string(),
+  grade: z.string(),
+  image: z.string(),
+  marketPriceMyr: finite,
+  rarity: rarity.nullable().catch(null),
+  pcSyncedAt: z.string().nullable().catch(null),
+  priceHistory: z.array(CardPricePointSchema).catch([]),
+});

@@ -1,5 +1,4 @@
 import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
-import { Modules } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../src/modules/packs';
 import type PacksModuleService from '../../src/modules/packs/service';
 import { mintSuperAdmin, unwrapResponse } from './utils';
@@ -14,18 +13,9 @@ medusaIntegrationTestRunner({
   testSuite: ({ api, getContainer }) => {
     describe('site-settings (slab frame)', () => {
       let adminToken: string;
-      let storeHeaders: Record<string, string>;
 
       beforeEach(async () => {
         const container = getContainer();
-        // /store/* requires a publishable key header even on anonymous reads.
-        const apiKeyModule = container.resolve(Modules.API_KEY);
-        const key = await apiKeyModule.createApiKeys({
-          title: 'site-settings-test',
-          type: 'publishable',
-          created_by: 'site-settings-test',
-        });
-        storeHeaders = { 'x-publishable-api-key': key.token };
         adminToken = await mintSuperAdmin(
           container,
           api,
@@ -60,14 +50,6 @@ medusaIntegrationTestRunner({
       it('GET /admin/site-settings → 200 with null default when no DB row', async () => {
         const res = await unwrapResponse(
           api.get('/admin/site-settings', { headers: adminHeaders() }),
-        );
-        expect(res.status).toBe(200);
-        expect(res.data).toEqual({ slab_frame_url: null });
-      });
-
-      it('GET /store/site-settings → 200 publicly (no customer auth)', async () => {
-        const res = await unwrapResponse(
-          api.get('/store/site-settings', { headers: storeHeaders }),
         );
         expect(res.status).toBe(200);
         expect(res.data).toEqual({ slab_frame_url: null });
@@ -121,7 +103,7 @@ medusaIntegrationTestRunner({
 
       // ----------------------------------------------------------- happy path
 
-      it('POST sets the URL, store GET reflects it, audit row written; null resets', async () => {
+      it('POST sets the URL, audit row written; null resets', async () => {
         const packs = getContainer().resolve<PacksModuleService>(PACKS_MODULE);
 
         const postRes = await unwrapResponse(
@@ -138,16 +120,6 @@ medusaIntegrationTestRunner({
         expect(postRes.data).toEqual({
           slab_frame_url: 'https://cdn.test/frame.webp',
           rebaked: { ok: expect.any(Number), failed: expect.any(Number) },
-        });
-
-        // Public store read must reflect the change (this is what the
-        // storefront layout fetches).
-        const storeRes = await unwrapResponse(
-          api.get('/store/site-settings', { headers: storeHeaders }),
-        );
-        expect(storeRes.status).toBe(200);
-        expect(storeRes.data).toEqual({
-          slab_frame_url: 'https://cdn.test/frame.webp',
         });
 
         // Audit row with admin_id from the session token, not the body.

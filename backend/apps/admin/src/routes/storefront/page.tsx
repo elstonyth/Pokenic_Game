@@ -72,10 +72,11 @@ ${PROMPT_CORE}`,
   },
 ];
 
-// Storefront presentation settings. Currently one knob: the slab-frame
-// overlay the storefront layers over every card photo (PSA-style case).
-// Frames are uploaded through the validated /admin/media gate ('frame'
-// profile: slab proportions ≈ 0.62, transparent card window recommended).
+// Storefront presentation settings. Currently one knob: the slab frame the
+// backend bakes into every graded card's photo (PSA-style case; saving
+// re-bakes all graded cards). Frames are uploaded through the validated
+// /admin/media gate ('frame' profile: slab proportions ≈ 0.62, transparent
+// card window recommended).
 const StorefrontPage = () => {
   const { data, isError } = useSiteSettings();
   const save = useSaveSiteSettings();
@@ -153,7 +154,8 @@ const StorefrontPage = () => {
           <div>
             <Heading level="h2">Slab frame</Heading>
             <Text className="text-ui-fg-subtle" size="small">
-              Overlaid on every card photo so pulls read as graded slabs. Upload
+              Baked into every graded card's photo (blank Grader = raw card, no
+              frame). Saving re-bakes all graded cards with this frame. Upload
               a transparent WebP/PNG at slab proportions (≈ 0.62, e.g. 800×1342)
               — or an AI render straight from a prompt template below (its
               magenta window/background is removed automatically). Keep the

@@ -178,6 +178,7 @@ export function SlabCard({
         >
           <SlabImage
             src={card.image}
+            slabSrc={card.slab_image}
             alt={card.name}
             sizes="(max-width: 640px) 64vw, 300px"
             className="absolute inset-0"

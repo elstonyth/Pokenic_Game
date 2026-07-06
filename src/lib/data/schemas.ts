@@ -427,6 +427,7 @@ export const CardDetailSchema = z.looseObject({
   grader: z.string(),
   grade: z.string(),
   image: z.string(),
+  slab_image: z.string().nullable().catch(null),
   marketPriceMyr: finite,
   rarity: rarity.nullable().catch(null),
   pcSyncedAt: z.string().nullable().catch(null),

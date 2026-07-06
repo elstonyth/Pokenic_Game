@@ -625,7 +625,6 @@ export type Routes = {
             };
             withdraw: typeof import("../../src/api/store/rewards/withdraw/route");
         };
-        siteSettings: typeof import("../../src/api/store/site-settings/route");
         vault: typeof import("../../src/api/store/vault/route") & {
             $id: {
                 buyback: typeof import("../../src/api/store/vault/[id]/buyback/route");

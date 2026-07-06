@@ -36,6 +36,7 @@ function Thumb({ card, w }: { card: MockCard; w?: number }) {
     >
       <SlabImage
         src={card.image}
+        slabSrc={card.slabImage}
         alt={card.name}
         sizes="116px"
         className="w-full"

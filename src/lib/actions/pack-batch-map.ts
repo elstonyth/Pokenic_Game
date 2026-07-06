@@ -36,6 +36,7 @@ export interface RawBatchRollItem {
     handle: string;
     name: string;
     image: string;
+    slab_image?: string | null;
     market_value: number;
     rarity: string;
     pokemon_dex?: number | null;
@@ -61,9 +62,9 @@ export const clampCount = (n: number): number =>
  * Returns `null` if `WonCardSchema` validation fails — callers must treat a
  * null as a whole-batch failure (never return a partial batch).
  *
- * `image` is intentionally read from `rawRoll.card.image` (the raw object),
- * NOT from the validated `wonCard`, because `WonCardSchema` omits `image`
- * (consistent with how `openPack` maps its card).
+ * `image`/`slab_image` are intentionally read from the raw object
+ * (`rawRoll.card`), NOT from the validated `wonCard`, because `WonCardSchema`
+ * omits both fields (consistent with how `openPack` maps its card).
  */
 export function mapBatchRoll(rawRoll: RawBatchRollItem): BatchRoll | null {
   const wonCard = parseOne(WonCardSchema, rawRoll.card);
@@ -76,6 +77,7 @@ export function mapBatchRoll(rawRoll: RawBatchRollItem): BatchRoll | null {
       id: wonCard.handle,
       name: wonCard.name,
       image: rawRoll.card.image, // ← RAW, not from parsed wonCard
+      slab_image: rawRoll.card.slab_image ?? null, // ← RAW, same reason
       value: formatValue(wonCard.market_value),
       rarity: wonCard.rarity as Rarity,
       pokemon_dex: wonCard.pokemon_dex ?? null,

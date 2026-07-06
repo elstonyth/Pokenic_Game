@@ -2,10 +2,14 @@ import type {
   AuthenticatedMedusaRequest,
   MedusaResponse,
 } from '@medusajs/framework/http';
-import { MedusaError } from '@medusajs/framework/utils';
+import {
+  ContainerRegistrationKeys,
+  MedusaError,
+} from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../../modules/packs';
 import type PacksModuleService from '../../../modules/packs/service';
 import { reqReason } from '../rewards-settings/validate';
+import { rebakeAllGradedCards } from '../media/bake-slab';
 
 // GET /admin/site-settings — current storefront presentation config. Scoped
 // to the slab frame; the avatar-frame catalog has its own /admin/avatar-frames.
@@ -52,5 +56,27 @@ export async function POST(
   const reason = reqReason(req.body);
   const slabFrameUrl = reqSlabFrameUrl(req.body);
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
-  res.json(await packs.editSiteSettings({ slabFrameUrl, adminId, reason }));
+  const settings = await packs.editSiteSettings({
+    slabFrameUrl,
+    adminId,
+    reason,
+  });
+  // The frame changed → every graded card's composite is stale. Re-bake them
+  // all in-request (spec §C; sync by decision #5 — seconds at today's ~17
+  // cards, per-card failures don't stop the loop and land in `failed`).
+  // The settings save above already committed — a bake-infrastructure failure
+  // (frame resolve / card listing) must not surface as a save failure, so the
+  // rebake is isolated; stale composites recover via a re-save or the
+  // backfill script.
+  let rebaked = { ok: 0, failed: 0 };
+  try {
+    rebaked = await rebakeAllGradedCards(req.scope);
+  } catch (e) {
+    req.scope
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .warn(
+        `site-settings: rebake after frame swap failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+  }
+  res.json({ ...settings, rebaked });
 }

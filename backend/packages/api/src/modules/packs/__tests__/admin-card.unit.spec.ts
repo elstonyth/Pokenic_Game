@@ -8,6 +8,7 @@ const card = {
   grade: '10',
   market_value: '0.15',
   image: '/p.png',
+  slab_image: null as string | null,
   price: '1.50',
   for_sale: true,
   pokemon_dex: null as number | null,

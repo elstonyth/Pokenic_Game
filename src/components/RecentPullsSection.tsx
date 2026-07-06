@@ -33,6 +33,7 @@ function PullCard({ pull }: { pull: RecentPull }) {
               square pedestal minus breathing room */}
           <SlabImage
             src={pull.image}
+            slabSrc={pull.slabImage}
             alt={pull.name}
             sizes="128px"
             className="w-[124px] transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"

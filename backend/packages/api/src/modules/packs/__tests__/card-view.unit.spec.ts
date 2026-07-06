@@ -8,6 +8,7 @@ const card = {
   grade: "10",
   market_value: "0.15",
   image: "/p.png",
+  slab_image: null,
 };
 
 describe("cardByHandle", () => {
@@ -41,6 +42,22 @@ describe("toCardView", () => {
       rarity: "Mythical",
       market_value: 0.15,
       image: "/p.png",
+      slab_image: null,
     });
+  });
+
+  it('passes slab_image through, defaulting to null', () => {
+    const base = {
+      handle: 'h',
+      name: 'N',
+      set: 'S',
+      grader: 'PSA',
+      grade: '9',
+      market_value: 10,
+      image: '/i.webp',
+      slab_image: '/s.webp' as string | null,
+    };
+    expect(toCardView(base, 'Rare').slab_image).toBe('/s.webp');
+    expect(toCardView({ ...base, slab_image: null }, 'Rare').slab_image).toBeNull();
   });
 });

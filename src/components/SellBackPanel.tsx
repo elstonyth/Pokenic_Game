@@ -16,6 +16,7 @@ export type SellBackOffer = {
   fmv: number;
   cardName: string;
   image: string;
+  slabImage: string | null;
   percent: number;
   amount: number;
   vaultPercent: number;
@@ -187,6 +188,7 @@ export function SellBackPanel({
         open={confirmOpen}
         cardName={offer.cardName}
         image={offer.image}
+        slabImage={offer.slabImage}
         fmv={offer.fmv}
         rateType={sellExpired ? 'flat' : 'instant'}
         percent={sellExpired ? offer.vaultPercent : offer.percent}

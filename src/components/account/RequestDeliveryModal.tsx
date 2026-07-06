@@ -118,6 +118,7 @@ export default function RequestDeliveryModal({
             <SlabImage
               key={i.pullId}
               src={i.card.image}
+              slabSrc={i.card.slabImage}
               alt={i.card.name}
               sizes="60px"
               className="w-15 shrink-0"

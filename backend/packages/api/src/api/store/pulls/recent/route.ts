@@ -108,6 +108,7 @@ export async function GET(
           Number(card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER),
         ),
         image: card.image,
+        slab_image: card.slab_image ?? null,
         // pack the card came from (= Pack.slug) + live catalog label fields.
         pack_id: p.pack_id,
         pack_title: pack?.title ?? null,

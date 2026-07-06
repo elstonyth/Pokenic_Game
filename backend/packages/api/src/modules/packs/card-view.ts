@@ -11,6 +11,7 @@ export type CardLike = {
   grade: string;
   market_value: unknown;
   image: string;
+  slab_image: string | null;
 };
 
 // Index a card list by its stable business key (Card.handle === the join key
@@ -59,5 +60,6 @@ export function toCardView(card: CardLike, rarity: string) {
     rarity,
     market_value: toMoney(card.market_value),
     image: card.image,
+    slab_image: card.slab_image ?? null,
   };
 }

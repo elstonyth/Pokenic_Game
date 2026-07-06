@@ -66,6 +66,7 @@ export async function GET(
       grader: card.grader,
       grade: card.grade,
       image: card.image,
+      slab_image: card.slab_image ?? null,
       rarity: oddsRow?.rarity ?? null,
       marketPriceMyr: toMyr(card.market_value),
       pcSyncedAt: card.pc_synced_at ?? null,

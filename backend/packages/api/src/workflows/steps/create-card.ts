@@ -12,6 +12,10 @@ import { PACKS_MODULE } from '../../modules/packs';
 import type PacksModuleService from '../../modules/packs/service';
 import type { HouseSellerService } from '../../modules/packs/card-product';
 import { insertOrMapDuplicate } from './duplicate-race';
+import {
+  bakeSlabImage,
+  deleteSlabFile,
+} from '../../api/admin/media/bake-slab';
 
 // Inventory-first registration: the PRODUCT is the item, created in the product
 // catalog beforehand. Registering it as a gacha Card only records the gacha
@@ -100,6 +104,15 @@ export const registerCardInvoke = async (
     throw alreadyRegistered();
   }
 
+  // Graded card (non-empty grader) → bake the slab composite BEFORE the
+  // insert so the slab fields ride the single createCards write and the
+  // product-metadata mirror below. Best-effort: a failed bake registers the
+  // card with a bare photo (nulls) — it never fails the save.
+  const baked =
+    input.grader.trim() !== ''
+      ? await bakeSlabImage(container, { handle: product.handle, image })
+      : null;
+
   // Inherit the PriceCharting link from the product's own metadata (set by
   // /admin/products/from-pricecharting) unless the caller explicitly overrides
   // it. A plain (non-PC) product leaves these null/default — untracked.
@@ -145,6 +158,8 @@ export const registerCardInvoke = async (
           for_sale: product.status === 'published',
           pokemon_dex: pokemonDex,
           sprite_image: spriteImage,
+          slab_image: baked?.url ?? null,
+          slab_image_key: baked?.key ?? null,
           pc_product_id: pcProductId,
           pc_grade: pcGrade,
           market_multiplier: mult,
@@ -213,6 +228,9 @@ export const registerCardInvoke = async (
               grade: input.grade,
               grader: input.grader,
               set: input.set,
+              // Public mirror for the marketplace listing (Products, not
+              // Cards). URL only — slab_image_key is a private provider handle.
+              slab_image: baked?.url ?? null,
               year:
                 typeof prevMetadata.year === 'number'
                   ? prevMetadata.year
@@ -223,6 +241,12 @@ export const registerCardInvoke = async (
       },
     });
   } catch (error) {
+    // The just-uploaded composite is referenced only by the Card row being
+    // undone here — reclaim it too (deleteSlabFile never throws), so a failed
+    // mirror doesn't orphan one file per retried registration.
+    if (baked) {
+      await deleteSlabFile(container, baked.key);
+    }
     await packs.deleteCards([card.id]);
     throw error;
   }

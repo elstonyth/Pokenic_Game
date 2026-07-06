@@ -52,6 +52,7 @@ function DeliveryItems({ items }: { items: DeliveryOrderView['items'] }) {
       {first?.card?.image && (
         <SlabImage
           src={first.card.image}
+          slabSrc={first.card.slabImage}
           alt=""
           sizes="24px"
           className="w-6 shrink-0"

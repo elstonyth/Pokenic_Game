@@ -15,6 +15,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { mapBatchRoll, clampCount } from '@/lib/actions/pack-batch-map';
+import type { RawBatchRollItem } from '@/lib/actions/pack-batch-map';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,6 +76,24 @@ describe('mapBatchRoll — image sourced from raw card', () => {
     const roll = rawRoll({ image: '/sprites/exact.png', _junk: 'ignored' });
     const result = mapBatchRoll(roll);
     expect(result!.card.image).toBe('/sprites/exact.png');
+  });
+
+  it('reads slab_image from the RAW roll object (WonCardSchema omits it, like image)', () => {
+    const roll: RawBatchRollItem = {
+      pull: { id: 'p1' },
+      card: {
+        handle: 'h1',
+        name: 'Card',
+        image: '/raw/photo.webp',
+        slab_image: '/raw/slab.webp',
+        market_value: 10,
+        rarity: 'Rare',
+      },
+      buyback: undefined,
+    };
+    const mapped = mapBatchRoll(roll);
+    expect(mapped).not.toBeNull();
+    expect(mapped!.card.slab_image).toBe('/raw/slab.webp');
   });
 });
 

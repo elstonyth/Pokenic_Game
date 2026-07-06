@@ -17,6 +17,7 @@ export default function SellConfirmModal({
   open,
   cardName,
   image,
+  slabImage,
   fmv,
   rateType,
   percent,
@@ -30,6 +31,7 @@ export default function SellConfirmModal({
   open: boolean;
   cardName: string;
   image: string;
+  slabImage?: string | null;
   fmv: number;
   rateType: 'instant' | 'flat';
   percent: number;
@@ -117,6 +119,7 @@ export default function SellConfirmModal({
           {!bulk && (
             <SlabImage
               src={image}
+              slabSrc={slabImage}
               alt={cardName}
               sizes="48px"
               className="w-12 shrink-0"

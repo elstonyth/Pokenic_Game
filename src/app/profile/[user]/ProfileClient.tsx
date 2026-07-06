@@ -141,6 +141,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                   <div className="relative w-full overflow-hidden bg-[radial-gradient(120%_80%_at_50%_15%,#2e2e2e_0%,#1c1c1c_55%,#141414_100%)] p-3">
                     <SlabImage
                       src={c.image}
+                      slabSrc={c.slabImage}
                       alt={c.name}
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
                       className="w-full transition-transform duration-300 group-hover:scale-[1.04]"
@@ -169,6 +170,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
             >
               <SlabImage
                 src={a.card.image}
+                slabSrc={a.card.slabImage}
                 alt=""
                 sizes="32px"
                 className="w-8 shrink-0"

@@ -63,6 +63,7 @@ export function CardDetail({
         >
           <SlabImage
             src={seed.image}
+            slabSrc={detail?.slab_image ?? seed.slabImage}
             alt={seed.name}
             sizes="(max-width: 768px) 70vw, 420px"
             priority

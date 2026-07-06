@@ -138,6 +138,7 @@ export default function ActivityPage() {
                   >
                     <SlabImage
                       src={row.card.image}
+                      slabSrc={row.card.slabImage}
                       alt=""
                       sizes="28px"
                       className="w-7 shrink-0"

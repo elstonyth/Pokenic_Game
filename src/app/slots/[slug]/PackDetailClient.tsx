@@ -70,6 +70,7 @@ export default function PackDetailClient({
     handle: c.id,
     name: c.name,
     image: c.image,
+    slabImage: c.slabImage,
     value: c.value,
     rarity: c.rarity,
   });
@@ -470,6 +471,7 @@ export default function PackDetailClient({
                         handle: c.handle,
                         name: c.name,
                         image: c.image,
+                        slabImage: c.slabImage,
                         value: c.value,
                         rarity: c.rarity,
                       })
@@ -481,6 +483,7 @@ export default function PackDetailClient({
                   >
                     <SlabImage
                       src={c.image}
+                      slabSrc={c.slabImage}
                       alt=""
                       sizes="32px"
                       className="w-8 shrink-0"

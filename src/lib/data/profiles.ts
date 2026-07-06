@@ -40,6 +40,7 @@ export interface PublicProfileCard {
   /** Live MYR display value (FMV × FX × multiplier); absent on older backends. */
   marketPriceMyr?: number;
   image: string;
+  slab_image?: string | null;
 }
 
 export interface PublicProfilePull {

@@ -74,7 +74,12 @@ export async function serializeDeliveryOrders(
       return {
         pull_id: it.pull_id,
         card: card
-          ? { handle: card.handle, name: card.name, image: card.image }
+          ? {
+              handle: card.handle,
+              name: card.name,
+              image: card.image,
+              slab_image: card.slab_image ?? null,
+            }
           : null,
       };
     }),

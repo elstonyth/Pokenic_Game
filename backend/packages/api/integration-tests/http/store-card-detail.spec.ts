@@ -94,6 +94,7 @@ medusaIntegrationTestRunner({
           rarity: 'Rare',
           marketPriceMyr: 480,
         });
+        expect(card).toHaveProperty('slab_image');
         expect(card.pcSyncedAt).toBeNull();
         expect(card.priceHistory).toHaveLength(2);
         expect(

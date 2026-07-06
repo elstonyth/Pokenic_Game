@@ -206,6 +206,7 @@ export type PackCard = {
   id: string;
   name: string;
   image: string;
+  slabImage: string | null;
   value: string;
   rarity: Rarity;
 };

@@ -24,6 +24,7 @@ export interface MarketplaceCard {
   fmv: number;
   points: number;
   image: string;
+  slabImage: string | null;
   /** Live MYR market price (display-only) — fmv x FX(USD->MYR) x market_multiplier.
    * Undefined if the FX rate couldn't be resolved (route/backend unreachable). */
   marketPriceMyr?: number;
@@ -142,6 +143,10 @@ function toMarketplaceCard(
     fmv,
     points: toFinite(meta.points, 0),
     image: imageOf(p),
+    slabImage:
+      typeof meta.slab_image === 'string' && meta.slab_image !== ''
+        ? meta.slab_image
+        : null,
     marketPriceMyr: displayMarketPrice(
       fmv,
       fxRate,

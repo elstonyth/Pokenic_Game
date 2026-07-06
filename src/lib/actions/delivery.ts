@@ -18,7 +18,12 @@ import { friendlyError, isAuthError, type ErrorRule } from '@/lib/errors';
 
 export type DeliveryOrderItemView = {
   pullId: string;
-  card: { handle: string; name: string; image: string } | null;
+  card: {
+    handle: string;
+    name: string;
+    image: string;
+    slabImage: string | null;
+  } | null;
 };
 export type DeliveryOrderView = {
   id: string;
@@ -82,7 +87,12 @@ interface BackendDeliveryOrder {
   address: { name: string; city: string; country_code: string };
   items: {
     pull_id: string;
-    card: { handle: string; name: string; image: string } | null;
+    card: {
+      handle: string;
+      name: string;
+      image: string;
+      slab_image?: string | null;
+    } | null;
   }[];
 }
 
@@ -116,7 +126,14 @@ export async function getDeliveryOrders(): Promise<DeliveryOrdersResult> {
       },
       items: (o.items ?? []).map((it) => ({
         pullId: it.pull_id,
-        card: it.card,
+        card: it.card
+          ? {
+              handle: it.card.handle,
+              name: it.card.name,
+              image: it.card.image,
+              slabImage: it.card.slab_image ?? null,
+            }
+          : null,
       })),
     }));
     return { ok: true, orders };

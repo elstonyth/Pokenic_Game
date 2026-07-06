@@ -19,6 +19,7 @@ export type MockCard = {
   grade: string;
   rarity: Rarity;
   image: string;
+  slabImage: string;
   fmv: number; // USD
   price: number; // USD listing
   points: number;
@@ -110,6 +111,7 @@ function build(i: number, image: string): MockCard {
     grade,
     rarity: rarityFor(fmv),
     image,
+    slabImage: image,
     fmv,
     price,
     points: 80 + ((i * 13) % 21),
@@ -150,6 +152,7 @@ export function cardOrGeneric(id: string): MockCard {
     grade: GRADES[h % GRADES.length] ?? GRADES[0]!,
     rarity: rarityFor(fmv),
     image,
+    slabImage: image,
     fmv,
     price: Math.round(fmv * 0.95),
     points: 80 + (h % 21),

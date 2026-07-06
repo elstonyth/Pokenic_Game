@@ -388,6 +388,7 @@ export default function VaultClient({
               >
                 <SlabImage
                   src={item.card.image}
+                  slabSrc={item.card.slabImage}
                   alt={item.card.name}
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   className="w-full"
@@ -440,6 +441,7 @@ export default function VaultClient({
                           handle: item.card.handle,
                           name: item.card.name,
                           image: item.card.image,
+                          slabImage: item.card.slabImage,
                           value: formatValue(item.card.marketPriceMyr),
                           rarity: isRarity(item.card.rarity)
                             ? item.card.rarity
@@ -561,6 +563,7 @@ export default function VaultClient({
           open
           cardName={confirmItem.card.name}
           image={confirmItem.card.image}
+          slabImage={confirmItem.card.slabImage}
           fmv={confirmItem.card.marketPriceMyr ?? 0}
           rateType="flat"
           percent={confirmItem.buyback.percent}

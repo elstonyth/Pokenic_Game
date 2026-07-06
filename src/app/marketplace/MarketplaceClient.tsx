@@ -220,6 +220,7 @@ function MarketCard({ card }: { card: MarketplaceCard }) {
         >
           <SlabImage
             src={card.image}
+            slabSrc={card.slabImage}
             alt={card.title}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
             className="w-full transition-transform duration-300 ease-out group-hover/card:scale-[1.04]"

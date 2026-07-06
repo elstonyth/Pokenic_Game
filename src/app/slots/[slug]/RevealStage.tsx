@@ -281,6 +281,7 @@ export function RevealStage({
           open
           cardName={offers[confirmIndex]!.cardName}
           image={offers[confirmIndex]!.image}
+          slabImage={offers[confirmIndex]!.slabImage}
           fmv={offers[confirmIndex]!.fmv}
           rateType="instant"
           percent={offers[confirmIndex]!.percent}

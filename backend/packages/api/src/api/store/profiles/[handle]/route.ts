@@ -127,6 +127,7 @@ export async function GET(
             market_value: toMoney(card.market_value),
             marketPriceMyr: cardMyr(card),
             image: card.image,
+            slab_image: card.slab_image ?? null,
           },
         },
       ];
@@ -155,6 +156,7 @@ export async function GET(
           market_value: toMoney(card.market_value),
           marketPriceMyr: cardMyr(card),
           image: card.image,
+          slab_image: card.slab_image ?? null,
         },
       ];
     });

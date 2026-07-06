@@ -16,13 +16,23 @@ const fail = (msg) => {
 
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage({
+  // @axe-core/playwright requires a page from an explicit context.
+  const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
   });
+  const page = await ctx.newPage();
   await page.goto(`${BASE}/slots/${SLUG}`, {
     waitUntil: 'domcontentloaded',
     timeout: 20000,
   });
+
+  // The cookie-consent banner is ALSO role=dialog — dismiss it so dialog
+  // selectors (scoped to the overlay via [aria-modal]) and screenshots stay
+  // clean.
+  const consent = page.getByRole('button', { name: 'Accept' });
+  if (await consent.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await consent.click();
+  }
 
   // 1) grid: at least one tile with name + "est." price
   const tile = page
@@ -38,7 +48,9 @@ try {
 
   // 2) overlay opens instantly + URL becomes /card/<handle>
   await tile.click();
-  const dialog = page.locator('[role=dialog]');
+  // [aria-modal="true"] scopes to the card overlay (the cookie banner is a
+  // non-modal role=dialog).
+  const dialog = page.locator('[role=dialog][aria-modal="true"]');
   await dialog.waitFor({ timeout: 5000 });
   if (!/\/card\//.test(page.url())) fail(`URL did not change: ${page.url()}`);
   await page.waitForTimeout(1500); // let useCardPrice hydrate set/grade/sparkline
@@ -47,7 +59,9 @@ try {
 
   // 2b) axe pass scoped to the open overlay (whole-page axe false-positives
   // mid-Reveal are a known trap — scope to the dialog only).
-  const axe = await new AxeBuilder({ page }).include('[role=dialog]').analyze();
+  const axe = await new AxeBuilder({ page })
+    .include('[role=dialog][aria-modal="true"]')
+    .analyze();
   if (axe.violations.length > 0) {
     fail(
       `axe violations in overlay: ${axe.violations.map((v) => v.id).join(', ')}`,
@@ -72,7 +86,7 @@ try {
   await page.waitForSelector('h1', { timeout: 10000 });
   const title = await page.title();
   if (!/Pokenic/.test(title)) fail(`deep-link title suspicious: ${title}`);
-  if ((await page.locator('[role=dialog]').count()) > 0) {
+  if ((await page.locator('[role=dialog][aria-modal="true"]').count()) > 0) {
     fail('deep link rendered the overlay instead of the page');
   }
   await page.screenshot({

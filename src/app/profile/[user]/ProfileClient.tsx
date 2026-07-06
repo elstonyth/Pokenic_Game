@@ -50,9 +50,11 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
         <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:items-end">
           <FramedAvatar
             src={user.pfp}
+            initial={user.username?.[0]?.toUpperCase()}
             frameSrc={user.frame}
             alt={user.username}
             size={96}
+            priority
             className="ring-4 ring-white/10"
           />
           <div className="min-w-0 flex-1 text-center sm:text-left">

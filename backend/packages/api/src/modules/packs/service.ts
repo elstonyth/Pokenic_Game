@@ -11,6 +11,7 @@ import type { Context, HttpTypes } from '@medusajs/framework/types';
 import type { OddsRarity } from '@acme/odds-math';
 import { validateDeliveryRequest, snapshotAddress } from './delivery';
 import { rewardsRedemptionEnabled } from './rewards-gate';
+import { FRAME_LEVELS } from './avatar-frames';
 import Pack from './models/pack';
 import Card from './models/card';
 import CardPriceHistory from './models/card-price-history';
@@ -378,17 +379,22 @@ class PacksModuleService extends MedusaService({
   // defaults when absent (null slab frame → storefront bundles its own;
   // avatar_frames → {} until the admin uploads milestone frames).
   @InjectManager()
-  async siteSettings(
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<{
+  async siteSettings(@MedusaContext() sharedContext: Context = {}): Promise<{
     slab_frame_url: string | null;
     avatar_frames: Record<string, string>;
   }> {
     const [row] = await this.listSiteSettings({}, { take: 1 }, sharedContext);
     return {
       slab_frame_url: row?.slab_frame_url ?? null,
-      avatar_frames:
-        (row?.avatar_frames as Record<string, string> | null) ?? {},
+      // Cleared levels are persisted as explicit nulls (see editAvatarFrames)
+      // — filter them out so consumers only ever see level → URL strings.
+      avatar_frames: Object.fromEntries(
+        Object.entries(
+          (row?.avatar_frames as Record<string, string | null> | null) ?? {},
+        ).filter((entry): entry is [string, string] => {
+          return typeof entry[1] === 'string';
+        }),
+      ),
     };
   }
 
@@ -452,7 +458,15 @@ class PacksModuleService extends MedusaService({
       avatar_frames:
         (row?.avatar_frames as Record<string, string> | null) ?? {},
     };
-    const data = { avatar_frames: input.frames };
+    // The ORM MERGES json columns on update (an omitted key survives a
+    // "replace" — caught by the null-clear http test), so persist every
+    // milestone key explicitly: null overwrites a stale entry. Reads
+    // (siteSettings) filter the nulls back out.
+    const full: Record<string, string | null> = {};
+    for (const level of FRAME_LEVELS) {
+      full[String(level)] = input.frames[String(level)] ?? null;
+    }
+    const data = { avatar_frames: full };
     if (row) {
       await this.updateSiteSettings(
         { selector: { id: row.id }, data },
@@ -478,7 +492,8 @@ class PacksModuleService extends MedusaService({
       ],
       sharedContext,
     );
-    return data;
+    // Public shape: only configured levels, never the null placeholders.
+    return { avatar_frames: input.frames };
   }
 
   // The instant/flat sell-back offer for a pull, composed from the SAME pure

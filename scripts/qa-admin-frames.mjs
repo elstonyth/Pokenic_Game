@@ -7,6 +7,7 @@ const FRAME = process.argv[2];
 if (!FRAME)
   throw new Error('usage: node scripts/qa-admin-frames.mjs <frame.png>');
 const BASE = process.env.ADMIN_BASE ?? 'http://localhost:7000/dashboard';
+const API_BASE = process.env.API_BASE ?? 'http://localhost:9000';
 const EMAIL = process.env.PW_ADMIN_EMAIL ?? 'admin@pokenic.local';
 const PASSWORD = process.env.PW_ADMIN_PASSWORD ?? 'pokenicadmin2026';
 const SHOTS = 'docs-local-qa';
@@ -100,7 +101,7 @@ await page.screenshot({
 
 // Verify persisted via the admin endpoint (page.request shares the browser's
 // authed session cookies; the store endpoint would need the publishable key).
-const res = await page.request.get('http://localhost:9000/admin/avatar-frames');
+const res = await page.request.get(`${API_BASE}/admin/avatar-frames`);
 const body = await res.json();
 console.log('store catalog:', JSON.stringify(body));
 if (!body.frames?.['10'])

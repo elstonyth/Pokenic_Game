@@ -58,13 +58,17 @@ interface BackendEntry {
  */
 export async function getLeaderboard(
   period: LeaderboardPeriod = 'weekly',
-  frames: Record<string, string> = {},
+  // Accepts the pending catalog promise so callers can start this fetch and
+  // getAvatarFrames() concurrently — frames are only needed for enrichment
+  // after the entries arrive, never to start the request.
+  framesInput: Record<string, string> | Promise<Record<string, string>> = {},
 ): Promise<LeaderboardEntry[]> {
   try {
     const { entries } = await sdk.client.fetch<{ entries: BackendEntry[] }>(
       `/store/leaderboard?period=${period}`,
     );
     if (!Array.isArray(entries) || entries.length === 0) return [];
+    const frames = await framesInput;
 
     return (
       parseList(LeaderboardEntrySchema, entries) as unknown as BackendEntry[]

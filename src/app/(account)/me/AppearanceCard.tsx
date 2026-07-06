@@ -4,9 +4,8 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, Lock } from 'lucide-react';
 import { FramedAvatar } from '@/components/FramedAvatar';
+import { FRAME_LEVELS } from '@/lib/frame-levels';
 import { uploadAvatar, setAvatarFrame } from '@/lib/actions/profile-appearance';
-
-const FRAME_LEVELS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100] as const;
 
 /**
  * Profile header + appearance controls on /me: tap the avatar (or the button)

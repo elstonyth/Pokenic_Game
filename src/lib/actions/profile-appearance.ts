@@ -10,6 +10,7 @@ import { MEDUSA_BACKEND_URL, sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
 import { getAuthToken } from '@/lib/data/customer';
 import { friendlyError, type ErrorRule } from '@/lib/errors';
+import { FRAME_LEVELS } from '@/lib/frame-levels';
 
 const APPEARANCE_RULES: ErrorRule[] = [
   [/capped at 5 mb/i, 'Photo is too large — keep it under 5 MB.'],
@@ -78,10 +79,7 @@ export async function uploadAvatar(
 export async function setAvatarFrame(
   level: number | null,
 ): Promise<AppearanceResult> {
-  if (
-    level !== null &&
-    (!Number.isInteger(level) || level < 10 || level > 100 || level % 10 !== 0)
-  ) {
+  if (level !== null && !(FRAME_LEVELS as readonly number[]).includes(level)) {
     return { ok: false, error: 'Invalid frame.' };
   }
   const token = await getAuthToken();

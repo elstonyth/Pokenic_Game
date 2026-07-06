@@ -15,6 +15,7 @@ export function FramedAvatar({
   size,
   alt = '',
   className,
+  priority = false,
 }: {
   src: string | null;
   initial?: string;
@@ -22,6 +23,8 @@ export function FramedAvatar({
   size: number;
   alt?: string;
   className?: string;
+  /** Eager-load — set on above-the-fold avatars (profile header = LCP). */
+  priority?: boolean;
 }) {
   return (
     <span
@@ -35,7 +38,8 @@ export function FramedAvatar({
           alt={alt}
           width={size}
           height={size}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
           className="h-full w-full rounded-full object-cover"
         />
       ) : (
@@ -55,7 +59,7 @@ export function FramedAvatar({
           aria-hidden
           width={size}
           height={size}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
           className="pointer-events-none absolute left-1/2 top-1/2 h-[128%] w-[128%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
         />
       )}

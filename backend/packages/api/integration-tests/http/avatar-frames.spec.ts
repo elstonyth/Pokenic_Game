@@ -16,7 +16,12 @@ medusaIntegrationTestRunner({
 
       beforeEach(async () => {
         const container = getContainer();
-        adminToken = await mintSuperAdmin(container, api, ADMIN_EMAIL, PASSWORD);
+        adminToken = await mintSuperAdmin(
+          container,
+          api,
+          ADMIN_EMAIL,
+          PASSWORD,
+        );
         const apiKeyModule = container.resolve(Modules.API_KEY);
         const key = await apiKeyModule.createApiKeys({
           title: 'avatar-frames-test',
@@ -35,7 +40,10 @@ medusaIntegrationTestRunner({
           api.post(
             '/admin/avatar-frames',
             {
-              frames: { '10': '/static/frame-10.webp', '20': '/static/frame-20.webp' },
+              frames: {
+                '10': '/static/frame-10.webp',
+                '20': '/static/frame-20.webp',
+              },
               reason: 'seed frames for test',
             },
             { headers: adminHeaders() },
@@ -50,27 +58,66 @@ medusaIntegrationTestRunner({
           api.get('/store/avatar-frames', { headers: storeHeaders }),
         );
         expect(pub.data.frames['10']).toBe('/static/frame-10.webp');
+
+        // Admin read path returns the same persisted catalog.
+        const adminRead = await unwrapResponse(
+          api.get('/admin/avatar-frames', { headers: adminHeaders() }),
+        );
+        expect(adminRead.data.frames).toEqual({
+          '10': '/static/frame-10.webp',
+          '20': '/static/frame-20.webp',
+        });
+      });
+
+      it('null clears a milestone level from the catalog', async () => {
+        await unwrapResponse(
+          api.post(
+            '/admin/avatar-frames',
+            {
+              frames: {
+                '10': '/static/frame-10.webp',
+                '20': '/static/frame-20.webp',
+              },
+              reason: 'seed before clearing',
+            },
+            { headers: adminHeaders() },
+          ),
+        );
+        const cleared = await unwrapResponse(
+          api.post(
+            '/admin/avatar-frames',
+            {
+              frames: { '10': '/static/frame-10.webp', '20': null },
+              reason: 'clear level 20',
+            },
+            { headers: adminHeaders() },
+          ),
+        );
+        expect(cleared.data.frames).toEqual({ '10': '/static/frame-10.webp' });
+
+        const readBack = await unwrapResponse(
+          api.get('/admin/avatar-frames', { headers: adminHeaders() }),
+        );
+        expect(readBack.data.frames['20']).toBeUndefined();
       });
 
       it('rejects non-milestone keys and a missing reason', async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const badKey = await api
-          .post(
+        const badKey = await unwrapResponse(
+          api.post(
             '/admin/avatar-frames',
             { frames: { '15': '/f.webp' }, reason: 'x' },
             { headers: adminHeaders() },
-          )
-          .catch((e: any) => e.response);
+          ),
+        );
         expect(badKey.status).toBe(400);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const noReason = await api
-          .post(
+        const noReason = await unwrapResponse(
+          api.post(
             '/admin/avatar-frames',
             { frames: { '10': '/f.webp' } },
             { headers: adminHeaders() },
-          )
-          .catch((e: any) => e.response);
+          ),
+        );
         expect(noReason.status).toBe(400);
       });
     });

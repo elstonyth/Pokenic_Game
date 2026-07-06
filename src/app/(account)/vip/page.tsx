@@ -72,7 +72,7 @@ export default async function VipPage() {
           </p>
         </Panel>
       )}
-      {dailyRes.ok && (
+      {dailyRes.ok ? (
         <VipVouchers
           initialClaimable={dailyRes.state.vouchers.claimable.filter(
             (g) => g.kind === 'voucher',
@@ -82,6 +82,10 @@ export default async function VipPage() {
           )}
           redemptionEnabled={dailyRes.state.redemptionEnabled}
         />
+      ) : (
+        <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+          Couldn&apos;t load your vouchers right now — refresh to try again.
+        </p>
       )}
       <p className="mt-4 text-[13px] text-white/60">
         Your free{' '}

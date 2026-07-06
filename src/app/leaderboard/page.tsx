@@ -14,14 +14,14 @@ export const metadata: Metadata = {
 };
 
 export default async function LeaderboardPage() {
-  const [avatarFrames, ownHandle] = await Promise.all([
-    getAvatarFrames(),
+  // All four fetches run concurrently — getLeaderboard awaits the catalog
+  // promise internally, only for post-fetch frame enrichment.
+  const framesPromise = getAvatarFrames();
+  const [ownHandle, weekly, alltime] = await Promise.all([
     // null when logged out — the client hides the "your rank" card then.
     getOwnProfileHandle().catch(() => null),
-  ]);
-  const [weekly, alltime] = await Promise.all([
-    getLeaderboard('weekly', avatarFrames),
-    getLeaderboard('alltime', avatarFrames),
+    getLeaderboard('weekly', framesPromise),
+    getLeaderboard('alltime', framesPromise),
   ]);
 
   return (

@@ -10,5 +10,8 @@ export async function GET(
   res: MedusaResponse,
 ): Promise<void> {
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
-  res.json(await packs.siteSettings());
+  // Slab frame only — the avatar-frame catalog is served by
+  // /store/avatar-frames, not duplicated here.
+  const { slab_frame_url } = await packs.siteSettings();
+  res.json({ slab_frame_url });
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Gift } from 'lucide-react';
+import { openAuth } from '@/components/AuthButton';
 import { voucherLabel } from '@/lib/format';
 import { claimVoucher, type VoucherGrant } from '@/lib/actions/daily';
 
@@ -39,6 +40,10 @@ export function VipVouchers({
     const res = await claimVoucher(grant.id);
     setClaiming((p) => ({ ...p, [grant.id]: false }));
     if (!res.ok) {
+      // Stale/expired session: open the login modal so the user can recover
+      // instead of retrying a claim that can never succeed (same pattern as
+      // the slot machine's spin handler).
+      if (res.needsAuth) openAuth('login');
       setErrors((p) => ({ ...p, [grant.id]: res.error }));
       return;
     }

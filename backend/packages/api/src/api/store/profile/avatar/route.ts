@@ -4,7 +4,10 @@ import type {
   MedusaResponse,
 } from '@medusajs/framework/http';
 import { MedusaError, Modules } from '@medusajs/framework/utils';
-import { uploadFilesWorkflow } from '@medusajs/medusa/core-flows';
+import {
+  deleteFilesWorkflow,
+  uploadFilesWorkflow,
+} from '@medusajs/medusa/core-flows';
 import sharp from 'sharp';
 import { validateImage } from '../../../admin/media/validate';
 
@@ -103,7 +106,8 @@ export async function POST(
       ],
     },
   });
-  const url = result?.[0]?.url;
+  const uploaded = result?.[0];
+  const url = uploaded?.url;
   if (!url) {
     throw new MedusaError(
       MedusaError.Types.UNEXPECTED_STATE,
@@ -113,9 +117,27 @@ export async function POST(
 
   const customers = req.scope.resolve(Modules.CUSTOMER);
   const customer = await customers.retrieveCustomer(customerId);
+  // Provider file id of the photo being replaced — avatars uploaded before
+  // this field existed have none and are simply left in place.
+  const previousFileId =
+    typeof customer.metadata?.avatar_file_id === 'string'
+      ? customer.metadata.avatar_file_id
+      : null;
   await customers.updateCustomers(customerId, {
-    metadata: { ...(customer.metadata ?? {}), avatar_url: url },
+    metadata: {
+      ...(customer.metadata ?? {}),
+      avatar_url: url,
+      avatar_file_id: uploaded.id ?? null,
+    },
   });
+
+  // Best-effort cleanup of the replaced photo so re-uploads don't accumulate
+  // orphaned objects in the file provider — never fail the upload over it.
+  if (previousFileId && previousFileId !== uploaded.id) {
+    await deleteFilesWorkflow(req.scope)
+      .run({ input: { ids: [previousFileId] } })
+      .catch(() => undefined);
+  }
 
   res.json({ avatar_url: url });
 }

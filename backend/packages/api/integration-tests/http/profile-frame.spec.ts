@@ -81,6 +81,21 @@ medusaIntegrationTestRunner({
         );
         expect(notMilestone.status).toBe(400);
 
+        // Shape-check boundaries: below range, negative, above range,
+        // non-integer, and non-numeric all reject with 400.
+        for (const badLevel of [0, -10, 110, 20.5]) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const res = await setFrame(badLevel, authed(token)).catch(
+            (e: any) => e.response,
+          );
+          expect(res.status).toBe(400);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nonNumeric = await api
+          .post('/store/profile/frame', { level: 'abc' }, { headers: authed(token) })
+          .catch((e: any) => e.response);
+        expect(nonNumeric.status).toBe(400);
+
         // Locked (fresh customer floor is LV 1).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const locked = await setFrame(20, authed(token)).catch(
@@ -118,6 +133,14 @@ medusaIntegrationTestRunner({
         // Unequip.
         const cleared = await unwrapResponse(setFrame(null, authed(token)));
         expect(cleared.data.equipped_frame_level).toBeNull();
+
+        // Verify the unequip actually persisted, not just echoed.
+        const meAfterUnequip = await unwrapResponse(
+          api.get('/store/customers/me', { headers: authed(token) }),
+        );
+        expect(
+          meAfterUnequip.data.customer.metadata.equipped_frame_level,
+        ).toBeNull();
       });
     });
   },

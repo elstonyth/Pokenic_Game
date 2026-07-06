@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { AlertCircle, Gift, Package, Sparkles } from 'lucide-react';
-import { rm, voucherLabel } from '@/lib/format';
+import { rm } from '@/lib/format';
 import { useTopUp } from '@/components/app-shell/TopUpProvider';
 import Reveal from '@/components/Reveal';
 import { PrizeReveal } from '@/components/rewards/PrizeReveal';
@@ -12,11 +13,23 @@ import { Pill } from '@/components/ui/pill';
 import {
   getDaily,
   drawDailyBox,
-  claimVoucher,
   type DailyState,
-  type VoucherGrant,
   type DrawPrize,
 } from '@/lib/actions/daily';
+
+const TIER_RANGE: Record<string, string> = {
+  a: 'LV 1–9',
+  b: 'LV 10–19',
+  c: 'LV 20–29',
+  d: 'LV 30–39',
+  e: 'LV 40–49',
+  f: 'LV 50–59',
+  g: 'LV 60–69',
+  h: 'LV 70–79',
+  i: 'LV 80–89',
+  j: 'LV 90–99',
+  Z: 'LV 100',
+};
 
 function countdown(nextReset: string): string {
   const ms = new Date(nextReset).getTime() - Date.now();
@@ -32,12 +45,10 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
   const [drawing, setDrawing] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
   const [drawResult, setDrawResult] = useState<DrawPrize | null>(null);
-  const [claiming, setClaiming] = useState<Record<string, boolean>>({});
-  const [claimError, setClaimError] = useState<Record<string, string>>({});
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
   const { applyBalance } = useTopUp();
 
-  const { redemptionEnabled, box, vouchers, shipPrizes } = state;
+  const { redemptionEnabled, box, shipPrizes } = state;
 
   async function refresh() {
     setDrawResult(null);
@@ -73,37 +84,6 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
     }
   }
 
-  async function handleClaim(grant: VoucherGrant) {
-    if (claiming[grant.id]) return;
-    setClaiming((p) => ({ ...p, [grant.id]: true }));
-    setClaimError((p) => ({ ...p, [grant.id]: '' }));
-    const res = await claimVoucher(grant.id);
-    setClaiming((p) => ({ ...p, [grant.id]: false }));
-    if (!res.ok) {
-      setClaimError((p) => ({ ...p, [grant.id]: res.error }));
-      return;
-    }
-    if (!res.claimed) {
-      setClaimError((p) => ({
-        ...p,
-        [grant.id]: 'Already claimed or no longer available.',
-      }));
-      return;
-    }
-    // Move the grant from claimable to claimed locally (matches GET /store/daily
-    // shape after a claim, without a full refetch).
-    setState((s) => ({
-      ...s,
-      vouchers: {
-        claimable: s.vouchers.claimable.filter((g) => g.id !== grant.id),
-        claimed: [grant, ...s.vouchers.claimed],
-      },
-    }));
-    // ponytail: claimVoucher's result carries no balance field today (backend
-    // credits vouchers only on ship/redeem elsewhere) — applyBalance would be
-    // dead code. Wire it here if/when ClaimGrantResult grows a balance.
-  }
-
   const drawsLeft = box ? Math.max(0, box.drawsPerDay - box.drawsToday) : 0;
   const canDraw = redemptionEnabled && !!box && drawsLeft > 0 && !drawing;
 
@@ -127,7 +107,17 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
         <div className="text-center">
           <h1 className="font-heading text-3xl text-white">DAILY REWARDS</h1>
           <p className="mt-1 text-[13px] text-neutral-400">
-            {box ? `${box.tier} tier — ${box.name}` : 'Open a box every day'}
+            {box
+              ? `Tier ${box.tier.toUpperCase()} box · ${TIER_RANGE[box.tier] ?? ''} · free draw every day`
+              : 'Open a box every day'}
+          </p>
+          <p className="mt-1 text-[13px] text-neutral-400">
+            <Link
+              href="/vip"
+              className="text-white/80 underline-offset-2 hover:text-white hover:underline"
+            >
+              Level up for better boxes →
+            </Link>
           </p>
         </div>
 
@@ -178,84 +168,6 @@ export default function DailyClient({ initial }: { initial: DailyState }) {
           <Sparkles className="h-4 w-4" aria-hidden />
           {drawLabel}
         </Pill>
-      </Reveal>
-
-      {/* ---- 2. Vouchers ---- */}
-      <Reveal className="mt-8" as="section" aria-labelledby="vouchers-heading">
-        <h2
-          id="vouchers-heading"
-          className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400"
-        >
-          <Gift className="h-4 w-4" aria-hidden />
-          Vouchers
-        </h2>
-        {vouchers.claimable.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-neutral-900 p-4">
-            <p className="text-sm text-neutral-400">
-              Level up to earn vouchers.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {vouchers.claimable.map((grant) => {
-              const isBusy = claiming[grant.id];
-              const err = claimError[grant.id];
-              return (
-                <div
-                  key={grant.id}
-                  className="rounded-2xl border border-white/10 bg-neutral-900 p-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-heading text-lg text-white">
-                      {voucherLabel(grant)}
-                    </p>
-                    <button
-                      type="button"
-                      disabled={isBusy || !redemptionEnabled}
-                      onClick={() => handleClaim(grant)}
-                      className="h-11 shrink-0 rounded-lg bg-buyback px-4 text-[13px] font-bold text-white disabled:opacity-50"
-                    >
-                      {isBusy
-                        ? 'Claiming…'
-                        : redemptionEnabled
-                          ? 'Claim'
-                          : 'Coming soon'}
-                    </button>
-                  </div>
-                  {err && (
-                    <p
-                      role="alert"
-                      className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300"
-                    >
-                      {err}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {vouchers.claimed.length > 0 && (
-          <details className="mt-3">
-            <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-              Claimed
-            </summary>
-            <div className="mt-2 space-y-2">
-              {vouchers.claimed.map((grant) => (
-                <div
-                  key={grant.id}
-                  className="flex items-center justify-between rounded-2xl border border-white/5 bg-neutral-900/50 p-4"
-                >
-                  <p className="font-heading text-lg text-white/50">
-                    {voucherLabel(grant)}
-                  </p>
-                  <span className="text-[12px] text-neutral-400">Claimed</span>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
       </Reveal>
 
       {/* ---- 3. Prizes to ship ---- */}

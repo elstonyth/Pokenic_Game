@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 // Standalone full-width route matching the live anonymous /vouchers: a centered hero
 // over blurred pack art, then real voucher data from the consolidated /daily surface.
 // Moved out of the (account) shell; live has no account sidebar here. Claiming only
-// happens on /daily (single claim surface) — this page just lists + links there.
+// happens on /vip (single claim surface) — this page just lists + links there.
 
 const HERO_SLABS = [
   '/images/claw/legend-pack-icon.webp',
@@ -26,8 +26,12 @@ const HERO_SLABS = [
 
 export default async function VouchersPage() {
   const dailyResult = await getDaily();
-  const claimable = dailyResult.ok ? dailyResult.state.vouchers.claimable : [];
-  const claimed = dailyResult.ok ? dailyResult.state.vouchers.claimed : [];
+  const claimable = (
+    dailyResult.ok ? dailyResult.state.vouchers.claimable : []
+  ).filter((g) => g.kind === 'voucher');
+  const claimed = (
+    dailyResult.ok ? dailyResult.state.vouchers.claimed : []
+  ).filter((g) => g.kind === 'voucher');
 
   return (
     <div className="w-full px-fluid py-10">
@@ -91,15 +95,18 @@ export default async function VouchersPage() {
                       {voucherLabel(grant)}
                     </p>
                     <p className="text-[12px] text-white/60">
-                      VIP LV {grant.level} · {relativeTime(grant.grantedAt)}
+                      {grant.origin === 'box'
+                        ? 'Box prize'
+                        : `VIP LV ${grant.level}`}{' '}
+                      · {relativeTime(grant.grantedAt)}
                     </p>
                   </div>
                 </div>
                 <Link
-                  href="/daily"
+                  href="/vip"
                   className="shrink-0 rounded-full bg-white/10 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-white/20"
                 >
-                  Claim on Daily
+                  Claim on VIP
                 </Link>
               </li>
             ))}
@@ -143,7 +150,10 @@ export default async function VouchersPage() {
                     {voucherLabel(grant)}
                   </p>
                   <p className="text-[12px] text-white/60">
-                    VIP LV {grant.level} · {relativeTime(grant.grantedAt)}
+                    {grant.origin === 'box'
+                      ? 'Box prize'
+                      : `VIP LV ${grant.level}`}{' '}
+                    · {relativeTime(grant.grantedAt)}
                   </p>
                 </div>
               </li>

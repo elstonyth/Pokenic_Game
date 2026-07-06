@@ -26,6 +26,7 @@ export interface ProfileViewActivity {
 export interface ProfileViewUser {
   username: string;
   pfp: string;
+  frame: string | null;
   /** Global rank is a leaderboard concern — null (rendered "—") for real profiles. */
   rank: number | null;
   points: number;
@@ -54,7 +55,10 @@ function joinedYear(iso: string): string {
 }
 
 /** Real backend profile → the view the page renders. */
-export function toProfileView(profile: PublicProfile): ProfileViewUser {
+export function toProfileView(
+  profile: PublicProfile,
+  avatarFrames: Record<string, string> = {},
+): ProfileViewUser {
   // Collection = showcased cards (opt-in). Activity = all recent pulls.
   const collectionCards: ProfileViewCard[] = (profile.collection ?? []).map(
     (c) => ({
@@ -84,7 +88,10 @@ export function toProfileView(profile: PublicProfile): ProfileViewUser {
 
   return {
     username: profile.name,
-    pfp: avatarForSeed(profile.seed),
+    pfp: profile.avatar_url ?? avatarForSeed(profile.seed),
+    frame: profile.equipped_frame_level
+      ? (avatarFrames[String(profile.equipped_frame_level)] ?? null)
+      : null,
     rank: null,
     points: profile.stats.points,
     pulls: profile.stats.pulls,
@@ -106,6 +113,7 @@ export function mockProfileView(user: MockUser): ProfileViewUser {
   return {
     username: user.username,
     pfp: user.pfp,
+    frame: null,
     rank: user.rank,
     points: user.points,
     pulls: user.pulls,

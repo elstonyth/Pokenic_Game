@@ -13,7 +13,14 @@
 // relaxed profile. PriceCharting card photos are small (their largest variant often
 // serves under 300px wide), so the curated 600×840 card minimum can't apply; the
 // security gates (type sniff, byte cap, bomb guard) run unchanged.
-export type ImageKind = 'pack' | 'card' | 'sprite' | 'pc-card' | 'frame';
+export type ImageKind =
+  | 'pack'
+  | 'card'
+  | 'sprite'
+  | 'pc-card'
+  | 'frame'
+  | 'avatar'
+  | 'avatar-frame';
 
 export interface ImageFacts {
   width: number;
@@ -101,6 +108,24 @@ export const IMAGE_RULES = {
       targetRatio: 0.62,
       aspectTolerance: 0.08,
     },
+    // Customer profile photo (store-side upload route): cropped to a circle
+    // with object-cover on the storefront, so aspect is loose — reject only
+    // degenerate strips (width/height outside [0.5, 1.5]).
+    avatar: {
+      minWidth: 64,
+      minHeight: 64,
+      targetRatio: 1,
+      aspectTolerance: 0.5,
+    },
+    // Avatar-frame overlay (admin milestone frames, LV 10…100): a square ring
+    // that layers over the round photo. Transparent PNG/WebP — or an AI render
+    // with a flat magenta window (keyed on upload, same as 'frame').
+    'avatar-frame': {
+      minWidth: 256,
+      minHeight: 256,
+      targetRatio: 1,
+      aspectTolerance: 0.05,
+    },
   } satisfies Record<ImageKind, ProfileRule>,
 } as const;
 
@@ -172,7 +197,11 @@ export function validateImage(
         ? 'Card'
         : kind === 'pack'
           ? 'Pack'
-          : 'Sprite';
+          : kind === 'avatar'
+            ? 'Profile photo'
+            : kind === 'avatar-frame' || kind === 'frame'
+              ? 'Frame'
+              : 'Sprite';
     return fail(
       'too_small',
       `${label} art must be at least ${profile.minWidth}×${profile.minHeight}px.`,

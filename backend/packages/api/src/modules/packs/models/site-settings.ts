@@ -10,6 +10,9 @@ export const SiteSettings = model.define('site_settings', {
   // (uploaded via /admin/media). null → storefront uses its bundled default
   // (/images/slab-frame.webp).
   slab_frame_url: model.text().nullable(),
+  // Avatar-frame catalog keyed by milestone level ("10".."100") → uploaded
+  // image URL (via /admin/media kind 'avatar-frame'). null → none configured.
+  avatar_frames: model.json().nullable(),
 });
 
 export default SiteSettings;

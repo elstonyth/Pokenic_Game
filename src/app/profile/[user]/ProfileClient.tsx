@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Trophy, Layers, TrendingUp, CalendarDays, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
 import { SlabImage } from '@/components/SlabImage';
+import { FramedAvatar } from '@/components/FramedAvatar';
 import { rm, num, compact } from '@/lib/format';
 import { type ProfileViewUser } from '@/lib/profile-view';
 
@@ -48,12 +48,14 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.06] to-transparent" />
         <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:items-end">
-          <Image
+          <FramedAvatar
             src={user.pfp}
+            initial={user.username?.[0]?.toUpperCase()}
+            frameSrc={user.frame}
             alt={user.username}
-            width={112}
-            height={112}
-            className="h-24 w-24 shrink-0 rounded-full object-cover ring-4 ring-white/10 sm:h-28 sm:w-28"
+            size={96}
+            priority
+            className="ring-4 ring-white/10"
           />
           <div className="min-w-0 flex-1 text-center sm:text-left">
             <h1 className="font-heading text-3xl font-bold tracking-tight text-white sm:text-4xl">

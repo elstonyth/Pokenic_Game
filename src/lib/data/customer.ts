@@ -58,7 +58,7 @@ export const getCustomer = cache(
     if (!token) return null;
     try {
       const { customer } = await sdk.store.customer.retrieve(
-        {},
+        { fields: '+metadata' },
         { Authorization: `Bearer ${token}` },
       );
       return customer;

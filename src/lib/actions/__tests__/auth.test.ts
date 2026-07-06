@@ -108,6 +108,7 @@ describe('login — handle lookup is non-fatal (#9)', () => {
         first_name: 'A',
         last_name: null,
         handle: null,
+        avatar_url: null,
       },
     });
     expect(mocks.clearAuthToken).not.toHaveBeenCalled();

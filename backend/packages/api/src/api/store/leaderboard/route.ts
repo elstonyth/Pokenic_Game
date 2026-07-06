@@ -60,6 +60,9 @@ export async function GET(
       ];
     }),
   );
+  const metaById = new Map(
+    customers.map((c) => [c.id, (c.metadata ?? {}) as Record<string, unknown>]),
+  );
 
   const entries = ranked.map((r, i) => {
     const first = firstNameById.get(r.customer_id);
@@ -75,6 +78,14 @@ export async function GET(
       pulls: r.pulls,
       points: r.points,
       seed,
+      avatar_url:
+        typeof metaById.get(r.customer_id)?.avatar_url === 'string'
+          ? (metaById.get(r.customer_id)!.avatar_url as string)
+          : null,
+      equipped_frame_level:
+        typeof metaById.get(r.customer_id)?.equipped_frame_level === 'number'
+          ? (metaById.get(r.customer_id)!.equipped_frame_level as number)
+          : null,
     };
   });
 

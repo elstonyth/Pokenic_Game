@@ -321,7 +321,10 @@ export default function SlotMachineClient({
           roll.pullId !== null
             ? {
                 pullId: roll.pullId,
-                fmv: roll.marketValue,
+                // MYR display price; marketValue is raw USD FMV (never render
+                // it behind "RM"). Older backends omit marketPriceMyr → fall
+                // back to the raw figure, same as lib/data/packs.ts.
+                fmv: roll.card.marketPriceMyr ?? roll.marketValue,
                 cardName: roll.card.name,
                 image: roll.card.image,
                 percent: roll.buyback?.percent ?? FLAT_BUYBACK_PERCENT,
@@ -538,8 +541,9 @@ export default function SlotMachineClient({
           >
             <ArrowLeft className="h-4 w-4" aria-hidden /> Exit
           </Link>
+          {/* Neutral badge — amber reads as chase gold (prize-only signal). */}
           {isDemo && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-300">
+            <span className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white/70">
               Demo
             </span>
           )}

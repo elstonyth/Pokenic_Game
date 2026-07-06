@@ -3,6 +3,7 @@ import { Geist } from 'next/font/google';
 import localFont from 'next/font/local';
 import './globals.css';
 import AppHeader from '@/components/app-shell/AppHeader';
+import SiteFooter from '@/components/app-shell/SiteFooter';
 import TabBar from '@/components/app-shell/TabBar';
 import { TopUpProvider } from '@/components/app-shell/TopUpProvider';
 import { AuthProvider } from '@/components/auth/AuthProvider';
@@ -83,10 +84,11 @@ export default function RootLayout({
           <TopUpProvider>
             <SkipLink />
             <AppHeader />
-            {/* pb clears the fixed bottom TabBar on phones; none needed lg+. */}
-            <main id="main" className="flex-1 pb-24 lg:pb-8">
+            <main id="main" className="flex-1 pb-12 lg:pb-8">
               {children}
             </main>
+            {/* Footer carries the TabBar clearance (pb-28) on phones. */}
+            <SiteFooter />
             <TabBar />
             <CookieConsent />
           </TopUpProvider>

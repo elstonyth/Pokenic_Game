@@ -12,6 +12,11 @@ import { useAuth } from './auth/AuthProvider';
 // uses a single modal, not separate pages). `onSuccess` closes the modal once the
 // auth server action returns a customer.
 
+// Errors and informational notes share one slot but render differently:
+// errors get role="alert" + red, notes stay quiet grey. `field: 'password'`
+// marks errors caused by the password pair (wires aria-invalid/-describedby).
+type Note = { kind: 'error' | 'info'; text: string; field?: 'password' };
+
 export default function AuthForm({
   mode,
   onSwitchMode,
@@ -25,7 +30,7 @@ export default function AuthForm({
   const router = useRouter();
   const { setCustomer } = useAuth();
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<Note | null>(null);
   // Forgot-password lives inside the login mode as a sub-view (the live site
   // keeps everything in the one modal): "form" collects the email, "sent" is
   // the always-the-same confirmation (no account enumeration — the backend
@@ -52,7 +57,7 @@ export default function AuthForm({
       setForgot('sent');
       return;
     }
-    setNote(result.error);
+    setNote({ kind: 'error', text: result.error });
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -65,7 +70,11 @@ export default function AuthForm({
     const password = String(form.get('password') ?? '');
 
     if (isSignup && password !== String(form.get('confirmPassword') ?? '')) {
-      setNote("Passwords don't match.");
+      setNote({
+        kind: 'error',
+        text: "Passwords don't match.",
+        field: 'password',
+      });
       return;
     }
 
@@ -86,7 +95,7 @@ export default function AuthForm({
       router.refresh();
       return;
     }
-    setNote(result.error);
+    setNote({ kind: 'error', text: result.error });
   }
 
   // Only the login mode owns the forgot sub-view — if something external
@@ -94,9 +103,9 @@ export default function AuthForm({
   if (!isSignup && forgot !== 'none') {
     return (
       <div className="w-full">
-        <h1 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl">
+        <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl">
           Reset your password
-        </h1>
+        </h2>
         {forgot === 'form' ? (
           <>
             <p className="mt-1.5 text-sm text-white/50">
@@ -136,7 +145,14 @@ export default function AuthForm({
         )}
 
         {note && (
-          <p className="mt-3 text-center text-[12px] text-white/50">{note}</p>
+          <p
+            role={note.kind === 'error' ? 'alert' : undefined}
+            className={`mt-3 text-center text-[12px] ${
+              note.kind === 'error' ? 'text-red-400' : 'text-white/50'
+            }`}
+          >
+            {note.text}
+          </p>
         )}
 
         <p className="mt-6 text-center text-[13px] text-white/50">
@@ -158,9 +174,9 @@ export default function AuthForm({
 
   return (
     <div className="w-full">
-      <h1 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl">
+      <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl">
         {isSignup ? 'Create your account' : 'Welcome back'}
-      </h1>
+      </h2>
       <p className="mt-1.5 text-sm text-white/50">
         {isSignup
           ? 'Start ripping packs and collecting graded cards.'
@@ -173,14 +189,19 @@ export default function AuthForm({
           <button
             key={p}
             type="button"
-            onClick={() => setNote('Social login goes live with the backend.')}
+            onClick={() =>
+              setNote({
+                kind: 'info',
+                text: 'Social login goes live with the backend.',
+              })
+            }
             className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
           >
             {p}
           </button>
         ))}
       </div>
-      <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wide text-white/30">
+      <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wide text-white/50">
         <span className="h-px flex-1 bg-white/10" /> or{' '}
         <span className="h-px flex-1 bg-white/10" />
       </div>
@@ -192,7 +213,8 @@ export default function AuthForm({
             name="username"
             type="text"
             placeholder="Username"
-            autoComplete="username"
+            // Submitted as first_name (a display name), not a login identifier.
+            autoComplete="nickname"
           />
         )}
         <Field
@@ -211,6 +233,10 @@ export default function AuthForm({
           autoComplete={isSignup ? 'new-password' : 'current-password'}
           required
           minLength={isSignup ? 8 : undefined}
+          aria-invalid={note?.field === 'password' || undefined}
+          aria-describedby={
+            note?.field === 'password' ? 'auth-form-error' : undefined
+          }
         />
         {isSignup && (
           <Field
@@ -220,6 +246,10 @@ export default function AuthForm({
             placeholder="Confirm password"
             autoComplete="new-password"
             required
+            aria-invalid={note?.field === 'password' || undefined}
+            aria-describedby={
+              note?.field === 'password' ? 'auth-form-error' : undefined
+            }
           />
         )}
 
@@ -230,7 +260,7 @@ export default function AuthForm({
               setForgot('form');
               setNote(null);
             }}
-            className="self-end text-[12px] text-white/50 hover:text-white/70"
+            className="self-end py-2 text-[12px] text-white/70 hover:text-white"
           >
             Forgot password?
           </button>
@@ -247,7 +277,15 @@ export default function AuthForm({
       </form>
 
       {note && (
-        <p className="mt-3 text-center text-[12px] text-white/50">{note}</p>
+        <p
+          id="auth-form-error"
+          role={note.kind === 'error' ? 'alert' : undefined}
+          className={`mt-3 text-center text-[12px] ${
+            note.kind === 'error' ? 'text-red-400' : 'text-white/50'
+          }`}
+        >
+          {note.text}
+        </p>
       )}
 
       <p className="mt-6 text-center text-[13px] text-white/50">
@@ -277,7 +315,7 @@ function Field({
       <input
         aria-label={props['aria-label'] ?? props.placeholder}
         {...props}
-        className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-white/25 focus:outline-none"
+        className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white placeholder:text-white/50 focus:border-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0"
       />
     </div>
   );

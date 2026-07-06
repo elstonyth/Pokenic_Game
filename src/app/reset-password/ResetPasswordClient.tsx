@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Loader2, CheckCircle2 } from 'lucide-react';
 import { resetPassword } from '@/lib/actions/auth';
@@ -26,6 +26,15 @@ export default function ResetPasswordClient() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // Holds the post-success redirect so "Password updated" gets to paint;
+  // cleared on unmount so a quick navigation away can't fire a stale redirect.
+  const redirectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (redirectRef.current) clearTimeout(redirectRef.current);
+    },
+    [],
+  );
 
   // AuthModal's ?auth=login auto-open only fires on a fresh page load (its
   // effect runs once on mount, and the modal stays mounted across client
@@ -56,7 +65,7 @@ export default function ResetPasswordClient() {
 
     if (result.ok) {
       setDone(true);
-      goToLogin();
+      redirectRef.current = setTimeout(goToLogin, 1500);
       return;
     }
     setNote(result.error);
@@ -122,7 +131,7 @@ export default function ResetPasswordClient() {
                   autoComplete="new-password"
                   required
                   minLength={8}
-                  className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-white/25 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0"
                 />
               </div>
               <div className="relative">
@@ -137,7 +146,7 @@ export default function ResetPasswordClient() {
                   aria-label="Confirm new password"
                   autoComplete="new-password"
                   required
-                  className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-white/25 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0"
                 />
               </div>
 
@@ -154,7 +163,10 @@ export default function ResetPasswordClient() {
             </form>
 
             {note && (
-              <p className="mt-3 text-center text-[12px] text-white/50">
+              <p
+                role="alert"
+                className="mt-3 text-center text-[12px] text-red-400"
+              >
                 {note}
               </p>
             )}

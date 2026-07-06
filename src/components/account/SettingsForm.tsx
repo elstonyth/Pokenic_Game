@@ -86,7 +86,7 @@ export default function SettingsForm({ customer }: Props) {
           aria-label="Email (read-only)"
           className="h-11 w-full cursor-not-allowed rounded-xl border border-white/10 bg-white/[0.02] px-3 text-sm text-white/55 focus:outline-none"
         />
-        <span className="mt-1 block text-[11px] text-white/35">
+        <span className="mt-1 block text-[11px] text-white/55">
           Email can&apos;t be changed here.
         </span>
       </label>

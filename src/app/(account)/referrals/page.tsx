@@ -77,7 +77,7 @@ export default async function ReferralsPage() {
             >
               {value}
             </p>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
               {label}
             </p>
           </div>
@@ -115,7 +115,7 @@ export default async function ReferralsPage() {
         </ul>
       )}
 
-      <p className="mt-5 text-[12px] leading-relaxed text-neutral-500">
+      <p className="mt-5 text-[12px] leading-relaxed text-neutral-400">
         Two tiers: you earn a percentage of every direct recruit&rsquo;s spend
         (rate set by your{' '}
         <Link href="/vip" className="text-neutral-300 underline">

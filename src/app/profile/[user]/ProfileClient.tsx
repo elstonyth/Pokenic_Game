@@ -63,12 +63,6 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
               since {user.joined}
             </p>
           </div>
-          <button
-            type="button"
-            className="rounded-xl bg-neutral-200 px-5 py-2.5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-white"
-          >
-            Follow
-          </button>
         </div>
 
         {/* stats */}
@@ -80,7 +74,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                 key={s.label}
                 className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center sm:text-left"
               >
-                <div className="flex items-center justify-center gap-1.5 text-white/40 sm:justify-start">
+                <div className="flex items-center justify-center gap-1.5 text-white/60 sm:justify-start">
                   <Icon className="h-3.5 w-3.5" aria-hidden />
                   <span className="text-[11px] uppercase tracking-wide">
                     {s.label}
@@ -95,17 +89,14 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
         </div>
       </Reveal>
 
-      {/* Tabs */}
-      <div
-        role="tablist"
-        className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1 sm:inline-flex"
-      >
+      {/* Tabs — plain toggle buttons (aria-pressed), not ARIA tabs: no
+          tabpanel/keyboard-arrow wiring exists to back the tab roles. */}
+      <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1 sm:inline-flex">
         {TABS.map((t) => (
           <button
             key={t}
             type="button"
-            role="tab"
-            aria-selected={tab === t}
+            aria-pressed={tab === t}
             onClick={() => setTab(t)}
             className={cn(
               'rounded-lg px-5 py-2 text-center text-sm font-medium transition-colors',
@@ -126,7 +117,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
             <p className="text-sm font-medium text-white/60">
               No cards showcased yet.
             </p>
-            <p className="mt-1 text-[13px] text-white/35">
+            <p className="mt-1 text-[13px] text-white/55">
               Cards featured from the vault appear here.
             </p>
           </div>
@@ -193,7 +184,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
               <span className="shrink-0 text-[12px] tabular-nums text-white/50">
                 {rm(a.card.price)}
               </span>
-              <span className="hidden shrink-0 text-[11px] text-white/35 sm:inline">
+              <span className="hidden shrink-0 text-[11px] text-white/55 sm:inline">
                 {a.time}
               </span>
             </li>

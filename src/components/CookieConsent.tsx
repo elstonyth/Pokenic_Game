@@ -23,7 +23,7 @@ export default function CookieConsent() {
     <div
       role="dialog"
       aria-label="Cookie consent"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-neutral-800 bg-neutral-900/95 px-4 py-4 backdrop-blur"
+      className="fixed inset-x-0 bottom-16 z-50 border-t border-neutral-800 bg-neutral-900/95 px-4 py-4 backdrop-blur lg:bottom-0 lg:pb-[calc(1rem+env(safe-area-inset-bottom))]"
     >
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
         <p className="text-sm text-neutral-300">

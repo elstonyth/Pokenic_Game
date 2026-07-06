@@ -114,13 +114,13 @@ export default function AuthModal() {
         aria-modal="true"
         aria-label={mode === 'signup' ? 'Create account' : 'Log in'}
         tabIndex={-1}
-        className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-neutral-950 p-7 shadow-2xl shadow-black/60 outline-none sm:p-8"
+        className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-neutral-950 p-7 shadow-2xl shadow-black/60 outline-none sm:p-8"
       >
         <button
           type="button"
           onClick={() => setOpen(false)}
           aria-label="Close"
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/5 hover:text-white"
+          className="absolute right-2.5 top-2.5 flex h-11 w-11 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/5 hover:text-white"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>

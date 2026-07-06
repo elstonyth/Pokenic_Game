@@ -64,9 +64,10 @@ export default function NotificationsClient({
               <button
                 type="button"
                 onClick={() => void onRead(n.id)}
-                className="flex w-full items-start justify-between gap-3 rounded-xl border border-buyback/30 bg-buyback/[0.06] p-3 text-left transition-colors hover:bg-buyback/10"
+                className="flex w-full items-start justify-between gap-3 rounded-xl border border-white/25 bg-white/[0.06] p-3 text-left transition-colors hover:bg-white/10"
               >
                 {inner}
+                <span className="sr-only">, unread — mark as read</span>
               </button>
             )}
           </li>

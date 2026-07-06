@@ -12,7 +12,14 @@ export default function JoinPrompt({
   error: string;
 }) {
   if (!needsAuth) {
-    return <p className="mt-6 text-[13px] text-neutral-500">{error}</p>;
+    return (
+      <p
+        role="alert"
+        className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] font-medium text-red-300"
+      >
+        {error}
+      </p>
+    );
   }
   return (
     <Pill onClick={() => openAuth('signup')} size="lg" className="mt-8 w-full">

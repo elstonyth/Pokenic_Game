@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   description: 'Verify the provably-fair selection proofs for your pulls.',
 };
 
+// Per-customer auth state — always rendered fresh (repo idiom for pages that
+// read getCustomer(), matching settings/bank-withdrawal).
+export const dynamic = 'force-dynamic';
+
 // Proofs are per-account and the proof-publishing endpoint isn't live yet, so
 // this page has two honest states: signed-out visitors get an auth prompt, and
 // signed-in customers get a quiet "publishing is being finalized" notice. It

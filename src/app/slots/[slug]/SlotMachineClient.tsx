@@ -316,26 +316,29 @@ export default function SlotMachineClient({
 
     try {
       for (const roll of res.rolls) {
+        // MYR display price; marketValue is raw USD FMV (never render it
+        // behind "RM"). Older backends omit marketPriceMyr → fall back to
+        // the raw figure, same as lib/data/packs.ts. The offer's amount
+        // fallbacks derive from this SAME figure so a single offer can never
+        // mix currencies (fmv in MYR, amount computed from USD).
+        const displayFmv = roll.card.marketPriceMyr ?? roll.marketValue;
         // Build the sell-back offer for this roll.
         const builtOffer: SellBackOffer | null =
           roll.pullId !== null
             ? {
                 pullId: roll.pullId,
-                // MYR display price; marketValue is raw USD FMV (never render
-                // it behind "RM"). Older backends omit marketPriceMyr → fall
-                // back to the raw figure, same as lib/data/packs.ts.
-                fmv: roll.card.marketPriceMyr ?? roll.marketValue,
+                fmv: displayFmv,
                 cardName: roll.card.name,
                 image: roll.card.image,
                 percent: roll.buyback?.percent ?? FLAT_BUYBACK_PERCENT,
                 amount:
                   roll.buyback?.amount ??
-                  Math.round(roll.marketValue * FLAT_BUYBACK_PERCENT) / 100,
+                  Math.round(displayFmv * FLAT_BUYBACK_PERCENT) / 100,
                 vaultPercent:
                   roll.buyback?.vaultPercent ?? FLAT_BUYBACK_PERCENT,
                 vaultAmount:
                   roll.buyback?.vaultAmount ??
-                  Math.round(roll.marketValue * FLAT_BUYBACK_PERCENT) / 100,
+                  Math.round(displayFmv * FLAT_BUYBACK_PERCENT) / 100,
                 instantDeadlineMs:
                   roll.buyback?.instantDeadlineMs ?? spinAt + 30_000,
               }

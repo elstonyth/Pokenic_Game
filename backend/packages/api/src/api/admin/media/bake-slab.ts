@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { MedusaContainer } from '@medusajs/framework/types';
-import { ContainerRegistrationKeys } from '@medusajs/framework/utils';
+import { ContainerRegistrationKeys, Modules } from '@medusajs/framework/utils';
 import {
   deleteFilesWorkflow,
+  updateProductsWorkflow,
   uploadFilesWorkflow,
 } from '@medusajs/medusa/core-flows';
 import sharp from 'sharp';
@@ -53,7 +54,7 @@ const fetchBytes = async (url: string): Promise<Buffer | null> => {
 // The frame to bake with: the admin-configured URL when it is an absolute
 // http(s) URL, else the bundled default (relative paths are storefront-only
 // and unfetchable from here — spec §B.1).
-const resolveFrameBytes = async (
+export const resolveFrameBytes = async (
   container: MedusaContainer,
 ): Promise<Buffer> => {
   const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
@@ -126,6 +127,7 @@ export async function composeSlab(
 export async function bakeSlabImage(
   container: MedusaContainer,
   card: { handle: string; image: string },
+  frameBytes?: Buffer,
 ): Promise<BakedSlab | null> {
   const logger = loggerOf(container);
   try {
@@ -134,7 +136,11 @@ export async function bakeSlabImage(
       logger.warn(`bake-slab: photo unfetchable for '${card.handle}' (${card.image})`);
       return null;
     }
-    const frame = await resolveFrameBytes(container);
+    // A caller looping over many cards (rebakeAllGradedCards) resolves the
+    // frame once and passes it down — a mid-loop frame-fetch failure must not
+    // silently bake the remaining cards against the bundled default while
+    // still counting them ok.
+    const frame = frameBytes ?? (await resolveFrameBytes(container));
     const out = await composeSlab(frame, photo);
     if (out.length > IMAGE_RULES.maxBytes) {
       logger.warn(`bake-slab: composite exceeds size limit for '${card.handle}'`);
@@ -183,6 +189,43 @@ export async function deleteSlabFile(
   }
 }
 
+// Mirror slab_image (URL only, never slab_image_key) into the same-handle
+// Product's metadata — src/lib/data/products.ts reads that mirror for the
+// marketplace grid. Card-edit (create/update-card) already writes its own
+// mirror on the edit path; this covers every OTHER path that changes
+// Card.slab_image (frame-swap rebake, repull, delete) so the grid never
+// points at a composite that's been overwritten or deleted out from under
+// it. Best-effort — a mirror failure must never fail the caller, which has
+// already committed its own change.
+export async function mirrorSlabToProduct(
+  container: MedusaContainer,
+  handle: string,
+  url: string | null,
+): Promise<void> {
+  try {
+    const productModule = container.resolve(Modules.PRODUCT);
+    const [product] = await productModule.listProducts(
+      { handle },
+      { take: 1 },
+    );
+    if (!product) return; // defensive-upsert cards may have no Product yet
+    await updateProductsWorkflow(container).run({
+      input: {
+        products: [
+          {
+            id: product.id,
+            metadata: { ...(product.metadata ?? {}), slab_image: url },
+          },
+        ],
+      },
+    });
+  } catch (e) {
+    loggerOf(container).warn(
+      `bake-slab: failed to mirror slab_image for '${handle}': ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+}
+
 // Re-bake EVERY graded card — the frame-swap trigger and the backfill script
 // share this. Per-card failures don't stop the loop (spec §F).
 // ponytail: sequential sync loop — ~17 graded cards today; move to a queue if
@@ -192,15 +235,22 @@ export async function rebakeAllGradedCards(
 ): Promise<{ ok: number; failed: number }> {
   const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
   const logger = loggerOf(container);
-  const cards = await packs.listCards({}, { take: 10_000 });
+  const cards = (await packs.listCards({}, { take: 10_000 })).filter(
+    (c) => c.grader.trim() !== '',
+  );
   let ok = 0;
   let failed = 0;
+  if (cards.length === 0) return { ok, failed };
+  // Resolve the frame ONCE for the whole loop (reviewer finding): re-resolving
+  // per card meant a mid-loop frame-fetch failure silently baked the
+  // remaining cards against the bundled default while still counting them ok.
+  const frameBytes = await resolveFrameBytes(container);
   for (const card of cards) {
-    if (card.grader.trim() === '') continue;
-    const baked = await bakeSlabImage(container, {
-      handle: card.handle,
-      image: card.image,
-    });
+    const baked = await bakeSlabImage(
+      container,
+      { handle: card.handle, image: card.image },
+      frameBytes,
+    );
     if (!baked) {
       failed++;
       continue;
@@ -210,6 +260,7 @@ export async function rebakeAllGradedCards(
       await packs.updateCards([
         { id: card.id, slab_image: baked.url, slab_image_key: baked.key },
       ]);
+      await mirrorSlabToProduct(container, card.handle, baked.url);
       if (oldKey && oldKey !== baked.key) {
         await deleteSlabFile(container, oldKey);
       }

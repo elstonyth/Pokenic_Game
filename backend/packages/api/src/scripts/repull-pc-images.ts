@@ -6,7 +6,11 @@ import type PacksModuleService from '../modules/packs/service';
 import { resolvePcImageUrl } from '../api/admin/pricecharting/product-image';
 import { ingestPcImage } from '../api/admin/media/ingest-pc-image';
 import { pcFetch } from '../api/admin/pricecharting/client';
-import { bakeSlabImage, deleteSlabFile } from '../api/admin/media/bake-slab';
+import {
+  bakeSlabImage,
+  deleteSlabFile,
+  mirrorSlabToProduct,
+} from '../api/admin/media/bake-slab';
 
 // repull-pc-images — replace EVERY catalog image with a freshly ingested copy
 // of its PriceCharting product photo, through the SAME seam "Add from
@@ -138,6 +142,7 @@ export default async function repullPcImages({ container, args }: ExecArgs) {
         slab_image_key: baked?.key ?? null,
       },
     ]);
+    await mirrorSlabToProduct(container, card.handle, baked?.url ?? null);
     if (oldKey && oldKey !== (baked?.key ?? null)) {
       await deleteSlabFile(container, oldKey);
     }

@@ -27,6 +27,7 @@ jest.mock('@medusajs/medusa/core-flows', () => ({
 import {
   uploadFilesWorkflow,
   updateProductsWorkflow,
+  deleteFilesWorkflow,
 } from '@medusajs/medusa/core-flows';
 import { rebakeAllGradedCards } from '../bake-slab';
 
@@ -62,6 +63,7 @@ afterAll(() => {
 beforeEach(() => {
   jest.mocked(uploadFilesWorkflow).mockClear();
   jest.mocked(updateProductsWorkflow).mockClear();
+  jest.mocked(deleteFilesWorkflow).mockClear();
   // Every fixture below has slab_frame_url: null, so resolveFrameBytes
   // returns the bundled default WITHOUT calling fetch — this mock only ever
   // serves the per-card photo fetch.
@@ -195,5 +197,17 @@ describe('rebakeAllGradedCards', () => {
     // card-a's persist threw before the mirror step (never mirrored); card-b's
     // persist succeeded and the loop kept going (mirrored once).
     expect(updateProductsWorkflow).toHaveBeenCalledTimes(1);
+    // Storage stays consistent on both paths: card-a's just-uploaded
+    // composite (unreferenced after the failed write) is reclaimed, and
+    // card-b's superseded old composite is deleted as usual.
+    const deletedIds = jest
+      .mocked(deleteFilesWorkflow)
+      .mock.results.flatMap(
+        (r) =>
+          (r.value as { run: jest.Mock }).run.mock.calls[0][0].input
+            .ids as string[],
+      );
+    expect(deletedIds).toContain('file_slab'); // card-a orphan cleanup
+    expect(deletedIds).toContain('old-b'); // card-b old composite
   });
 });

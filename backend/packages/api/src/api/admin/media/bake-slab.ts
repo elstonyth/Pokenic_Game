@@ -271,6 +271,10 @@ export async function rebakeAllGradedCards(
         `bake-slab: persist failed for '${card.handle}': ${e instanceof Error ? e.message : String(e)}`,
       );
       failed++;
+      // Nothing references the just-uploaded composite when the DB write
+      // fails — reclaim it instead of orphaning one file per failed card
+      // (this loop backs the frame swap AND the backfill, so failures repeat).
+      await deleteSlabFile(container, baked.key);
     }
   }
   return { ok, failed };

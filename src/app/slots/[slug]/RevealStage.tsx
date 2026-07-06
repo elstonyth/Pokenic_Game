@@ -31,6 +31,8 @@ export function RevealStage({
   winnerRects,
   spriteSrcs,
   reduced,
+  demo = false,
+  onSignUp,
   onSkip,
   onConclude,
   onSellBack,
@@ -46,6 +48,11 @@ export function RevealStage({
   winnerRects: (DOMRect | null)[];
   spriteSrcs: (string | undefined)[];
   reduced: boolean;
+  /** Guest demo reveal: no sell window, a sign-up CTA instead — and the stage
+   *  never auto-concludes (all-null offers read as "concluded" instantly). */
+  demo?: boolean;
+  /** Demo-only conversion CTA (openAuth signup). */
+  onSignUp?: () => void;
   onSkip: () => void;
   /** Called once every card is sold/kept/expired — clears the stage (spec #27). */
   onConclude: () => void;
@@ -88,10 +95,10 @@ export function RevealStage({
   // a short beat. Reduced motion still uses the beat so the credited/vault copy
   // is readable before the machine returns; it is short either way.
   useEffect(() => {
-    if (!allConcluded) return;
+    if (!allConcluded || demo) return;
     const id = window.setTimeout(onConclude, reduced ? 400 : 1400);
     return () => clearTimeout(id);
-  }, [allConcluded, onConclude, reduced]);
+  }, [allConcluded, demo, onConclude, reduced]);
 
   function flipAll() {
     if (flipped) return;
@@ -112,6 +119,28 @@ export function RevealStage({
   }
 
   const footer = (i: number) => {
+    // Demo pull: nothing was won, so no sell window — convert instead. The
+    // honesty copy lives in the persistent controls line + DEMO badge.
+    if (demo) {
+      return (
+        <>
+          <button
+            type="button"
+            onClick={onSignUp}
+            className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-white text-sm font-bold text-neutral-950 transition-colors hover:bg-white/90"
+          >
+            Sign up &amp; pull for real
+          </button>
+          <button
+            type="button"
+            onClick={onConclude}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/12 bg-white/5 text-[13px] font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            Back to the reel
+          </button>
+        </>
+      );
+    }
     const offer = offers[i];
     const state = states[i] ?? { phase: 'idle' as const };
     if (!offer) return null;

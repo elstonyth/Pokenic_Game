@@ -29,10 +29,10 @@ export default async function SlotSpinPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ count?: string }>;
+  searchParams: Promise<{ count?: string; demo?: string }>;
 }) {
   const { slug } = await params;
-  const { count: countRaw } = await searchParams;
+  const { count: countRaw, demo } = await searchParams;
   const parsed = Number(countRaw);
   const count = Number.isInteger(parsed) ? Math.min(3, Math.max(1, parsed)) : 1;
   const [base, detail, recentPulls] = await Promise.all([
@@ -48,6 +48,10 @@ export default async function SlotSpinPage({
       recentPulls={recentPulls}
       count={count}
       publishedOdds={detail?.publishedOdds ?? null}
+      // ?demo=1 → guest demo mode: the reel samples client-side from the public
+      // pool (no backend open, no charge, nothing won). Logged-in visitors are
+      // ignored by the client (they always get the real, auth-gated machine).
+      demoPool={demo === '1' ? (detail?.pool ?? []) : null}
     />
   );
 }

@@ -2,7 +2,7 @@
 'use client';
 
 // Shared instant/flat sell-back for a single pull. Lifted verbatim in behavior
-// from the classic reveal (PackOpenOverlay.tsx:118-190,676-762): reveal ping →
+// from the classic reveal (the since-deleted PackOpenOverlay): reveal ping →
 // server deadline → wall-clock countdown → confirm modal → sell. The reveal ping
 // fires when `active` flips true (the slot passes active only after the reel
 // settles, so the 30s window isn't eaten by the spin — PRD §5.2).

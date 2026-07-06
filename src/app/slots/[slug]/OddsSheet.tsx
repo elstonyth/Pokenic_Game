@@ -5,7 +5,6 @@ import { useRef } from 'react';
 import { X } from 'lucide-react';
 import type { Rarity } from '@/lib/packs-data';
 import { rarityRgb } from '@/lib/rarity';
-import { TIER_COLOR, TIER_BAND, TIER_ORDER } from '@/lib/price-tier';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /** The published-odds list itself — overall row + per-rarity rows + caption.
@@ -119,34 +118,6 @@ export function OddsSheet({
             Odds for this pack haven&apos;t been published yet.
           </p>
         )}
-
-        {/* Glow tiers: cosmetic, keyed off the card's USD value (not rarity).
-            Explains the colored ring the reel shows on a win. */}
-        <h3 className="mb-2 mt-5 font-heading text-sm font-bold tracking-tight text-white">
-          Glow tiers <span className="text-white/60">· by card value</span>
-        </h3>
-        <ul className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
-          {TIER_ORDER.map((t) => (
-            <li
-              key={t}
-              className="flex items-center justify-between border-b border-white/5 px-4 py-3 last:border-b-0"
-            >
-              <span className="flex items-center gap-2.5 text-[13px] font-medium capitalize text-white">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{
-                    background: `rgb(${TIER_COLOR[t]})`,
-                    boxShadow: `0 0 6px 1px rgba(${TIER_COLOR[t]}, 0.7)`,
-                  }}
-                />
-                {t}
-              </span>
-              <span className="text-[13px] tabular-nums text-white/60">
-                {TIER_BAND[t]}
-              </span>
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
   );

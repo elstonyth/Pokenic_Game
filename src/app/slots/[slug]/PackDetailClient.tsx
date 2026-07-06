@@ -16,20 +16,15 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { rm, rm0 } from '@/lib/format';
-import { usePrefersReducedMotion } from '@/lib/use-reveal';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { openAuth } from '@/components/AuthButton';
 import Reveal from '@/components/Reveal';
 import type { PackDetail, RecentPull } from '@/lib/data/packs';
-import { demoDraw } from '@/lib/demo-spin';
-import { revealPull } from '@/lib/actions/packs';
-import { sellBackPull } from '@/lib/actions/vault';
 import {
   type Pack,
   type ResolvedPack,
   type PackCard,
   FLAT_BUYBACK_PERCENT,
-  ODDS,
   clawMachine,
   priceNumber,
 } from '@/lib/packs-data';
@@ -38,7 +33,6 @@ import { PublishedOddsList } from './OddsSheet';
 import { publishedOddsRows } from '@/lib/packs-format';
 import { useLiveRecentPulls } from '@/lib/use-recent-pulls';
 import { useTopUp } from '@/components/app-shell/TopUpProvider';
-import PackOpenOverlay from './PackOpenOverlay';
 
 function CardThumb({ card, w }: { card: PackCard; w?: number }) {
   return (
@@ -77,7 +71,6 @@ export default function PackDetailClient({
   /** Live pull ledger feed; empty array when there are no pulls / backend down. */
   recentPulls: RecentPull[];
 }) {
-  const reduced = usePrefersReducedMotion();
   const { customer } = useAuth();
   const { balance, openTopUp } = useTopUp();
   const router = useRouter();
@@ -94,30 +87,6 @@ export default function PackDetailClient({
   // Live Recent Pulls — seeded from the server snapshot, then polled (~4s)
   // so anyone's pull shows up here without a reload.
   const recent = useLiveRecentPulls(recentPulls);
-  // The pack-opening reveal overlay — non-null while showing the won/demo card.
-  // `nonce` keys the overlay so "Open another" remounts it and re-runs the burst.
-  // pullId/marketValue drive the sell-back offer (null for demo spins). The
-  // instant window is now anchored server-side (revealed_at) via the reveal
-  // ping, so the client no longer caps the offer from an open-call timestamp.
-  const [reveal, setReveal] = useState<{
-    card: PackCard;
-    isReal: boolean;
-    nonce: number;
-    pullId: string | null;
-    marketValue: number | null;
-    // Live MYR display price for this pull (vault-matching); null for demo
-    // spins (no backend pull) or an older backend response.
-    marketPriceMyr: number | null;
-    // Authoritative instant sell-back offer from the open response (backend's
-    // resolveBuybackRate) — the reveal quotes THIS, not the catalog rate, so the
-    // shown % always matches what selling credits. Null for demo spins / older
-    // backend (then the reveal falls back to the catalog rate).
-    buybackPercent: number | null;
-    buybackAmount: number | null;
-    vaultPercent: number | null;
-    vaultAmount: number | null;
-    instantDeadlineMs: number | null;
-  } | null>(null);
 
   const claw = clawMachine(active);
   const priceNum = priceNumber(active.price);
@@ -134,40 +103,14 @@ export default function PackDetailClient({
   const setQ = (n: number) => setQty(Math.min(maxQty, Math.max(1, n)));
 
   // The admin-PUBLISHED odds — the ONLY rates players see. Null (unset) hides
-  // the whole Pull Odds panel; the static ODDS constant remains solely as the
-  // demo spin's sampling fallback so the demo still works pre-publication.
+  // the whole Pull Odds panel.
   const publishedRows = detail?.publishedOdds
     ? publishedOddsRows(detail.publishedOdds)
     : null;
 
-  // Free demo spin — a client-side WEIGHTED sample over the published odds
-  // drives the same reveal overlay. Pure theater: no backend call, no Pull row,
-  // no credit/stock effects; the real open below stays auth-gated. Draws from
-  // the live public pool only — an empty pool disables the demo (no mock).
+  // Guest demo spin lives on the REEL (/spin?demo=1) — pure theater, no charge,
+  // nothing won. The CTA below only shows for guests with a non-empty pool.
   const demoPool = detail?.pool ?? [];
-  function demoSpin() {
-    setOpenError(null);
-    const mock = demoDraw(
-      demoPool,
-      publishedRows?.length ? publishedRows : ODDS,
-      Math.random(),
-      Math.random(),
-    );
-    if (!mock) return;
-    setReveal({
-      card: mock,
-      isReal: false,
-      nonce: Date.now(),
-      pullId: null,
-      marketValue: null,
-      marketPriceMyr: null,
-      buybackPercent: null,
-      buybackAmount: null,
-      vaultPercent: null,
-      vaultAmount: null,
-      instantDeadlineMs: null,
-    });
-  }
 
   // Do NOT open/charge here — navigate to the reel, which performs
   // the single charge via openBatch when the user pulls the lever. Auth + balance
@@ -190,7 +133,6 @@ export default function PackDetailClient({
   }
 
   function reset() {
-    setReveal(null);
     setOpenError(null);
     setNeedsTopUp(false);
   }
@@ -270,7 +212,10 @@ export default function PackDetailClient({
 
         {/* ---- RIGHT column: configurator ---- */}
         <aside className="lg:sticky lg:top-20">
-          <div className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
+          {/* The whole configurator fits without an internal scrollbar (like the
+              live site): compact 3-col pack grid, no max-height clamp — on
+              mobile the page itself scrolls, on desktop it fits the viewport. */}
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
             {/* Title + buyback */}
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
               <h1 className="font-heading text-xl font-bold tracking-tight text-white sm:text-2xl">
@@ -282,7 +227,36 @@ export default function PackDetailClient({
               </span>
             </div>
 
-            <div className="flex flex-col gap-5 overflow-y-auto px-5 py-5">
+            <div className="flex flex-col gap-4 px-5 py-4">
+              {/* Free demo spin — guests only (hidden once logged in; a real
+                  account opens real packs). Routes to the slot reel in demo
+                  mode: no login, no charge, nothing real won. */}
+              {!customer && demoPool.length > 0 && (
+                <Link
+                  href={`/slots/${active.id}/spin?demo=1`}
+                  className="group flex h-12 items-center justify-between rounded-xl border border-buyback/40 bg-buyback/10 px-4 text-sm font-semibold text-buyback-fg shadow-[0_0_24px_-10px_rgba(17,140,79,0.8)] transition-all hover:border-buyback/70 hover:bg-buyback/20 hover:shadow-[0_0_32px_-8px_rgba(17,140,79,0.9)]"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-buyback text-white transition-transform duration-200 group-hover:scale-110">
+                      <Play
+                        className="ml-0.5 h-3.5 w-3.5 fill-current"
+                        aria-hidden
+                      />
+                    </span>
+                    <span className="flex flex-col leading-tight">
+                      Try a free demo spin
+                      <span className="text-[11px] font-normal text-white/45">
+                        No login · nothing charged
+                      </span>
+                    </span>
+                  </span>
+                  <ArrowRight
+                    className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                    aria-hidden
+                  />
+                </Link>
+              )}
+
               {/* Category */}
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/60">
@@ -308,7 +282,9 @@ export default function PackDetailClient({
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/60">
                   Pack
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                {/* Compact 3-col grid so all tiers fit on screen at once — the
+                    selector must never scroll inside the panel. */}
+                <div className="grid grid-cols-3 gap-1.5">
                   {siblings.map((p) => {
                     const selected = p.id === active.id;
                     return (
@@ -320,7 +296,7 @@ export default function PackDetailClient({
                           reset();
                         }}
                         className={cn(
-                          'flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-center transition-colors',
+                          'flex flex-col items-center gap-0.5 rounded-xl border px-1 py-2 text-center transition-colors',
                           selected
                             ? 'border-white/40 bg-white/10'
                             : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]',
@@ -332,12 +308,12 @@ export default function PackDetailClient({
                           aria-hidden
                           width={205}
                           height={360}
-                          className="h-10 w-auto object-contain"
+                          className="h-9 w-auto object-contain"
                         />
-                        <span className="text-[11px] font-medium leading-tight text-white">
+                        <span className="w-full truncate text-[11px] font-medium leading-tight text-white">
                           {p.name.replace(' Pack', '')}
                         </span>
-                        <span className="text-[11px] font-semibold text-white/55">
+                        <span className="text-[11px] font-semibold tabular-nums text-white/55">
                           {p.price}
                         </span>
                       </button>
@@ -345,20 +321,6 @@ export default function PackDetailClient({
                   })}
                 </div>
               </div>
-
-              {/* Demo spin */}
-              <button
-                type="button"
-                onClick={demoSpin}
-                disabled={demoPool.length === 0}
-                className="flex h-11 items-center justify-between rounded-xl border border-buyback/30 bg-buyback/10 px-4 text-sm font-medium text-buyback-fg transition-colors hover:bg-buyback/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <span className="flex items-center gap-2">
-                  <Play className="h-4 w-4 fill-current" aria-hidden />
-                  Try a free demo spin
-                </span>
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </button>
 
               {/* Quantity */}
               <div className="flex items-center gap-2">
@@ -516,32 +478,6 @@ export default function PackDetailClient({
           </ul>
         </Reveal>
       </div>
-
-      {reveal && (
-        <PackOpenOverlay
-          key={reveal.nonce}
-          card={reveal.card}
-          isReal={reveal.isReal}
-          packImage={active.image}
-          packName={active.name}
-          category={pack.categoryName}
-          opening={false}
-          reduced={reduced}
-          marketPriceMyr={reveal.marketPriceMyr}
-          // Demo reveals have no pull, so there is never a sell-back offer.
-          buyback={null}
-          onSellBack={sellBackPull}
-          onReveal={revealPull}
-          onClose={() => setReveal(null)}
-          // Reveals here are demo-only (real opens happen on the reel), so
-          // "open another" re-runs the free demo spin.
-          onOpenAnother={demoSpin}
-          // Anonymous demo spins swap keep/sell for the sign-up conversion CTA.
-          onSignUp={
-            !reveal.isReal && !customer ? () => openAuth('signup') : null
-          }
-        />
-      )}
     </div>
   );
 }

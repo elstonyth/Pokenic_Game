@@ -20,11 +20,14 @@ import { cn } from '@/lib/utils';
 import {
   type ResolvedPack,
   type Pack,
+  type PackCard,
   type Rarity,
   FLAT_BUYBACK_PERCENT,
+  ODDS,
   priceNumber,
 } from '@/lib/packs-data';
 import type { RecentPull } from '@/lib/data/packs';
+import { demoDraw } from '@/lib/demo-spin';
 import { publishedOddsRows, type PublishedOdds } from '@/lib/packs-format';
 import { isTopRarity, rarityRgb, RARITY_ORDER } from '@/lib/rarity';
 import { spinTotalMs, columnDurationMs } from '@/lib/vault-reel';
@@ -66,22 +69,43 @@ function topRarityOf(cards: WonCard[]): Rarity {
   );
 }
 
+/** Cosmetic reel-winner mapping for a won/demo card (decides nothing): rarity
+ *  color + the column's Pokémon sprite (custom image ⇢ dex gif ⇢ Poké Ball). */
+function winnerFor(card: WonCard): ColumnWinner {
+  const r = resolveCardPokemon(card);
+  const custom =
+    card.sprite_image && card.sprite_image.trim() !== ''
+      ? card.sprite_image
+      : null;
+  return {
+    dex: r.dex,
+    image: custom ?? (r.dex === null ? POKEBALL_PLACEHOLDER : undefined),
+    name: r.name ?? card.name,
+    rarityRgb: rarityRgb(card.rarity),
+  };
+}
+
 export default function SlotMachineClient({
   pack,
   recentPulls,
   count,
   publishedOdds,
+  demoPool = null,
 }: {
   pack: ResolvedPack & Pack;
   recentPulls: RecentPull[];
   count: number;
   /** Admin-published PUBLIC odds for the OddsSheet; null = not published. */
   publishedOdds: PublishedOdds | null;
+  /** Non-null = ?demo=1: guest demo mode over this public pool. Pure theater —
+   *  spins sample client-side (no openBatch, no charge, no Pull row, no
+   *  sell-back). Logged-in customers always get the real machine regardless. */
+  demoPool?: PackCard[] | null;
 }) {
   const reduced = usePrefersReducedMotion();
   // Immersive surface: chrome inert + body scroll locked the whole time mounted.
   useChromeInert(true);
-  const { customer } = useAuth();
+  const { customer, isLoading: authLoading } = useAuth();
   // Live customer id for the settle guard. handleSettled can be invoked from a
   // STALE closure — the reel prop, the watchdog, or handleSpin's own catch path
   // captured at spin time — so reading `customer` from a closure could compare
@@ -90,6 +114,14 @@ export default function SlotMachineClient({
   const customerIdRef = useRef<string | null>(customer?.id ?? null);
   customerIdRef.current = customer?.id ?? null;
   const { muted, toggleMuted, play, vibrate, sfx } = useSound();
+
+  // Guest-only demo: a logged-in customer on ?demo=1 gets the real machine —
+  // the demo exists purely as a pre-signup taste, never a mode for players.
+  const isDemo = demoPool !== null && !customer;
+  // Auth still hydrating on ?demo=1: identity (and therefore the mode) is
+  // unknown, so hold the spin — otherwise a logged-in customer could fire a
+  // "demo" spin whose result the settle identity-guard then silently drops.
+  const modeUndecided = demoPool !== null && !customer && authLoading;
 
   const cost = priceNumber(pack.price);
   // Reel count — prop is the initial value (already clamped from ?count=); the
@@ -186,11 +218,58 @@ export default function SlotMachineClient({
   }, [canAdjustReels, sfx, cueMeter]);
 
   async function handleSpin() {
-    if (spinGuarded) return;
+    if (spinGuarded || modeUndecided) return;
     // Clear any in-flight reveal-theater timers (same as skipToCards) so a
     // stale flood→transform→review handoff can't fire over the new spin.
     if (floodTimer.current !== null) clearTimeout(floodTimer.current);
     if (transformTimer.current !== null) clearTimeout(transformTimer.current);
+
+    // Demo spin — sample client-side from the public pool over the published
+    // odds (static ODDS pre-publication). No backend call, no charge, no Pull
+    // row, no sell-back; the reveal shows a sign-up CTA instead.
+    if (isDemo) {
+      // eslint-disable-next-line react-hooks/purity -- user-click event handler, never render (same as the real spin's Date.now below)
+      const spinAt = Date.now();
+      const rows = publishedOdds ? publishedOddsRows(publishedOdds) : null;
+      const cards: WonCard[] = [];
+      for (let i = 0; i < reels; i++) {
+        const drawn = demoDraw(
+          demoPool,
+          rows?.length ? rows : ODDS,
+          // eslint-disable-next-line react-hooks/purity -- see above; nothing real is at stake
+          Math.random(),
+          // eslint-disable-next-line react-hooks/purity -- see above
+          Math.random(),
+        );
+        if (!drawn) {
+          setError('No cards in this pack yet — check back soon.');
+          return;
+        }
+        cards.push({
+          ...drawn,
+          pokemon_dex: null,
+          sprite_image: null,
+          marketPriceMyr: null,
+        });
+      }
+      setError(null);
+      setOffers([]);
+      setAnnounce('');
+      winnerRects.current = [];
+      setHasSpun(true);
+      sfx('ratchet');
+      play('spin');
+      pending.current = {
+        balance: null,
+        forId: null,
+        offers: cards.map(() => null),
+        cards,
+      };
+      setSpin({ nonce: spinAt, cards, winners: cards.map(winnerFor) });
+      setPhase('spinning');
+      return;
+    }
+
     if (!customer) {
       openAuth('login');
       return;
@@ -260,20 +339,7 @@ export default function SlotMachineClient({
             : null;
         builtOffers.push(builtOffer);
 
-        // Cosmetic mapping (decides nothing): rarity color + winner Pokémon.
-        const r = resolveCardPokemon(roll.card);
-        const custom =
-          roll.card.sprite_image && roll.card.sprite_image.trim() !== ''
-            ? roll.card.sprite_image
-            : null;
-        winners.push({
-          dex: r.dex,
-          // Custom sprite wins; an explicit/derived dex lets the column draw the
-          // gif (image undefined); otherwise the neutral Poké Ball.
-          image: custom ?? (r.dex === null ? POKEBALL_PLACEHOLDER : undefined),
-          name: r.name ?? roll.card.name,
-          rarityRgb: rarityRgb(roll.card.rarity),
-        });
+        winners.push(winnerFor(roll.card));
         cards.push(roll.card);
       }
 
@@ -336,25 +402,28 @@ export default function SlotMachineClient({
     }
     setOffers(held.offers);
 
-    // Prepend one RecentPull per card won in this batch.
-    const now = Date.now();
-    const justPulled: RecentPull[] = held.cards.map((won, i) => ({
-      id: `${won.id}-${now}-${i}`,
-      name: won.name,
-      image: won.image,
-      value: won.marketPriceMyr != null ? rm(won.marketPriceMyr) : won.value,
-      rarity: won.rarity,
-      who: 'You',
-      packName: pack.name,
-      packIcon: pack.image,
-      agoLabel: 'just now',
-    }));
-    setRecent((prev) => [...justPulled, ...prev].slice(0, 12));
+    // Prepend one RecentPull per card won in this batch — real wins only; a
+    // demo draw is theater and must never appear in the live pull ticker.
+    if (!isDemo) {
+      const now = Date.now();
+      const justPulled: RecentPull[] = held.cards.map((won, i) => ({
+        id: `${won.id}-${now}-${i}`,
+        name: won.name,
+        image: won.image,
+        value: won.marketPriceMyr != null ? rm(won.marketPriceMyr) : won.value,
+        rarity: won.rarity,
+        who: 'You',
+        packName: pack.name,
+        packIcon: pack.image,
+        agoLabel: 'just now',
+      }));
+      setRecent((prev) => [...justPulled, ...prev].slice(0, 12));
+    }
 
     // Big-win / haptics now fire on the card flip inside RevealStage; here we
     // keep only the announce text (and the phase handoff into the reveal).
     const big = held.cards.some((c) => isTopRarity(c.rarity));
-    const bigPrefix = big ? 'Big win! ' : '';
+    const bigPrefix = isDemo ? 'Demo — ' : big ? 'Big win! ' : '';
     const first = held.cards[0];
     if (held.cards.length === 1 && first) {
       const firstValue =
@@ -391,7 +460,7 @@ export default function SlotMachineClient({
     // customerIdRef (a ref) is intentionally not a dep — the guard reads its
     // live value, so handleSettled stays stable and every caller (reel prop,
     // watchdog, stale catch closure) checks the CURRENT identity.
-  }, [pack.name, pack.image, sfx, applyBalance, reduced]);
+  }, [pack.name, pack.image, sfx, applyBalance, reduced, isDemo]);
 
   // Fast-forward the post-landing theater. Lands on 'review' with card backs
   // unflipped (beat 5's skip). Never affects the spin itself — the spin is not
@@ -462,12 +531,19 @@ export default function SlotMachineClient({
     <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-neutral-50 pb-[env(safe-area-inset-bottom)]">
       {/* Top plate (Task 12 restyles). */}
       <div className="flex items-center justify-between gap-4 px-fluid py-4">
-        <Link
-          href={`/slots/${pack.id}`}
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white/55 transition-colors hover:text-white"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden /> Exit
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/slots/${pack.id}`}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white/55 transition-colors hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Exit
+          </Link>
+          {isDemo && (
+            <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-300">
+              Demo
+            </span>
+          )}
+        </div>
         <SlotStatusBar balance={balance} recent={recent} reduced={reduced} />
       </div>
 
@@ -563,6 +639,8 @@ export default function SlotMachineClient({
                   winnerRects={winnerRects.current}
                   spriteSrcs={spriteSrcs}
                   reduced={reduced}
+                  demo={isDemo}
+                  onSignUp={isDemo ? () => openAuth('signup') : undefined}
                   onSkip={skipToCards}
                   onConclude={handleConclude}
                   onSellBack={sellBackPull}
@@ -581,27 +659,42 @@ export default function SlotMachineClient({
         <div className="px-fluid pb-6 pt-2">
           <SlotControls
             costLine={
-              <span className="inline-flex items-center">
-                <span>Bet </span>
-                <Meter
-                  value={cost * reels}
-                  direction={meterDir}
-                  reduced={reduced}
-                  className="ml-1.5 font-semibold text-white/85"
-                />
-                {reels > 1 && (
-                  <span className="ml-2 rounded bg-chase/15 px-1.5 py-0.5 text-[11px] font-bold text-chase">
-                    × {reels}
-                  </span>
-                )}
-              </span>
+              isDemo ? (
+                <span>Free demo — no credits charged, no real cards won</span>
+              ) : (
+                <span className="inline-flex items-center">
+                  <span>Bet </span>
+                  <Meter
+                    value={cost * reels}
+                    direction={meterDir}
+                    reduced={reduced}
+                    className="ml-1.5 font-semibold text-white/85"
+                  />
+                  {reels > 1 && (
+                    <span className="ml-2 rounded bg-chase/15 px-1.5 py-0.5 text-[11px] font-bold text-chase">
+                      × {reels}
+                    </span>
+                  )}
+                </span>
+              )
             }
             spinning={phase === 'spinning' || phase === 'resolving'}
             disabled={
-              spinGuarded || cooldown || (customer != null && !canAfford)
+              spinGuarded ||
+              cooldown ||
+              modeUndecided ||
+              (customer != null && !canAfford)
             }
             label={
-              !customer ? 'Log in to spin' : hasSpun ? 'Spin again' : 'Spin'
+              isDemo
+                ? hasSpun
+                  ? 'Spin again'
+                  : 'Demo spin'
+                : !customer
+                  ? 'Log in to spin'
+                  : hasSpun
+                    ? 'Spin again'
+                    : 'Spin'
             }
             muted={muted}
             onSpin={handleSpin}

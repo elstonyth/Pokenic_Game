@@ -42,9 +42,9 @@ export function CardDetail({
   };
 
   // Real 30-day sparkline from history (hidden with <2 points).
-  const history = detail?.priceHistory ?? [];
+  const history = detail?.priceHistory; // stable ref from state; undefined when no detail
   const spark = useMemo(() => {
-    if (history.length < 2) return null;
+    if (!history || history.length < 2) return null;
     const pts = history.map((p) => p.valueMyr);
     const max = Math.max(...pts);
     const min = Math.min(...pts);
@@ -55,8 +55,8 @@ export function CardDetail({
       )
       .join(' ');
   }, [history]);
-  const first = history[0]?.valueMyr;
-  const last = history[history.length - 1]?.valueMyr;
+  const first = history?.[0]?.valueMyr;
+  const last = history?.[history.length - 1]?.valueMyr;
   const delta = first !== undefined && last !== undefined ? last - first : null;
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, Lock } from 'lucide-react';
 import { FramedAvatar } from '@/components/FramedAvatar';
@@ -37,6 +37,16 @@ export function AppearanceCard({
   const equippedFrameUrl = equippedLevel
     ? (frames[String(equippedLevel)] ?? null)
     : null;
+
+  // Self-heal a failed VIP read: the store-read burst window is 10s, so a
+  // refresh just past it usually succeeds — no manual reload needed. The
+  // interval unmounts with the component (navigation stops it).
+  const levelUnknown = highestLevel === null;
+  useEffect(() => {
+    if (!levelUnknown) return;
+    const id = window.setInterval(() => router.refresh(), 12_000);
+    return () => window.clearInterval(id);
+  }, [levelUnknown, router]);
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -143,10 +153,17 @@ export function AppearanceCard({
         <p className="mt-1 text-[12px] text-neutral-400">
           Unlock a new frame every 10 VIP levels.
         </p>
-        {highestLevel === null && (
+        {levelUnknown && (
           <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[13px] font-medium text-amber-300">
             Couldn&rsquo;t load your VIP level, so frames can&rsquo;t be changed
-            right now — your unlocks are safe. Refresh to try again.
+            right now — your unlocks are safe. Retrying automatically&hellip;{' '}
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="font-semibold underline underline-offset-2 hover:text-amber-100"
+            >
+              Try again now
+            </button>
           </p>
         )}
         <ul className="mt-4 grid grid-cols-5 gap-3">

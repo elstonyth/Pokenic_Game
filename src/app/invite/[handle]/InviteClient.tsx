@@ -55,7 +55,11 @@ export default function InviteClient({ handle }: { handle: string }) {
     }
     if (sawGuest.current && !autoApplied.current) {
       autoApplied.current = true;
-      void join();
+      // Defer past the effect's synchronous phase — join() sets a 'busy' state
+      // immediately, and setState during an effect body triggers a cascading
+      // render (react-hooks/set-state-in-effect). A microtask runs it right
+      // after, behaviourally identical.
+      queueMicrotask(() => void join());
     }
   }, [isLoading, customer, join]);
 

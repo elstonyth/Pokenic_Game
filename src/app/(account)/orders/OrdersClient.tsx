@@ -33,6 +33,19 @@ const EDITABLE: ReadonlySet<DeliveryOrderView['status']> = new Set([
 const humanize = (s: string) =>
   s.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
+// Only render http(s) or same-origin root-relative proof URLs — never a
+// `javascript:`/`data:` scheme. Defense-in-depth: the admin API already rejects
+// unsafe proof-image schemes; this also guards any legacy/edge-case data.
+const isSafeMediaUrl = (u: string) => {
+  if (u.startsWith('/') && !u.startsWith('//')) return true;
+  try {
+    const { protocol } = new URL(u);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 const orderDate = (value: string | Date) =>
   new Date(value).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -380,13 +393,13 @@ export default function OrdersClient({
                   ) : (
                     <span className="text-white/55">—</span>
                   )}
-                  {o.proofImages.length > 0 && (
+                  {o.proofImages.filter(isSafeMediaUrl).length > 0 && (
                     <div className="mt-2">
                       <span className="block text-[11px] uppercase tracking-wide text-white/40">
                         Delivery photos
                       </span>
                       <div className="mt-1 flex flex-wrap gap-1.5">
-                        {o.proofImages.map((url) => (
+                        {o.proofImages.filter(isSafeMediaUrl).map((url) => (
                           <a
                             key={url}
                             href={url}

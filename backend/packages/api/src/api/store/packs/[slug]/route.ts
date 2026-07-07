@@ -26,8 +26,11 @@ import {
 // boardCache. The home page fans out one getPackDetail per featured pack on
 // every anonymous (force-dynamic) view; this collapses that ~4-query build to
 // once per slug per 30s window. Only the 200 body is cached (404s fall through
-// so a pack going active isn't hidden for ≤30s). Prices are ≤30s stale, fine.
-// Upgrade to Redis only if we ever run >1 instance.
+// so a pack going active isn't hidden for ≤30s). The inverse also lags ≤30s: a
+// pack going inactive/out-of-stock, or an admin edit to price/odds, keeps
+// serving the stale 200 until the window rolls — display-only and acceptable
+// (the purchase path re-checks live state; no explicit bust, matches boardCache).
+// Prices are ≤30s stale, fine. Upgrade to Redis only if we ever run >1 instance.
 const CACHE_TTL_MS = 30_000;
 const packCache = new Map<string, { expires: number; body: unknown }>();
 

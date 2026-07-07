@@ -2,6 +2,11 @@ import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
 import { PACKS_MODULE } from '../../src/modules/packs';
 import type PacksModuleService from '../../src/modules/packs/service';
 import { deleteCardWorkflow } from '../../src/workflows/delete-card';
+import {
+  foldLedgerRow,
+  EMPTY_TOTALS,
+  totalsToUsd,
+} from '../../src/modules/packs/credit-summary';
 
 jest.setTimeout(240 * 1000);
 
@@ -144,6 +149,36 @@ medusaIntegrationTestRunner({
             { take: 1 },
           );
           expect(cards).toHaveLength(0); // deleted
+        });
+      });
+
+      describe('creditSummary — SQL matches the unit-tested fold', () => {
+        it('agrees with foldLedgerRow on a mixed ledger', async () => {
+          const CUS = 'cus_summary_oracle';
+          await packs.createCreditTransactions([
+            { customer_id: CUS, amount: 100, reason: 'topup', external_funded_cents: 10000 },
+            { customer_id: CUS, amount: -30, reason: 'pack_open', external_funded_cents: -3000 },
+            { customer_id: CUS, amount: 21.6, reason: 'buyback', external_funded_cents: 0 },
+            { customer_id: CUS, amount: -5.55, reason: 'adjustment', external_funded_cents: 0 },
+            { customer_id: CUS, amount: 30, reason: 'pack_open', external_funded_cents: 3000 }, // reversal mirror
+          ]);
+          const sql = await packs.creditSummary(CUS);
+          const rows = await packs.listCreditTransactions(
+            { customer_id: CUS },
+            { take: 100 },
+          );
+          let acc = EMPTY_TOTALS;
+          for (const t of rows) {
+            acc = foldLedgerRow(acc, {
+              amount: Number(t.amount),
+              reason: t.reason,
+              externalFundedCents: Number(
+                (t as { external_funded_cents?: number | null })
+                  .external_funded_cents ?? 0,
+              ),
+            });
+          }
+          expect(sql).toEqual(totalsToUsd(acc));
         });
       });
     });

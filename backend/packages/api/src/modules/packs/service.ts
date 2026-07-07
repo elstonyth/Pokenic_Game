@@ -40,12 +40,6 @@ import {
   instantDeadlineMs,
   type BuybackRate,
 } from './buyback-rate';
-import {
-  EMPTY_TOTALS,
-  foldLedgerRow,
-  totalsToUsd,
-  type LedgerTotals,
-} from './credit-summary';
 import { consumeExternalSen } from './external-funded';
 import {
   directReferralPctForLevel,
@@ -91,8 +85,6 @@ function isUniqueViolation(e: unknown): boolean {
 // listCreditTransactions). Card = prize metadata, PackOdds = the weighted
 // table (+ per-pack rarity), Pull = the result ledger doubling as the vault,
 // CreditTransaction = the site-credit ledger written by buybacks.
-
-const BALANCE_PAGE = 1000;
 
 /** A signed credit-ledger write reason (mirrors CreditTransaction.reason). */
 export type CreditMutationReason =
@@ -517,36 +509,47 @@ class PacksModuleService extends MedusaService({
     return { percent, amount: buybackAmount(valueMyr, percent), rate_type };
   }
 
-  // Lifetime ledger totals (balance + money-in/out + external-funded spend),
-  // paged so the result is exact at any ledger size. Reuses the pure fold so the
-  // arithmetic is unit-tested. balance == Σ(amount); topupTotal == Σ top-ups;
-  // spendTotal == Σ|negatives|; externalFundedSpendTotal == Σ external consumed
-  // by opens (the VIP basis, refund-stable).
-  async creditSummary(customerId: string): Promise<{
+  // Lifetime ledger totals (balance + money-in/out + external-funded spend) in
+  // ONE SQL aggregate — the exact twin of credit-summary.ts's foldLedgerRow
+  // (which stays as the unit-tested oracle; integration test compares them).
+  // Rides IDX_credit_transaction_customer_id_created_at. Replaces the paged
+  // JS fold that shipped the whole ledger to Node on every wallet/buyback/VIP
+  // read (audit 2026-07-07 #5).
+  @InjectManager()
+  async creditSummary(
+    customerId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{
     balance: number;
     topupTotal: number;
     spendTotal: number;
     externalFundedSpendTotal: number;
   }> {
-    let totals: LedgerTotals = EMPTY_TOTALS;
-    for (let skip = 0; ; skip += BALANCE_PAGE) {
-      const page = await this.listCreditTransactions(
-        { customer_id: customerId },
-        { skip, take: BALANCE_PAGE, order: { created_at: 'ASC', id: 'ASC' } },
-      );
-      for (const t of page) {
-        totals = foldLedgerRow(totals, {
-          amount: Number(t.amount),
-          reason: t.reason,
-          externalFundedCents: Number(
-            (t as { external_funded_cents?: number | null })
-              .external_funded_cents ?? 0,
-          ),
-        });
-      }
-      if (page.length < BALANCE_PAGE) break;
-    }
-    return totalsToUsd(totals);
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+    const rows = await em.execute<
+      {
+        balance_cents: string | null;
+        topup_cents: string | null;
+        spend_cents: string | null;
+        ext_spend_cents: string | null;
+      }[]
+    >(
+      'SELECT ' +
+        '  COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents, ' +
+        "  COALESCE(SUM(CASE WHEN reason = 'topup' AND amount > 0 THEN ROUND(amount * 100) ELSE 0 END), 0)::bigint AS topup_cents, " +
+        '  COALESCE(SUM(CASE WHEN amount < 0 THEN ROUND(-amount * 100) ELSE 0 END), 0)::bigint AS spend_cents, ' +
+        "  COALESCE(SUM(CASE WHEN reason = 'pack_open' THEN -external_funded_cents ELSE 0 END), 0)::bigint AS ext_spend_cents " +
+        'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+      [customerId],
+    );
+    const r = rows[0];
+    return {
+      balance: Number(r?.balance_cents ?? 0) / 100,
+      topupTotal: Number(r?.topup_cents ?? 0) / 100,
+      spendTotal: Number(r?.spend_cents ?? 0) / 100,
+      externalFundedSpendTotal: Number(r?.ext_spend_cents ?? 0) / 100,
+    };
   }
 
   // Customer credit balance = Σ(amount) over the append-only ledger. Kept as a

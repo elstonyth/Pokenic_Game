@@ -15,7 +15,7 @@ import {
 import {
   DEFAULT_MARKET_MULTIPLIER,
   displayMarketPrice,
-  resolveFxRate,
+  resolveFxRateStrict,
 } from '../../modules/packs/pricing';
 import { insertOrMapDuplicate } from './duplicate-race';
 
@@ -119,7 +119,7 @@ export const buybackPullStep = createStep(
     // by FX and the per-card markup (displayMarketPrice). Crediting raw USD ×
     // percent underpaid every sell-back by the FX rate. Resolve FX + multiplier
     // at credit time, exactly as the reveal/vault quote does, so quote == credit.
-    const fx = await resolveFxRate(packs);
+    const fx = await resolveFxRateStrict(packs);
     const valueMyr = displayMarketPrice(
       rawUsd,
       fx,

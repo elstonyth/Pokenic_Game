@@ -99,14 +99,15 @@ const auth = await fetch('http://localhost:9000/auth/customer/emailpass', {
 if (!auth.ok) throw new Error(`customer auth failed: ${auth.status}`);
 const { token } = await auth.json();
 let denied = 0;
-for (let i = 0; i < 40; i++) {
+// 90 > the raised 60/10s burst budget, so the fail-open state is still forceable.
+for (let i = 0; i < 90; i++) {
   const r = await fetch('http://localhost:9000/store/vip', {
     headers: { authorization: `Bearer ${token}`, 'x-publishable-api-key': PK },
   });
   if (r.status === 429) denied++;
 }
 console.log(
-  `STEP hammer: 40 hits, ${denied} × 429 (limiter tripped: ${denied > 0})`,
+  `STEP hammer: 90 hits, ${denied} × 429 (limiter tripped: ${denied > 0})`,
 );
 
 await gotoMe();

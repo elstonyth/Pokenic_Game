@@ -46,6 +46,11 @@ const verdictError = (
         MedusaError.Types.NOT_ALLOWED,
         "One or more cards are no longer available to deliver.",
       );
+    case "reward_source":
+      return new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        "Reward prizes are shipped from the rewards page, not the vault.",
+      );
     // not_found AND forbidden both surface as 404 — no cross-account leak.
     default:
       return new MedusaError(
@@ -75,6 +80,10 @@ export const requestDeliveryStep = createStep(
       input.customer_id,
     );
     if (verdict !== "ok") throw verdictError(verdict);
+
+    // Frozen accounts cannot draw value out — physical delivery extracts value
+    // exactly like buyback, so it gets the same gate (audit 2026-07-07 #2).
+    await packs.assertNotFrozen(input.customer_id);
 
     // 2. Resolve + verify the address belongs to the caller, then snapshot it.
     const [address] = await customerModule.listCustomerAddresses(
@@ -125,9 +134,11 @@ export const requestDeliveryStep = createStep(
 
     // 5. Flip pulls vaulted → delivering (manual undo on failure).
     try {
-      await packs.updatePulls(
-        input.pull_ids.map((id) => ({ id, status: "delivering" as const })),
-      );
+      await packs.transitionPullStatus({
+        ids: input.pull_ids,
+        from: "vaulted",
+        to: "delivering",
+      });
     } catch (error) {
       try {
         await packs.deleteDeliveryOrderItems(itemIds);

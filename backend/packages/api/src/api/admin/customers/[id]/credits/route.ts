@@ -9,7 +9,7 @@ import { adjustCreditsWorkflow } from "../../../../../workflows/adjust-credits";
 type Body = { amount?: unknown; note?: unknown };
 
 // POST /admin/customers/:id/credits — operator credit adjustment (grant /
-// refund / clawback). One signed ledger row, $0 balance floor; amount/note
+// refund / clawback). One signed ledger row, RM 0 balance floor; amount/note
 // rules live in the workflow step (modules/packs/credit-adjust.ts). Admin
 // routes are auto-protected — no middleware entry needed.
 // admin_id is derived server-side from auth_context.actor_id and is NEVER

@@ -26,7 +26,6 @@ import {
   BuybackResultSchema,
   CreditsSchema,
   CreditTransactionSchema,
-  type CreditReason,
 } from '@/lib/data/schemas';
 
 export type VaultItem = {
@@ -179,7 +178,16 @@ export type TopUpActionResult =
 // Buy site credit through the mock gateway (demo — no real payment). The fake
 // card fields never leave the browser; only the amount is posted, and the
 // backend re-validates it (the gateway declines amounts ending in .13).
-export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
+//
+// `idempotencyKey` comes from the CALLER, minted once per top-up ATTEMPT and
+// reused across retries of that attempt (see TopUpSheet) — a key minted here
+// per call would rotate on every retry and bypass the backend replay guard,
+// which exists precisely for the credited-but-response-lost retry. The
+// fallback mint only covers callers that never retry.
+export async function topUpCredits(
+  amount: number,
+  idempotencyKey?: string,
+): Promise<TopUpActionResult> {
   // Validate at the boundary — a server action is a public endpoint.
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: 'Enter a valid amount.' };
@@ -195,7 +203,12 @@ export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
       AmountBalanceSchema,
       await sdk.client.fetch('/store/credits/topup', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Mandatory since the 2026-07-07 audit — a retried top-up without a
+          // key would double-credit. Node 20+: crypto.randomUUID() is global.
+          'Idempotency-Key': idempotencyKey ?? crypto.randomUUID(),
+        },
         body: { amount },
       }),
     );
@@ -219,9 +232,10 @@ export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
 export type CreditTxn = {
   id: string;
   amount: number;
-  // Derived from the single CREDIT_REASONS list so it can't drift from the
-  // schema; covers every backend ledger reason → commission rows are kept.
-  reason: CreditReason;
+  // Any string, not `CreditReason` — mirrors CreditTransactionSchema: an
+  // unlisted backend reason must still reach the UI (reasonLabel falls back
+  // to a prettified generic label) instead of the row being dropped upstream.
+  reason: string;
   createdAt: string;
 };
 

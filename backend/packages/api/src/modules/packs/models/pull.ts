@@ -32,7 +32,7 @@ export const Pull = model
     status: model
       .enum(["vaulted", "bought_back", "delivering", "delivered"])
       .default("vaulted"),
-    // USD actually credited (decimal, never cents) — a SNAPSHOT taken at buyback
+    // MYR actually credited (RM decimal, never sen) — a SNAPSHOT taken at buyback
     // time (current FMV × the pack's buyback_percent), kept since FMV moves.
     buyback_amount: model.bigNumber().nullable(),
     buyback_at: model.dateTime().nullable(),

@@ -137,7 +137,7 @@ medusaIntegrationTestRunner({
           api.post(
             '/store/credits/topup',
             { amount: PACK_PRICE },
-            { headers: authed(token) },
+            { headers: { ...authed(token), 'idempotency-key': 'showcase-topup' } },
           ),
         );
         const opened = await unwrapResponse(

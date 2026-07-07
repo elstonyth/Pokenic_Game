@@ -16,8 +16,10 @@ export const Card = model.define('card', {
   grade: model.text(),
   // NOTE: rarity is NOT a card property — the same card can be Mythical in one pack
   // and Rare in another. It lives on PackOdds (the pack↔card link).
-  // USD fair-market value — a DECIMAL (e.g. 19.2), never cents. bigNumber maps to
-  // a numeric column; model.number() would map to integer and truncate the cents.
+  // USD fair-market value — THE ONLY USD IN THE SYSTEM (raw PriceCharting FMV).
+  // Converted to MYR ONLY via modules/packs/pricing.ts. A DECIMAL, never cents.
+  // bigNumber maps to a numeric column; model.number() would map to integer and
+  // truncate the cents.
   market_value: model.bigNumber(),
   image: model.text(),
   // Baked graded-slab composite (frame + photo, one webp) — public URL plus

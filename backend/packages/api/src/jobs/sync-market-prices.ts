@@ -57,6 +57,8 @@ export default async function syncMarketPricesJob(
     await pageAll<CardRow>((opts) => packs.listCards({}, opts))
   ).filter((c: CardRow) => c.pc_product_id);
   let changed = 0;
+  let skipped = 0;
+  let failed = 0;
   for (const card of cards) {
     try {
       const r = await refreshCardPrice(card, {
@@ -70,12 +72,14 @@ export default async function syncMarketPricesJob(
           `[sync-market-prices] ${r.handle} ${r.oldValue} -> ${r.newValue}`,
         );
       } else if (r.skippedReason) {
+        skipped++;
         logger.warn(
           `[sync-market-prices] skip ${r.handle}: ${r.skippedReason}`,
         );
       }
       await recordPriceHistory(packs, card.id, r);
     } catch (e) {
+      failed++;
       logger.error(
         `[sync-market-prices] card ${card.handle || card.id} failed: ${(e as Error).message}`,
       );
@@ -83,7 +87,9 @@ export default async function syncMarketPricesJob(
       await sleep(1100);
     }
   }
-  logger.info(`[sync-market-prices] done: ${changed}/${cards.length} updated`);
+  const summary = `[sync-market-prices] done: ${changed}/${cards.length} updated, ${skipped} skipped, ${failed} failed`;
+  if (skipped > 0 || failed > 0) logger.warn(summary);
+  else logger.info(summary);
 }
 
 export const config = { name: 'sync-market-prices', schedule: '0 3 * * *' };

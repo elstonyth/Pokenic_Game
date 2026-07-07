@@ -188,13 +188,32 @@ describe('CreditTransactionSchema — keeps every reason the backend emits', () 
     // drop commission rows (balance would stop reconciling to visible history).
     expect(parseList(CreditTransactionSchema, rows)).toHaveLength(5);
   });
+
+  // Audit 2026-07-07 #11: `reason` is `z.string()`, not `z.enum(CREDIT_REASONS)`
+  // — a reason the backend adds before the storefront redeploys must still
+  // reach the UI (reasonLabel renders a generic fallback) instead of the row
+  // vanishing from the customer's history.
+  it('keeps a row whose reason is unknown to the storefront enum', () => {
+    const rows = [
+      {
+        id: 'z',
+        amount: -5,
+        reason: 'refund_x',
+        created_at: '2026-07-07T00:00:00Z',
+      },
+    ];
+    expect(parseList(CreditTransactionSchema, rows)).toHaveLength(1);
+    expect(parseList(CreditTransactionSchema, rows)[0]?.reason).toBe(
+      'refund_x',
+    );
+  });
 });
 
-// Regression tripwire (plans/005). parseList() SILENTLY drops any credit row
-// whose `reason` isn't in CREDIT_REASONS, so if the backend gains a reason the
-// storefront lacks, those transactions vanish from the customer's history with
-// no error (this drifted before — PR #36). BACKEND_CREDIT_REASONS mirrors the
-// backend enum in
+// Regression tripwire (plans/005), superseded by the #11 fix above: parseList()
+// no longer drops a credit row just because `reason` isn't in CREDIT_REASONS
+// (see the unknown-reason test above) — but CREDIT_REASONS is still the single
+// list a NEW backend reason needs a label for (transactions.ts REASON_LABEL),
+// so keep it in sync. BACKEND_CREDIT_REASONS mirrors the backend enum in
 // backend/packages/api/src/modules/packs/models/credit-transaction.ts. When the
 // backend adds a reason, add it HERE and to CREDIT_REASONS in the SAME deploy —
 // these tests fail until you do.

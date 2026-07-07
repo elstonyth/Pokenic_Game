@@ -156,7 +156,12 @@ export async function openPack(slug: string): Promise<OpenPackResult> {
         name: wonCard.name,
         image: card.image,
         slab_image: card.slab_image ?? null,
-        value: formatValue(wonCard.market_value),
+        // Raw USD market_value must never render behind "RM" — an older
+        // backend without marketPriceMyr shows "—" instead of a fake price.
+        value:
+          wonCard.marketPriceMyr != null
+            ? formatValue(wonCard.marketPriceMyr)
+            : '—',
         rarity: wonCard.rarity as Rarity,
         pokemon_dex: wonCard.pokemon_dex ?? null,
         sprite_image: wonCard.sprite_image ?? null,

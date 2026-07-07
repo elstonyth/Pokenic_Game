@@ -34,10 +34,16 @@ import {
 // re-run.
 //
 // Needs PRICECHARTING_API_TOKEN in the backend .env for the search fallback;
-// metadata-linked rows work without it.
+// metadata-linked rows work without it. Unlinked products are SKIPPED by
+// default (an operator confirms the search match) — pass --link-first-hit to
+// auto-link to the top search result as before.
+//
+// ponytail: replaced files are orphaned in static//Spaces; add a deleteFiles
+// sweep when storage cost matters.
 //
 // Run:  corepack yarn medusa exec ./src/scripts/repull-pc-images.ts
 //       … ./src/scripts/repull-pc-images.ts --only <product-or-card-handle>
+//       … ./src/scripts/repull-pc-images.ts --link-first-hit
 
 type PcSearchResponse = {
   status: string;
@@ -53,6 +59,8 @@ type PcSearchResponse = {
 const searchQuery = (title: string): string =>
   title.replace(/\s+(PSA|CGC|BGS|SGC|TAG|ACE)\s.*$/i, '').trim();
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export default async function repullPcImages({ container, args }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
   const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
@@ -60,6 +68,7 @@ export default async function repullPcImages({ container, args }: ExecArgs) {
 
   const onlyIdx = args?.indexOf('--only') ?? -1;
   const only = onlyIdx >= 0 ? args?.[onlyIdx + 1] : undefined;
+  const linkFirstHit = process.argv.includes('--link-first-hit');
 
   // pc_product_id → stored URL (grades of one card share a PC product).
   const storedByPcId = new Map<string, string>();
@@ -179,6 +188,13 @@ export default async function repullPcImages({ container, args }: ExecArgs) {
             : null;
       let matchedName: string | null = null;
       if (!pcId) {
+        if (!linkFirstHit) {
+          kept.push(label);
+          logger.warn(
+            `⚠ ${label}: unlinked — rerun with --link-first-hit to auto-link`,
+          );
+          continue;
+        }
         const hit = await searchPcId(product.title ?? '');
         if (!hit) throw new Error('no PriceCharting search match');
         pcId = hit.id;
@@ -214,6 +230,7 @@ export default async function repullPcImages({ container, args }: ExecArgs) {
         `✗ ${label}: ${e instanceof Error ? e.message : String(e)} — kept existing image`,
       );
     }
+    await sleep(1100); // PriceCharting is ~1 req/s — same pace as the daily job
   }
 
   // ---- 2. PC-linked gacha cards not covered by a product above ------------
@@ -232,6 +249,9 @@ export default async function repullPcImages({ container, args }: ExecArgs) {
         `✗ card ${card.handle}: ${e instanceof Error ? e.message : String(e)} — kept existing image`,
       );
     }
+    // A cache miss here hits the same PriceCharting endpoints as loop 1
+    // (offers-page scrape + image download) — keep the same ~1 req/s pace.
+    await sleep(1100);
   }
 
   logger.info(

@@ -1,65 +1,93 @@
 import PacksModuleService from "../service";
 
-// creditBalance pages the append-only ledger and sums in integer cents — a
-// long ledger of 2dp amounts must never drift below/above the true total the
-// way a running float sum can.
-//
-// We test PacksModuleService.prototype.creditBalance directly by constructing a
-// prototype-linked object and stubbing listCreditTransactions.
+// creditBalance/creditSummary now run ONE SQL aggregate (Postgres sums the
+// ledger in integer cents) instead of paging + folding in JS — see
+// service.ts's creditSummary and credit-summary.ts's doc comment. The
+// Postgres-side arithmetic itself is proven against the pure fold by the
+// "creditSummary — SQL matches the unit-tested fold" integration test
+// (pull-status-transitions.spec.ts). What's left to unit-test here, without a
+// DB, is the JS-side edge of that boundary: converting the aggregate's bigint
+// cent strings back to exact MYR decimals, and the empty-ledger default.
 
-type Txn = { amount: number | string };
+type FakeRow = {
+  balance_cents: string | null;
+  topup_cents: string | null;
+  spend_cents: string | null;
+  ext_spend_cents: string | null;
+};
 
-/** Fake service: serves `rows` through listCreditTransactions paging. */
-const fakeService = (rows: Txn[]) => {
-  const calls: Array<{ skip: number; take: number }> = [];
-  // Object.create keeps the prototype chain intact so `instanceof` checks pass,
-  // and then we assign the stub directly so creditBalance() calls our fake.
+/** Fake service: @InjectManager reads `sharedContext.manager` when present
+ *  (it only falls back to `this.baseRepository_.getFreshManager()` if the
+ *  context didn't supply one), so a bare `{ manager }` context is enough to
+ *  drive `creditSummary` without a real DB connection. */
+const fakeService = (row: FakeRow | undefined) => {
+  const calls: Array<unknown[] | undefined> = [];
   const svc = Object.create(
     PacksModuleService.prototype
   ) as PacksModuleService;
-  (svc as unknown as Record<string, unknown>).listCreditTransactions = async (
-    _filter: Record<string, unknown>,
-    opts: { skip: number; take: number }
-  ) => {
-    calls.push({ skip: opts.skip, take: opts.take });
-    return rows.slice(opts.skip, opts.skip + opts.take);
+  const manager = {
+    execute: async (_query: string, params?: unknown[]) => {
+      calls.push(params);
+      return row ? [row] : [];
+    },
   };
-  return { svc, calls };
+  return { svc, manager, calls };
 };
 
-describe("PacksModuleService.creditBalance", () => {
-  it("returns 0 for an empty ledger", async () => {
-    const { svc } = fakeService([]);
-    expect(await svc.creditBalance("cus_1")).toBe(0);
+describe("PacksModuleService.creditSummary (SQL aggregate)", () => {
+  it("returns all zeros for an empty ledger (no aggregate row)", async () => {
+    const { svc, manager } = fakeService(undefined);
+    expect(await svc.creditSummary("cus_1", { manager })).toEqual({
+      balance: 0,
+      topupTotal: 0,
+      spendTotal: 0,
+      externalFundedSpendTotal: 0,
+    });
   });
 
-  it("sums amounts exactly in cents (no float drift)", async () => {
-    // 0.1 + 0.2 is the canonical float trap (0.30000000000000004).
-    const { svc } = fakeService([
-      { amount: 0.1 },
-      { amount: 0.2 },
-      { amount: 20.23 },
-    ]);
-    expect(await svc.creditBalance("cus_1")).toBe(20.53);
+  it("converts bigint cent strings to exact MYR (no float drift)", async () => {
+    const { svc, manager } = fakeService({
+      balance_cents: "2053",
+      topup_cents: "10000",
+      spend_cents: "7947",
+      ext_spend_cents: "500",
+    });
+    expect(await svc.creditSummary("cus_1", { manager })).toEqual({
+      balance: 20.53,
+      topupTotal: 100,
+      spendTotal: 79.47,
+      externalFundedSpendTotal: 5,
+    });
   });
 
-  it("stays exact across many small rows", async () => {
-    // 3000 × $0.01 — a running float sum lands at 29.999999…; cents stay exact.
-    const rows = Array.from({ length: 3000 }, () => ({ amount: 0.01 }));
-    const { svc } = fakeService(rows);
-    expect(await svc.creditBalance("cus_1")).toBe(30);
+  it("holds exact for a large ledger's aggregated bigint sum", async () => {
+    // 3000 rows × 1 cent, summed in Postgres as bigint '3000000' — the
+    // pre-SQL suite's "no drift across many small rows" case, moved to the
+    // DB side; the JS side must still land on exactly 30000, not 29999.999….
+    const { svc, manager } = fakeService({
+      balance_cents: "3000000",
+      topup_cents: "0",
+      spend_cents: "0",
+      ext_spend_cents: "0",
+    });
+    expect((await svc.creditSummary("cus_1", { manager })).balance).toBe(
+      30000
+    );
   });
 
-  it("pages past the first page instead of truncating", async () => {
-    const rows = Array.from({ length: 2500 }, () => ({ amount: 1 }));
-    const { svc, calls } = fakeService(rows);
-    expect(await svc.creditBalance("cus_1")).toBe(2500);
-    expect(calls.length).toBeGreaterThan(2); // 1000-row pages → 3 calls
-    expect(calls[1].skip).toBe(calls[0].take);
+  it("passes the customerId through as the SQL parameter", async () => {
+    const { svc, manager, calls } = fakeService({
+      balance_cents: "0",
+      topup_cents: "0",
+      spend_cents: "0",
+      ext_spend_cents: "0",
+    });
+    await svc.creditSummary("cus_42", { manager });
+    expect(calls[0]).toEqual(["cus_42"]);
   });
 
-  it("handles bigNumber string amounts from the ORM", async () => {
-    const { svc } = fakeService([{ amount: "12.34" }, { amount: "0.66" }]);
-    expect(await svc.creditBalance("cus_1")).toBe(13);
-  });
+  // creditBalance itself takes no context param (unchanged signature) and
+  // resolves its manager from `this.baseRepository_`, so exercising its
+  // delegation to creditSummary needs a real DB container — covered by the
+  // integration suites (e.g. reverse-open.spec.ts, vault-buyback.spec.ts).
 });

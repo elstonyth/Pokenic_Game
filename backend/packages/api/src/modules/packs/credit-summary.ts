@@ -7,6 +7,12 @@
 // external-funded sen the row added (top-up, +) or consumed (pack_open, −).
 // `externalBalanceCents` = remaining unspent external funding (Σ of the column);
 // `externalFundedSpendCents` = external consumed by opens = the VIP basis.
+//
+// service.ts's `creditSummary` no longer calls this fold at request time — it
+// runs the exact same arithmetic as ONE SQL aggregate (audit 2026-07-07 #5).
+// This file stays as the unit-tested oracle; the integration test
+// "creditSummary — SQL matches the unit-tested fold" in
+// pull-status-transitions.spec.ts proves the SQL and this fold agree.
 
 export interface LedgerTotals {
   balanceCents: number;

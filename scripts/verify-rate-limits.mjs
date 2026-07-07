@@ -75,10 +75,10 @@ ok(`throwaway customer ready (${email})`);
 // ── 2. top-up limiter (per customer, 5/10s burst) ───────────────────────────
 {
   // invalid amount -> 400 passes the limiter but credits nothing
-  const { count, res } = await spamUntil429(8, () =>
+  const { count, res } = await spamUntil429(8, (i) =>
     hit('/store/credits/topup', {
       method: 'POST',
-      headers: auth,
+      headers: { ...auth, 'Idempotency-Key': `rate-limit-topup-${i}` },
       body: JSON.stringify({ amount: -1 }),
     }),
   );

@@ -165,9 +165,12 @@ interface BackendOddsEntry {
   handle: string;
   name: string;
   rarity: string;
+  /** Raw USD FMV — kept for SORTING only (Top Hits/pool order); never format
+   *  it directly as RM (it isn't MYR). Display prefers marketPriceMyr. */
   market_value: number;
   /** Live MYR display price (FMV × FX × margin) computed by the backend at
-   *  request time; absent on an older backend → fall back to market_value. */
+   *  request time; absent on an older backend → the card renders "—" instead
+   *  of the raw USD number behind an "RM" prefix. */
   marketPriceMyr?: number;
   image: string;
   slab_image?: string | null;
@@ -236,7 +239,9 @@ export async function getPackDetail(slug: string): Promise<PackDetail | null> {
       name: o.name,
       image: o.image,
       slabImage: o.slab_image ?? null,
-      value: formatValue(o.marketPriceMyr ?? o.market_value),
+      // Raw USD market_value must never render behind "RM" — an older
+      // backend without marketPriceMyr shows "—" instead of a fake price.
+      value: o.marketPriceMyr != null ? formatValue(o.marketPriceMyr) : '—',
       rarity: o.rarity as Rarity,
     });
     const sorted = [...valid].sort(
@@ -330,7 +335,9 @@ export async function getRecentPulls(): Promise<RecentPull[]> {
       name: p.name,
       image: p.image,
       slabImage: p.slab_image ?? null,
-      value: formatValue(p.marketPriceMyr ?? p.market_value),
+      // Raw USD market_value must never render behind "RM" (same contract
+      // as the odds-row toCard above).
+      value: p.marketPriceMyr != null ? formatValue(p.marketPriceMyr) : '—',
       rarity: p.rarity as Rarity,
       // Pack label straight from the backend catalog (source of truth) — a
       // since-deleted pack degrades to the neutral label, never a wrong one.

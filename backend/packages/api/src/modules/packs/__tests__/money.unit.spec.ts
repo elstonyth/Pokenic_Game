@@ -19,7 +19,7 @@ describe("toMoney", () => {
 });
 
 describe("toSen", () => {
-  it("converts USD-decimal to integer sen (half-up)", () => {
+  it("converts a decimal to integer sen (half-up)", () => {
     expect(toSen(12.34)).toBe(1234);
     expect(toSen(0.1)).toBe(10);
     expect(toSen(3)).toBe(300);

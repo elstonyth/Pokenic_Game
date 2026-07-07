@@ -14,6 +14,14 @@ describe('reasonLabel', () => {
     expect(reasonLabel('commission_reversal')).toBe('Commission reversal');
     expect(reasonLabel('cashout')).toBe('Cashout');
   });
+
+  // Audit 2026-07-07 #11: a backend reason added before the storefront
+  // redeploys has no REASON_LABEL entry — it must still render a readable
+  // generic label, not `undefined` / a thrown lookup.
+  it('falls back to a prettified label for an unknown reason', () => {
+    expect(reasonLabel('refund_x')).toBe('Refund x');
+    expect(reasonLabel('some_new_reason')).toBe('Some new reason');
+  });
 });
 
 describe('signedRm', () => {

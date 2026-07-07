@@ -11,7 +11,7 @@ export type ChargePackBatchInput = {
 };
 
 export type ChargePackBatchResult = {
-  /** USD price per pack (decimal, never cents). */
+  /** MYR (RM) price per pack (decimal, never cents). */
   price: number;
   /** Total debited = price × count. */
   total: number;

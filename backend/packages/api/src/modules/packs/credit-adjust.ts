@@ -3,9 +3,9 @@
 // unit-testable without a container. Mirrors topup.ts — same epsilon cent
 // check, but signed amounts: positive grants, negative deducts.
 
-// Per-call magnitude ceiling, same rationale as TOPUP_MAX_USD: generous for
+// Per-call magnitude ceiling, same rationale as TOPUP_MAX_RM: generous for
 // support work, small enough that a typo can't mint or claw an absurd amount.
-export const ADJUST_MAX_USD = 10_000;
+export const ADJUST_MAX_RM = 10_000;
 
 export const ADJUST_NOTE_MAX = 512;
 
@@ -16,8 +16,8 @@ export function adjustAmountError(value: unknown): string | null {
   if (value === 0) {
     return "Amount cannot be zero.";
   }
-  if (Math.abs(value) > ADJUST_MAX_USD) {
-    return `Amount must be at most $${ADJUST_MAX_USD.toLocaleString("en-US")} per adjustment.`;
+  if (Math.abs(value) > ADJUST_MAX_RM) {
+    return `Amount must be at most RM ${ADJUST_MAX_RM.toLocaleString("en-US")} per adjustment.`;
   }
   // 2dp max with the same binary-representation epsilon as topUpAmountError:
   // an exact integer-cents comparison would reject valid money like 10.1.

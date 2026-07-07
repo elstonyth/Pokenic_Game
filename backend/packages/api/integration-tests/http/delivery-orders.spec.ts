@@ -111,7 +111,7 @@ medusaIntegrationTestRunner({
         await api.post(
           '/store/credits/topup',
           { amount: TOPUP },
-          { headers: authed(token) },
+          { headers: { ...authed(token), 'idempotency-key': 'delivery-orders-topup' } },
         );
         const open = await reqApi(
           'post',

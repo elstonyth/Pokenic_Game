@@ -40,12 +40,6 @@ import {
   instantDeadlineMs,
   type BuybackRate,
 } from './buyback-rate';
-import {
-  EMPTY_TOTALS,
-  foldLedgerRow,
-  totalsToUsd,
-  type LedgerTotals,
-} from './credit-summary';
 import { consumeExternalSen } from './external-funded';
 import {
   directReferralPctForLevel,
@@ -92,8 +86,6 @@ function isUniqueViolation(e: unknown): boolean {
 // table (+ per-pack rarity), Pull = the result ledger doubling as the vault,
 // CreditTransaction = the site-credit ledger written by buybacks.
 
-const BALANCE_PAGE = 1000;
-
 /** A signed credit-ledger write reason (mirrors CreditTransaction.reason). */
 export type CreditMutationReason =
   | 'buyback'
@@ -110,14 +102,14 @@ export type CreditMutationReason =
 
 export type CreditMutationInput = {
   customerId: string;
-  /** Signed USD decimal (never cents): negative = spend, positive = grant. */
+  /** Signed MYR (RM) decimal (never cents): negative = spend, positive = grant. */
   amount: number;
   reason: CreditMutationReason;
   /** Note (adjustment) / gateway ref (top-up); null otherwise. */
   reference?: string | null;
   /** The pull this credit came from (buyback rows only). */
   pullId?: string | null;
-  /** Minimum allowed resulting balance in USD (default $0 — no overdraft). */
+  /** Minimum allowed resulting balance in MYR (RM) (default RM 0 — no overdraft). */
   floor?: number;
   /** The open's stable id (open_id), stamped on pack_open charge rows. */
   sourceTransactionId?: string | null;
@@ -134,7 +126,7 @@ export type CreditMutationInput = {
 
 export type SettleOpenInput = {
   customerId: string;
-  /** Signed USD decimal — the open debit (always < 0). */
+  /** Signed MYR (RM) decimal — the open debit (always < 0). */
   amount: number;
   /** The open's stable id (open_id), stamped on the debit + commission rows. */
   sourceTransactionId: string;
@@ -517,36 +509,47 @@ class PacksModuleService extends MedusaService({
     return { percent, amount: buybackAmount(valueMyr, percent), rate_type };
   }
 
-  // Lifetime ledger totals (balance + money-in/out + external-funded spend),
-  // paged so the result is exact at any ledger size. Reuses the pure fold so the
-  // arithmetic is unit-tested. balance == Σ(amount); topupTotal == Σ top-ups;
-  // spendTotal == Σ|negatives|; externalFundedSpendTotal == Σ external consumed
-  // by opens (the VIP basis, refund-stable).
-  async creditSummary(customerId: string): Promise<{
+  // Lifetime ledger totals (balance + money-in/out + external-funded spend) in
+  // ONE SQL aggregate — the exact twin of credit-summary.ts's foldLedgerRow
+  // (which stays as the unit-tested oracle; integration test compares them).
+  // Rides IDX_credit_transaction_customer_id_created_at. Replaces the paged
+  // JS fold that shipped the whole ledger to Node on every wallet/buyback/VIP
+  // read (audit 2026-07-07 #5).
+  @InjectManager()
+  async creditSummary(
+    customerId: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{
     balance: number;
     topupTotal: number;
     spendTotal: number;
     externalFundedSpendTotal: number;
   }> {
-    let totals: LedgerTotals = EMPTY_TOTALS;
-    for (let skip = 0; ; skip += BALANCE_PAGE) {
-      const page = await this.listCreditTransactions(
-        { customer_id: customerId },
-        { skip, take: BALANCE_PAGE, order: { created_at: 'ASC', id: 'ASC' } },
-      );
-      for (const t of page) {
-        totals = foldLedgerRow(totals, {
-          amount: Number(t.amount),
-          reason: t.reason,
-          externalFundedCents: Number(
-            (t as { external_funded_cents?: number | null })
-              .external_funded_cents ?? 0,
-          ),
-        });
-      }
-      if (page.length < BALANCE_PAGE) break;
-    }
-    return totalsToUsd(totals);
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+    const rows = await em.execute<
+      {
+        balance_cents: string | null;
+        topup_cents: string | null;
+        spend_cents: string | null;
+        ext_spend_cents: string | null;
+      }[]
+    >(
+      'SELECT ' +
+        '  COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents, ' +
+        "  COALESCE(SUM(CASE WHEN reason = 'topup' AND amount > 0 THEN ROUND(amount * 100) ELSE 0 END), 0)::bigint AS topup_cents, " +
+        '  COALESCE(SUM(CASE WHEN amount < 0 THEN ROUND(-amount * 100) ELSE 0 END), 0)::bigint AS spend_cents, ' +
+        "  COALESCE(SUM(CASE WHEN reason = 'pack_open' THEN -external_funded_cents ELSE 0 END), 0)::bigint AS ext_spend_cents " +
+        'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
+      [customerId],
+    );
+    const r = rows[0];
+    return {
+      balance: Number(r?.balance_cents ?? 0) / 100,
+      topupTotal: Number(r?.topup_cents ?? 0) / 100,
+      spendTotal: Number(r?.spend_cents ?? 0) / 100,
+      externalFundedSpendTotal: Number(r?.ext_spend_cents ?? 0) / 100,
+    };
   }
 
   // Customer credit balance = Σ(amount) over the append-only ledger. Kept as a
@@ -680,9 +683,9 @@ class PacksModuleService extends MedusaService({
         MedusaError.Types.NOT_ALLOWED,
         input.reason === 'pack_open'
           ? 'Not enough credits to open this pack.'
-          : `Deduction exceeds the customer's balance ($${(
+          : `Deduction exceeds the customer's balance (RM ${(
               beforeCents / 100
-            ).toFixed(2)}) — the balance cannot go below $${(
+            ).toFixed(2)}) — the balance cannot go below RM ${(
               floorCents / 100
             ).toFixed(2)}.`,
       );
@@ -1353,8 +1356,10 @@ class PacksModuleService extends MedusaService({
     await this.assertNotFrozen(customerId, sharedContext);
 
     // 1) Re-read the Pull UNDER the lock and validate it via the same pure helper
-    //    the lockless delivery path uses: must be owned + 'vaulted'. The extra
-    //    reward-source gate is B7-specific (only reward prizes ship via this path).
+    //    the lockless delivery path uses. 'reward_source' = owned + vaulted +
+    //    source='reward' — the exact shape this path ships. Any other verdict
+    //    (including 'ok', which means a NON-reward pull) is invalid here: only
+    //    reward prizes ship via this B7 path.
     const [pull] = await this.listPulls(
       { id: pullId },
       { take: 1 },
@@ -1365,7 +1370,7 @@ class PacksModuleService extends MedusaService({
       [pullId],
       customerId,
     );
-    if (verdict !== 'ok' || pull?.source !== 'reward') {
+    if (verdict !== 'reward_source') {
       return { status: 'invalid' };
     }
 
@@ -2152,8 +2157,8 @@ class PacksModuleService extends MedusaService({
 
   // Wallet summary: raw balance, available (freeze-aware), locked (pending-
   // unmatured + suspended commissions), and the earliest pending maturity
-  // tranche (date + amount). All amounts in MYR (USD equivalents). Amounts in
-  // MYR = amounts as stored (the ledger is already in MYR decimals).
+  // tranche (date + amount). All amounts in MYR (RM) — the ledger is already
+  // stored in MYR decimals, never USD.
   // available = isFrozen ? 0 : balance − locked  (matches availableBalance).
   @InjectManager()
   async walletSummary(
@@ -2325,6 +2330,49 @@ class PacksModuleService extends MedusaService({
       [customerId],
     );
     return Number(rows[0]?.cents ?? 0);
+  }
+
+  // Per-reason lifetime ledger sums for /admin/economy — one GROUP BY instead
+  // of paging the whole ledger to Node (audit 2026-07-07 #5b). Emitted as
+  // synthetic {reason, amount} rows so economy.ts's unit-tested ledgerTotals
+  // fold (incl. its unknown-reason loud throw) keeps shaping the report.
+  @InjectManager()
+  async ledgerReasonTotals(
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<Array<{ reason: string; amount: number }>> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+    const rows = await em.execute<{ reason: string; cents: string }[]>(
+      'SELECT reason, COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS cents ' +
+        'FROM credit_transaction WHERE deleted_at IS NULL GROUP BY reason',
+      [],
+    );
+    return rows.map((r) => ({ reason: r.reason, amount: Number(r.cents) / 100 }));
+  }
+
+  // Vault liability = Σ over vaulted pulls of ROUND(card FMV × fx × 100) sen,
+  // computed in the DB. Matches the old JS loop exactly: multiplier 1 (markup
+  // lives on sale price, not FMV), reward pulls and orphaned card refs drop out
+  // via the JOIN.
+  @InjectManager()
+  async vaultLiabilityMyr(
+    fx: number,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ count: number; liability: number }> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+    const rows = await em.execute<{ n: string; cents: string }[]>(
+      'SELECT COUNT(*)::bigint AS n, ' +
+        '       COALESCE(SUM(ROUND(c.market_value * ? * 100)), 0)::bigint AS cents ' +
+        '  FROM pull p ' +
+        '  JOIN card c ON c.handle = p.card_id AND c.deleted_at IS NULL ' +
+        " WHERE p.status = 'vaulted' AND p.deleted_at IS NULL",
+      [fx],
+    );
+    return {
+      count: Number(rows[0]?.n ?? 0),
+      liability: Number(rows[0]?.cents ?? 0) / 100,
+    };
   }
 
   // Insert a recruit→sponsor edge with the fraud guards (spec §7). Under ONE
@@ -2830,6 +2878,51 @@ class PacksModuleService extends MedusaService({
       instant_deadline_ms: instantDeadlineMs(pull.rolled_at, pull.revealed_at),
     };
   }
+
+  // Atomic, guarded pull-status transition — THE seam every vaulted→X flip must
+  // use (buyback, delivery request, deliver/cancel). One conditional UPDATE
+  // (`WHERE status = from`) inside a transaction: if ANY requested pull is not
+  // currently in `from`, the whole batch throws and rolls back — closing the
+  // read-then-unconditional-write race that let one pull be sold back AND
+  // shipped (2026-07-07 audit #1). `set` carries the buyback snapshot columns
+  // so the flip and its money stamp are one atomic statement.
+  @InjectTransactionManager()
+  async transitionPullStatus(
+    input: {
+      ids: string[];
+      from: 'vaulted' | 'delivering';
+      to: 'vaulted' | 'bought_back' | 'delivering' | 'delivered';
+      set?: { buyback_amount?: number; buyback_at?: Date };
+    },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<void> {
+    if (input.ids.length === 0) return;
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const setCols = ['status = ?', 'updated_at = NOW()'];
+    const params: unknown[] = [input.to];
+    if (input.set?.buyback_amount !== undefined) {
+      setCols.splice(1, 0, 'buyback_amount = ?');
+      params.push(input.set.buyback_amount);
+    }
+    if (input.set?.buyback_at !== undefined) {
+      setCols.splice(setCols.length - 1, 0, 'buyback_at = ?');
+      params.push(input.set.buyback_at);
+    }
+    const placeholders = input.ids.map(() => '?').join(', ');
+    const rows = await em.execute<{ id: string }[]>(
+      `UPDATE pull SET ${setCols.join(', ')} ` +
+        `WHERE id IN (${placeholders}) AND status = ? AND deleted_at IS NULL ` +
+        'RETURNING id',
+      [...params, ...input.ids, input.from],
+    );
+    if (rows.length !== input.ids.length) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        'One or more cards changed state — refresh and try again.',
+      );
+    }
+  }
+
   // Atomic credit adjustment + audit: writes the ledger row AND the
   // admin_action_audit row in the same transaction so both commit or neither
   // does. adminId comes from the session (auth_context.actor_id) — never from

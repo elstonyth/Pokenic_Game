@@ -212,7 +212,7 @@ medusaIntegrationTestRunner({
         const fund = await api.post(
           '/store/credits/topup',
           { amount: TOPUP },
-          { headers: authed(tokenA) },
+          { headers: { ...authed(tokenA), 'idempotency-key': 'vb-fund-topup' } },
         );
         expect(fund.status).toBe(200);
 
@@ -399,7 +399,7 @@ medusaIntegrationTestRunner({
         await api.post(
           '/store/credits/topup',
           { amount: TOPUP },
-          { headers: authed(token) },
+          { headers: { ...authed(token), 'idempotency-key': 'vb-frozen-topup' } },
         );
         const open = await request(
           'post',

@@ -147,7 +147,11 @@ medusaIntegrationTestRunner({
         );
       const topUp = (amount: number, token: string) =>
         unwrapResponse(
-          api.post("/store/credits/topup", { amount }, { headers: authed(token) }),
+          api.post(
+            "/store/credits/topup",
+            { amount },
+            { headers: { ...authed(token), "idempotency-key": "race-topup" } },
+          ),
         );
       const adjust = (id: string, amount: number, note: string) =>
         unwrapResponse(

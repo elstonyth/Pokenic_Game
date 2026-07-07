@@ -179,7 +179,11 @@ medusaIntegrationTestRunner({
 
       const topUp = (amount: number, headers: Record<string, string>) =>
         unwrapResponse(
-          api.post("/store/credits/topup", { amount }, { headers }),
+          api.post(
+            "/store/credits/topup",
+            { amount },
+            { headers: { ...headers, "idempotency-key": "pack-open-charge-topup" } },
+          ),
         );
 
       it("blocks an unfunded open with 400 and NO side effects", async () => {

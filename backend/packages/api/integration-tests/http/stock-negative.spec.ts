@@ -143,7 +143,7 @@ medusaIntegrationTestRunner({
           api.post(
             '/store/credits/topup',
             { amount: 2 * PACK_PRICE },
-            { headers: authed },
+            { headers: { ...authed, 'idempotency-key': 'stock-neg-topup' } },
           ),
         );
         expect(topup.status).toBe(200);

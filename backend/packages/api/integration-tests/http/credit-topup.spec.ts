@@ -78,8 +78,9 @@ medusaIntegrationTestRunner({
         const token = await registerCustomer('topup-customer-a@test.dev');
 
         // 1. First top-up: response carries the credited amount, a gateway
-        //    reference, and the new balance.
-        const first = await topUp(25, authed(token));
+        //    reference, and the new balance. (Idempotency-Key is mandatory —
+        //    two real top-ups need two distinct keys.)
+        const first = await topUpIdem(25, authed(token), 'topup-sum-key-1');
         expect(first.status).toBe(200);
         expect(first.data).toMatchObject({ amount: 25, balance: 25 });
         expect(first.data.reference).toMatch(/^mock_/);
@@ -106,7 +107,7 @@ medusaIntegrationTestRunner({
         });
 
         // 4. A second top-up with cents sums exactly (integer-cents ledger).
-        const second = await topUp(10.5, authed(token));
+        const second = await topUpIdem(10.5, authed(token), 'topup-sum-key-2');
         expect(second.status).toBe(200);
         expect(second.data.balance).toBe(35.5);
       });
@@ -114,7 +115,7 @@ medusaIntegrationTestRunner({
       it('declines amounts ending in .13 with a friendly 400 and writes nothing', async () => {
         const token = await registerCustomer('topup-customer-b@test.dev');
 
-        const declined = await topUp(10.13, authed(token));
+        const declined = await topUpIdem(10.13, authed(token), 'topup-decline-key');
         expect(declined.status).toBe(400);
         expect(declined.data.message).toMatch(/declined/i);
 
@@ -130,7 +131,7 @@ medusaIntegrationTestRunner({
         const token = await registerCustomer('topup-customer-c@test.dev');
 
         for (const amount of [0, -5, 10_000.01, 1.234, '50', null, undefined]) {
-          const res = await topUp(amount, authed(token));
+          const res = await topUpIdem(amount, authed(token), 'topup-invalid-key');
           expect(res.status).toBe(400);
         }
         expect(await ledgerRows()).toHaveLength(0);
@@ -187,15 +188,26 @@ medusaIntegrationTestRunner({
         expect(await ledgerRows()).toHaveLength(1);
       });
 
-      it('treats distinct keys (and no key) as independent top-ups', async () => {
+      it('treats distinct keys as independent top-ups', async () => {
         const token = await registerCustomer('topup-idem-c@test.dev');
 
         await topUpIdem(50, authed(token), 'key-A');
-        await topUpIdem(50, authed(token), 'key-B');
-        const noKey = await topUp(50, authed(token)); // no key → always credits
+        const second = await topUpIdem(50, authed(token), 'key-B');
 
-        expect(noKey.data.balance).toBe(150);
-        expect(await ledgerRows()).toHaveLength(3);
+        expect(second.data.balance).toBe(100);
+        expect(await ledgerRows()).toHaveLength(2);
+      });
+
+      // Mandatory since the 2026-07-07 audit: a real PSP retry without a key
+      // would double-credit, so a keyless top-up is now a hard 400 (this used
+      // to be the "no key → always credits" branch of the test above).
+      it('rejects a top-up without an Idempotency-Key header (400, no write)', async () => {
+        const token = await registerCustomer('topup-no-key@test.dev');
+
+        const res = await topUp(50, authed(token));
+        expect(res.status).toBe(400);
+        expect(res.data.message).toMatch(/idempotency/i);
+        expect(await ledgerRows()).toHaveLength(0);
       });
 
       it('rejects an Idempotency-Key longer than 200 chars (no truncation collision)', async () => {

@@ -29,10 +29,11 @@ const shot = (page, name) =>
     .catch(() => {});
 
 // Minimal backend client (mirrors tests/e2e/helpers/api.ts; honors 429 backoff).
-async function api(path, { method = 'GET', body, token } = {}) {
+async function api(path, { method = 'GET', body, token, headers: extra } = {}) {
   const headers = {
     'Content-Type': 'application/json',
     'x-publishable-api-key': PK,
+    ...extra,
   };
   if (token) headers.Authorization = `Bearer ${token}`;
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -73,6 +74,7 @@ const token = login.token;
 await api('/store/credits/topup', {
   method: 'POST',
   token,
+  headers: { 'Idempotency-Key': `capture-bulk-sell-${Date.now()}` },
   body: { amount: 300 },
 });
 for (let i = 0; i < 3; i++)

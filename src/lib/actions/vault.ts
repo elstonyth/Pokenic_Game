@@ -195,7 +195,13 @@ export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
       AmountBalanceSchema,
       await sdk.client.fetch('/store/credits/topup', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Mandatory since the 2026-07-07 audit — a retried top-up (network
+          // blip, double-click) without a key would double-credit. Server
+          // actions run on Node 20+, so crypto.randomUUID() is global.
+          'Idempotency-Key': crypto.randomUUID(),
+        },
         body: { amount },
       }),
     );

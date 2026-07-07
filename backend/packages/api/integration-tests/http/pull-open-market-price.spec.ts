@@ -127,7 +127,7 @@ medusaIntegrationTestRunner({
         await api.post(
           '/store/credits/topup',
           { amount: PACK_PRICE },
-          { headers: authed(token) },
+          { headers: { ...authed(token), 'idempotency-key': 'op-mp-topup' } },
         );
 
         const open = await unwrapResponse(
@@ -158,7 +158,7 @@ medusaIntegrationTestRunner({
         await api.post(
           '/store/credits/topup',
           { amount: PACK_PRICE * 3 },
-          { headers: authed(token) },
+          { headers: { ...authed(token), 'idempotency-key': 'op-mp-batch-topup' } },
         );
 
         const batch = await unwrapResponse(

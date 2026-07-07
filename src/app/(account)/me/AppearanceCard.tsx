@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, Lock } from 'lucide-react';
 import { FramedAvatar } from '@/components/FramedAvatar';
+import { AnimatedFrame } from '@/components/AnimatedFrame';
 import { FRAME_LEVELS } from '@/lib/frame-levels';
 import { uploadAvatar, setAvatarFrame } from '@/lib/actions/profile-appearance';
 
@@ -200,19 +201,26 @@ export function AppearanceCard({
                   } disabled:cursor-not-allowed`}
                 >
                   {url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={url}
-                      alt=""
-                      aria-hidden
-                      className={`max-h-full max-w-full object-contain ${
-                        unlocked || equipped
-                          ? ''
-                          : locked
-                            ? 'opacity-30 grayscale'
-                            : 'opacity-50'
-                      }`}
-                    />
+                    unlocked || equipped ? (
+                      // Unlocked art is alive in the workbook too (static
+                      // fallback lives inside AnimatedFrame).
+                      <AnimatedFrame
+                        frameSrc={url}
+                        level={level}
+                        size={46}
+                        plain
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={url}
+                        alt=""
+                        aria-hidden
+                        className={`max-h-full max-w-full object-contain ${
+                          locked ? 'opacity-30 grayscale' : 'opacity-50'
+                        }`}
+                      />
+                    )
                   ) : (
                     <span className="text-[10px] text-neutral-500">soon</span>
                   )}

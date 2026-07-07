@@ -14,18 +14,21 @@ import { FRAME_MOTION } from '@/lib/frame-motion';
  * spent — the static frame is always correct, animation is pure enhancement.
  */
 
-// Geometry: FramedAvatar draws the frame at 128% of the avatar; the canvas
-// adds 24% headroom beyond that (matching the preview's 310/250) so swinging
-// limbs and displaced flames don't clip. The photo-hole anchor radius in
-// canvas UV = (size/2) / (size*1.28*1.24) ≈ 0.315.
+// Geometry, avatar mode: FramedAvatar draws the frame at 128% of the avatar;
+// the canvas adds 24% headroom beyond that (matching the preview's 310/250)
+// so swinging limbs and displaced flames don't clip. The photo-hole anchor
+// radius in canvas UV = (size/2) / (size*1.28*1.24) ≈ 0.315.
+// Plain mode (frames workbook tiles — no photo): the frame box IS `size`, and
+// the anchor is the art's own hole (60% of the art box, like the preview).
 const FRAME_SCALE = 1.28;
 const CANVAS_OVERSIZE = 1.24;
-const HOLE_R = 0.5 / (FRAME_SCALE * CANVAS_OVERSIZE);
+const HOLE_R_AVATAR = 0.5 / (FRAME_SCALE * CANVAS_OVERSIZE);
+const HOLE_R_PLAIN = (0.6 * 0.5) / CANVAS_OVERSIZE;
 
-// A WebGL context per animated frame; browsers cap ~16 per page. Big avatars
-// only (one or two per page), so 8 is generous headroom — beyond it, extras
-// stay static. ponytail: module counter, no LRU reclaim until a page needs it.
-const MAX_CONTEXTS = 8;
+// A WebGL context per animated frame; browsers cap ~16 per page. Header/
+// profile avatar + up to 10 workbook tiles = 11, so 12 is the ceiling —
+// beyond it, extras stay static. ponytail: module counter, no LRU reclaim.
+const MAX_CONTEXTS = 12;
 let activeContexts = 0;
 
 const VS = `
@@ -174,6 +177,13 @@ void main() {
     col.rgb += col.rgb * sweep * u_surge * m;
   }
 
+  // Some frame art (e.g. LV 40's lateral flame streams) runs to the PNG
+  // border and gets hard-cut by it. Dissolve the last ~5% of texture space
+  // so edge-touching art fades out instead of slicing off.
+  float edge = smoothstep(0.0, 0.05, suv.x) * smoothstep(1.0, 0.95, suv.x)
+             * smoothstep(0.0, 0.05, suv.y) * smoothstep(1.0, 0.95, suv.y);
+  col *= edge;
+
   gl_FragColor = col;
 }`;
 
@@ -228,12 +238,15 @@ export function AnimatedFrame({
   frameSrc,
   level,
   size,
+  plain = false,
 }: {
   frameSrc: string;
   /** Milestone level — selects the tuned motion recipe. */
   level: number;
   /** Avatar size in px (the frame renders at 128% of it, like FramedAvatar). */
   size: number;
+  /** No photo behind (workbook tile): the frame box IS `size`. */
+  plain?: boolean;
 }) {
   const reduced = usePrefersReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -304,7 +317,10 @@ export function AnimatedFrame({
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
       gl.uniform1f(gl.getUniformLocation(prog, 'u_inset'), CANVAS_OVERSIZE);
-      gl.uniform1f(gl.getUniformLocation(prog, 'u_holeR'), HOLE_R);
+      gl.uniform1f(
+        gl.getUniformLocation(prog, 'u_holeR'),
+        plain ? HOLE_R_PLAIN : HOLE_R_AVATAR,
+      );
       for (const [k, u] of Object.entries(UNIFORM_MAP)) {
         gl.uniform1f(
           gl.getUniformLocation(prog, u),
@@ -325,9 +341,11 @@ export function AnimatedFrame({
       gl?.getExtension('WEBGL_lose_context')?.loseContext();
       setLive(false);
     };
-  }, [frameSrc, params, reduced]);
+  }, [frameSrc, params, reduced, plain]);
 
-  const canvasCss = Math.round(size * FRAME_SCALE * CANVAS_OVERSIZE);
+  const canvasCss = Math.round(
+    size * (plain ? 1 : FRAME_SCALE) * CANVAS_OVERSIZE,
+  );
   const dpr =
     typeof window !== 'undefined'
       ? Math.min(window.devicePixelRatio || 1, 1.75)
@@ -344,11 +362,19 @@ export function AnimatedFrame({
         aria-hidden
         width={size}
         height={size}
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[128%] w-[128%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+        className={
+          plain
+            ? 'pointer-events-none absolute left-1/2 top-1/2 h-full w-full max-w-none -translate-x-1/2 -translate-y-1/2 object-contain'
+            : 'pointer-events-none absolute left-1/2 top-1/2 h-[128%] w-[128%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain'
+        }
         style={live ? { visibility: 'hidden' } : undefined}
       />
       {!reduced && params && (
         <canvas
+          // A canvas whose WebGL context was lost can never host a fresh one —
+          // key by src so a frame swap mounts a NEW canvas instead of reusing
+          // the dead node (the "static after equip" bug).
+          key={frameSrc}
           ref={canvasRef}
           aria-hidden
           width={Math.round(canvasCss * dpr)}

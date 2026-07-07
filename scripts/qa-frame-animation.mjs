@@ -53,6 +53,26 @@ if (count) {
     path: `${OUT}/me-animated.png`,
     clip: { x: 0, y: 60, width: 500, height: 220 },
   });
+
+  // Regression: equipping ANOTHER frame must stay animated (the lost-context
+  // canvas-reuse bug made every swap render static until a hard refresh).
+  const other = page.locator('button[aria-label^="Equip LV"]').first();
+  if (await other.count()) {
+    const label = await other.getAttribute('aria-label');
+    await other.click();
+    await page.waitForTimeout(4500); // action + refresh + shader boot
+    const c2 = page.locator('canvas').first();
+    const s1 = await c2.screenshot().then((b) => b.toString('base64'));
+    await page.waitForTimeout(700);
+    const s2 = await c2.screenshot().then((b) => b.toString('base64'));
+    console.log(
+      `swap (${label}) motion check: frames ${s1 === s2 ? 'IDENTICAL — FAIL' : 'differ — PASS'}`,
+    );
+  }
+  console.log(
+    'workbook canvases (unlocked tiles + header):',
+    await page.locator('canvas').count(),
+  );
 }
 
 // public profile page (demo-rs)

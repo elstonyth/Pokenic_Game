@@ -15,6 +15,7 @@ import {
   createNotificationReadRateLimit,
   createPackOpenBatchRateLimit,
   createPackOpenRateLimit,
+  createProfileAppearanceRateLimit,
   createProfileReadRateLimit,
   createPullRevealRateLimit,
   createReferralRecruitRateLimit,
@@ -51,6 +52,9 @@ const authRateLimit = createAuthRateLimit();
 // Shared by both delivery-order WRITE matchers (POST create + POST address):
 // one write-tier budget + one Redis connection, distinct from the read budget.
 const deliveryWriteRateLimit = createDeliveryWriteRateLimit();
+// Frame equip/unequip — cosmetic metadata write with its own generous budget
+// (sharing the delivery-write tier 429'd a collector's 11th frame swap).
+const profileAppearanceRateLimit = createProfileAppearanceRateLimit();
 // One instance shared by all admin money-mutation matchers: they share one
 // budget and one Redis connection (a compromised admin token is throttled
 // across all mutation routes together).
@@ -348,13 +352,14 @@ export default defineMiddlewares({
       ],
     },
     {
-      // Frame equip/unequip (POST /store/profile/frame) — state write, same
-      // write-tier budget.
+      // Frame equip/unequip (POST /store/profile/frame) — cosmetic metadata
+      // write on its own appearance budget (NOT the delivery-write tier: a
+      // collector flipping through frames swaps faster than 10/10s).
       matcher: '/store/profile/frame',
       method: 'POST',
       middlewares: [
         authenticate('customer', ['bearer']),
-        deliveryWriteRateLimit,
+        profileAppearanceRateLimit,
       ],
     },
     // Admin money-mutation routes — already auth-protected by the framework

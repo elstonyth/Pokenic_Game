@@ -574,18 +574,19 @@ export function createProfileReadRateLimit(): MiddlewareHandler {
  * The store-read limiter for the customer's own vault/credits GETs — cheap
  * reads, so the budget is generous; it only stops a runaway client or script
  * from hammering. One instance is shared by all read matchers (a combined
- * budget), and one account-page RSC render fans out to ~6 of these reads at
- * once — the budget is sized to ≥10 renders per burst window, because at
- * 30/10s two quick frame-equips (each refetches /me) 429'd every read on the
- * page simultaneously (2026-07-07 incident: frames rendered locked, wallet
- * failed). Env-tunable:
- * STORE_READ_RATE_BURST_LIMIT / STORE_READ_RATE_BURST_WINDOW_MS (default 60/10s)
- * STORE_READ_RATE_LIMIT / STORE_READ_RATE_WINDOW_MS (default 240/60s)
+ * budget), and one account-page RSC render fans out to ~6-8 of these reads
+ * at once. Sized for an enthusiastic human with two tabs open: the 2026-07-07
+ * incident tripped twice — first the 30/10s burst (equip→refetch fan-out),
+ * then a 240/60s sustained ceiling during rapid frame-swapping. ≥15 renders
+ * per burst window, ≥60 renders/min; still stops runaway scripts by an order
+ * of magnitude. Env-tunable:
+ * STORE_READ_RATE_BURST_LIMIT / STORE_READ_RATE_BURST_WINDOW_MS (default 120/10s)
+ * STORE_READ_RATE_LIMIT / STORE_READ_RATE_WINDOW_MS (default 480/60s)
  */
 export const STORE_READ_DEFAULTS: EnvLimiterDefaults = {
-  burstLimit: 60,
+  burstLimit: 120,
   burstWindowMs: 10_000,
-  limit: 240,
+  limit: 480,
   windowMs: 60_000,
 };
 
@@ -594,6 +595,31 @@ export function createStoreReadRateLimit(): MiddlewareHandler {
     name: 'store-read',
     message: 'Too many requests.',
     defaults: STORE_READ_DEFAULTS,
+  });
+}
+
+/**
+ * The profile-appearance limiter (POST /store/profile/frame). Frame equip/
+ * unequip is a cosmetic, idempotent metadata write — a collector comparing
+ * frames flips through them fast, so it must NOT share the tight delivery-
+ * write budget (10/10s tripped on the 11th swap, 2026-07-07). Sized to cycle
+ * the whole 10-frame workbook twice a minute with margin; still caps a
+ * runaway script at ~1 write/s sustained. Env-tunable:
+ * PROFILE_APPEARANCE_RATE_BURST_LIMIT / _BURST_WINDOW_MS (default 15/10s)
+ * PROFILE_APPEARANCE_RATE_LIMIT / _WINDOW_MS (default 60/60s)
+ */
+export const PROFILE_APPEARANCE_DEFAULTS: EnvLimiterDefaults = {
+  burstLimit: 15,
+  burstWindowMs: 10_000,
+  limit: 60,
+  windowMs: 60_000,
+};
+
+export function createProfileAppearanceRateLimit(): MiddlewareHandler {
+  return createEnvRateLimit({
+    name: 'profile-appearance',
+    message: 'Too many appearance changes.',
+    defaults: PROFILE_APPEARANCE_DEFAULTS,
   });
 }
 

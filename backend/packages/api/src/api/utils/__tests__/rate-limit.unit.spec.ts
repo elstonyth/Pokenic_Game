@@ -10,7 +10,9 @@ import {
   createRateLimitMiddleware,
   createAdminActionRateLimit,
   createStoreReadRateLimit,
+  createProfileAppearanceRateLimit,
   STORE_READ_DEFAULTS,
+  PROFILE_APPEARANCE_DEFAULTS,
   positiveIntFromEnv,
   type RateLimitRule,
   type RateLimitStore,
@@ -421,19 +423,40 @@ describe("positiveIntFromEnv", () => {
 });
 
 describe("STORE_READ_DEFAULTS", () => {
-  // One account-page RSC render fans out to ~6 store reads (credits, vip,
+  // One account-page RSC render fans out to ~6-8 store reads (credits, vip,
   // daily, profiles/me, avatar-frames, notifications). The budget must fit
-  // ≥10 renders per burst window, or a single user equipping a frame (which
-  // refetches the page) trips 429s and every read on /me fails at once —
-  // the 2026-07-07 "all my levels are gone" incident.
-  it("fits at least 10 page renders per burst window and 40 per minute", () => {
-    expect(STORE_READ_DEFAULTS.burstLimit).toBeGreaterThanOrEqual(60);
+  // an enthusiastic human with two tabs open — the 2026-07-07 incident
+  // tripped twice: first the 30/10s burst (equip→refetch), then the 240/60s
+  // sustained ceiling during rapid frame-swapping. ≥15 renders per burst
+  // window and ≥60 renders per minute keeps real use out of 429 territory
+  // while still stopping runaway scripts.
+  it("fits at least 15 page renders per burst window and 60 per minute", () => {
+    expect(STORE_READ_DEFAULTS.burstLimit).toBeGreaterThanOrEqual(120);
     expect(STORE_READ_DEFAULTS.burstWindowMs).toBeLessThanOrEqual(10_000);
-    expect(STORE_READ_DEFAULTS.limit).toBeGreaterThanOrEqual(240);
+    expect(STORE_READ_DEFAULTS.limit).toBeGreaterThanOrEqual(480);
     expect(STORE_READ_DEFAULTS.windowMs).toBeLessThanOrEqual(60_000);
   });
 
   it("is what createStoreReadRateLimit boots with (factory resolves)", () => {
     expect(() => createStoreReadRateLimit()).not.toThrow();
+  });
+});
+
+describe("PROFILE_APPEARANCE_DEFAULTS", () => {
+  // Frame equip/unequip is a cosmetic, idempotent metadata write — nothing
+  // like a delivery order. Sharing the delivery-write budget (10/10s, 30/60s)
+  // meant flipping through frames 429'd on the 11th swap (2026-07-07 round 3).
+  // A collector must be able to cycle all 10 frames twice a minute.
+  it("allows cycling the whole 10-frame workbook twice per minute", () => {
+    expect(PROFILE_APPEARANCE_DEFAULTS.burstLimit).toBeGreaterThanOrEqual(15);
+    expect(PROFILE_APPEARANCE_DEFAULTS.burstWindowMs).toBeLessThanOrEqual(
+      10_000,
+    );
+    expect(PROFILE_APPEARANCE_DEFAULTS.limit).toBeGreaterThanOrEqual(60);
+    expect(PROFILE_APPEARANCE_DEFAULTS.windowMs).toBeLessThanOrEqual(60_000);
+  });
+
+  it("factory resolves", () => {
+    expect(() => createProfileAppearanceRateLimit()).not.toThrow();
   });
 });

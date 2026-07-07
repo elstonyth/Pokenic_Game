@@ -80,7 +80,7 @@ jobs:
       ADMIN_PASSWORD: ${{ secrets.PW_ADMIN_PASSWORD || 'pokenic-ci-e2e-2026' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       # Corepack before setup-node so yarn resolution is consistent everywhere.
       - name: Enable Corepack
@@ -90,12 +90,12 @@ jobs:
       # pins 22-slim; Medusa 2.13 targets 20/22). The storefront steps switch
       # to Node 24 further down (root engines: >=24).
       - name: Setup Node.js 22 (backend)
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
 
       - name: Cache yarn (berry global cache)
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.yarn/berry/cache
           key: yarn-e2e-${{ runner.os }}-${{ hashFiles('backend/yarn.lock') }}
@@ -143,7 +143,7 @@ jobs:
 
       # --- Storefront on Node 24 (root engines) ---
       - name: Setup Node.js 24 (storefront)
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
           cache: npm
@@ -177,7 +177,7 @@ jobs:
 
       - name: Upload report + service logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report
           path: |

@@ -20,8 +20,10 @@ export async function POST(
   const customerId = req.auth_context.actor_id;
   const amount = (req.body as { amount?: unknown } | undefined)?.amount;
 
-  // Optional client idempotency key — a replayed top-up carrying the same key
-  // returns the original result instead of double-crediting (audit 2026-06-23).
+  // REQUIRED client idempotency key — 400 without one (enforced in the workflow
+  // step, after this route's own length guard). A replayed top-up carrying the
+  // same key returns the ORIGINAL result instead of double-crediting (audit
+  // 2026-06-23; made mandatory in the data-audit branch, 2026-07-07).
   // Header may be string | string[]; normalize + trim. REJECT keys over 200 chars
   // rather than truncating: silently slicing would map two distinct keys that
   // share a 200-char prefix to the same anchor, wrongly treating an independent

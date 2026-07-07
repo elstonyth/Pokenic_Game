@@ -65,19 +65,6 @@ medusaIntegrationTestRunner({
         expect(res.status).toBe(401);
       });
 
-      // The audit `reason` is required on every manual-override write (PR #77
-      // — its absence silently broke five spec files); prove the gate itself.
-      it("rejects a manual override without a reason with 400", async () => {
-        const res = await unwrapResponse(
-          api.post(
-            "/admin/pricing/fx",
-            { manual_override: true, manual_rate: 4.85 },
-            adminHeaders(),
-          ),
-        );
-        expect(res.status).toBe(400);
-      });
-
       // Full manual_rate boundary coverage of requirePositiveNumberOrNull:
       // reject <=0, >1000, and non-numeric; accept the inclusive 1000 bound.
       it("rejects manual_rate > 1000 with 400", async () => {

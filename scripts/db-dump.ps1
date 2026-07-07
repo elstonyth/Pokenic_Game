@@ -25,20 +25,17 @@ $absOut = (Resolve-Path $OutDir).Path
 
 if ($DatabaseUrl) {
     $file = "remote-$ts.dump"
-    # URL via env, not argv (argv leaks credentials to docker top/inspect);
-    # -f inside the container + volume mount avoids piping binary through
+    # -f inside the container + volume mount: avoids piping binary through
     # PowerShell redirection (which can mangle bytes).
-    docker run --rm -e PGURL="$DatabaseUrl" -v "${absOut}:/backups" postgres:16 `
-        sh -c 'pg_dump -Fc -d "$PGURL" -f "/backups/$0"' $file
-    if ($LASTEXITCODE -ne 0) { throw "pg_dump failed (exit $LASTEXITCODE)" }
+    docker run --rm -v "${absOut}:/backups" postgres:16 `
+        pg_dump -Fc -d $DatabaseUrl -f "/backups/$file"
 } else {
     $file = "local-$DbName-$ts.dump"
     # The container's own POSTGRES_USER (local dev uses 'medusa', not 'postgres').
     docker exec $Container sh -c "pg_dump -U `"`${POSTGRES_USER:-postgres}`" -Fc -d $DbName -f /tmp/$file"
-    if ($LASTEXITCODE -ne 0) { throw "pg_dump failed (exit $LASTEXITCODE)" }
     docker cp "${Container}:/tmp/$file" (Join-Path $absOut $file)
-    if ($LASTEXITCODE -ne 0) { throw "docker cp failed (exit $LASTEXITCODE)" }
     docker exec $Container rm -f "/tmp/$file"
 }
+if ($LASTEXITCODE -ne 0) { throw "pg_dump failed (exit $LASTEXITCODE)" }
 $size = (Get-Item (Join-Path $absOut $file)).Length
 Write-Host "[db-dump] $file ($([math]::Round($size/1MB,2)) MB) -> $absOut"

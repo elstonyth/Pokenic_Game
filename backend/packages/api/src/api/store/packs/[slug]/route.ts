@@ -21,6 +21,25 @@ import {
 // reach the customer (visible in the network tab under the publishable key).
 // Customers see a separate, static published-odds display. Only non-secret card
 // display fields (incl. market_value, which drives Top Hits) are exposed here.
+
+// ponytail: per-process 30s cache, keyed by slug — mirrors the leaderboard's
+// boardCache. The home page fans out one getPackDetail per featured pack on
+// every anonymous (force-dynamic) view; this collapses that ~4-query build to
+// once per slug per 30s window. Only the 200 body is cached (404s fall through
+// so a pack going active isn't hidden for ≤30s). The inverse also lags ≤30s: a
+// pack going inactive/out-of-stock, or an admin edit to price/odds, keeps
+// serving the stale 200 until the window rolls — display-only and acceptable
+// (the purchase path re-checks live state; no explicit bust, matches boardCache).
+// Prices are ≤30s stale, fine. Upgrade to Redis only if we ever run >1 instance.
+const CACHE_TTL_MS = 30_000;
+const packCache = new Map<string, { expires: number; body: unknown }>();
+
+/** Test seam: module state outlives a test's fixtures — the http suite runs in
+ *  one process, so test A's cached pack would be served to test B. */
+export function clearPackDetailCache(): void {
+  packCache.clear();
+}
+
 export async function GET(
   req: MedusaRequest,
   res: MedusaResponse,
@@ -28,6 +47,12 @@ export async function GET(
   const packsModuleService: PacksModuleService =
     req.scope.resolve(PACKS_MODULE);
   const { slug } = req.params;
+
+  const cached = packCache.get(slug);
+  if (cached && cached.expires > Date.now()) {
+    res.json(cached.body);
+    return;
+  }
 
   const [pack] = await packsModuleService.listPacks(
     { slug, status: 'active' },
@@ -65,7 +90,8 @@ export async function GET(
   //
   // marketPriceMyr = raw USD FMV × FX × the card's own multiplier, computed at
   // request time — the same live display seam as open/vault/recent-pulls, so
-  // the daily PriceCharting sync reaches Top Hits without any cache to bust.
+  // the daily PriceCharting sync reaches Top Hits within one cache window
+  // (≤30s, per the packCache above), no explicit bust needed.
   const fxRate = await resolveFxRate(packsModuleService);
   const entries = odds
     .map((o) => {
@@ -88,7 +114,7 @@ export async function GET(
 
   // Explicit public shape — `price` is bigNumber now, so a raw `pack` spread
   // would leak the internal `raw_price` jsonb sidecar into a public payload.
-  res.json({
+  const body = {
     pack: {
       slug: pack.slug,
       title: pack.title,
@@ -106,5 +132,7 @@ export async function GET(
     // This is the ONLY odds data customers ever see — deliberately decoupled
     // from the secret per-card weights above. Null = not set (panel hidden).
     published_odds: pack.published_odds ?? null,
-  });
+  };
+  packCache.set(slug, { expires: Date.now() + CACHE_TTL_MS, body });
+  res.json(body);
 }

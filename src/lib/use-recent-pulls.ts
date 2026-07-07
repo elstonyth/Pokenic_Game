@@ -16,6 +16,10 @@ export function useLiveRecentPulls(initial: RecentPull[]): RecentPull[] {
   useEffect(() => {
     let active = true;
     const tick = async () => {
+      // Hidden/background tabs poll forever otherwise — skip while not visible
+      // (mirrors usePackDetailPoll / useCardPrice); the 5s backend cache means
+      // even visible tabs collapse to one compute per window.
+      if (document.visibilityState !== 'visible') return;
       try {
         const res = await fetch('/api/recent-pulls', { cache: 'no-store' });
         if (!res.ok) return;
@@ -29,9 +33,16 @@ export function useLiveRecentPulls(initial: RecentPull[]): RecentPull[] {
     };
     void tick(); // swap in live data immediately, then keep polling
     const id = setInterval(tick, POLL_MS);
+    // Refocusing a backgrounded tab refetches right away — ticks skipped while
+    // hidden would otherwise leave the feed stale until the next interval.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       active = false;
       clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 

@@ -70,10 +70,17 @@ export const ensureProfileHandleStep = createStep(
     { container },
   ) => {
     if (!data) return;
-    // The metadata write is the only mutation — restore the prior object.
+    // Restore ONLY the key this step wrote (handle). Restoring the whole
+    // captured snapshot would wipe metadata written concurrently between
+    // snapshot and rollback (e.g. equipped_frame_level / avatar_url) — the
+    // metadata-wipe class of bug from the 2026-07-07 frames incident.
     const customers = container.resolve(Modules.CUSTOMER);
+    const current = await customers.retrieveCustomer(data.customerId);
     await customers.updateCustomers(data.customerId, {
-      metadata: data.previousMetadata,
+      metadata: {
+        ...(current.metadata ?? {}),
+        handle: data.previousMetadata.handle ?? null,
+      },
     });
   },
 );

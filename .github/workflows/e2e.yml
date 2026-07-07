@@ -15,14 +15,12 @@
 # as PW_PK — without it every /store call 401s.
 name: E2E
 
+# Proven green on the devops-audit-fixes branch 2026-07-07 (run 28835167910):
+# full stack boot + 10 passed / 9 documented skips. Nightly + dispatch only.
 on:
   schedule:
     - cron: '0 18 * * *' # 02:00 GMT+8 nightly
   workflow_dispatch: {}
-  # TEMP validation trigger (DevOps audit C1/C2): prove the workflow green on the
-  # fix branch, then delete this block — nightly + manual dispatch is the design.
-  push:
-    branches: [devops-audit-fixes]
 
 concurrency:
   group: e2e-${{ github.ref }}

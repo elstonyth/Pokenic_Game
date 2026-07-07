@@ -93,9 +93,17 @@ jobs:
   # Backend HTTP integration gate. Not previously in CI — which is how the FX
   # `reason`-requirement change silently broke these suites. Uses service
   # containers; medusa's test runner creates/drops its own per-suite test DBs.
+  #
+  # The 3 jest shards exist to reset the node heap (run-http-shards.mjs); they
+  # were sequential locally (~20 min). In CI each shard gets its own job +
+  # postgres, so wall-clock = install + slowest shard (~8-10 min).
   integration-http:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     services:
       postgres:
         image: postgres:16
@@ -160,17 +168,19 @@ jobs:
         working-directory: backend
         run: corepack yarn build --filter="@acme/api^..."
 
-      - name: HTTP integration tests
+      # The wrapper forwards extra args to jest, so --shard reaches jest
+      # directly and this job runs exactly one of the three heap-bounded shards.
+      - name: HTTP integration tests (shard ${{ matrix.shard }}/3)
         working-directory: backend/packages/api
         run: |
           set -o pipefail
-          corepack yarn test:integration:http 2>&1 | tee http-tests.log
+          corepack yarn test:integration:http --shard=${{ matrix.shard }}/3 2>&1 | tee http-tests.log
 
       - name: Upload test log on failure
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: http-integration-log
+          name: http-integration-log-shard-${{ matrix.shard }}
           path: backend/packages/api/http-tests.log
           retention-days: 7
 

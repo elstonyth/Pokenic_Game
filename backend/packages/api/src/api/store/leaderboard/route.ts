@@ -25,6 +25,12 @@ const WEEKLY_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_TTL_MS = 30_000;
 const boardCache = new Map<string, { expires: number; body: unknown }>();
 
+/** Test seam: module state outlives a test's fixtures — the http suite runs in
+ *  one process, so test A's cached board would be served to test B. */
+export function clearLeaderboardCache(): void {
+  boardCache.clear();
+}
+
 export async function GET(
   req: MedusaRequest,
   res: MedusaResponse,

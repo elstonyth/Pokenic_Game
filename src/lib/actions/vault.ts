@@ -178,7 +178,16 @@ export type TopUpActionResult =
 // Buy site credit through the mock gateway (demo — no real payment). The fake
 // card fields never leave the browser; only the amount is posted, and the
 // backend re-validates it (the gateway declines amounts ending in .13).
-export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
+//
+// `idempotencyKey` comes from the CALLER, minted once per top-up ATTEMPT and
+// reused across retries of that attempt (see TopUpSheet) — a key minted here
+// per call would rotate on every retry and bypass the backend replay guard,
+// which exists precisely for the credited-but-response-lost retry. The
+// fallback mint only covers callers that never retry.
+export async function topUpCredits(
+  amount: number,
+  idempotencyKey?: string,
+): Promise<TopUpActionResult> {
   // Validate at the boundary — a server action is a public endpoint.
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: 'Enter a valid amount.' };
@@ -196,10 +205,9 @@ export async function topUpCredits(amount: number): Promise<TopUpActionResult> {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          // Mandatory since the 2026-07-07 audit — a retried top-up (network
-          // blip, double-click) without a key would double-credit. Server
-          // actions run on Node 20+, so crypto.randomUUID() is global.
-          'Idempotency-Key': crypto.randomUUID(),
+          // Mandatory since the 2026-07-07 audit — a retried top-up without a
+          // key would double-credit. Node 20+: crypto.randomUUID() is global.
+          'Idempotency-Key': idempotencyKey ?? crypto.randomUUID(),
         },
         body: { amount },
       }),

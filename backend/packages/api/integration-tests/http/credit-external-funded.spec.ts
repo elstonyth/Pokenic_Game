@@ -58,7 +58,13 @@ medusaIntegrationTestRunner({
       it('a real top-up workflow run stamps external_funded_cents', async () => {
         const cust = 'cus_topup_wf';
         const { result } = await topUpCreditsWorkflow(getContainer()).run({
-          input: { customer_id: cust, amount: 80 },
+          // idempotency_key is MANDATORY since the 2026-07-07 audit (a keyless
+          // PSP retry would double-credit) — the step fails closed without it.
+          input: {
+            customer_id: cust,
+            amount: 80,
+            idempotency_key: 'ext-funded-wiring-1',
+          },
         });
         expect(result.balance).toBe(80);
 

@@ -3,6 +3,7 @@ import { Modules } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../src/modules/packs';
 import type PacksModuleService from '../../src/modules/packs/service';
 import { seedOf } from '../../src/utils/profile-handle';
+import { clearLeaderboardCache } from '../../src/api/store/leaderboard/route';
 import { myrDisplay as MYR, unwrapResponse } from './utils';
 
 jest.setTimeout(240 * 1000);
@@ -31,6 +32,11 @@ medusaIntegrationTestRunner({
       let storeHeaders: Record<string, string>;
 
       beforeEach(async () => {
+        // The route's per-process 30s board cache outlives each test's
+        // fixtures (one jest process = one module instance) — clear it so a
+        // previous test's board is never served against this test's data.
+        clearLeaderboardCache();
+
         const container = getContainer();
         const apiKeyModule = container.resolve(Modules.API_KEY);
         const key = await apiKeyModule.createApiKeys({
@@ -198,6 +204,9 @@ medusaIntegrationTestRunner({
         await packs.createCreditTransactions([
           { customer_id: 'cus_lb_1', amount: 10, reason: 'pack_open' },
         ] as Parameters<typeof packs.createCreditTransactions>[0]);
+        // The board is deliberately ≤30s stale (per-process cache) — this
+        // test pins the ranking METRIC, so read past the cache.
+        clearLeaderboardCache();
         const afterReversal = await board();
         expect(afterReversal.map((e) => e.seed)).toEqual([
           seedOf('cus_lb_3'),

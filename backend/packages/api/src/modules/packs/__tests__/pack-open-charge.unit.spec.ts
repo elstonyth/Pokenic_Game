@@ -2,7 +2,7 @@ import { hasEnoughCredit } from "../pack-open-charge";
 
 // Task A2 (2026-06-12): opening a pack debits its price from the credit
 // ledger. The affordability rule compares in INTEGER CENTS — both sides are
-// 2dp USD decimals, and a raw float compare would wrongly block a customer
+// 2dp MYR (RM) decimals, and a raw float compare would wrongly block a customer
 // whose balance accumulated as 0.1 + 0.2 against a 0.3 price.
 
 describe("hasEnoughCredit", () => {

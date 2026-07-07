@@ -123,7 +123,7 @@ try {
   const auth = { Authorization: `Bearer ${token}` };
   await api('/store/credits/topup', {
     method: 'POST',
-    headers: auth,
+    headers: { ...auth, 'Idempotency-Key': `winrate-topup-${Date.now()}` },
     body: JSON.stringify({
       amount: 150,
       card: { number: '4242424242424242', exp: '12/30', cvc: '123' },

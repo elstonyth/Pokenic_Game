@@ -17,7 +17,7 @@ export type AdjustCreditsInput = {
 };
 
 export type AdjustCreditsResult = {
-  /** USD applied (decimal, signed: positive grant, negative deduction). */
+  /** MYR (RM) applied (decimal, signed: positive grant, negative deduction). */
   amount: number;
   /** The customer's new credit balance (Σ ledger). */
   balance: number;
@@ -25,7 +25,7 @@ export type AdjustCreditsResult = {
 
 // adjust-credits — operator grant/refund/clawback from the support view: one
 // signed ledger row (reason "adjustment", note in "reference"). The balance
-// floor is $0 — a deduction larger than the current balance is refused before
+// floor is RM 0 — a deduction larger than the current balance is refused before
 // anything is written. The check + write go through packs.mutateCreditAtomic,
 // which serializes per-customer credit mutations under an advisory lock so a
 // deduct racing another deduct or a pack-open can't breach the floor (#4).

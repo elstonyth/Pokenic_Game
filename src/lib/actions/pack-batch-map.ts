@@ -78,7 +78,12 @@ export function mapBatchRoll(rawRoll: RawBatchRollItem): BatchRoll | null {
       name: wonCard.name,
       image: rawRoll.card.image, // ← RAW, not from parsed wonCard
       slab_image: rawRoll.card.slab_image ?? null, // ← RAW, same reason
-      value: formatValue(wonCard.market_value),
+      // Raw USD market_value must never render behind "RM" — an older
+      // backend without marketPriceMyr shows "—" instead of a fake price.
+      value:
+        wonCard.marketPriceMyr != null
+          ? formatValue(wonCard.marketPriceMyr)
+          : '—',
       rarity: wonCard.rarity as Rarity,
       pokemon_dex: wonCard.pokemon_dex ?? null,
       sprite_image: wonCard.sprite_image ?? null,

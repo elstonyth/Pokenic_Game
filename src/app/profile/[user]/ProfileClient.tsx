@@ -153,7 +153,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                       {c.grader} {c.grade}
                     </p>
                     <p className="text-sm font-bold text-white">
-                      {rm(c.price)}
+                      {c.price != null ? rm(c.price) : '—'}
                     </p>
                   </div>
                 </Link>
@@ -186,7 +186,7 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
                 </Link>
               </p>
               <span className="shrink-0 text-[12px] tabular-nums text-white/50">
-                {rm(a.card.price)}
+                {a.card.price != null ? rm(a.card.price) : '—'}
               </span>
               <span className="hidden shrink-0 text-[11px] text-white/55 sm:inline">
                 {a.time}

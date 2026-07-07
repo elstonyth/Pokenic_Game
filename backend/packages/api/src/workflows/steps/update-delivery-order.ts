@@ -138,20 +138,47 @@ export const updateDeliveryOrderStep = createStep(
     await packs.updateDeliveryOrders([patch]);
 
     // Pull side-effects: delivered → delivered (terminal); canceled → vaulted.
+    // Manual undo on failure (mirror of request-delivery/buyback-pull): the
+    // order patch above already committed, and the guarded flip throws when a
+    // pull isn't 'delivering' (e.g. a concurrent deliver∥cancel on the same
+    // order) — without the revert, the order and its pulls diverge for good.
     let prevPullStatus: 'delivering' | 'delivered' | null = null;
-    if (input.status === 'delivered' && pullIds.length) {
-      prevPullStatus = 'delivering';
-      await packs.updatePulls(
-        pullIds.map((id) => ({ id, status: 'delivered' as const })),
-      );
-    } else if (input.status === 'canceled' && pullIds.length) {
-      prevPullStatus = 'delivering';
-      await packs.updatePulls(
-        pullIds.map((id) => ({ id, status: 'vaulted' as const })),
-      );
+    try {
+      if (input.status === 'delivered' && pullIds.length) {
+        prevPullStatus = 'delivering';
+        await packs.transitionPullStatus({
+          ids: pullIds,
+          from: 'delivering',
+          to: 'delivered',
+        });
+      } else if (input.status === 'canceled' && pullIds.length) {
+        prevPullStatus = 'delivering';
+        await packs.transitionPullStatus({
+          ids: pullIds,
+          from: 'delivering',
+          to: 'vaulted',
+        });
+      }
+    } catch (error) {
+      try {
+        await packs.updateDeliveryOrders([
+          {
+            id: order.id,
+            status: order.status,
+            tracking_number: order.tracking_number ?? null,
+            shipped_at: order.shipped_at ?? null,
+            delivered_at: order.delivered_at ?? null,
+          },
+        ]);
+      } catch (undoError) {
+        logger.error(
+          `update-delivery-order: UNDO FAILED — order '${order.id}' is '${input.status}' but its pulls were not flipped; repair manually. ${
+            undoError instanceof Error ? undoError.message : String(undoError)
+          }`,
+        );
+      }
+      throw error;
     }
-
-    void logger;
     return new StepResponse({ order_id: order.id, status: input.status }, {
       orderId: order.id,
       prev: {

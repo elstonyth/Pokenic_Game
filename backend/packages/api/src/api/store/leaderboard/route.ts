@@ -20,6 +20,17 @@ const WEEKLY_MS = 7 * 24 * 60 * 60 * 1000;
 // Avatar seed = the shared `seedOf` (utils/profile-handle) so the leaderboard
 // and the public profile page render the SAME avatar for the same customer.
 
+// ponytail: per-process 30s cache — the board is a global aggregate whose cost
+// grows with total pull history; upgrade to Redis if we ever run >1 instance.
+const CACHE_TTL_MS = 30_000;
+const boardCache = new Map<string, { expires: number; body: unknown }>();
+
+/** Test seam: module state outlives a test's fixtures — the http suite runs in
+ *  one process, so test A's cached board would be served to test B. */
+export function clearLeaderboardCache(): void {
+  boardCache.clear();
+}
+
 export async function GET(
   req: MedusaRequest,
   res: MedusaResponse,
@@ -28,6 +39,12 @@ export async function GET(
   const customerService = req.scope.resolve(Modules.CUSTOMER);
 
   const period = req.query.period === 'alltime' ? 'alltime' : 'weekly';
+
+  const cached = boardCache.get(period);
+  if (cached && cached.expires > Date.now()) {
+    res.json(cached.body);
+    return;
+  }
   const sinceMs = period === 'weekly' ? Date.now() - WEEKLY_MS : null;
 
   // Ranked top-N is aggregated in the DB (GROUP BY + ORDER BY + LIMIT) so it's
@@ -35,7 +52,9 @@ export async function GET(
   // slice (#7). `ranked` is already points-desc, top-N, with a stable tie-break.
   const ranked = await packs.leaderboardTop({ sinceMs, limit: TOP_N });
   if (ranked.length === 0) {
-    res.json({ period, entries: [] });
+    const body = { period, entries: [] };
+    boardCache.set(period, { expires: Date.now() + CACHE_TTL_MS, body });
+    res.json(body);
     return;
   }
 
@@ -89,5 +108,7 @@ export async function GET(
     };
   });
 
-  res.json({ period, entries });
+  const body = { period, entries };
+  boardCache.set(period, { expires: Date.now() + CACHE_TTL_MS, body });
+  res.json(body);
 }

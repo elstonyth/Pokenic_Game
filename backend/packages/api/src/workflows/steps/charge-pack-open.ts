@@ -10,7 +10,7 @@ export type ChargePackOpenInput = {
 };
 
 export type ChargePackOpenResult = {
-  /** USD debited (decimal, never cents) — the pack price. */
+  /** MYR (RM) debited (decimal, never cents) — the pack price. */
   price: number;
   /** The customer's balance AFTER the charge (Σ ledger). */
   balance: number;

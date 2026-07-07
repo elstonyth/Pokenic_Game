@@ -129,7 +129,7 @@ export async function GET(
       pack_id: p.pack_id,
       pack_title: packTitleById.get(p.pack_id) ?? null,
       // Vault lifecycle: vaulted (customer still holds it) vs bought_back
-      // (instant sell-back — amount = the USD actually credited).
+      // (instant sell-back — amount = the MYR (RM) actually credited).
       status: p.status,
       buyback_amount:
         p.buyback_amount === null ? null : Number(p.buyback_amount),

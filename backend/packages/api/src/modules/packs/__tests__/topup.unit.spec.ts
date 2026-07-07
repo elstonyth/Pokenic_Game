@@ -1,5 +1,5 @@
 import {
-  TOPUP_MAX_USD,
+  TOPUP_MAX_RM,
   assertMockTopupSafe,
   mockCharge,
   mockTopupAllowed,
@@ -12,11 +12,11 @@ import {
 // thin orchestrator and the rules are testable without a container.
 
 describe('topUpAmountError', () => {
-  it('accepts whole-dollar and 2dp amounts within the cap', () => {
+  it('accepts whole-ringgit and 2dp amounts within the cap', () => {
     expect(topUpAmountError(5)).toBeNull();
     expect(topUpAmountError(10.5)).toBeNull();
     expect(topUpAmountError(0.01)).toBeNull();
-    expect(topUpAmountError(TOPUP_MAX_USD)).toBeNull();
+    expect(topUpAmountError(TOPUP_MAX_RM)).toBeNull();
   });
 
   it('accepts 2dp amounts that are not exactly representable in binary', () => {
@@ -40,7 +40,7 @@ describe('topUpAmountError', () => {
   });
 
   it('rejects amounts above the cap', () => {
-    expect(topUpAmountError(TOPUP_MAX_USD + 0.01)).toMatch(/at most/i);
+    expect(topUpAmountError(TOPUP_MAX_RM + 0.01)).toMatch(/at most/i);
   });
 
   it('rejects sub-cent precision', () => {

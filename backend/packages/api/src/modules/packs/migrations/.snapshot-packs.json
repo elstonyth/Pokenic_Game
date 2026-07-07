@@ -39,7 +39,9 @@
             "reward_pool",
             "daily_reward_settings",
             "daily_box",
-            "voucher_ladder"
+            "voucher_ladder",
+            "fx",
+            "site_settings"
           ],
           "mappedType": "enum"
         },
@@ -70,7 +72,10 @@
             "edit_reward_pool",
             "edit_daily_reward_settings",
             "edit_daily_box",
-            "edit_voucher_ladder"
+            "edit_voucher_ladder",
+            "edit_fx_rate",
+            "edit_site_settings",
+            "edit_avatar_frames"
           ],
           "mappedType": "enum"
         },
@@ -260,6 +265,24 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "mappedType": "text"
+        },
+        "slab_image": {
+          "name": "slab_image",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
+        "slab_image_key": {
+          "name": "slab_image_key",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
           "mappedType": "text"
         },
         "price": {
@@ -717,6 +740,15 @@
           "primary": false,
           "unique": false,
           "expression": "CREATE INDEX IF NOT EXISTS \"IDX_commission_source_transaction_id\" ON \"commission\" (\"source_transaction_id\") WHERE deleted_at IS NULL"
+        },
+        {
+          "keyName": "IDX_commission_pending_matures_at",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_commission_pending_matures_at\" ON \"commission\" (\"matures_at\") WHERE status = 'pending' AND deleted_at IS NULL"
         },
         {
           "keyName": "commission_pkey",
@@ -1992,15 +2024,14 @@
           "default": "false",
           "mappedType": "boolean"
         },
-        "top_hit": {
-          "name": "top_hit",
-          "type": "boolean",
+        "top_hit_order": {
+          "name": "top_hit_order",
+          "type": "integer",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
-          "default": "false",
-          "mappedType": "boolean"
+          "nullable": true,
+          "mappedType": "integer"
         },
         "kind": {
           "name": "kind",
@@ -2556,15 +2587,6 @@
           "expression": "CREATE INDEX IF NOT EXISTS \"IDX_reward_box_deleted_at\" ON \"reward_box\" (\"deleted_at\") WHERE deleted_at IS NULL"
         },
         {
-          "keyName": "IDX_reward_box_tier",
-          "columnNames": [],
-          "composite": false,
-          "constraint": false,
-          "primary": false,
-          "unique": false,
-          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_reward_box_tier\" ON \"reward_box\" (\"tier\") WHERE deleted_at IS NULL"
-        },
-        {
           "keyName": "reward_box_pkey",
           "columnNames": [
             "id"
@@ -3000,6 +3022,95 @@
         },
         {
           "keyName": "rewards_settings_pkey",
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {}
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "slab_frame_url": {
+          "name": "slab_frame_url",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
+        "avatar_frames": {
+          "name": "avatar_frames",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "default": "now()",
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "default": "now()",
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 6,
+          "mappedType": "datetime"
+        }
+      },
+      "name": "site_settings",
+      "schema": "public",
+      "indexes": [
+        {
+          "keyName": "IDX_site_settings_deleted_at",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_site_settings_deleted_at\" ON \"site_settings\" (\"deleted_at\") WHERE deleted_at IS NULL"
+        },
+        {
+          "keyName": "site_settings_pkey",
           "columnNames": [
             "id"
           ],

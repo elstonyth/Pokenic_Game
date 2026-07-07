@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 
 // Per-request ceiling. Generous for a collectibles site, small enough that a
 // typo (or a scripted loop) can't mint an absurd balance in one call.
-export const TOPUP_MAX_USD = 10_000;
+export const TOPUP_MAX_RM = 10_000;
 
 // Why a message-or-null helper instead of throwing: the step owns the
 // MedusaError type (NOT_ALLOWED vs INVALID_DATA), the rule only knows money.
@@ -17,8 +17,8 @@ export function topUpAmountError(value: unknown): string | null {
   if (value <= 0) {
     return 'Amount must be greater than zero.';
   }
-  if (value > TOPUP_MAX_USD) {
-    return `Amount must be at most $${TOPUP_MAX_USD.toLocaleString('en-US')} per top-up.`;
+  if (value > TOPUP_MAX_RM) {
+    return `Amount must be at most RM ${TOPUP_MAX_RM.toLocaleString('en-US')} per top-up.`;
   }
   // 2dp max, checked against the binary representation: 10.1 * 100 is
   // 1009.9999999999999, so an exact integer-cents comparison would reject

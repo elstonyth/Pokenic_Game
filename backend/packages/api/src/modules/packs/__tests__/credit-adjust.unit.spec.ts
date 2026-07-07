@@ -1,5 +1,5 @@
 import {
-  ADJUST_MAX_USD,
+  ADJUST_MAX_RM,
   adjustAmountError,
   adjustNoteError,
 } from "../credit-adjust";
@@ -14,8 +14,8 @@ describe("adjustAmountError", () => {
     expect(adjustAmountError(-5)).toBeNull();
     expect(adjustAmountError(10.5)).toBeNull();
     expect(adjustAmountError(-0.01)).toBeNull();
-    expect(adjustAmountError(ADJUST_MAX_USD)).toBeNull();
-    expect(adjustAmountError(-ADJUST_MAX_USD)).toBeNull();
+    expect(adjustAmountError(ADJUST_MAX_RM)).toBeNull();
+    expect(adjustAmountError(-ADJUST_MAX_RM)).toBeNull();
   });
 
   it("accepts 2dp amounts that are not exactly representable in binary", () => {
@@ -38,8 +38,8 @@ describe("adjustAmountError", () => {
   });
 
   it("rejects magnitudes above the cap in both directions", () => {
-    expect(adjustAmountError(ADJUST_MAX_USD + 0.01)).toMatch(/at most/i);
-    expect(adjustAmountError(-(ADJUST_MAX_USD + 0.01))).toMatch(/at most/i);
+    expect(adjustAmountError(ADJUST_MAX_RM + 0.01)).toMatch(/at most/i);
+    expect(adjustAmountError(-(ADJUST_MAX_RM + 0.01))).toMatch(/at most/i);
   });
 
   it("rejects sub-cent precision", () => {

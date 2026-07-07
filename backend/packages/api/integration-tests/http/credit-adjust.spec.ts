@@ -128,7 +128,7 @@ medusaIntegrationTestRunner({
         });
       });
 
-      it("deducts within the balance but refuses to go below $0 (no row written)", async () => {
+      it("deducts within the balance but refuses to go below RM 0 (no row written)", async () => {
         const { id } = await registerCustomer("adjust-customer-c@test.dev");
 
         const grant = await adjust(
@@ -152,7 +152,7 @@ medusaIntegrationTestRunner({
           adminHeaders(),
         );
         expect(tooFar.status).toBe(400);
-        expect(tooFar.data.message).toMatch(/below \$0/i);
+        expect(tooFar.data.message).toMatch(/below RM 0/i);
         expect(await ledgerRows()).toHaveLength(2); // grant + partial only
       });
 

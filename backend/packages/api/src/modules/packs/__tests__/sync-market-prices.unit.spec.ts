@@ -1,16 +1,40 @@
-import { refreshCardPrice } from "../sync-market-prices";
+import {
+  refreshCardPrice,
+  recordPriceHistory,
+  MAX_MARKET_VALUE_USD,
+  MAX_SYNC_DELTA_RATIO,
+  type CardRow,
+} from "../sync-market-prices";
 
-const card = {
-  id: "c1",
-  handle: "charizard-psa-10",
+const card = (over: Partial<CardRow>): CardRow => ({
+  id: "card_1",
+  handle: "test-card",
   pc_product_id: "6910",
   pc_grade: "PSA 10",
-  market_value: 100,
+  market_value: 150,
+  ...over,
+});
+
+const deps = (pennies: number) => {
+  const updates: unknown[] = [];
+  return {
+    updates,
+    d: {
+      pcFetch: async () => ({
+        kind: "ok" as const,
+        data: { "manual-only-price": pennies },
+      }),
+      updateCards: async (u: unknown) => void updates.push(u),
+      now: new Date(),
+    },
+  };
 };
+
+const legacyCard = card({ id: "c1", handle: "charizard-psa-10", market_value: 100 });
 
 test("updates from tier price", async () => {
   const upd: any[] = [];
-  const r = await refreshCardPrice(card as any, {
+  const r = await refreshCardPrice(legacyCard, {
     pcFetch: async () => ({ kind: "ok", data: { "manual-only-price": 15000 } }),
     updateCards: async (u: any) => {
       upd.push(u[0]);
@@ -23,7 +47,7 @@ test("updates from tier price", async () => {
 });
 
 test("keeps last-known on error", async () => {
-  const r = await refreshCardPrice(card as any, {
+  const r = await refreshCardPrice(legacyCard, {
     pcFetch: async () => ({ kind: "error", message: "boom" }),
     updateCards: async () => {
       throw new Error("no write");
@@ -35,7 +59,7 @@ test("keeps last-known on error", async () => {
 });
 
 test("skips zero price", async () => {
-  const r = await refreshCardPrice(card as any, {
+  const r = await refreshCardPrice(legacyCard, {
     pcFetch: async () => ({ kind: "ok", data: { "manual-only-price": 0 } }),
     updateCards: async () => {
       throw new Error("no write");
@@ -44,4 +68,79 @@ test("skips zero price", async () => {
   });
   expect(r.changed).toBe(false);
   expect(r.skippedReason).toMatch(/no usable price/i);
+});
+
+describe("refreshCardPrice — sanity bounds", () => {
+  it("skips a change beyond MAX_SYNC_DELTA_RATIO and keeps last-known", async () => {
+    const { d, updates } = deps(950 * 100); // $150 -> $950 (6.33×, beyond 5×)
+    const r = await refreshCardPrice(card({}), d);
+    expect(r.skippedReason).toMatch(/anomalous/);
+    expect(r.newValue).toBe(150);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("skips a crash below 1/MAX_SYNC_DELTA_RATIO", async () => {
+    const { d, updates } = deps(2500); // $150 -> $25 (0.167×, below 1/5)
+    const r = await refreshCardPrice(card({}), d);
+    expect(r.skippedReason).toMatch(/anomalous/);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("accepts a change within the ratio", async () => {
+    const { d, updates } = deps(450 * 100); // 3× — within 5×
+    const r = await refreshCardPrice(card({}), d);
+    expect(r.changed).toBe(true);
+    expect(r.newValue).toBe(450);
+    expect(updates).toHaveLength(1);
+  });
+
+  it("caps first-sync values at MAX_MARKET_VALUE_USD", async () => {
+    const { d, updates } = deps((MAX_MARKET_VALUE_USD + 1) * 100);
+    const r = await refreshCardPrice(card({ market_value: 0 }), d);
+    expect(r.skippedReason).toMatch(/cap/);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("sanity: ratio constant is what buyback exposure was priced against", () => {
+    expect(MAX_SYNC_DELTA_RATIO).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('recordPriceHistory — latest-value comparison', () => {
+  const mkPacks = (latest: number | null) => {
+    const created: unknown[] = [];
+    return {
+      created,
+      packs: {
+        listCardPriceHistories: async () =>
+          latest === null ? [] : [{ value: latest }],
+        createCardPriceHistories: async (rows: unknown) =>
+          void created.push(rows),
+      },
+    };
+  };
+  const result = {
+    handle: 'h',
+    oldValue: 100,
+    newValue: 120,
+    changed: false, // update committed on a PREVIOUS run; this run sees no change
+  };
+
+  it('self-heals a gap: latest history disagrees with current value', async () => {
+    const { packs, created } = mkPacks(100);
+    await recordPriceHistory(packs, 'card_1', { ...result, newValue: 120 });
+    expect(created).toHaveLength(1);
+  });
+
+  it('skips when latest history already matches', async () => {
+    const { packs, created } = mkPacks(120);
+    await recordPriceHistory(packs, 'card_1', { ...result, newValue: 120 });
+    expect(created).toHaveLength(0);
+  });
+
+  it('writes the baseline on first sync', async () => {
+    const { packs, created } = mkPacks(null);
+    await recordPriceHistory(packs, 'card_1', { ...result, newValue: 120 });
+    expect(created).toHaveLength(1);
+  });
 });

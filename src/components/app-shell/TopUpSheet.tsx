@@ -34,6 +34,11 @@ export default function TopUpSheet({
     null,
   );
   const panelRef = useRef<HTMLDivElement>(null);
+  // One idempotency key per top-up ATTEMPT: minted lazily on submit, REUSED on
+  // error retries (so a credited-but-response-lost top-up replays instead of
+  // double-crediting — the backend returns the original result), and rotated
+  // only after a confirmed success so "top up more" starts a fresh attempt.
+  const attemptKey = useRef<string | null>(null);
 
   const amount = Number.parseFloat(amountText);
   const amountValid =
@@ -51,6 +56,7 @@ export default function TopUpSheet({
       setError(null);
       setDone(null);
       setSubmitting(false);
+      attemptKey.current = null;
     }
   }, [open]);
 
@@ -59,11 +65,13 @@ export default function TopUpSheet({
     setError(null);
     setSubmitting(true);
     try {
-      const res = await topUpCredits(amount);
+      attemptKey.current ??= crypto.randomUUID();
+      const res = await topUpCredits(amount, attemptKey.current);
       if (!res.ok) {
         setError(res.error);
         return;
       }
+      attemptKey.current = null;
       setDone({ amount: res.amount, balance: res.balance });
       onToppedUp(res.balance, res.amount);
     } catch {

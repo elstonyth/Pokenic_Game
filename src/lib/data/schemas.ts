@@ -137,10 +137,14 @@ export const CreditsSchema = z.looseObject({
 });
 
 /** Every reason the backend `credit_transaction` ledger emits (keep in sync with
- *  backend models/credit-transaction.ts). The single storefront source of truth:
- *  the schema enum, the `CreditTxn.reason` type, and the `REASON_LABEL` map all
- *  derive from this list, so a newly-added backend reason can't be silently
- *  dropped by `parseList` (it would just need a label, which TS then demands). */
+ *  backend models/credit-transaction.ts) — the known set that gets a proper
+ *  label (`REASON_LABEL` in transactions.ts) and a `CreditReason` type for
+ *  call sites that only ever produce a known reason. It is NOT a validation
+ *  gate: `CreditTransactionSchema.reason` accepts any string (see below), so a
+ *  backend reason added before the storefront redeploys still renders — as a
+ *  generic prettified row via `reasonLabel`'s fallback — instead of vanishing
+ *  from the customer's history (audit 2026-07-07 #11; parseList silently
+ *  dropped rows failing the old `z.enum(CREDIT_REASONS)` check). */
 export const CREDIT_REASONS = [
   'buyback',
   'topup',
@@ -156,11 +160,15 @@ export const CREDIT_REASONS = [
 ] as const;
 export type CreditReason = (typeof CREDIT_REASONS)[number];
 
-/** GET /store/credits transaction row. `amount` is signed (credit +, spend −). */
+/** GET /store/credits transaction row. `amount` is signed (credit +, spend −).
+ *  `reason` is any string, not `z.enum(CREDIT_REASONS)` — a backend reason
+ *  added before the storefront redeploys must still RENDER (generic label)
+ *  — parseList dropping it made history rows silently vanish (audit
+ *  2026-07-07 #11; repeat-offender class). */
 export const CreditTransactionSchema = z.looseObject({
   id: z.string(),
   amount: finite,
-  reason: z.enum(CREDIT_REASONS),
+  reason: z.string(),
   created_at: z.string(),
 });
 

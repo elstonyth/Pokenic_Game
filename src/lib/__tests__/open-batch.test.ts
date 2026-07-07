@@ -211,9 +211,17 @@ describe('mapBatchRoll — field mapping', () => {
     expect(mapBatchRoll(roll)!.marketValue).toBe(99.5);
   });
 
-  it('maps card.value to a formatted RM string', () => {
-    const roll = rawRoll({ market_value: 9.99 });
+  it('maps card.value to a formatted RM string when marketPriceMyr is present', () => {
+    const roll = rawRoll({ market_value: 39.99, marketPriceMyr: 9.99 });
     expect(mapBatchRoll(roll)!.card.value).toMatch(/RM 9\.99/);
+  });
+
+  // Audit 2026-07-07 #11 / money-contract resilience: market_value is raw USD
+  // and must NEVER render behind an "RM" prefix — an older backend omitting
+  // marketPriceMyr must show "—", not a fake RM price.
+  it('maps card.value to "—" when marketPriceMyr is absent', () => {
+    const roll = rawRoll({ market_value: 9.99 });
+    expect(mapBatchRoll(roll)!.card.value).toBe('—');
   });
 
   it('maps pokemon_dex and sprite_image', () => {

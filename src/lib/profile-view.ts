@@ -15,7 +15,10 @@ export interface ProfileViewCard {
   slabImage: string | null;
   grader: string;
   grade: string;
-  price: number;
+  /** RM display price; null when the backend hasn't enriched marketPriceMyr —
+   *  the raw USD market_value must never render behind an "RM" prefix
+   *  (ProfileClient shows "—" for null). */
+  price: number | null;
 }
 
 export interface ProfileViewActivity {
@@ -71,8 +74,9 @@ export function toProfileView(
       slabImage: c.slab_image ?? null,
       grader: c.grader,
       grade: c.grade,
-      // Live MYR display value; raw USD FMV only as an old-backend fallback.
-      price: c.marketPriceMyr ?? c.market_value,
+      // Live MYR display value only — c.market_value is raw USD and must
+      // never render behind "RM"; null renders "—" instead of a fake price.
+      price: c.marketPriceMyr ?? null,
     }),
   );
 
@@ -88,7 +92,7 @@ export function toProfileView(
     slabImage: p.card.slab_image ?? null,
     grader: p.card.grader,
     grade: p.card.grade,
-    price: p.card.marketPriceMyr ?? p.card.market_value,
+    price: p.card.marketPriceMyr ?? null,
   }));
 
   return {

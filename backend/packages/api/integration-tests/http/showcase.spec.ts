@@ -65,6 +65,18 @@ medusaIntegrationTestRunner({
             rarity: 'Rare' as const,
           },
         ]);
+        // Pin USD→MYR: the sell fixture in the refusal test goes through the
+        // buyback money path, which since the 2026-07-07 data audit REFUSES
+        // (NOT_ALLOWED) when no FX row exists instead of falling back to 4.7.
+        await packs.createFxRates([
+          {
+            pair: 'USD_MYR',
+            rate: 4.0,
+            source: 'test',
+            manual_override: true,
+            manual_rate: 4.0,
+          },
+        ]);
 
         const productModule = container.resolve(Modules.PRODUCT);
         const [product] = await productModule.createProducts([
@@ -137,7 +149,7 @@ medusaIntegrationTestRunner({
           api.post(
             '/store/credits/topup',
             { amount: PACK_PRICE },
-            { headers: authed(token) },
+            { headers: { ...authed(token), 'idempotency-key': 'showcase-topup' } },
           ),
         );
         const opened = await unwrapResponse(

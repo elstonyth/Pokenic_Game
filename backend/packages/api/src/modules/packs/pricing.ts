@@ -1,3 +1,5 @@
+import { MedusaError } from '@medusajs/framework/utils';
+
 export const DEFAULT_USD_MYR = 4.7;
 
 // Fallback display margin over FMV when a Card row carries none (1.2 = +20%).
@@ -72,6 +74,42 @@ export async function resolveFxRate(packs: {
   } catch {
     return DEFAULT_USD_MYR;
   }
+}
+
+// STRICT variant for MONEY WRITES (buyback credits). Display routes tolerate
+// the DEFAULT_USD_MYR fallback; a route that CREDITS money must not — a
+// transient FX read failure would silently misprice the payout by the gap
+// between 4.7 and the configured rate (audit 2026-07-07 M3). Refuse instead.
+export async function resolveFxRateStrict(packs: {
+  listFxRates: (
+    f: unknown,
+    c: unknown,
+  ) => Promise<
+    Array<{
+      rate: number;
+      manual_override: boolean;
+      manual_rate: number | null;
+    }>
+  >;
+}): Promise<number> {
+  let row: Awaited<ReturnType<typeof packs.listFxRates>>[number] | undefined;
+  try {
+    [row] = await packs.listFxRates({ pair: 'USD_MYR' }, { take: 1 });
+  } catch {
+    row = undefined;
+  }
+  if (row) {
+    if (row.manual_override) {
+      const m = Number(row.manual_rate);
+      if (Number.isFinite(m) && m > 0) return m;
+    }
+    const r = Number(row.rate);
+    if (Number.isFinite(r) && r > 0) return r;
+  }
+  throw new MedusaError(
+    MedusaError.Types.NOT_ALLOWED,
+    'Exchange rate unavailable — please try again shortly.',
+  );
 }
 
 export async function fetchUsdMyr(

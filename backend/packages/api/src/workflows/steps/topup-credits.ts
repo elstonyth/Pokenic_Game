@@ -14,15 +14,16 @@ export type TopUpCreditsInput = {
   /** Raw body value — validated HERE so the rule lives with the money logic. */
   amount: unknown;
   /**
-   * Optional client Idempotency-Key (from the request header). When present, a
-   * replayed top-up with the same key returns the original result instead of
-   * crediting again (security audit 2026-06-23 — no-idempotency finding).
+   * REQUIRED client Idempotency-Key (from the request header). A replayed
+   * top-up with the same key returns the original result instead of crediting
+   * again. Mandatory since the 2026-07-07 audit — a real PSP retry without a
+   * key would double-credit.
    */
   idempotency_key?: string;
 };
 
 export type TopUpResult = {
-  /** USD credited (decimal, never cents). */
+  /** MYR (RM) credited (decimal, never cents). */
   amount: number;
   /** The gateway's charge reference (mock today, real later). */
   reference: string;
@@ -47,6 +48,16 @@ export const topUpCreditsStep = createStep(
       );
     }
 
+    // Idempotency-Key is now MANDATORY (audit 2026-07-07): a keyless retry
+    // against a real PSP would double-credit, so fail closed before touching
+    // the amount or the gateway.
+    if (!input.idempotency_key || input.idempotency_key.trim() === '') {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        'An Idempotency-Key header is required for top-ups.',
+      );
+    }
+
     const invalid = topUpAmountError(input.amount);
     if (invalid) {
       throw new MedusaError(MedusaError.Types.INVALID_DATA, invalid);
@@ -55,9 +66,10 @@ export const topUpCreditsStep = createStep(
 
     // Deterministic, customer-scoped anchor so a replayed request with the same
     // Idempotency-Key dedupes under the per-customer lock (no double-credit).
-    const idempotencyReference = input.idempotency_key
-      ? topupIdempotencyReference(input.customer_id, input.idempotency_key)
-      : null;
+    const idempotencyReference = topupIdempotencyReference(
+      input.customer_id,
+      input.idempotency_key,
+    );
 
     // Gateway first: a declined charge must leave NO ledger row. The mock is
     // synchronous and infallible, but the real gateway slots in here — keep

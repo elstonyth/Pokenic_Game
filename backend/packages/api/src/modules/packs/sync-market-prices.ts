@@ -1,5 +1,15 @@
 import { priceFieldForGrade } from './pricecharting-grades';
 
+// Money guardrails (audit 2026-07-07 #3). market_value feeds real-credit
+// buyback, so a glitched upstream value must never land silently:
+// - MAX_MARKET_VALUE_USD: absolute ceiling — no single card is worth more.
+// - MAX_SYNC_DELTA_RATIO: one sync may move a price at most this factor
+//   up or down; bigger jumps are skipped (kept last-known) and surface via
+//   the skip warn + /admin/pricing/health. An operator confirms a real 10×
+//   move by editing the card manually (the capped admin path).
+export const MAX_MARKET_VALUE_USD = 100_000;
+export const MAX_SYNC_DELTA_RATIO = 5;
+
 // Daily PriceCharting sync core (Task 8). Pure function, no DB/HTTP directly —
 // the job wrapper (src/jobs/sync-market-prices.ts) supplies pcFetch/updateCards
 // so this stays unit-testable with mocks. Never writes a null/zero/NaN
@@ -34,17 +44,25 @@ export type RefreshResult = {
   skippedReason?: string;
 };
 
-// Append the FMV history trail for one sync result: a row on every value
-// change, plus one baseline row the first time a card syncs (so the curve has
-// a starting point). Skipped syncs (no token / no usable price) never write.
-// Shared by the daily job and the integration suite — packs is the module
-// service (structurally typed so tests can pass the real service directly).
+// Append the FMV history trail for one sync result by comparing the LATEST
+// history row to the card's current value (not a boolean "any history?" probe):
+// - first sync (no rows)            → baseline row
+// - value changed this run          → change row
+// - latest row ≠ current value      → self-heals a gap left by a failed insert
+//                                     on a previous run (card update committed,
+//                                     history didn't — audit 2026-07-07 M2)
+// - re-run / concurrent run, in-sync → no duplicate
+// ponytail: a concurrent duplicate insert of the SAME value in the same second
+// is still possible (two backends, no job lock) and harmless to the curve.
 export async function recordPriceHistory(
   packs: {
     listCardPriceHistories: (
       f: { card_id: string },
-      c: { take: number },
-    ) => Promise<unknown[]>;
+      c: {
+        take: number;
+        order?: Record<string, 'ASC' | 'DESC'>;
+      },
+    ) => Promise<Array<{ value: unknown }>>;
     createCardPriceHistories: (
       rows: Array<{ card_id: string; value: number }>,
     ) => Promise<unknown>;
@@ -53,10 +71,11 @@ export async function recordPriceHistory(
   r: RefreshResult,
 ): Promise<void> {
   if (r.skippedReason) return;
-  const hasHistory =
-    (await packs.listCardPriceHistories({ card_id: cardId }, { take: 1 }))
-      .length > 0;
-  if (r.changed || !hasHistory) {
+  const [latest] = await packs.listCardPriceHistories(
+    { card_id: cardId },
+    { take: 1, order: { created_at: 'DESC', id: 'DESC' } },
+  );
+  if (!latest || Number(latest.value) !== r.newValue) {
     await packs.createCardPriceHistories([
       { card_id: cardId, value: r.newValue },
     ]);
@@ -94,6 +113,22 @@ export async function refreshCardPrice(
     return { ...base, skippedReason: 'no usable price' };
   }
   const newValue = Math.round(pennies) / 100;
+  if (newValue > MAX_MARKET_VALUE_USD) {
+    return {
+      ...base,
+      skippedReason: `above cap: ${newValue} > ${MAX_MARKET_VALUE_USD}`,
+    };
+  }
+  if (
+    oldValue > 0 &&
+    (newValue > oldValue * MAX_SYNC_DELTA_RATIO ||
+      newValue < oldValue / MAX_SYNC_DELTA_RATIO)
+  ) {
+    return {
+      ...base,
+      skippedReason: `anomalous change ${oldValue} -> ${newValue} (>${MAX_SYNC_DELTA_RATIO}x)`,
+    };
+  }
   await deps.updateCards([
     { id: card.id, market_value: newValue, pc_synced_at: deps.now },
   ]);

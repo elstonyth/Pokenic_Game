@@ -30,6 +30,11 @@ export const Commission = model
       on: ["source_transaction_id"],
       where: "deleted_at IS NULL",
     },
+    {
+      name: "IDX_commission_pending_matures_at",
+      on: ["matures_at"],
+      where: "status = 'pending' AND deleted_at IS NULL",
+    },
   ]);
 
 export default Commission;

@@ -46,11 +46,15 @@ per run. Override via `PW_ADMIN_EMAIL` / `PW_ADMIN_PASSWORD`.
 ## Run
 
 ```powershell
-npx playwright test                       # all
-npx playwright test odds-reflection       # just the headline
-npx playwright test --headed --project=   # watch it
+npx playwright test                        # all
+npx playwright test odds-reflection        # just the headline
+npx playwright test --headed --project=e2e # watch it
 npx playwright show-report tests/e2e/.report
 ```
+
+> **Drift note (2026-07-07):** `customer`, `bulk-sell`, `delivery-request`, and
+> the `odds-reflection` headline are currently `test.fixme` — they drive UI the
+> slots/vault redesigns removed and need re-authoring (see each file's header).
 
 Endpoints/creds are overridable via `PW_BASE`, `PW_ADMIN`, `PW_BACKEND`, `PW_PK`,
 `PW_ADMIN_EMAIL`, `PW_ADMIN_PASSWORD` (see `helpers/constants.ts`).

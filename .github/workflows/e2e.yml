@@ -22,6 +22,10 @@ on:
     - cron: '0 18 * * *' # 02:00 GMT+8 nightly
   workflow_dispatch: {}
 
+# Read-only job; keep the token scoped down and out of the git config.
+permissions:
+  contents: read
+
 concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
@@ -81,6 +85,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       # Corepack before setup-node so yarn resolution is consistent everywhere.
       - name: Enable Corepack
@@ -119,7 +125,7 @@ jobs:
           set -euo pipefail
           corepack yarn deploy:init 2>&1 | tee seed.log
           corepack yarn deploy:migrate-user
-          PK=$(grep -oE 'token=pk_[A-Za-z0-9]+' seed.log | head -1 | cut -d= -f2)
+          PK=$(grep -oE 'token=pk_[A-Za-z0-9]+' seed.log | head -1 | cut -d= -f2 || true)
           if [ -z "$PK" ]; then
             echo '::error::No publishable key in deploy:init output — /store calls would 401'
             exit 1

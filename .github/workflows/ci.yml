@@ -8,6 +8,10 @@ on:
     branches:
       - master
 
+# Least-privilege GITHUB_TOKEN; jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 # Stacked pushes to the same ref supersede each other — don't bill for both.
 concurrency:
   group: ci-${{ github.ref }}
@@ -21,11 +25,16 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter reads the PR file list
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Detect changed areas
         id: filter
@@ -45,6 +54,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -82,6 +93,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Enable Corepack
         run: corepack enable
@@ -167,6 +180,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Enable Corepack
         run: corepack enable
@@ -215,11 +230,15 @@ jobs:
   gitleaks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # gitleaks comments its findings on PRs
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3

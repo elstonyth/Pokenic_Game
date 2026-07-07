@@ -81,7 +81,13 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 # Pre-activate Yarn 4 at build time so container start needs no network.
-RUN corepack enable && corepack prepare yarn@4.5.0 --activate
+# COREPACK_HOME must be world-readable and set at RUNTIME too: the prepare runs
+# as root, but the CMD runs as USER node — with the default per-user cache
+# (~/.cache/node/corepack) the activation would be invisible to node and
+# corepack would re-download yarn at container start (or fail without network).
+ENV COREPACK_HOME=/corepack
+RUN corepack enable && corepack prepare yarn@4.5.0 --activate \
+  && chmod -R a+rX /corepack
 
 # Copy the built workspace from the builder. node_modules was pruned to prod-only
 # above (workspaces focus --production), so this is the slim layout: prod deps +

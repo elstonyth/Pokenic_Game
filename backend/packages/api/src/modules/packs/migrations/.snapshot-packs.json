@@ -267,6 +267,24 @@
           "nullable": false,
           "mappedType": "text"
         },
+        "slab_image": {
+          "name": "slab_image",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
+        "slab_image_key": {
+          "name": "slab_image_key",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
         "price": {
           "name": "price",
           "type": "numeric",

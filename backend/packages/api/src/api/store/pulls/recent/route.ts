@@ -22,6 +22,21 @@ import {
 // by handle; orphaned rows (card removed) are dropped.
 const RECENT_LIMIT = 12;
 
+// ponytail: per-process 5s cache — mirrors the leaderboard's boardCache. This
+// feed is polled every 4s per open tab (use-recent-pulls); a 5s TTL collapses
+// ~6 queries/poll to one compute per 5s window PER PROCESS, regardless of how
+// many tabs poll. The feed has no per-request inputs, so a single key suffices.
+// A new pull surfaces ≤5s later than before — invisible on a "recent" feed.
+const CACHE_TTL_MS = 5_000;
+const RECENT_KEY = 'recent';
+const recentCache = new Map<string, { expires: number; body: unknown }>();
+
+/** Test seam: module state outlives a test's fixtures — one jest process is one
+ *  module instance, so a prior test's feed would be served to the next. */
+export function clearRecentPullsCache(): void {
+  recentCache.clear();
+}
+
 // "Elston" → "Els***"; blank/missing first_name → "Anonymous".
 const maskName = (name: string | null | undefined): string => {
   const n = (name ?? '').trim();
@@ -32,6 +47,12 @@ export async function GET(
   req: MedusaRequest,
   res: MedusaResponse,
 ): Promise<void> {
+  const cached = recentCache.get(RECENT_KEY);
+  if (cached && cached.expires > Date.now()) {
+    res.json(cached.body);
+    return;
+  }
+
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const fxRate = await resolveFxRate(packs);
 
@@ -120,5 +141,7 @@ export async function GET(
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
 
-  res.json({ pulls: recent });
+  const body = { pulls: recent };
+  recentCache.set(RECENT_KEY, { expires: Date.now() + CACHE_TTL_MS, body });
+  res.json(body);
 }

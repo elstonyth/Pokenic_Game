@@ -2,6 +2,7 @@ import { ExecArgs } from '@medusajs/framework/types';
 import { ContainerRegistrationKeys } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../modules/packs';
 import type PacksModuleService from '../modules/packs/service';
+import { asPixelPokemonCrud } from '../modules/packs/pixel-pokemon-service';
 import { applyRow, type ReviewRow } from './pixel-pokemon-backfill.helpers';
 import fs from 'fs';
 import path from 'path';
@@ -20,6 +21,7 @@ const IN = path.resolve(process.cwd(), 'pixel-pokemon-backfill.json');
 export default async function apply({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
   const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
+  const pixels = asPixelPokemonCrud(packs);
 
   if (!fs.existsSync(IN)) {
     logger.error(
@@ -30,7 +32,7 @@ export default async function apply({ container }: ExecArgs) {
   const rows = JSON.parse(fs.readFileSync(IN, 'utf8')) as ReviewRow[];
 
   // Index the seeded "normal" entries by dex (one query, not one-per-card).
-  const normals = await packs.listPixelPokemons(
+  const normals = await pixels.listPixelPokemon(
     { variant: 'normal' },
     { take: 5000 },
   );

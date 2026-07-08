@@ -4,6 +4,7 @@ import { uploadFilesWorkflow } from '@medusajs/medusa/core-flows';
 import { POKEDEX_NAMES } from '@acme/pokemon';
 import { PACKS_MODULE } from '../modules/packs';
 import type PacksModuleService from '../modules/packs/service';
+import { asPixelPokemonCrud } from '../modules/packs/pixel-pokemon-service';
 import {
   chooseSpriteUrl,
   extractTypes,
@@ -28,6 +29,7 @@ const sleep = (ms: number): Promise<void> =>
 export default async function seedPixelPokemon({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
   const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
+  const pixels = asPixelPokemonCrud(packs);
   const total = POKEDEX_NAMES.length; // 1025 — tracks the dex list, not a literal
   let created = 0;
   let updated = 0;
@@ -70,7 +72,7 @@ export default async function seedPixelPokemon({ container }: ExecArgs) {
       }
       if (!image_url) noSprite++;
 
-      const [existing] = await packs.listPixelPokemons(
+      const [existing] = await pixels.listPixelPokemon(
         { dex, variant: 'normal' },
         { take: 1 },
       );
@@ -80,7 +82,7 @@ export default async function seedPixelPokemon({ container }: ExecArgs) {
       // update-pack.ts already uses for its json column; the DB just stores the array.
       const typesJson = types as unknown as Record<string, unknown>;
       if (existing) {
-        await packs.updatePixelPokemons([
+        await pixels.updatePixelPokemon([
           {
             id: existing.id,
             name,
@@ -92,7 +94,7 @@ export default async function seedPixelPokemon({ container }: ExecArgs) {
         ]);
         updated++;
       } else {
-        await packs.createPixelPokemons([
+        await pixels.createPixelPokemon([
           {
             name,
             dex,

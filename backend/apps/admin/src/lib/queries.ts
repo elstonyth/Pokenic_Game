@@ -32,6 +32,9 @@ import {
   getFxHistory,
   getFxRate,
   getPulls,
+  getPixelPokemon,
+  type PixelPokemonPage,
+  type PixelPokemonQuery,
   getDailyBoxes,
   getDailyBox,
   getVoucherLadder,
@@ -99,6 +102,17 @@ export const usePulls = (page = 0): UseQueryResult<PullsResponse> =>
   useQuery({
     queryKey: qk.pulls(page),
     queryFn: () => getPulls(page),
+    placeholderData: keepPreviousData,
+  });
+
+// Pixel-Pokémon library (Pokédex). Keyed on the full query so search/filter/page
+// changes refetch; keepPreviousData avoids a flash while typing.
+export const usePixelPokemon = (
+  params: PixelPokemonQuery,
+): UseQueryResult<PixelPokemonPage> =>
+  useQuery({
+    queryKey: ['pixel-pokemon', params],
+    queryFn: () => getPixelPokemon(params),
     placeholderData: keepPreviousData,
   });
 

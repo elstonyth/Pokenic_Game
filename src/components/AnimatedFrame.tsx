@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import NextImage from 'next/image';
 import { usePrefersReducedMotion } from '@/lib/use-reveal';
-import { FRAME_MOTION } from '@/lib/frame-motion';
+import { FRAME_MOTION, FRAME_SCALE } from '@/lib/frame-motion';
 
 /**
  * Animated avatar-frame overlay — a WebGL UV-displacement shader (ported from
  * the tuned Avatar_Frame preview) scrolls multi-octave noise through the frame
  * image so flames lick, water swirls and limbs sweep, anchored (zero motion)
- * at the photo hole. Renders the static <img> until the shader is live and
+ * at the photo hole. Renders the static frame (next/image) until the shader is live and
  * falls back to it permanently under prefers-reduced-motion, when WebGL is
  * unavailable, when the texture fails, or when the shared context budget is
  * spent — the static frame is always correct, animation is pure enhancement.
@@ -20,7 +21,6 @@ import { FRAME_MOTION } from '@/lib/frame-motion';
 // radius in canvas UV = (size/2) / (size*1.28*1.24) ≈ 0.315.
 // Plain mode (frames workbook tiles — no photo): the frame box IS `size`, and
 // the anchor is the art's own hole (60% of the art box, like the preview).
-const FRAME_SCALE = 1.28;
 const CANVAS_OVERSIZE = 1.24;
 const HOLE_R_AVATAR = 0.5 / (FRAME_SCALE * CANVAS_OVERSIZE);
 const HOLE_R_PLAIN = (0.6 * 0.5) / CANVAS_OVERSIZE;
@@ -378,13 +378,14 @@ export function AnimatedFrame({
     <>
       {/* Static frame stays mounted below the canvas until the shader is live
           (and forever when it never goes live) — never a blank ring. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <NextImage
         src={frameSrc}
         alt=""
         aria-hidden
         width={size}
         height={size}
+        sizes={`${plain ? size : Math.ceil(size * FRAME_SCALE)}px`}
+        loading="eager"
         className={
           plain
             ? 'pointer-events-none absolute left-1/2 top-1/2 h-full w-full max-w-none -translate-x-1/2 -translate-y-1/2 object-contain'

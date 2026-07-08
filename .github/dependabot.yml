@@ -1,6 +1,12 @@
 # Dependency update automation (DevOps audit M7). Minor+patch bumps are grouped
 # into one PR per ecosystem to keep solo-maintainer noise down; majors stay
 # individual so breaking changes get their own review.
+#
+# Framework packages are EXCLUDED from the grouped minor-and-patch PRs: for a
+# framework, a semver-*minor* bump is routinely breaking (e.g. @medusajs 2.13→2.17
+# broke API route registration and was merged as a "minor-and-patch" group — see
+# the revert of #93). Excluding them means they still get PRs, but as individual,
+# reviewable ones that are never bundled into an unattended group.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -10,6 +16,8 @@ updates:
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
+        exclude-patterns:
+          - 'next'
         update-types:
           - minor
           - patch
@@ -21,6 +29,9 @@ updates:
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
+        exclude-patterns:
+          - '@medusajs/*'
+          - '@mercurjs/*'
         update-types:
           - minor
           - patch

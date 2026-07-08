@@ -5,6 +5,17 @@
  * flows outward (fire), < 0 inward (void). bend = structural limb swing in
  * radians at the tips; bendNoise 0 = smooth sine swing, 1 = erratic wobble.
  */
+
+/**
+ * Avatar-frame overlay geometry: the frame renders at 128% of the avatar so
+ * ring-style frames bleed ~28% past the photo. Shared by FramedAvatar and
+ * AnimatedFrame for the next/image `sizes` hint (small avatar → small variant)
+ * and AnimatedFrame's WebGL canvas anchor math. The paired `w-[128%]`/
+ * `h-[128%]` Tailwind classes must stay LITERAL (the JIT can't read a JS
+ * value) — keep this constant and those class strings in sync.
+ */
+export const FRAME_SCALE = 1.28;
+
 export interface FrameMotionParams {
   amp: number;
   angScale: number;

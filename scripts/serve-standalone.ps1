@@ -18,12 +18,20 @@
 # nests the bundle as .next/standalone/.worktrees/<branch>/server.js. So we
 # probe for server.js (shallowest match, skipping bundled node_modules) instead
 # of assuming the flat layout, and copy assets relative to wherever it landed.
+#
+# EBUSY FIX: node must NOT run from anywhere inside .next — a running server
+# locks the tree it runs from, and `npm run build` cleans .next (not just
+# .next/standalone; verified 2026-07-07), crashing with `EBUSY: rmdir` on
+# whatever the server holds. So we mirror the bundle to .next-serve (OUTSIDE
+# .next, gitignored) and boot from the copy; builds then run freely while a
+# server is up. Restarting the server picks up the new build.
 
 param([int]$Port = 4000)
 
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
 $STANDALONE = Join-Path $ROOT '.next\standalone'
+$SERVE = Join-Path $ROOT '.next-serve'
 
 $server = Get-ChildItem -Path $STANDALONE -Recurse -Filter server.js -File -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -notmatch '\\node_modules\\' } |
@@ -32,7 +40,22 @@ $server = Get-ChildItem -Path $STANDALONE -Recurse -Filter server.js -File -Erro
 if (-not $server) {
     throw "No server.js under .next/standalone -- run 'npm run build' first (output: standalone)."
 }
-$APPDIR = $server.DirectoryName
+
+# Mirror the bundle out of build territory (see EBUSY FIX above). robocopy exit
+# codes 0-7 mean success (1 = files copied); >=8 is a real failure, usually a
+# previous server still holding locks. robocopy returns non-zero on SUCCESS, so
+# drop $ErrorActionPreference to Continue around it — otherwise pwsh 7.4+ with
+# $PSNativeCommandUseErrorActionPreference=$true throws on the expected exit 1.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+robocopy $STANDALONE $SERVE /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+$rc = $LASTEXITCODE
+$ErrorActionPreference = $prevEAP
+if ($rc -ge 8) {
+    throw "robocopy .next\standalone -> .next-serve failed (exit $rc). Is an old serve-standalone server still running? Stop it and retry."
+}
+$APPDIR = $server.DirectoryName.Replace($STANDALONE, $SERVE)
+$serverPath = $server.FullName.Replace($STANDALONE, $SERVE)
 
 # Next emits the standalone server but leaves these for you to copy. Remove any
 # previous copy first: Copy-Item into an existing dir would nest (static\static).
@@ -47,5 +70,5 @@ if (Test-Path (Join-Path $ROOT 'public')) {
 
 $env:PORT = "$Port"
 $env:HOSTNAME = '127.0.0.1'
-Write-Host "[serve-standalone] $($server.FullName) -> http://localhost:$Port (Ctrl+C to stop)"
-node $server.FullName
+Write-Host "[serve-standalone] $serverPath -> http://localhost:$Port (Ctrl+C to stop)"
+node $serverPath

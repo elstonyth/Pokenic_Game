@@ -30,7 +30,12 @@ import type { RecentPull } from '@/lib/data/packs';
 import { demoDraw } from '@/lib/demo-spin';
 import { publishedOddsRows, type PublishedOdds } from '@/lib/packs-format';
 import { isTopRarity, rarityRgb, RARITY_ORDER } from '@/lib/rarity';
-import { spinTotalMs, columnDurationMs } from '@/lib/vault-reel';
+import {
+  spinTotalMs,
+  columnDurationMs,
+  SETTLE_MS,
+  CRAWL_MS,
+} from '@/lib/vault-reel';
 import { resolveCardPokemon } from '@/lib/resolve-card-pokemon';
 import { spriteGif } from '@/lib/mock/pokedex';
 import { SlotReelStack, type ColumnWinner } from './SlotReelStack';
@@ -76,6 +81,7 @@ function winnerFor(card: WonCard): ColumnWinner {
     dex: r.dex,
     image: custom ?? (r.dex === null ? POKEBALL_PLACEHOLDER : undefined),
     name: r.name ?? card.name,
+    rarity: card.rarity as ColumnWinner['rarity'],
     rarityRgb: rarityRgb(card.rarity),
   };
 }
@@ -139,6 +145,8 @@ export default function SlotMachineClient({
   const [needsTopUp, setNeedsTopUp] = useState(false);
   const [oddsOpen, setOddsOpen] = useState(false);
   const [cooldown, setCooldown] = useState(false);
+  const [tension, setTension] = useState(false);
+  const [blast, setBlast] = useState(false);
   // Meter roll direction cue for the reel add/remove ('up'/'down', auto-resets).
   const [meterDir, setMeterDir] = useState<'up' | 'down' | null>(null);
 
@@ -165,6 +173,7 @@ export default function SlotMachineClient({
   // Reveal-phase timers (flood → transform → review). Cleared on unmount + skip.
   const floodTimer = useRef<number | null>(null);
   const transformTimer = useRef<number | null>(null);
+  const blastTimer = useRef<number | null>(null);
   // Winner tile screen rects, captured by the stack, consumed by the tile→slab
   // morph in RevealStage (spec decision #16). Reset per spin.
   const winnerRects = useRef<(DOMRect | null)[]>([]);
@@ -174,6 +183,7 @@ export default function SlotMachineClient({
       if (meterTimer.current !== null) clearTimeout(meterTimer.current);
       if (floodTimer.current !== null) clearTimeout(floodTimer.current);
       if (transformTimer.current !== null) clearTimeout(transformTimer.current);
+      if (blastTimer.current !== null) clearTimeout(blastTimer.current);
     },
     [],
   );
@@ -429,6 +439,11 @@ export default function SlotMachineClient({
     // Big-win / haptics now fire on the card flip inside RevealStage; here we
     // keep only the announce text (and the phase handoff into the reveal).
     const big = held.cards.some((c) => isTopRarity(c.rarity));
+    if (big && !reduced) {
+      setBlast(true);
+      if (blastTimer.current !== null) clearTimeout(blastTimer.current);
+      blastTimer.current = window.setTimeout(() => setBlast(false), 950);
+    }
     const bigPrefix = isDemo ? 'Demo — ' : big ? 'Big win! ' : '';
     const first = held.cards[0];
     if (held.cards.length === 1 && first) {
@@ -519,6 +534,32 @@ export default function SlotMachineClient({
     return () => ids.forEach((id) => clearTimeout(id));
   }, [phase, spin?.nonce, reels, sfx]);
 
+  // Rising tension during the final strip's crawl (spec §7d).
+  useEffect(() => {
+    if (phase !== 'spinning' || reduced) return;
+    const last = columnDurationMs(reels - 1, reels);
+    const crawlStart = last - SETTLE_MS - CRAWL_MS; // when the slow crawl begins
+    const startId = window.setTimeout(
+      () => {
+        setTension(true);
+        sfx('tensionRise');
+        sfx('heartbeat');
+      },
+      Math.max(0, crawlStart),
+    );
+    const beatId = window.setTimeout(
+      () => sfx('heartbeat'),
+      Math.max(0, crawlStart + 350),
+    );
+    const endId = window.setTimeout(() => setTension(false), last);
+    return () => {
+      clearTimeout(startId);
+      clearTimeout(beatId);
+      clearTimeout(endId);
+      setTension(false);
+    };
+  }, [phase, spin?.nonce, reels, reduced, sfx]);
+
   const refreshBalance = applyBalance;
 
   const inReveal =
@@ -558,6 +599,8 @@ export default function SlotMachineClient({
         floodRgb={floodRgb}
         dimmed={inReveal && phase !== 'flood'}
         reduced={reduced}
+        tension={tension}
+        blast={blast}
       >
         {/* Scrolls if a short viewport can't fit the reveal, so the prize +
             sell-back are never hidden behind the fixed controls. */}
@@ -603,7 +646,7 @@ export default function SlotMachineClient({
                   },
                 }}
                 className={cn(
-                  'flex items-stretch gap-3 sm:gap-5',
+                  'flex flex-col items-center gap-3',
                   // pointer-events-none so a tap during transform reaches the
                   // skip gesture on the reveal overlay, not a dead reel column.
                   machineHidden && 'pointer-events-none',

@@ -47,7 +47,7 @@ describe('@acme/pokemon', () => {
   describe('allPokemonMatches', () => {
     test('flags the Rockruff/Lycanroc evolution collision (both 744 and 745)', () => {
       const m = allPokemonMatches(
-        '2016 Pokemon Japanese Sun & Moon Rockruff Full Power Deck Holo Lycanroc Midday GX #9 CGC 5.5',
+        '2016 Pokemon Japanese Sun & Moon Rockruff Full Power Deck Holo Lycanroc GX #9 CGC 5.5',
       );
       expect(m.map((x) => x.dex).sort((a, b) => a - b)).toEqual([744, 745]);
     });

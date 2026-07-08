@@ -657,3 +657,61 @@ export const saveAvatarFrames = (body: {
   frames: Record<string, string>;
   reason: string;
 }) => postJson<AvatarFramesView>('/admin/avatar-frames', body);
+
+// ── Pixel-Pokémon library (Pokédex) ──────────────────────────────────────────
+
+export interface PixelPokemonRow {
+  id: string;
+  name: string;
+  dex: number | null;
+  variant: string;
+  types: string[];
+  image_url: string | null;
+  is_custom: boolean;
+}
+
+export interface PixelPokemonPage {
+  pixel_pokemon: PixelPokemonRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  /** Distinct types across the whole library, for the filter chips. */
+  all_types: string[];
+}
+
+export interface PixelPokemonQuery {
+  q?: string;
+  type?: string;
+  variant?: string;
+  custom?: '' | 'true' | 'false';
+  page?: number;
+  limit?: number;
+}
+
+// GET the Pokédex library page (filter + paginate server-side).
+export async function getPixelPokemon(
+  params: PixelPokemonQuery,
+): Promise<PixelPokemonPage> {
+  const limit = params.limit ?? 60;
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    offset: String((params.page ?? 0) * limit),
+  });
+  if (params.q) qs.set('q', params.q);
+  if (params.type) qs.set('type', params.type);
+  if (params.variant) qs.set('variant', params.variant);
+  if (params.custom) qs.set('custom', params.custom);
+  return getJson<PixelPokemonPage>(`/admin/pixel-pokemon?${qs}`);
+}
+
+export interface CreatePixelPokemonBody {
+  name: string;
+  dex?: number | null;
+  variant?: string;
+  types?: string[];
+  image_url: string;
+}
+
+// Add a custom pixel-pokémon (sprite already uploaded via uploadImage → url).
+export const createPixelPokemon = (body: CreatePixelPokemonBody) =>
+  postJson<{ pixel_pokemon: PixelPokemonRow }>('/admin/pixel-pokemon', body);

@@ -32,6 +32,11 @@ import {
   getFxHistory,
   getFxRate,
   getPulls,
+  getPixelPokemon,
+  createPixelPokemon,
+  type PixelPokemonPage,
+  type PixelPokemonQuery,
+  type CreatePixelPokemonBody,
   getDailyBoxes,
   getDailyBox,
   getVoucherLadder,
@@ -101,6 +106,30 @@ export const usePulls = (page = 0): UseQueryResult<PullsResponse> =>
     queryFn: () => getPulls(page),
     placeholderData: keepPreviousData,
   });
+
+// Pixel-Pokémon library (Pokédex). Keyed on the full query so search/filter/page
+// changes refetch; keepPreviousData avoids a flash while typing.
+export const usePixelPokemon = (
+  params: PixelPokemonQuery,
+): UseQueryResult<PixelPokemonPage> =>
+  useQuery({
+    queryKey: ['pixel-pokemon', params],
+    queryFn: () => getPixelPokemon(params),
+    placeholderData: keepPreviousData,
+  });
+
+// Add a custom pixel-pokémon; refetches the library grid on success.
+export const useCreatePixelPokemon = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreatePixelPokemonBody) => createPixelPokemon(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pixel-pokemon'] });
+      toast.success('Pixel Pokémon added.');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
 
 // from/to are ISO strings for the period window (undefined = all time). Appended
 // to the key inline so qk.economy stays a flat prefix (query-keys.test.ts).

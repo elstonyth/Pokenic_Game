@@ -70,3 +70,79 @@ export async function GET(
     all_types: [...typeSet].sort(),
   });
 }
+
+// POST /admin/pixel-pokemon — add a custom pixel-pokémon to the library. The
+// sprite is uploaded separately via POST /admin/media; the returned URL comes
+// in as image_url. `dex` is optional (grouping only); `variant` defaults to
+// 'custom' so it never collides with the seeded 'normal' rows (the partial
+// unique index only constrains variant='normal'). is_custom is forced true.
+export async function POST(
+  req: MedusaRequest,
+  res: MedusaResponse,
+): Promise<void> {
+  const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
+  const pixels = asPixelPokemonCrud(packs);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+
+  const name = typeof b.name === 'string' ? b.name.trim() : '';
+  if (!name) {
+    res.status(400).json({ message: "'name' is required." });
+    return;
+  }
+  const image_url = typeof b.image_url === 'string' ? b.image_url.trim() : '';
+  if (!image_url || !/^(https?:\/\/|\/)/.test(image_url)) {
+    res
+      .status(400)
+      .json({ message: "'image_url' must be an uploaded sprite URL." });
+    return;
+  }
+
+  let dex: number | null = null;
+  if (b.dex !== undefined && b.dex !== null && b.dex !== '') {
+    const n = Number(b.dex);
+    if (!Number.isInteger(n) || n < 1 || n > 1025) {
+      res
+        .status(400)
+        .json({ message: "'dex' must be an integer 1–1025, or left blank." });
+      return;
+    }
+    dex = n;
+  }
+  const variant =
+    (typeof b.variant === 'string' && b.variant.trim()) || 'custom';
+  const types = Array.isArray(b.types)
+    ? (b.types as unknown[])
+        .filter((t): t is string => typeof t === 'string')
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : [];
+  const image_key =
+    typeof b.image_key === 'string' && b.image_key.trim()
+      ? b.image_key.trim()
+      : null;
+
+  try {
+    const [created] = await pixels.createPixelPokemon([
+      {
+        name,
+        dex,
+        variant,
+        types: types as unknown as Record<string, unknown>,
+        image_url,
+        image_key,
+        is_custom: true,
+      },
+    ]);
+    res.status(201).json({ pixel_pokemon: created });
+  } catch (e) {
+    // Partial unique index (dex, variant='normal') — a custom row named
+    // 'normal' for a dex that already has one. Surface a clean 400.
+    if ((e as { code?: string })?.code === '23505') {
+      res
+        .status(400)
+        .json({ message: `A '${variant}' entry for dex ${dex} already exists.` });
+      return;
+    }
+    throw e;
+  }
+}

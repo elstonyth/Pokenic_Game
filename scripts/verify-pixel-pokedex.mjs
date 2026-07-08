@@ -80,7 +80,24 @@ await page.screenshot({
   path: 'docs/research/pixel-pokedex.png',
   fullPage: true,
 });
+
+// Upload flow: the button opens a custom-entry form with the expected fields.
+const uploadBtn = page.getByRole('button', { name: /Upload pixel Pok/i });
+const hasUploadBtn = await uploadBtn.isVisible().catch(() => false);
+await uploadBtn.click().catch(() => {});
+const hasForm = await page
+  .waitForSelector('#pp-name', { timeout: 8000 })
+  .then(() => true)
+  .catch(() => false);
+await page.screenshot({
+  path: 'docs/research/pixel-pokedex-upload.png',
+  fullPage: true,
+});
+
 await browser.close();
+
+ok('upload_button_shown', hasUploadBtn);
+ok('upload_form_opens', hasForm);
 
 ok('nav_item_in_sidebar', navLink);
 ok('page_title', dom.hasTitle);

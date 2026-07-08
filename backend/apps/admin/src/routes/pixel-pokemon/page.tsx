@@ -1,8 +1,23 @@
-import { useState } from 'react';
-import { Container, Heading, Text, Input, Badge, clx } from '@medusajs/ui';
+import { useRef, useState, type ChangeEvent } from 'react';
+import {
+  Container,
+  Heading,
+  Text,
+  Input,
+  Label,
+  Badge,
+  Button,
+  clx,
+  toast,
+} from '@medusajs/ui';
 import { Photo } from '@medusajs/icons';
 import type { RouteConfig } from '@mercurjs/dashboard-sdk';
-import { usePixelPokemon } from '../../lib/queries';
+import {
+  usePixelPokemon,
+  useUploadImage,
+  useCreatePixelPokemon,
+} from '../../lib/queries';
+import { validateImageFile } from '../../lib/image-validation';
 import { resolveImageUrl } from '../../lib/image-url';
 import { Pager } from '../../components/Pager';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
@@ -16,8 +31,7 @@ export const config: RouteConfig = {
 const PAGE_SIZE = 60;
 
 // Admin Pokédex — browse every pixel-Pokémon in the library (the entries cards
-// link to by id). Search by name/#dex, filter by type, and toggle custom-only.
-// Server filters + paginates; this page is read-only (upload/edit is a follow-up).
+// link to by id) and upload custom ones. Server filters + paginates the list.
 const PixelPokedexPage = () => {
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
@@ -46,18 +60,197 @@ const PixelPokedexPage = () => {
         : 'bg-ui-bg-subtle border-ui-border-base hover:bg-ui-bg-base-hover',
     );
 
+  // ── Upload custom pixel-pokémon ──────────────────────────────────────────
+  const [showUpload, setShowUpload] = useState(false);
+  const [name, setName] = useState('');
+  const [dex, setDex] = useState('');
+  const [variant, setVariant] = useState('');
+  const [types, setTypes] = useState('');
+  const [spriteUrl, setSpriteUrl] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadImg = useUploadImage();
+  const createMut = useCreatePixelPokemon();
+
+  const resetForm = () => {
+    setName('');
+    setDex('');
+    setVariant('');
+    setTypes('');
+    setSpriteUrl('');
+  };
+
+  const handleSprite = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const problem = await validateImageFile(file, 'sprite');
+    if (problem) {
+      toast.error(problem);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+    try {
+      const url = await uploadImg.mutateAsync({ file, kind: 'sprite' });
+      setSpriteUrl(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const submit = async () => {
+    if (!name.trim()) {
+      toast.error('Name is required.');
+      return;
+    }
+    if (!spriteUrl) {
+      toast.error('Upload a sprite image first.');
+      return;
+    }
+    try {
+      await createMut.mutateAsync({
+        name: name.trim(),
+        dex: dex.trim() ? Number(dex) : null,
+        variant: variant.trim() || 'custom',
+        types: types
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
+        image_url: spriteUrl,
+      });
+      resetForm();
+      setShowUpload(false);
+    } catch {
+      // useCreatePixelPokemon.onError already toasted; keep the form open.
+    }
+  };
+
   return (
     <div className="flex flex-col gap-y-3">
       <Container className="p-0">
         <div className="flex flex-col gap-3 px-6 py-4">
-          <div>
-            <Heading level="h2">Pixel Pokédex</Heading>
-            <Text className="text-ui-fg-subtle mt-1" size="small">
-              Every pixel-Pokémon in the library
-              {data ? ` — ${data.total.toLocaleString('en-US')} shown` : ''}. Cards
-              link to these entries by id.
-            </Text>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Heading level="h2">Pixel Pokédex</Heading>
+              <Text className="text-ui-fg-subtle mt-1" size="small">
+                Every pixel-Pokémon in the library
+                {data ? ` — ${data.total.toLocaleString('en-US')} shown` : ''}.
+                Cards link to these entries by id.
+              </Text>
+            </div>
+            <Button
+              size="small"
+              variant={showUpload ? 'secondary' : 'primary'}
+              onClick={() => setShowUpload((v) => !v)}
+            >
+              {showUpload ? 'Close' : 'Upload pixel Pokémon'}
+            </Button>
           </div>
+
+          {showUpload && (
+            <div className="border-ui-border-base bg-ui-bg-subtle flex flex-col gap-3 rounded-lg border p-4">
+              <Text size="small" weight="plus">
+                New custom pixel Pokémon
+              </Text>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <Label size="small" htmlFor="pp-name">
+                    Name
+                  </Label>
+                  <Input
+                    id="pp-name"
+                    placeholder="e.g. Pikachu (Shiny)"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label size="small" htmlFor="pp-dex">
+                    Dex # (optional)
+                  </Label>
+                  <Input
+                    id="pp-dex"
+                    inputMode="numeric"
+                    placeholder="1–1025, or blank"
+                    value={dex}
+                    onChange={(e) => setDex(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label size="small" htmlFor="pp-variant">
+                    Variant
+                  </Label>
+                  <Input
+                    id="pp-variant"
+                    placeholder="custom"
+                    value={variant}
+                    onChange={(e) => setVariant(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label size="small" htmlFor="pp-types">
+                    Types (comma-separated)
+                  </Label>
+                  <Input
+                    id="pp-types"
+                    placeholder="e.g. Fire, Flying"
+                    value={types}
+                    onChange={(e) => setTypes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {spriteUrl ? (
+                  <img
+                    src={resolveImageUrl(spriteUrl)}
+                    alt=""
+                    className="border-ui-border-base h-16 w-16 shrink-0 rounded border bg-white object-contain"
+                  />
+                ) : (
+                  <div className="border-ui-border-base bg-ui-bg-base text-ui-fg-muted flex h-16 w-16 shrink-0 items-center justify-center rounded border text-xs">
+                    —
+                  </div>
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSprite}
+                />
+                <Button
+                  size="small"
+                  variant="secondary"
+                  type="button"
+                  isLoading={uploadImg.isPending}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {spriteUrl ? 'Replace sprite' : 'Upload sprite'}
+                </Button>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onClick={() => {
+                    resetForm();
+                    setShowUpload(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  onClick={submit}
+                  isLoading={createMut.isPending}
+                >
+                  Add to library
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Input
             placeholder="Search by name or #dex…"

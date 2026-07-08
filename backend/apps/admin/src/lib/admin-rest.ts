@@ -703,3 +703,15 @@ export async function getPixelPokemon(
   if (params.custom) qs.set('custom', params.custom);
   return getJson<PixelPokemonPage>(`/admin/pixel-pokemon?${qs}`);
 }
+
+export interface CreatePixelPokemonBody {
+  name: string;
+  dex?: number | null;
+  variant?: string;
+  types?: string[];
+  image_url: string;
+}
+
+// Add a custom pixel-pokémon (sprite already uploaded via uploadImage → url).
+export const createPixelPokemon = (body: CreatePixelPokemonBody) =>
+  postJson<{ pixel_pokemon: PixelPokemonRow }>('/admin/pixel-pokemon', body);

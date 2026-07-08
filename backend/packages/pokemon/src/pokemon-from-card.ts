@@ -73,3 +73,34 @@ export function pokemonFromCard(cardName: string): CardPokemon | null {
   }
   return null;
 }
+
+/**
+ * Every distinct FULL-NAME species whose normalized name is a substring of the
+ * card name, longest-first. Unlike pokemonFromCard (first match only), this
+ * surfaces evolution-family collisions — a card whose name contains two species
+ * ("Rockruff … Lycanroc") returns both, so the backfill can flag it ambiguous
+ * instead of silently linking to the first.
+ *
+ * Uses only the full-name INDEX (not the base-species BASE_INDEX), and drops a
+ * hit whose name is contained in a longer hit's name ("mew" inside "mewtwo") —
+ * the longer species already covers that region, so it is not a real second
+ * species. Genuine collisions where neither name contains the other (Rockruff
+ * vs Lycanroc) survive. May still over-report on rare coincidental substrings —
+ * that is the SAFE direction (a human confirms flagged rows in backfill).
+ */
+export function allPokemonMatches(cardName: string): CardPokemon[] {
+  const hay = normalize(cardName);
+  if (!hay) return [];
+  const hits: { dex: number; norm: string }[] = [];
+  const seen = new Set<number>();
+  for (const { dex, norm } of INDEX) {
+    if (hay.includes(norm) && !seen.has(dex)) {
+      seen.add(dex);
+      hits.push({ dex, norm });
+    }
+  }
+  const filtered = hits.filter(
+    (h) => !hits.some((o) => o.norm !== h.norm && o.norm.includes(h.norm)),
+  );
+  return filtered.map((h) => ({ dex: h.dex, name: POKEDEX_NAMES[h.dex - 1] }));
+}

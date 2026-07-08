@@ -609,7 +609,7 @@ export default function SlotMachineClient({
                   },
                 }}
                 className={cn(
-                  'flex items-stretch gap-3 sm:gap-5',
+                  'flex flex-col items-center gap-3',
                   // pointer-events-none so a tap during transform reaches the
                   // skip gesture on the reveal overlay, not a dead reel column.
                   machineHidden && 'pointer-events-none',

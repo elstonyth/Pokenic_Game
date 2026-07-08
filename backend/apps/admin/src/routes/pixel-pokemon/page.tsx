@@ -108,8 +108,11 @@ const PixelPokedexPage = () => {
       return;
     }
     const dexNum = dex.trim() ? Number(dex) : null;
-    if (dexNum !== null && !Number.isInteger(dexNum)) {
-      toast.error('Dex # must be a whole number, or left blank.');
+    if (
+      dexNum !== null &&
+      (!Number.isInteger(dexNum) || dexNum < 1 || dexNum > 1025)
+    ) {
+      toast.error('Dex # must be a whole number 1–1025, or left blank.');
       return;
     }
     try {

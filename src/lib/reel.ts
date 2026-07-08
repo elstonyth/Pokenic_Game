@@ -29,6 +29,19 @@ export function reelTarget(
 }
 
 /**
+ * Horizontal paint position (px) for a RIGHT→LEFT reel. `spinOffset` eases the
+ * offset from HIGH down to `target`; reflecting it around `target` turns that
+ * easing into a strip that travels LEFT (cells stream right→left) with the
+ * winner arriving from the right and landing centered. The wind-up (offset
+ * spikes above start) becomes a small backward tick to the RIGHT; the settle
+ * overshoot (offset dips below target) becomes a LEFT overshoot past center.
+ * Paint as `translateX(-reelPaintX(offset, target))`. Pure — see reel.test.ts.
+ */
+export function reelPaintX(offset: number, target: number): number {
+  return 2 * target - offset;
+}
+
+/**
  * A fixed-length strip of rarities with `winnerRarity` pinned at `winIndex`.
  * Non-winner cells cycle the pool deterministically (a real slot has a small
  * fixed symbol set). Retained as a tested pure helper; the v2 reel uses

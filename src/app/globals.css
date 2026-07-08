@@ -312,15 +312,6 @@
     opacity: 1;
   }
 }
-/* Reel glass light sweep — spin-only, VaultReelColumn.tsx (spec #37d). */
-@keyframes vault-sheen {
-  0% {
-    transform: translateX(-160%) skewX(-14deg);
-  }
-  100% {
-    transform: translateX(260%) skewX(-14deg);
-  }
-}
 /* Vault Room dust motes — slow diagonal drift + fade (VaultRoom.tsx). */
 @keyframes vault-dust {
   0% {
@@ -359,5 +350,34 @@
   .px-fluid {
     padding-left: clamp(1rem, 1.6vw, 4.5rem);
     padding-right: clamp(1rem, 1.6vw, 4.5rem);
+  }
+}
+
+@keyframes vault-shake {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(-2px, 1px, 0);
+  }
+  40% {
+    transform: translate3d(2px, -1px, 0);
+  }
+  60% {
+    transform: translate3d(-1px, 2px, 0);
+  }
+  80% {
+    transform: translate3d(1px, -2px, 0);
+  }
+}
+@keyframes vault-burst {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--bx), var(--by), 0) scale(1);
+    opacity: 0;
   }
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, test } from 'vitest';
 import {
   reelTarget,
   buildStrip,
@@ -9,7 +9,14 @@ import {
   buildDexStrip,
   ITEM_H,
   POKEDEX_MAX,
+  reelPaintX,
 } from '@/lib/reel';
+import { spinOffset, spinTotalMs, columnDurationMs } from '@/lib/vault-reel';
+import {
+  HREEL_WIN_INDEX,
+  HREEL_STRIP_LEN,
+  HREEL_VISIBLE_CELLS,
+} from '@/lib/hreel';
 import type { Rarity } from '@/lib/packs-data';
 
 const POOL: Rarity[] = ['Legendary', 'Mythical', 'Rare', 'Uncommon', 'Common'];
@@ -105,5 +112,82 @@ describe('buildDexStrip', () => {
   it('throws when length is not a positive integer', () => {
     expect(() => buildDexStrip(25, 0, 0)).toThrow(RangeError);
     expect(() => buildDexStrip(25, 2.5, 0)).toThrow(RangeError);
+  });
+});
+
+describe('reelPaintX (horizontal right→left reflection)', () => {
+  test('lands exactly on target when the spin ends', () => {
+    expect(reelPaintX(3000, 3000)).toBe(3000);
+  });
+  test('starts LEFT of target (winner enters from the right)', () => {
+    // spinOffset starts HIGH (> target); reflected paint is BELOW target
+    expect(reelPaintX(5000, 3000)).toBeLessThan(3000);
+  });
+  test('rises as the spin offset falls (cells travel left)', () => {
+    expect(reelPaintX(4000, 3000)).toBeGreaterThan(reelPaintX(5000, 3000));
+    expect(reelPaintX(3000, 3000)).toBeGreaterThan(reelPaintX(4000, 3000));
+  });
+  test('symmetric around target — a downward overshoot paints a LEFT overshoot', () => {
+    expect(reelPaintX(2900, 3000)).toBe(3100);
+  });
+});
+
+describe('horizontal spin (reflection + real physics)', () => {
+  const pitch = ITEM_W;
+  const winW = pitch * 5;
+  const target = reelTarget(WIN_INDEX, pitch, winW);
+
+  test('winner starts right of center and settles centered', () => {
+    const startPaint = reelPaintX(spinOffset(0, target, 0, 1, pitch), target);
+    const endPaint = reelPaintX(
+      spinOffset(spinTotalMs(1), target, 0, 1, pitch),
+      target,
+    );
+    expect(startPaint).toBeLessThan(endPaint); // right→left
+    expect(endPaint).toBe(target);
+  });
+
+  // Bounds at the REAL runtime geometry: ReelStrip pins the winner at
+  // HREEL_WIN_INDEX on an HREEL_STRIP_LEN strip, HREEL_VISIBLE_CELLS wide, with
+  // pitch = round(cellSize·CARD_ASPECT) + 10 ≈ 64 (cellSize 76) or 79 (cellSize
+  // 96) and the target shifted −gap/2 (cell-center centering). No frame may
+  // paint past either strip end — this is what keeps the longer reel valid.
+  test('the reflected travel stays inside the long strip at real geometry', () => {
+    const GAP = 10; // ReelStrip CELL_GAP
+    for (const pitch of [64, 79]) {
+      const winW = pitch * HREEL_VISIBLE_CELLS;
+      const tgt = reelTarget(HREEL_WIN_INDEX, pitch, winW) - GAP / 2;
+      const maxOffset = HREEL_STRIP_LEN * pitch - winW;
+      for (const [col, count] of [
+        [0, 1],
+        [0, 3],
+        [1, 3],
+        [2, 3],
+      ] as const) {
+        const dur = columnDurationMs(col, count);
+        for (let t = 0; t <= dur; t += 8) {
+          const px = reelPaintX(spinOffset(t, tgt, col, count, pitch), tgt);
+          expect(px).toBeGreaterThanOrEqual(-0.001);
+          expect(px).toBeLessThanOrEqual(maxOffset + 0.001);
+        }
+      }
+    }
+  });
+});
+
+describe('gapped winner centering (winning-line alignment)', () => {
+  test('a gapped winner cell lands centered on the window center', () => {
+    // ReelStrip lays cells out with a flex gap: pitch = cellW + gap, and the
+    // settle target subtracts gap/2 so the CELL center (not the pitch center)
+    // sits on the winning line. Assert that across representative cell sizes.
+    for (const cellW of [64, 68, 79]) {
+      const gap = 10;
+      const pitch = cellW + gap;
+      const winW = pitch * 5;
+      const target = reelTarget(WIN_INDEX, pitch, winW) - gap / 2;
+      // cell WIN_INDEX center on screen after translateX(-target):
+      const cellCenterOnScreen = WIN_INDEX * pitch + cellW / 2 - target;
+      expect(cellCenterOnScreen).toBeCloseTo(winW / 2, 6);
+    }
   });
 });

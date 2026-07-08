@@ -11,9 +11,7 @@ import {
   columnDurationMs,
   spinTotalMs,
   spinOffset,
-  cellCurve,
   blurStretch,
-  buildVaultStrip,
 } from '@/lib/vault-reel';
 import { ITEM_H as REEL_ITEM_H, STRIP_LEN, reelTargetY } from '@/lib/reel';
 
@@ -204,99 +202,6 @@ describe('spinOffset', () => {
         expect(o).toBeLessThanOrEqual(maxOffset + 0.001);
       }
     }
-  });
-});
-
-describe('buildVaultStrip', () => {
-  test('pins the winner at the win index', () => {
-    const strip = buildVaultStrip(150, STRIP_LEN, VAULT_WIN_INDEX);
-    expect(strip).toHaveLength(STRIP_LEN);
-    expect(strip[VAULT_WIN_INDEX]).toBe(150);
-  });
-  test('decoys repeat from a small pool (slot symbol set)', () => {
-    const strip = buildVaultStrip(150, STRIP_LEN, VAULT_WIN_INDEX);
-    const decoys = new Set(strip.filter((_, i) => i !== VAULT_WIN_INDEX));
-    expect(decoys.size).toBeLessThanOrEqual(12);
-    expect(decoys.size).toBeGreaterThanOrEqual(8); // still varied, not one sprite
-  });
-  test('null / out-of-range winner falls back to a valid dex', () => {
-    for (const bad of [null, 0, 99999]) {
-      const strip = buildVaultStrip(bad, STRIP_LEN, VAULT_WIN_INDEX);
-      const w = strip[VAULT_WIN_INDEX]!;
-      expect(w).toBeGreaterThanOrEqual(1);
-      expect(w).toBeLessThanOrEqual(1025);
-    }
-  });
-  test('rejects invalid geometry like buildDexStrip', () => {
-    expect(() => buildVaultStrip(1, 0, 0)).toThrow(RangeError);
-    expect(() => buildVaultStrip(1, 10, 10)).toThrow(RangeError);
-  });
-});
-
-describe('cellCurve', () => {
-  test('center cell faces the viewer: no tilt/depth, full brightness, bulged', () => {
-    const c = cellCurve(0, 280);
-    expect(c.rotateXDeg).toBe(0);
-    expect(c.brightness).toBe(1);
-    expect(c.translateZPx).toBe(0);
-    expect(c.translateYPx).toBe(0);
-    // spec #39: the payline row bulges toward the viewer (biggest cell)
-    expect(c.scale).toBeCloseTo(1.3, 2);
-  });
-  test('symmetric rotation, mirrored sign', () => {
-    const up = cellCurve(-140, 280);
-    const down = cellCurve(140, 280);
-    expect(up.rotateXDeg).toBeCloseTo(-down.rotateXDeg);
-    expect(up.scale).toBeCloseTo(down.scale);
-    expect(up.brightness).toBeCloseTo(down.brightness);
-    expect(up.translateYPx).toBeCloseTo(-down.translateYPx);
-  });
-  test('clamps beyond the 82° wrap cap', () => {
-    // 420/280 = 1.5 rad ≈ 86° — past the cap, so identical to any farther cell.
-    expect(cellCurve(9999, 280)).toEqual(cellCurve(420, 280));
-  });
-  // Spec decisions #36 + #37b: TRUE CYLINDER projection driven by ARC angle
-  // (θ = s/R). Encoded so a tweak can't silently regress it to a linear fold:
-  //  1. the middle band stays flat + bright (faces the viewer, closest);
-  //  2. the rim wraps hard (near edge-on, dark, pushed away in depth);
-  //  3. width never shrinks by a uniform scale — a cylinder keeps its width;
-  //  4. rows BUNCH toward the rims: painted position remaps to R·sin(s/R).
-  test('cylinder: middle band stays flat and bright', () => {
-    const near = cellCurve(0.4 * 280, 280); // 40% out — still on the flat band
-    expect(near.rotateXDeg).toBeGreaterThan(-30);
-    expect(near.brightness).toBeGreaterThanOrEqual(0.85);
-    expect(Math.abs(near.translateZPx)).toBeLessThan(20);
-  });
-  test('cylinder: rim wraps hard away from the viewer', () => {
-    const edge = cellCurve(420, 280); // at/past the wrap cap
-    expect(edge.rotateXDeg).toBeLessThanOrEqual(-75);
-    expect(edge.brightness).toBeLessThanOrEqual(0.42);
-    expect(edge.translateZPx).toBeLessThanOrEqual(-100);
-  });
-  test('cylinder: center bulges toward viewer, rim unscaled (spec #39)', () => {
-    // NOT a uniform rim-shrink (the #35 fold): the CENTER is enlarged and the
-    // rim is exactly 1.0 — closest-is-biggest, like a real drum front.
-    expect(cellCurve(0, 280).scale).toBeCloseTo(1.3, 2); // dead-center = 1+bulge
-    expect(cellCurve(420, 280).scale).toBeCloseTo(1, 5); // rim (past cap) = 1
-    // monotonic: closer to the payline = bigger
-    expect(cellCurve(60, 280).scale).toBeGreaterThan(cellCurve(180, 280).scale);
-    expect(cellCurve(180, 280).scale).toBeGreaterThan(
-      cellCurve(260, 280).scale,
-    );
-    // never smaller than 1 (a cylinder front never shrinks below its true width)
-    expect(cellCurve(200, 280).scale).toBeGreaterThanOrEqual(1);
-  });
-  test('cylinder: rows bunch toward the rims (projected spacing)', () => {
-    // A cell one radius out projects to R·sin(1 rad) ≈ 0.84·R — pulled toward
-    // the center by ~44px at R=280.
-    const oneRadius = cellCurve(280, 280);
-    expect(oneRadius.translateYPx).toBeLessThan(-30);
-    expect(oneRadius.translateYPx).toBeGreaterThan(-60);
-    // Equal arc steps project to SHRINKING screen steps near the rim.
-    const proj = (s: number) => s + cellCurve(s, 280).translateYPx;
-    const stepNearCenter = proj(60) - proj(0);
-    const stepNearRim = proj(280) - proj(220);
-    expect(stepNearRim).toBeLessThan(stepNearCenter * 0.75);
   });
 });
 

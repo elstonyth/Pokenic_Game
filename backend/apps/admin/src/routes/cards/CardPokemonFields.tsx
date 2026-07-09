@@ -1,4 +1,9 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import {
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from 'react';
 import { Button, Input, Label, Text, clx, toast } from '@medusajs/ui';
 import { spriteGif } from '@acme/pokemon';
 import {
@@ -157,11 +162,25 @@ const CardPokemonFields = ({
         id="card-pokemon-search"
         placeholder="Search the Pokédex library by name…"
         aria-label="Search the Pokédex library by name"
+        role="combobox"
+        aria-expanded={q.length >= 1}
+        aria-controls="card-pokemon-listbox"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+          // Consume Escape ONLY when it clears a non-empty search — otherwise it
+          // bubbles to the enclosing FocusModal (base-ui Dialog closes on Escape
+          // at the document level) and discards the whole in-progress card edit.
+          if (e.key === 'Escape' && search !== '') {
+            e.preventDefault();
+            e.stopPropagation();
+            setSearch('');
+          }
+        }}
       />
       {q.length >= 1 && (
         <div
+          id="card-pokemon-listbox"
           role="listbox"
           aria-label="Library matches"
           aria-busy={isFetching}

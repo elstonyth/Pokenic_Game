@@ -143,10 +143,27 @@ export const registerCardInvoke = async (
     meta.pixel_pokemon_id.trim() !== ''
       ? meta.pixel_pokemon_id
       : null;
-  const pixelPatch = await resolvePixelPokemonPatch(
-    packs,
-    input.pixel_pokemon_id !== undefined ? input.pixel_pokemon_id : stagedPixelId,
-  );
+  // An EXPLICIT pick in the register dialog hard-fails on a bad id (the operator
+  // can fix it). An INHERITED staged id is best-effort: a custom library entry
+  // can be deleted (PR #116), so a since-gone staged id must NOT block
+  // registration — degrade to name-derivation (unlinked) instead.
+  let pixelPatch;
+  if (input.pixel_pokemon_id !== undefined) {
+    pixelPatch = await resolvePixelPokemonPatch(packs, input.pixel_pokemon_id);
+  } else {
+    try {
+      pixelPatch = await resolvePixelPokemonPatch(packs, stagedPixelId);
+    } catch (error) {
+      container
+        .resolve(ContainerRegistrationKeys.LOGGER)
+        .warn(
+          `create-card: staged pixel_pokemon_id '${stagedPixelId}' did not resolve — registering unlinked (name-derivation). ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      pixelPatch = await resolvePixelPokemonPatch(packs, null);
+    }
+  }
 
   const [card] = await insertOrMapDuplicate({
     insert: () =>

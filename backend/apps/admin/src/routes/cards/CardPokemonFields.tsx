@@ -1,9 +1,4 @@
-import {
-  useRef,
-  useState,
-  type ChangeEvent,
-  type KeyboardEvent,
-} from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Button, Input, Label, Text, clx, toast } from '@medusajs/ui';
 import { spriteGif } from '@acme/pokemon';
 import {
@@ -57,9 +52,44 @@ const CardPokemonFields = ({
   // load it's null and the preview falls back to the card's mirrored sprite.
   const [picked, setPicked] = useState<PixelPokemonRow | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  // A ref mirror of `search` so the mount-once Escape listener below reads the
+  // live value without re-subscribing (re-subscribing would re-register it
+  // AFTER Radix's listener and lose the ordering — see the effect comment).
+  const searchValRef = useRef(search);
+  searchValRef.current = search;
   const uploadImg = useUploadImage();
   const createEntry = useCreatePixelPokemon();
   const uploading = uploadImg.isPending || createEntry.isPending;
+
+  // Escape while typing a search should dismiss the dropdown, NOT close the
+  // whole edit modal. The modal's Radix DismissableLayer listens for Escape on
+  // `document` in the CAPTURE phase (react-use-escape-keydown), which fires
+  // before any bubble-phase onKeyDown on the input — so a React stopPropagation
+  // can't stop it. Intercept the SAME capture phase: registered once on mount,
+  // this listener sits ahead of Radix's (child effects run before the ancestor
+  // DismissableLayer's), so when the search box is focused AND non-empty it
+  // stopImmediatePropagation()s the Escape and just clears the search. An empty
+  // search still bubbles Escape through → the modal closes, as the "esc" hint
+  // advertises.
+  useEffect(() => {
+    const onCaptureKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (
+        e.key === 'Escape' &&
+        searchValRef.current !== '' &&
+        document.activeElement === searchRef.current
+      ) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setSearch('');
+      }
+    };
+    document.addEventListener('keydown', onCaptureKeyDown, { capture: true });
+    return () =>
+      document.removeEventListener('keydown', onCaptureKeyDown, {
+        capture: true,
+      });
+  }, []);
 
   const q = search.trim();
   const { data, isFetching } = usePixelPokemon({ q, limit: PICKER_LIMIT });
@@ -163,8 +193,11 @@ const CardPokemonFields = ({
         </div>
       </div>
 
-      {/* Library search — link a card to a PixelPokemon entry by id */}
+      {/* Library search — link a card to a PixelPokemon entry by id. Escape is
+          guarded by the document capture-phase listener above (not onKeyDown,
+          which fires too late to beat Radix's Escape-to-close). */}
       <Input
+        ref={searchRef}
         id="card-pokemon-search"
         placeholder="Search the Pokédex library by name…"
         aria-label="Search the Pokédex library by name"
@@ -173,16 +206,6 @@ const CardPokemonFields = ({
         aria-controls="card-pokemon-listbox"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-          // Consume Escape ONLY when it clears a non-empty search — otherwise it
-          // bubbles to the enclosing FocusModal (base-ui Dialog closes on Escape
-          // at the document level) and discards the whole in-progress card edit.
-          if (e.key === 'Escape' && search !== '') {
-            e.preventDefault();
-            e.stopPropagation();
-            setSearch('');
-          }
-        }}
       />
       {q.length >= 1 && (
         <div

@@ -43,8 +43,9 @@ type Fields = {
   grade: string;
   market_value: string; // operator-facing MYR (converted to USD on save)
   margin_pct: string; // display margin over FMV — Card.market_multiplier home
-  pokemon_dex: number | null;
-  sprite_image: string | null;
+  // Picker value (a PixelPokemon library id). null = none picked → the backend
+  // inherits any id staged on the product (from-pricecharting).
+  pixel_pokemon_id: string | null;
 };
 
 // Margin defaults to 20% here (the gacha card is where margin lives — product
@@ -55,8 +56,7 @@ const EMPTY_FIELDS: Fields = {
   grade: '',
   market_value: '',
   margin_pct: '20',
-  pokemon_dex: null,
-  sprite_image: null,
+  pixel_pokemon_id: null,
 };
 
 const RegisterCardModal = ({ open, onClose }: Props) => {
@@ -209,8 +209,9 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
         // rate before submit (fxEff non-null: guarded here + in canSave).
         market_value: myrToUsd(Number(fields.market_value), fxEff),
         market_multiplier: 1 + Number(fields.margin_pct) / 100,
-        pokemon_dex: fields.pokemon_dex,
-        sprite_image: fields.sprite_image,
+        // null (nothing picked) → undefined so the backend inherits any id
+        // staged on the product; a picked id links it explicitly.
+        pixel_pokemon_id: fields.pixel_pokemon_id ?? undefined,
       });
       toast.success(t('cards.toast.created'));
       onClose();
@@ -484,10 +485,7 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
             </div>
 
             <CardPokemonFields
-              value={{
-                pokemon_dex: fields.pokemon_dex,
-                sprite_image: fields.sprite_image,
-              }}
+              value={{ pixel_pokemon_id: fields.pixel_pokemon_id }}
               onChange={(p) => patch(p)}
               suggestionName={selected?.title ?? ''}
             />

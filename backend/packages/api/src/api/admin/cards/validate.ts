@@ -55,35 +55,22 @@ const reqMarketValue = (b: Record<string, unknown>): number => {
   return v;
 };
 
-// Pixel-Pokémon avatar fields. dex is a 1-based national-dex int in [1, MAX_DEX].
-// MAX_DEX is a hardcoded mirror of POKEDEX_NAMES.length (1025 today). The
-// storefront derives the same bound dynamically in
-// src/lib/resolve-card-pokemon.ts (MAX_DEX = POKEDEX_NAMES.length); if the dex
-// list ever grows, bump THIS literal to match. Both fields are optional → null
-// when omitted/blank (the card then resolves via name-derivation).
-const MAX_DEX = 1025;
-
-export const optDex = (b: Record<string, unknown>): number | null => {
-  const v = b.pokemon_dex;
-  if (v === undefined || v === null || v === '') return null;
-  const n = typeof v === 'string' ? Number(v) : v;
-  if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > MAX_DEX) {
-    bad(`'pokemon_dex' must be an integer between 1 and ${MAX_DEX}.`);
-  }
-  return n as number;
-};
-
-export const optSprite = (b: Record<string, unknown>): string | null => {
-  const v = b.sprite_image;
-  if (v === undefined || v === null || v === '') return null;
-  if (typeof v !== 'string') bad(`'sprite_image' must be a string URL.`);
-  const s = (v as string).trim();
-  if (s === '') return null;
-  if (s.length > MAX_URL)
-    bad(`'sprite_image' is too long (max ${MAX_URL} chars).`);
-  if (!IMAGE_RE.test(s))
-    bad(`'sprite_image' must be an http(s) URL or a /storefront path.`);
-  return s;
+// Spec 2 §5 id-only picker. The admin card forms assign a Pokémon by a
+// PixelPokemon library id (NOT raw dex/sprite — the backend derives those from
+// the link). Tri-state, mirroring optPcId so the form can round-trip and only
+// send the field when it CHANGED: undefined = picker untouched (leave the link
+// as-is), null = link cleared (unlink + clear the mirror), string = an entry was
+// picked (link + mirror). This is what prevents an unrelated save (e.g. a price
+// edit) from wiping a linked card's sprite.
+export const optPixelPokemonId = (
+  b: Record<string, unknown>,
+): string | null | undefined => {
+  const v = b.pixel_pokemon_id;
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') bad(`'pixel_pokemon_id' must be a string.`);
+  const trimmed = (v as string).trim();
+  return trimmed === '' ? null : trimmed;
 };
 
 // PriceCharting linkage fields (Task 5). pc_product_id is nullable — an
@@ -157,8 +144,7 @@ export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
     grader: optStr(b, 'grader'),
     grade: optStr(b, 'grade'),
     market_value: reqMarketValue(b),
-    pokemon_dex: optDex(b),
-    sprite_image: optSprite(b),
+    pixel_pokemon_id: optPixelPokemonId(b),
     pc_product_id,
     pc_grade,
     market_multiplier: optMultiplier(b),
@@ -197,8 +183,7 @@ export function coerceUpdateCardBody(
     image: imageStr(b, 'image'),
     price,
     for_sale: b.for_sale !== false, // default true unless explicitly false
-    pokemon_dex: optDex(b),
-    sprite_image: optSprite(b),
+    pixel_pokemon_id: optPixelPokemonId(b),
     pc_product_id,
     pc_grade,
     market_multiplier: optMultiplier(b),

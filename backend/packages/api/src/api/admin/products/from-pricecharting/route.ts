@@ -1,7 +1,7 @@
 import type { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
 import { MedusaError } from '@medusajs/framework/utils';
 import { createProductFromPriceChartingWorkflow } from '../../../../workflows/create-product-from-pricecharting';
-import { optDex, optSprite } from '../../cards/validate';
+import { optPixelPokemonId } from '../../cards/validate';
 
 // No `market_multiplier` here: margin is a GACHA-card concern set at card
 // registration (Card.market_multiplier) — product creation carries none, and
@@ -115,8 +115,9 @@ export async function POST(
     body.stock === undefined
       ? 0
       : requireNonNegativeInteger(body.stock, 'stock');
-  const pokemon_dex = optDex(body as Record<string, unknown>);
-  const sprite_image = optSprite(body as Record<string, unknown>);
+  // Fresh product → no field to "leave as-is": undefined coerces to null (none).
+  const pixel_pokemon_id =
+    optPixelPokemonId(body as Record<string, unknown>) ?? null;
 
   const { result } = await createProductFromPriceChartingWorkflow(
     req.scope,
@@ -133,8 +134,7 @@ export async function POST(
       price,
       for_sale,
       stock,
-      pokemon_dex,
-      sprite_image,
+      pixel_pokemon_id,
     },
   });
 

@@ -12,6 +12,7 @@ import {
   buildCardProductInput,
   resolveCardProductContext,
 } from '../../modules/packs/card-product';
+import { resolvePixelPokemonPatch } from '../../modules/packs/card-pixel-pokemon';
 import { bakeSlabImage, deleteSlabFile } from '../../api/admin/media/bake-slab';
 
 // Everything about a card is editable EXCEPT its handle (the immutable key that
@@ -30,8 +31,13 @@ export type UpdateCardInput = {
   price?: number;
   // Listed on the marketplace (mirrored Product PUBLISHED) vs pack-only (DRAFT).
   for_sale: boolean;
-  pokemon_dex: number | null;
-  sprite_image: string | null;
+  // Spec 2 §5: (re)assign the Pokémon by a PixelPokemon library id, not raw
+  // dex/sprite. Tri-state, mirroring pc_product_id: undefined = picker untouched
+  // (leave the link AND its mirrored dex/sprite as-is — this is what stops an
+  // unrelated save from wiping a linked card's sprite), null = unlink + clear
+  // the mirror, string = link + mirror. resolvePixelPokemonPatch turns it into
+  // the exact columns to write.
+  pixel_pokemon_id?: string | null;
   // PriceCharting linkage — optional. Omitted/undefined defaults to
   // null/1.2 below (NOT "leave as-is"); the edit form round-trips the card's
   // current values from GET so a save that doesn't touch PC linkage still
@@ -51,6 +57,9 @@ type CardSnapshot = {
   image: string;
   price: number | null;
   for_sale: boolean;
+  // All three snapshotted + restored together so compensation puts the mirror
+  // back exactly (the link and its render cache always agree).
+  pixel_pokemon_id: string | null;
   pokemon_dex: number | null;
   sprite_image: string | null;
   pc_product_id: string | null;
@@ -110,6 +119,7 @@ export const updateCardInvoke = async (
     image: card.image,
     price: card.price === null ? null : Number(card.price),
     for_sale: card.for_sale,
+    pixel_pokemon_id: card.pixel_pokemon_id ?? null,
     pokemon_dex: card.pokemon_dex ?? null,
     sprite_image: card.sprite_image ?? null,
     pc_product_id: card.pc_product_id ?? null,
@@ -137,6 +147,16 @@ export const updateCardInvoke = async (
   const nextSlabImage = baked?.url ?? null;
   const nextSlabKey = baked?.key ?? null;
 
+  // Resolve the picker intent into the exact columns to write. undefined →
+  // {} (the three pixel columns are omitted from the patch, so updateCards
+  // leaves the card's current link + mirror untouched — a price-only save can't
+  // wipe a linked sprite); null → all three cleared; a picked id → link + its
+  // mirrored dex/image_url. Throws NOT_FOUND if the id doesn't resolve.
+  const pixelPatch = await resolvePixelPokemonPatch(
+    packs,
+    input.pixel_pokemon_id,
+  );
+
   await packs.updateCards([
     {
       id: card.id,
@@ -150,8 +170,7 @@ export const updateCardInvoke = async (
       // preserved (the Product mirror below still gets a concrete `salePrice`).
       price: input.price ?? null,
       for_sale: input.for_sale,
-      pokemon_dex: input.pokemon_dex,
-      sprite_image: input.sprite_image,
+      ...pixelPatch,
       slab_image: nextSlabImage,
       slab_image_key: nextSlabKey,
       pc_product_id: input.pc_product_id ?? null,
@@ -294,6 +313,7 @@ export const updateCardStep = createStep(
         image: data.card.image,
         price: data.card.price,
         for_sale: data.card.for_sale,
+        pixel_pokemon_id: data.card.pixel_pokemon_id,
         pokemon_dex: data.card.pokemon_dex,
         sprite_image: data.card.sprite_image,
         slab_image: data.card.slab_image,

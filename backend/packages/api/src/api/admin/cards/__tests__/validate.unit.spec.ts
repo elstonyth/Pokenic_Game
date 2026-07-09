@@ -1,54 +1,77 @@
 import { coerceRegisterCardBody, coerceUpdateCardBody } from '../validate';
 
-describe('coerceRegisterCardBody — pixel-pokemon fields', () => {
-  const base = { product_id: 'prod_1', set: 'Base', grader: 'PSA', grade: '10', market_value: 100 };
+// Spec 2 §5: the card forms assign a Pokémon by a PixelPokemon library id (the
+// picker), tri-state so the form can round-trip and only send it when changed —
+// undefined = picker untouched (leave the link), null = cleared, string = link.
+describe('coerceRegisterCardBody — pixel_pokemon_id', () => {
+  const base = {
+    product_id: 'prod_1',
+    set: 'Base',
+    grader: 'PSA',
+    grade: '10',
+    market_value: 100,
+  };
 
-  it('accepts a valid in-range dex and a sprite URL', () => {
-    const out = coerceRegisterCardBody({ ...base, pokemon_dex: 6, sprite_image: '/static/x.png' });
-    expect(out.pokemon_dex).toBe(6);
-    expect(out.sprite_image).toBe('/static/x.png');
+  it('accepts a picked library id', () => {
+    const out = coerceRegisterCardBody({ ...base, pixel_pokemon_id: 'pp_123' });
+    expect(out.pixel_pokemon_id).toBe('pp_123');
   });
 
-  it('defaults both to null when omitted', () => {
+  it('is undefined when the field is omitted (picker untouched → inherit)', () => {
     const out = coerceRegisterCardBody(base);
-    expect(out.pokemon_dex).toBeNull();
-    expect(out.sprite_image).toBeNull();
+    expect(out.pixel_pokemon_id).toBeUndefined();
   });
 
-  it('rejects an out-of-range or non-integer dex with a clear message', () => {
-    const msg = /must be an integer between 1 and 1025/;
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 99999 })).toThrow(msg);
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 1026 })).toThrow(msg); // first invalid above MAX_DEX
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 0 })).toThrow(msg);
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: -1 })).toThrow(msg);
-    expect(() => coerceRegisterCardBody({ ...base, pokemon_dex: 5.5 })).toThrow(msg);
+  it('is null on an explicit null or blank string (cleared)', () => {
+    expect(
+      coerceRegisterCardBody({ ...base, pixel_pokemon_id: null }).pixel_pokemon_id,
+    ).toBeNull();
+    expect(
+      coerceRegisterCardBody({ ...base, pixel_pokemon_id: '   ' }).pixel_pokemon_id,
+    ).toBeNull();
   });
 
-  it('accepts the boundary dex values 1 and 1025', () => {
-    expect(coerceRegisterCardBody({ ...base, pokemon_dex: 1 }).pokemon_dex).toBe(1);
-    expect(coerceRegisterCardBody({ ...base, pokemon_dex: 1025 }).pokemon_dex).toBe(1025);
+  it('trims a padded id', () => {
+    expect(
+      coerceRegisterCardBody({ ...base, pixel_pokemon_id: '  pp_9 ' })
+        .pixel_pokemon_id,
+    ).toBe('pp_9');
   });
 
-  it('rejects a sprite_image with a bad scheme or non-string with a clear message', () => {
-    const schemeMsg = /http\(s\) URL or a \/storefront path/;
-    expect(() => coerceRegisterCardBody({ ...base, sprite_image: 'javascript:alert(1)' })).toThrow(schemeMsg);
-    expect(() => coerceRegisterCardBody({ ...base, sprite_image: 'ftp://x/y.png' })).toThrow(schemeMsg);
-    expect(() => coerceRegisterCardBody({ ...base, sprite_image: 123 })).toThrow(/must be a string URL/);
+  it('rejects a non-string id with a clear message', () => {
+    expect(() =>
+      coerceRegisterCardBody({ ...base, pixel_pokemon_id: 123 }),
+    ).toThrow(/'pixel_pokemon_id' must be a string/);
   });
 });
 
-describe('coerceUpdateCardBody — pixel-pokemon fields', () => {
-  const base = { name: 'Charizard', set: 'Base', grader: 'PSA', grade: '10', market_value: 100, image: '/x.png', for_sale: true };
+describe('coerceUpdateCardBody — pixel_pokemon_id', () => {
+  const base = {
+    name: 'Charizard',
+    set: 'Base',
+    grader: 'PSA',
+    grade: '10',
+    market_value: 100,
+    image: '/x.png',
+    for_sale: true,
+  };
 
-  it('round-trips dex + sprite', () => {
-    const out = coerceUpdateCardBody({ ...base, pokemon_dex: 151, sprite_image: 'https://cdn/x.png' }, 'charizard');
-    expect(out.pokemon_dex).toBe(151);
-    expect(out.sprite_image).toBe('https://cdn/x.png');
+  it('round-trips a picked id', () => {
+    const out = coerceUpdateCardBody(
+      { ...base, pixel_pokemon_id: 'pp_charizard' },
+      'charizard',
+    );
+    expect(out.pixel_pokemon_id).toBe('pp_charizard');
   });
 
-  it('clears to null on empty/missing', () => {
-    const out = coerceUpdateCardBody(base, 'charizard');
-    expect(out.pokemon_dex).toBeNull();
-    expect(out.sprite_image).toBeNull();
+  it('undefined when omitted (a price-only save leaves the link untouched)', () => {
+    expect(coerceUpdateCardBody(base, 'charizard').pixel_pokemon_id).toBeUndefined();
+  });
+
+  it('null on explicit null (unlink + clear the mirror)', () => {
+    expect(
+      coerceUpdateCardBody({ ...base, pixel_pokemon_id: null }, 'charizard')
+        .pixel_pokemon_id,
+    ).toBeNull();
   });
 });

@@ -390,8 +390,8 @@ export async function createProductFromPriceCharting(body: {
   price?: number | null;
   for_sale?: boolean;
   stock?: number;
-  pokemon_dex?: number | null;
-  sprite_image?: string | null;
+  /** PixelPokemon library id (Spec 2 §5) staged on the product's metadata. */
+  pixel_pokemon_id?: string | null;
 }): Promise<{ id: string; handle: string }> {
   const data = await postJson<{ product: { id: string; handle: string } }>(
     '/admin/products/from-pricecharting',

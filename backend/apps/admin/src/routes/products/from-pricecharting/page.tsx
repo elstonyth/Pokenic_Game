@@ -110,8 +110,7 @@ const AddFromPriceChartingPage = () => {
   // Step 5 — pixel Pokémon (staged on product.metadata; inherited when the
   // product is registered as a gacha card).
   const [pokemon, setPokemon] = useState<CardPokemonValue>({
-    pokemon_dex: null,
-    sprite_image: null,
+    pixel_pokemon_id: null,
   });
 
   // Result.
@@ -231,8 +230,9 @@ const AddFromPriceChartingPage = () => {
         market_value: marketValue,
         image: image.trim(),
         stock: Number(stock),
-        pokemon_dex: pokemon.pokemon_dex,
-        sprite_image: pokemon.sprite_image,
+        // Staged on the product's metadata; the create-card step inherits +
+        // mirrors it when the product is later registered as a gacha card.
+        pixel_pokemon_id: pokemon.pixel_pokemon_id ?? undefined,
       });
       setCreated(product);
       toast.success(t('pcAdd.toast.created', { name: pcProduct.name }));

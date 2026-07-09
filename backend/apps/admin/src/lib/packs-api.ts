@@ -65,9 +65,13 @@ export interface AdminCard {
   /** Stored sale price; `null` means "use FMV (market_value)". */
   price: number | null;
   for_sale: boolean;
-  /** Assigned national-dex (1-based) or null → resolve from the name. */
+  /** Linked PixelPokemon library entry id (Spec 2 §5) — the source of truth for
+   *  the card's Pokémon; the two mirror fields below are its render cache. Null
+   *  = unlinked (name-derivation fallback). The edit form round-trips this. */
+  pixel_pokemon_id: string | null;
+  /** Mirrored from the linked entry's dex (render cache); null → name-derived. */
   pokemon_dex: number | null;
-  /** Custom uploaded pixel sprite URL or null → use the dex default gif. */
+  /** Mirrored from the linked entry's sprite (render cache); null → dex gif. */
   sprite_image: string | null;
   /** Available physical units; `null` = untracked (infinite). Display-only —
    *  cards stay pullable at any count; wins keep decrementing below 0, so a
@@ -100,8 +104,9 @@ export interface AdminCardRegister {
   grader: string;
   grade: string;
   market_value: number;
-  pokemon_dex: number | null;
-  sprite_image: string | null;
+  /** PixelPokemon library id (the picker). Omit = inherit any id staged on the
+   *  product (from-pricecharting); null = none; string = link it. */
+  pixel_pokemon_id?: string | null;
   /** Display margin over FMV (1.2 = +20%) — the gacha-card home of "markup". */
   market_multiplier?: number;
 }
@@ -116,8 +121,10 @@ export interface AdminCardUpdate {
   image: string;
   price?: number;
   for_sale: boolean;
-  pokemon_dex: number | null;
-  sprite_image: string | null;
+  /** PixelPokemon library id (the picker). undefined = picker untouched (leave
+   *  the link + its mirrored sprite as-is), null = unlink + clear, string =
+   *  link. Send it only when the operator changed the picker. */
+  pixel_pokemon_id?: string | null;
   /** Explicit `null` unlinks the card from PriceCharting (reverts to manual
    *  pricing); `undefined` leaves the current link untouched. */
   pc_product_id?: string | null;

@@ -11,6 +11,7 @@ import { DEFAULT_MARKET_MULTIPLIER, displayMarketPrice } from './pricing';
 export type AdminCardLike = CardLike & {
   price: unknown;
   for_sale: boolean;
+  pixel_pokemon_id: string | null;
   pokemon_dex: number | null;
   sprite_image: string | null;
   pc_product_id: string | null;
@@ -38,6 +39,9 @@ export function toAdminCardDto(card: AdminCardLike, fxRate?: number) {
     slab_image: card.slab_image ?? null,
     price: card.price === null ? null : toMoney(card.price),
     for_sale: card.for_sale,
+    // The linked library id — the edit form round-trips this so a save that
+    // doesn't touch the picker preserves the link (send-only-if-changed).
+    pixel_pokemon_id: card.pixel_pokemon_id ?? null,
     pokemon_dex: card.pokemon_dex ?? null,
     sprite_image: card.sprite_image ?? null,
     pc_product_id: card.pc_product_id ?? null,

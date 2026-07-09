@@ -1,104 +1,96 @@
-import {
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type KeyboardEvent,
-} from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { Button, Input, Label, Text, clx, toast } from '@medusajs/ui';
-import { POKEDEX_NAMES, pokemonFromCard, spriteGif } from '@acme/pokemon';
-import { useUploadImage } from '../../lib/queries';
+import { spriteGif } from '@acme/pokemon';
+import {
+  useUploadImage,
+  usePixelPokemon,
+  useCreatePixelPokemon,
+} from '../../lib/queries';
 import { validateImageFile } from '../../lib/image-validation';
 import { resolveImageUrl } from '../../lib/image-url';
+import type { PixelPokemonRow } from '../../lib/admin-rest';
 
-// The pixel-Pokémon assignment value for a card: an explicit national-dex number
-// and/or a custom uploaded sprite. Both null → the card resolves via its name.
-export type CardPokemonValue = {
-  pokemon_dex: number | null;
-  sprite_image: string | null;
-};
+// Spec 2 §5 — the card's Pokémon is assigned by LINKING a PixelPokemon library
+// entry by id (id-only). The picker replaces the old dex combobox: search the
+// library, select an entry (its dex + sprite are mirrored onto the card by the
+// backend), or upload a custom sprite which creates + links a new entry.
+export type CardPokemonValue = { pixel_pokemon_id: string | null };
 
 type Props = {
   value: CardPokemonValue;
   onChange: (patch: Partial<CardPokemonValue>) => void;
-  /** Card/product title used to compute the default name-derived suggestion. */
+  /** The card's currently-linked render cache (mirrored sprite/dex) so the
+   *  preview shows what's linked on first load — we hold only the id, so the
+   *  parent passes what it already knows instead of forcing a fetch. */
+  currentSprite?: string | null;
+  currentDex?: number | null;
+  /** Card/product title — the default name for a custom-uploaded entry. */
   suggestionName: string;
 };
 
-const PICKER_LIMIT = 60;
+const PICKER_LIMIT = 40;
 
-const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
-  const [filter, setFilter] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0);
+function entrySprite(e: {
+  image_url: string | null;
+  dex: number | null;
+}): string | null {
+  if (e.image_url && e.image_url.trim() !== '')
+    return resolveImageUrl(e.image_url);
+  if (e.dex != null) return spriteGif(e.dex);
+  return null;
+}
+
+const CardPokemonFields = ({
+  value,
+  onChange,
+  currentSprite,
+  currentDex,
+  suggestionName,
+}: Props) => {
+  const [search, setSearch] = useState('');
+  // The entry chosen THIS session — drives the preview once picked. On first
+  // load it's null and the preview falls back to the card's mirrored sprite.
+  const [picked, setPicked] = useState<PixelPokemonRow | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadImg = useUploadImage();
-  const uploading = uploadImg.isPending;
+  const createEntry = useCreatePixelPokemon();
+  const uploading = uploadImg.isPending || createEntry.isPending;
 
-  const suggestion = useMemo(
-    () => pokemonFromCard(suggestionName),
-    [suggestionName],
-  );
+  const q = search.trim();
+  const { data, isFetching } = usePixelPokemon({ q, limit: PICKER_LIMIT });
+  const matches = q.length >= 1 ? (data?.pixel_pokemon ?? []) : [];
 
-  // Effective dex shown in the preview: explicit wins, else the name suggestion.
-  const effectiveDex = value.pokemon_dex ?? suggestion?.dex ?? null;
-  const effectiveName =
-    value.pokemon_dex !== null
-      ? (POKEDEX_NAMES[value.pokemon_dex - 1] ?? null)
-      : (suggestion?.name ?? null);
+  const linked = value.pixel_pokemon_id !== null;
+  const previewSrc = picked
+    ? entrySprite(picked)
+    : linked
+      ? entrySprite({
+          image_url: currentSprite ?? null,
+          dex: currentDex ?? null,
+        })
+      : null;
+  const previewLabel = picked
+    ? `${picked.name}${picked.dex != null ? ` · #${picked.dex}` : ''}${
+        picked.is_custom ? ' · custom' : ''
+      }`
+    : linked
+      ? 'Linked to a library entry'
+      : 'Unassigned — resolves from the card name';
 
-  const matches = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return [] as { dex: number; name: string }[];
-    const out: { dex: number; name: string }[] = [];
-    for (
-      let i = 0;
-      i < POKEDEX_NAMES.length && out.length < PICKER_LIMIT;
-      i++
-    ) {
-      if (POKEDEX_NAMES[i].toLowerCase().includes(q)) {
-        out.push({ dex: i + 1, name: POKEDEX_NAMES[i] });
-      }
-    }
-    return out;
-  }, [filter]);
-
-  const selectDex = (dex: number) => {
-    onChange({ pokemon_dex: dex });
-    setFilter('');
-    setActiveIndex(0);
+  const select = (e: PixelPokemonRow) => {
+    setPicked(e);
+    onChange({ pixel_pokemon_id: e.id });
+    setSearch('');
   };
 
-  // Keyboard nav for the search combobox: focus stays on the input (roving via
-  // aria-activedescendant), arrows move the active option, Enter assigns it,
-  // Escape clears the search.
-  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      // Consume Escape only when it clears the filter — otherwise it bubbles
-      // to the enclosing FocusModal and closes the whole editor mid-edit.
-      if (filter !== '') {
-        e.preventDefault();
-        e.stopPropagation();
-        setFilter('');
-        setActiveIndex(0);
-      }
-      return;
-    }
-    if (matches.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, matches.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const m = matches[Math.min(activeIndex, matches.length - 1)];
-      if (m) selectDex(m.dex);
-    }
+  const clear = () => {
+    setPicked(null);
+    onChange({ pixel_pokemon_id: null });
   };
 
-  const handleSprite = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  // Upload a custom sprite → create a library entry from it → link that entry.
+  const handleUpload = async (ev: ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0];
     if (!file) return;
     const problem = await validateImageFile(file, 'sprite');
     if (problem) {
@@ -106,22 +98,29 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
+    let url: string;
     try {
-      const url = await uploadImg.mutateAsync({ file, kind: 'sprite' });
-      onChange({ sprite_image: url });
+      url = await uploadImg.mutateAsync({ file, kind: 'sprite' });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+    try {
+      const name =
+        suggestionName.trim() !== '' ? suggestionName.trim() : 'Custom sprite';
+      const res = await createEntry.mutateAsync({
+        name,
+        image_url: url,
+        variant: 'custom',
+      });
+      select(res.pixel_pokemon);
+    } catch {
+      // useCreatePixelPokemon already surfaces the error via its own toast.
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
   };
-
-  // Preview: custom sprite wins, else the effective dex gif, else nothing.
-  const previewSrc = value.sprite_image
-    ? resolveImageUrl(value.sprite_image)
-    : effectiveDex !== null
-      ? spriteGif(effectiveDex)
-      : null;
 
   return (
     <div className="bg-ui-bg-subtle flex flex-col gap-y-3 rounded-lg p-4">
@@ -143,92 +142,86 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
         )}
         <div className="flex flex-col">
           <Text size="small" className="font-medium">
-            {value.pokemon_dex !== null
-              ? `#${value.pokemon_dex} ${effectiveName ?? ''}`
-              : suggestion
-                ? `Auto: #${suggestion.dex} ${suggestion.name}`
-                : 'Unassigned'}
+            {previewLabel}
           </Text>
           <Text size="small" className="text-ui-fg-subtle">
-            {value.sprite_image
-              ? 'Custom sprite uploaded'
-              : value.pokemon_dex !== null
-                ? 'Showdown gif for the chosen dex'
-                : 'Falls back to the card name'}
+            {linked
+              ? 'The reel + card show this entry’s sprite.'
+              : 'Link an entry below, or upload a custom sprite.'}
           </Text>
         </div>
       </div>
 
-      {/* Dex picker — searchable combobox; arrow keys + Enter to assign */}
+      {/* Library search — link a card to a PixelPokemon entry by id */}
       <Input
         id="card-pokemon-search"
-        placeholder="Search a Pokémon by name to assign…"
-        aria-label="Search a Pokémon by name to assign"
-        role="combobox"
-        aria-expanded={matches.length > 0}
-        aria-controls="dex-picker-listbox"
-        aria-autocomplete="list"
-        aria-activedescendant={
-          matches.length > 0
-            ? `dex-opt-${matches[Math.min(activeIndex, matches.length - 1)].dex}`
-            : undefined
-        }
-        value={filter}
-        onChange={(e) => {
-          setFilter(e.target.value);
-          setActiveIndex(0);
-        }}
-        onKeyDown={onSearchKeyDown}
+        placeholder="Search the Pokédex library by name…"
+        aria-label="Search the Pokédex library by name"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
       />
-      {matches.length > 0 && (
+      {q.length >= 1 && (
         <div
-          id="dex-picker-listbox"
           role="listbox"
-          aria-label="Pokémon matches"
-          className="max-h-44 divide-y overflow-y-auto rounded-lg border"
+          aria-label="Library matches"
+          aria-busy={isFetching}
+          className="max-h-52 divide-y overflow-y-auto rounded-lg border"
         >
-          {matches.map((m, i) => {
-            const active = i === Math.min(activeIndex, matches.length - 1);
-            const selected = value.pokemon_dex === m.dex;
-            return (
-              <button
-                key={m.dex}
-                id={`dex-opt-${m.dex}`}
-                role="option"
-                aria-selected={selected}
-                type="button"
-                tabIndex={-1}
-                onMouseEnter={() => setActiveIndex(i)}
-                onClick={() => selectDex(m.dex)}
-                className={clx(
-                  'flex w-full items-center gap-3 px-4 py-2 text-left',
-                  active && 'bg-ui-bg-base-hover',
-                  selected && 'bg-ui-bg-base-pressed',
-                )}
-              >
-                <img
-                  src={spriteGif(m.dex)}
-                  alt=""
-                  className="h-8 w-8 shrink-0 bg-white object-contain"
-                />
-                <span className="flex-1 truncate text-sm font-medium">
-                  #{m.dex} {m.name}
-                </span>
-              </button>
-            );
-          })}
+          {matches.length === 0 ? (
+            <div className="text-ui-fg-muted px-4 py-3 text-sm">
+              {isFetching ? 'Searching…' : 'No matching entries.'}
+            </div>
+          ) : (
+            matches.map((m) => {
+              const selected = value.pixel_pokemon_id === m.id;
+              const src = entrySprite(m);
+              return (
+                <button
+                  key={m.id}
+                  role="option"
+                  aria-selected={selected}
+                  type="button"
+                  onClick={() => select(m)}
+                  className={clx(
+                    'flex w-full items-center gap-3 px-4 py-2 text-left',
+                    'hover:bg-ui-bg-base-hover',
+                    selected && 'bg-ui-bg-base-pressed',
+                  )}
+                >
+                  {src ? (
+                    <img
+                      src={src}
+                      alt=""
+                      className="h-8 w-8 shrink-0 bg-white object-contain"
+                    />
+                  ) : (
+                    <span className="bg-ui-bg-base h-8 w-8 shrink-0 rounded" />
+                  )}
+                  <span className="flex-1 truncate text-sm font-medium">
+                    {m.name}
+                    {m.dex != null && (
+                      <span className="text-ui-fg-subtle"> · #{m.dex}</span>
+                    )}
+                    {m.variant !== 'normal' && (
+                      <span className="text-ui-fg-subtle"> · {m.variant}</span>
+                    )}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
       )}
 
       <div className="flex flex-wrap gap-2">
-        {value.pokemon_dex !== null && (
+        {linked && (
           <Button
             size="small"
             variant="secondary"
             type="button"
-            onClick={() => onChange({ pokemon_dex: null })}
+            onClick={clear}
           >
-            Clear dex (use name)
+            Clear link (use name)
           </Button>
         )}
         <input
@@ -236,7 +229,7 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={handleSprite}
+          onChange={handleUpload}
         />
         <Button
           size="small"
@@ -245,18 +238,8 @@ const CardPokemonFields = ({ value, onChange, suggestionName }: Props) => {
           onClick={() => fileRef.current?.click()}
           isLoading={uploading}
         >
-          Upload custom sprite
+          Upload + link custom sprite
         </Button>
-        {value.sprite_image && (
-          <Button
-            size="small"
-            variant="transparent"
-            type="button"
-            onClick={() => onChange({ sprite_image: null })}
-          >
-            Remove sprite
-          </Button>
-        )}
       </div>
     </div>
   );

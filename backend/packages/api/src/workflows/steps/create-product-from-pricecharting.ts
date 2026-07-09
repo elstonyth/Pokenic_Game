@@ -39,10 +39,10 @@ export type CreateProductFromPcInput = {
   price?: number | null;
   for_sale?: boolean;
   stock?: number; // initial tracked units at the default location (default 0 — counted when in hand)
-  // Pixel-Pokémon assignment, staged on product.metadata; the create-card step
-  // inherits it when the product is later registered as a gacha card.
-  pokemon_dex?: number | null;
-  sprite_image?: string | null;
+  // Pixel-Pokémon assignment (Spec 2 §5 id-only) staged on product.metadata as
+  // a PixelPokemon library id; the create-card step inherits + mirrors it when
+  // the product is later registered as a gacha card.
+  pixel_pokemon_id?: string | null;
 };
 
 const slug = (s: string) =>
@@ -100,10 +100,9 @@ export const createProductFromPcInvoke = async (
         year: new Date().getFullYear(),
         pc_product_id: input.pc_product_id,
         pc_grade: input.pc_grade,
-        ...(input.pokemon_dex != null
-          ? { pokemon_dex: input.pokemon_dex }
+        ...(input.pixel_pokemon_id
+          ? { pixel_pokemon_id: input.pixel_pokemon_id }
           : {}),
-        ...(input.sprite_image ? { sprite_image: input.sprite_image } : {}),
       },
     },
     {

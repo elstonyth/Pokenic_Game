@@ -56,6 +56,11 @@ type FormState = {
   slab_image: string | null;
   price: string;
   for_sale: boolean;
+  // The picker value (a PixelPokemon library id). Sent on save ONLY when it
+  // differs from the loaded value — an untouched picker sends undefined so a
+  // price-only save leaves the link (and its mirrored sprite) intact.
+  pixel_pokemon_id: string | null;
+  // Loaded render cache (mirror of the linked entry) — preview only, not sent.
   pokemon_dex: number | null;
   sprite_image: string | null;
   // PriceCharting link (Task 5/9/11). Null pc_product_id here just means the
@@ -85,6 +90,7 @@ const formFromCard = (c: AdminCard): FormState => ({
   // null price = "use FMV" → empty field (preserved on save as undefined).
   price: c.price === null ? '' : String(c.price),
   for_sale: c.for_sale,
+  pixel_pokemon_id: c.pixel_pokemon_id,
   pokemon_dex: c.pokemon_dex,
   sprite_image: c.sprite_image,
   pc_product_id: c.pc_product_id,
@@ -151,6 +157,11 @@ const GachaCardsPage = () => {
 
   const save = async () => {
     if (!form || !canSave) return;
+    // Send pixel_pokemon_id ONLY when the picker changed vs the loaded card —
+    // an untouched picker sends undefined so the backend leaves the link and its
+    // mirrored sprite as-is (a price/grade edit can't wipe a linked sprite).
+    const loadedPixelId =
+      cards?.find((c) => c.handle === form.handle)?.pixel_pokemon_id ?? null;
     const payload: AdminCardUpdate = {
       name: form.name.trim(),
       set: form.set.trim(),
@@ -162,8 +173,10 @@ const GachaCardsPage = () => {
       image: form.image.trim(),
       price: form.price.trim() === '' ? undefined : Number(form.price),
       for_sale: form.for_sale,
-      pokemon_dex: form.pokemon_dex,
-      sprite_image: form.sprite_image,
+      pixel_pokemon_id:
+        form.pixel_pokemon_id !== loadedPixelId
+          ? form.pixel_pokemon_id
+          : undefined,
       // pc_product_id stays untouched (undefined) unless the operator hits
       // Unlink, which submits null explicitly and closes the form immediately.
       pc_product_id: undefined,
@@ -207,8 +220,8 @@ const GachaCardsPage = () => {
         image: card.image,
         price: card.price ?? undefined,
         for_sale: card.for_sale,
-        pokemon_dex: card.pokemon_dex,
-        sprite_image: card.sprite_image,
+        // pixel_pokemon_id omitted (undefined) → the pokemon link + its mirror
+        // stay untouched; unlink only clears the PriceCharting link.
         pc_product_id: null,
       });
       toast.success(t('cards.toast.unlinked'));
@@ -677,11 +690,10 @@ const GachaCardsPage = () => {
                 )}
 
                 <CardPokemonFields
-                  value={{
-                    pokemon_dex: form.pokemon_dex,
-                    sprite_image: form.sprite_image,
-                  }}
+                  value={{ pixel_pokemon_id: form.pixel_pokemon_id }}
                   onChange={(p) => patch(p)}
+                  currentSprite={form.sprite_image}
+                  currentDex={form.pokemon_dex}
                   suggestionName={form.name}
                 />
               </div>

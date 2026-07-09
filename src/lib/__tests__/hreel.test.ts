@@ -44,8 +44,11 @@ describe('buildHReelStrip', () => {
     expect(decoyDexes.size).toBeLessThanOrEqual(12); // small fixed symbol set
     expect(decoyDexes.size).toBeGreaterThanOrEqual(8); // still varied
   });
-  test('decoys are drawn ONLY from the supplied pack pool (tied to a reward)', () => {
-    const pool = [201, 202, 203]; // this pack's own card dexes
+  test('decoys are drawn ONLY from the supplied pack pool — dex AND rarity paired', () => {
+    const pool = [
+      { dex: 201, rarity: 'Immortal' as const },
+      { dex: 202, rarity: 'Common' as const },
+    ];
     const s = buildHReelStrip(
       150,
       'Rare',
@@ -54,10 +57,29 @@ describe('buildHReelStrip', () => {
       0,
       pool,
     );
+    const rarityByDex = new Map(pool.map((c) => [c.dex, c.rarity]));
     for (let i = 0; i < s.length; i++) {
       if (i === HREEL_WIN_INDEX) continue; // winner is the real reward dex
-      expect(pool).toContain(s[i]!.dex); // never an off-pool species
+      expect(rarityByDex.has(s[i]!.dex)).toBe(true); // only pack dexes
+      expect(s[i]!.rarity).toBe(rarityByDex.get(s[i]!.dex)); // each dex keeps ITS rarity
     }
+  });
+  test("decoy rarity colors are ONLY the pack's configured rarities (no phantom tiers)", () => {
+    // A pack of only Immortal + Common must never flicker any other tier color.
+    const pool = [
+      { dex: 150, rarity: 'Immortal' as const },
+      { dex: 743, rarity: 'Common' as const },
+    ];
+    const s = buildHReelStrip(
+      150,
+      'Immortal',
+      HREEL_STRIP_LEN,
+      HREEL_WIN_INDEX,
+      0,
+      pool,
+    );
+    const allowed = new Set<string>(pool.map((c) => c.rarity));
+    for (const cell of s) expect(allowed.has(cell.rarity)).toBe(true);
   });
   test('an empty pool falls back to the curated decoy set (never broken images)', () => {
     const s = buildHReelStrip(
@@ -73,15 +95,19 @@ describe('buildHReelStrip', () => {
       expect(DECOY_DEXES).toContain(s[i]!.dex);
     }
   });
-  test('the winner cell carries a DECOY color, never the real tier (spoiler guard)', () => {
+  test('the winner cell carries a DECOY color, never spoiling the real tier', () => {
+    // Pool of only Common; a Legendary win must NOT put Legendary on the winner
+    // cell in the strip data (ReelStrip paints the real color at settle).
     const s = buildHReelStrip(
       150,
-      'Immortal',
+      'Legendary',
       HREEL_STRIP_LEN,
       HREEL_WIN_INDEX,
+      0,
+      [{ dex: 150, rarity: 'Common' as const }],
     );
-    expect(s[HREEL_WIN_INDEX]!.rarity).toBe(decoyRarity(HREEL_WIN_INDEX));
-    expect(s[HREEL_WIN_INDEX]!.rarity).not.toBe('Immortal'); // decoyRarity(36) !== Immortal
+    expect(s[HREEL_WIN_INDEX]!.rarity).toBe('Common');
+    expect(s[HREEL_WIN_INDEX]!.rarity).not.toBe('Legendary');
   });
   test('places the gated near-miss tease at winIndex-1', () => {
     const rare = buildHReelStrip(9, 'Rare', HREEL_STRIP_LEN, HREEL_WIN_INDEX);
@@ -92,9 +118,10 @@ describe('buildHReelStrip', () => {
       HREEL_STRIP_LEN,
       HREEL_WIN_INDEX,
     );
+    // Common → no faked tease → the cell keeps its normal decoy color.
     expect(common[HREEL_WIN_INDEX - 1]!.rarity).toBe(
-      decoyRarity(HREEL_WIN_INDEX - 1),
-    ); // no faked near-miss
+      decoyRarity((HREEL_WIN_INDEX - 1) % DECOY_DEXES.length),
+    );
   });
   test('different seeds produce different decoy strips (independent reels)', () => {
     const a = buildHReelStrip(150, 'Rare', HREEL_STRIP_LEN, HREEL_WIN_INDEX, 0);

@@ -51,9 +51,12 @@ export function teaseRarity(winner: Rarity): Rarity | null {
  * spin never spoils the rarity), a gated near-miss tease at `winIndex-1`
  * (the last decoy to cross the line before the winner), decoys elsewhere.
  *
- * `decoyDexes` is the pool the flicker cells sample from — pass the PACK's own
- * card dexes so the reel only shows Pokémon tied to a reward in this pack (the
- * reported bug was arbitrary hardcoded species). Empty/omitted → DECOY_DEXES.
+ * `decoyCards` is the pool the flicker cells sample from — pass the PACK's own
+ * cards, each PAIRING its dex with its CONFIGURED rarity, so the reel only shows
+ * Pokémon tied to a reward in this pack AND only glows the pack's actual rarity
+ * colors (a card set to Immortal always glows Immortal; a pack with only
+ * Immortal + Common never flickers Legendary/Mythical/Rare/Uncommon). Empty/
+ * omitted → the curated DECOY_DEXES with cycled colors (fallback only).
  */
 export function buildHReelStrip(
   winnerDex: number | null,
@@ -61,7 +64,7 @@ export function buildHReelStrip(
   length: number,
   winIndex: number,
   seed = 0,
-  decoyDexes: readonly number[] = DECOY_DEXES,
+  decoyCards: readonly HReelCell[] = [],
 ): HReelCell[] {
   if (!Number.isInteger(length) || length <= 0) {
     throw new RangeError('buildHReelStrip: length must be a positive integer');
@@ -71,9 +74,13 @@ export function buildHReelStrip(
       'buildHReelStrip: winIndex must be within [0, length)',
     );
   }
-  // A pack with no resolvable card dexes (empty pool) falls back to the curated
-  // set so decoys never render broken images.
-  const pool = decoyDexes.length > 0 ? decoyDexes : DECOY_DEXES;
+  // The pack's own cards (dex + configured rarity, paired) drive the decoys. A
+  // pack with no resolvable card dexes (empty pool) falls back to the curated
+  // dexes with cycled colors so decoys never render broken images.
+  const pool: readonly HReelCell[] =
+    decoyCards.length > 0
+      ? decoyCards
+      : DECOY_DEXES.map((dex, i) => ({ dex, rarity: decoyRarity(i) }));
   // Winner cell: the real winner dex, else a POOL dex (never a hardcoded 1) so
   // the IDLE strip (no winner yet) stays entirely pack-configured Pokémon.
   const safeWinner =
@@ -82,16 +89,21 @@ export function buildHReelStrip(
     winnerDex >= 1 &&
     winnerDex <= POKEDEX_MAX
       ? winnerDex
-      : pool[0]!;
+      : pool[0]!.dex;
   // `seed` (the reel index) shifts the decoy pattern so stacked strips show
   // DIFFERENT flanking Pokémon + tier colors — three independent-looking reels,
-  // not one repeated ×3. seed=0 keeps the original single-strip behavior.
-  const cells: HReelCell[] = Array.from({ length }, (_, i) => ({
-    dex: pool[(i + seed * 4) % pool.length]!,
-    rarity: decoyRarity(i + seed),
-  }));
-  // Winner: real dex, DECOY color (real color applied on settle by ReelStrip).
-  cells[winIndex] = { dex: safeWinner, rarity: decoyRarity(winIndex + seed) };
+  // not one repeated ×3. seed=0 keeps the original single-strip behavior. Each
+  // cell keeps its card's OWN rarity (its box color), not a cycled palette.
+  const cells: HReelCell[] = Array.from({ length }, (_, i) => {
+    const c = pool[(i + seed * 4) % pool.length]!;
+    return { dex: c.dex, rarity: c.rarity };
+  });
+  // Winner: real dex, DECOY color from a pool card (real color applied on settle
+  // by ReelStrip, so the spin never spoils the rarity).
+  cells[winIndex] = {
+    dex: safeWinner,
+    rarity: pool[(winIndex + seed) % pool.length]!.rarity,
+  };
   const tease = teaseRarity(winnerRarity);
   const teaseIdx = winIndex - 1;
   if (tease && teaseIdx >= 0) {

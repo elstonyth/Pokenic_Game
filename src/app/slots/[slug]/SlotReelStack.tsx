@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Rarity } from '@/lib/packs-data';
+import type { HReelCell } from '@/lib/hreel';
 import { ReelStrip } from './ReelStrip';
 import { WinningLine } from './WinningLine';
 
@@ -26,7 +27,7 @@ export function SlotReelStack({
   winners,
   reduced,
   cellSize,
-  decoyDexes,
+  decoyCards,
   onAllSettled,
   onWinnerRect,
   hideWinners,
@@ -36,8 +37,9 @@ export function SlotReelStack({
   winners: ColumnWinner[] | null;
   reduced: boolean;
   cellSize?: number;
-  /** Pack's own card dexes for the decoy flicker (Pokémon tied to a reward). */
-  decoyDexes?: readonly number[];
+  /** Pack's own cards {dex, rarity} for the decoy flicker — the reel shows only
+   *  the pack's Pokémon in only the pack's rarity colors. */
+  decoyCards?: readonly HReelCell[];
   onAllSettled?: () => void;
   onWinnerRect?: (colIndex: number, rect: DOMRect) => void;
   hideWinners?: boolean;
@@ -89,7 +91,7 @@ export function SlotReelStack({
                 colIndex={i}
                 count={count}
                 cellSize={cellSize}
-                decoyDexes={decoyDexes}
+                decoyCards={decoyCards}
                 onSettled={winners ? handleColSettled : undefined}
                 onWinnerRect={
                   onWinnerRect ? (rect) => onWinnerRect(i, rect) : undefined

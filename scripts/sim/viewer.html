@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8" />
-<title>PixelSlot — Live Sim</title>
+<title>PixelSlot — Live Sim (3D)</title>
 <style>
   :root {
     color-scheme: dark;
@@ -9,57 +9,84 @@
     margin: 0;
     box-sizing: border-box;
   }
+  html,
   body {
-    background: #0a0a0a;
-    color: #fafafa;
+    height: 100%;
+    overflow: hidden;
+    background: #0a0b12;
+    color: #f4f5fb;
     font:
-      13px/1.4 ui-monospace,
+      13px/1.45 ui-monospace,
+      SFMono-Regular,
+      Menlo,
       monospace;
-    display: flex;
+  }
+  #scene {
+    display: block;
+    width: 100vw;
     height: 100vh;
   }
-  #stage {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .lbl {
+    color: #eef;
+    font:
+      600 12px/1 ui-monospace,
+      monospace;
+    text-shadow: 0 1px 3px #000;
+    padding: 2px 6px;
+    background: rgba(12, 13, 20, 0.55);
+    border-radius: 5px;
+    white-space: nowrap;
   }
-  canvas {
-    image-rendering: pixelated;
-    background: #141414;
-    border: 1px solid #262626;
-    width: min(96%, 900px);
+  .lbl.station {
+    color: #aab;
+    letter-spacing: 0.12em;
+    font-size: 10px;
+    background: none;
+    text-shadow: 0 1px 4px #000;
   }
   #side {
-    width: 320px;
-    border-left: 1px solid #262626;
-    padding: 12px;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 310px;
+    height: 100vh;
+    background: rgba(10, 11, 18, 0.8);
+    backdrop-filter: blur(9px);
+    border-left: 1px solid #23252f;
+    padding: 14px;
     overflow-y: auto;
   }
   h2 {
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #a3a3a3;
-    margin: 14px 0 6px;
+    letter-spacing: 0.12em;
+    color: #868aa0;
+    margin: 16px 0 6px;
   }
   .row {
     display: flex;
     justify-content: space-between;
-    padding: 2px 0;
+    gap: 8px;
+    padding: 3px 0;
+    align-items: center;
   }
   .dot {
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     border-radius: 2px;
-    margin-right: 6px;
+    margin-right: 7px;
+    box-shadow: 0 0 7px currentColor;
+  }
+  .muted {
+    color: #868aa0;
   }
   #findings .f {
-    padding: 4px 6px;
-    margin: 3px 0;
-    border-radius: 4px;
-    background: #1c1c1c;
+    padding: 5px 7px;
+    margin: 4px 0;
+    border-radius: 5px;
+    background: #15171f;
+    font-size: 12px;
   }
   .sev-critical {
     border-left: 3px solid #ef4444;
@@ -74,176 +101,543 @@
     border-left: 3px solid #6b7280;
   }
   #day {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
   }
+  #badge {
+    position: fixed;
+    left: 12px;
+    top: 11px;
+    font-size: 11px;
+    color: #9aa;
+    background: rgba(10, 11, 18, 0.7);
+    padding: 4px 9px;
+    border-radius: 6px;
+    border: 1px solid #23252f;
+  }
+  #hint {
+    position: fixed;
+    left: 12px;
+    bottom: 10px;
+    color: #6b7280;
+    font-size: 11px;
+  }
 </style>
-<div id="stage"><canvas id="floor" width="640" height="360"></canvas></div>
+<canvas id="scene"></canvas>
+<div id="badge">PixelSlot · live sim · 3D</div>
 <aside id="side">
   <div id="day">Day —</div>
   <h2>Customers</h2>
-  <div id="customers"></div>
+  <div id="customers" class="muted">waiting for arrivals…</div>
   <h2>Admin queue (<span id="qdepth">0</span>)</h2>
-  <div id="queue"></div>
+  <div id="queue" class="muted">empty</div>
   <h2>Findings</h2>
-  <div id="findings"></div>
+  <div id="findings" class="muted">none yet</div>
 </aside>
+<div id="hint">drag to orbit · scroll to zoom · right-drag to pan</div>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    }
+  }
+</script>
 <script type="module">
-  // Choreography is duplicated here (browser can't import the .mjs across the
-  // SSE boundary without a bundler; the map is tiny). Keep in sync with
-  // choreography.mjs — the pilot checks a played_pack lands a sprite on a slot.
-  const STATIONS = {
-    entrance: { x: 40, y: 180 },
-    slot1: { x: 200, y: 70 },
-    slot2: { x: 200, y: 180 },
-    slot3: { x: 200, y: 290 },
-    vault: { x: 360, y: 70 },
-    desk: { x: 500, y: 180 },
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import {
+    CSS2DRenderer,
+    CSS2DObject,
+  } from 'three/addons/renderers/CSS2DRenderer.js';
+
+  // ---- Stations on the plaza (x,z); y up. Kept in sync w/ choreography.mjs ----
+  const S = {
+    entrance: { x: -3, z: 10 },
+    slot1: { x: -8, z: -3 },
+    slot2: { x: -9, z: 1 },
+    slot3: { x: -8, z: 5 },
+    vault: { x: 5, z: -7 },
+    desk: { x: 9, z: 1 },
+    fountain: { x: 0, z: 0 },
   };
   function targetFor(e) {
     switch (e.kind) {
       case 'played_pack':
-        return {
-          ...(STATIONS[e.detail?.slot] || STATIONS.slot1),
-          mood: 'busy',
-        };
+        return { s: S[e.detail?.slot] || S.slot1, mood: 'busy' };
       case 'pull_result':
         return {
-          ...STATIONS.slot1,
+          s: S.slot1,
           mood: e.detail?.rarity === 'legendary' ? 'happy' : 'neutral',
         };
       case 'complained':
-        return { ...STATIONS.desk, mood: 'angry' };
+        return { s: S.desk, mood: 'angry' };
       case 'admin_picked_up':
       case 'admin_resolved':
-        return { ...STATIONS.desk, mood: 'busy' };
+        return { s: S.desk, mood: 'busy' };
       default:
-        return { ...STATIONS.entrance, mood: 'neutral' };
+        return { s: S.entrance, mood: 'neutral' };
     }
   }
   const MOOD = {
-    neutral: '#e5e5e5',
-    happy: '#4ade80',
-    angry: '#ef4444',
-    busy: '#38bdf8',
+    neutral: 0xe6e9f2,
+    happy: 0x4ade80,
+    angry: 0xef4444,
+    busy: 0x38bdf8,
   };
+  const PALETTE = [
+    0x60d394, 0xf8777d, 0xa78bfa, 0xffd166, 0x4cc9f0, 0xff9f5a, 0xf473b9,
+    0x2dd4bf,
+  ];
 
-  const cvs = document.getElementById('floor');
-  const ctx = cvs.getContext('2d');
-  const sprites = new Map(); // actor -> { x, y, tx, ty, color, mood, action }
-  const queue = []; // customer ids waiting at the desk
+  // ---- Renderers -------------------------------------------------------------
+  const canvas = document.getElementById('scene');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(innerWidth, innerHeight);
+  Object.assign(labelRenderer.domElement.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    pointerEvents: 'none',
+  });
+  document.body.appendChild(labelRenderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x11131f);
+  scene.fog = new THREE.Fog(0x11131f, 34, 70);
+
+  const camera = new THREE.PerspectiveCamera(
+    42,
+    innerWidth / innerHeight,
+    0.1,
+    300,
+  );
+  camera.position.set(20, 19, 24);
+
+  const controls = new OrbitControls(camera, labelRenderer.domElement);
+  controls.target.set(0, 1.5, 0);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI * 0.48;
+  controls.minDistance = 12;
+  controls.maxDistance = 60;
+
+  // ---- Lighting (dragonir-style: directional shadow + hemi + ambient + fog) ---
+  scene.add(new THREE.HemisphereLight(0xbcd2ff, 0x1a1622, 0.6));
+  scene.add(new THREE.AmbientLight(0x5b5566, 0.5));
+  const sun = new THREE.DirectionalLight(0xfff0d8, 1.35);
+  sun.position.set(16, 26, 12);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, {
+    left: -26,
+    right: 26,
+    top: 26,
+    bottom: -26,
+  });
+  sun.shadow.bias = -0.0004;
+  scene.add(sun);
+
+  // ---- Diorama island --------------------------------------------------------
+  const mat = (c, o = {}) =>
+    new THREE.MeshStandardMaterial({
+      color: c,
+      roughness: 0.78,
+      metalness: 0.12,
+      ...o,
+    });
+  const round = (g) => ((g.castShadow = g.receiveShadow = true), g);
+
+  // island base (soft round pedestal)
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(15.5, 14, 2.2, 48),
+    mat(0xcdbfa6, { roughness: 0.95 }),
+  );
+  base.position.y = -1.1;
+  base.receiveShadow = true;
+  scene.add(base);
+  const plaza = new THREE.Mesh(
+    new THREE.CylinderGeometry(15, 15, 0.3, 48),
+    mat(0x1a1f30, { roughness: 0.6, metalness: 0.2 }),
+  );
+  plaza.position.y = 0.15;
+  plaza.receiveShadow = true;
+  scene.add(plaza);
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(15, 0.28, 12, 60),
+    mat(0x2a3350, { emissive: 0x1b2f66, emissiveIntensity: 0.5 }),
+  );
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.32;
+  scene.add(rim);
+
+  // central fountain
+  (() => {
+    const g = new THREE.Group();
+    g.position.set(S.fountain.x, 0, S.fountain.z);
+    g.add(
+      round(
+        new THREE.Mesh(
+          new THREE.CylinderGeometry(2.6, 2.9, 0.7, 32),
+          mat(0xb9c7d6, { roughness: 0.5 }),
+        ),
+      ).translateY(0.35),
+    );
+    const water = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.3, 2.3, 0.2, 32),
+      mat(0x3aa6ff, {
+        emissive: 0x1e6bd6,
+        emissiveIntensity: 0.6,
+        roughness: 0.2,
+      }),
+    );
+    water.position.y = 0.7;
+    g.add(water);
+    g.add(
+      round(
+        new THREE.Mesh(
+          new THREE.CylinderGeometry(0.4, 0.5, 1.6, 20),
+          mat(0xd6e0ea),
+        ),
+      ).translateY(1.4),
+    );
+    const spout = new THREE.Mesh(
+      new THREE.SphereGeometry(0.55, 20, 16),
+      mat(0x63b8ff, { emissive: 0x2e86ff, emissiveIntensity: 0.8 }),
+    );
+    spout.position.y = 2.4;
+    g.add(spout);
+    g.add(new THREE.PointLight(0x49a0ff, 0.9, 12).translateY(2.2));
+    scene.add(g);
+  })();
+
+  // slot cabinets
+  function slot(pos, hue) {
+    const g = new THREE.Group();
+    g.position.set(pos.x, 0, pos.z);
+    g.add(
+      round(
+        new THREE.Mesh(
+          new THREE.BoxGeometry(1.8, 3, 1.4),
+          mat(0x222842, { metalness: 0.5, roughness: 0.45 }),
+        ),
+      ).translateY(1.5),
+    );
+    const screen = new THREE.Mesh(
+      new THREE.BoxGeometry(1.35, 1.05, 0.08),
+      mat(0x000, {
+        color: hue,
+        emissive: hue,
+        emissiveIntensity: 0.9,
+        roughness: 0.3,
+      }),
+    );
+    screen.position.set(0, 2, 0.72);
+    g.add(screen);
+    const glow = new THREE.PointLight(hue, 0.75, 7);
+    glow.position.set(0, 2.1, 1.2);
+    g.add(glow);
+    scene.add(g);
+    return screen;
+  }
+  const screens = [
+    slot(S.slot1, 0x8a63ff),
+    slot(S.slot2, 0x2dd4bf),
+    slot(S.slot3, 0xff5ca8),
+  ];
+
+  // vault
+  (() => {
+    const g = new THREE.Group();
+    g.position.set(S.vault.x, 0, S.vault.z);
+    g.add(
+      round(
+        new THREE.Mesh(
+          new THREE.BoxGeometry(2.8, 3, 1.9),
+          mat(0x2b3048, { metalness: 0.8, roughness: 0.3 }),
+        ),
+      ).translateY(1.5),
+    );
+    const door = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.85, 0.85, 0.16, 28),
+      mat(0xe6c04a, {
+        metalness: 0.95,
+        roughness: 0.25,
+        emissive: 0x5a4300,
+        emissiveIntensity: 0.3,
+      }),
+    );
+    door.rotation.x = Math.PI / 2;
+    door.position.set(0, 1.6, 0.98);
+    g.add(door);
+    scene.add(g);
+    stationLabel('VAULT', S.vault, 3.4);
+  })();
+
+  // admin desk + seated admin
+  (() => {
+    const g = new THREE.Group();
+    g.position.set(S.desk.x, 0, S.desk.z);
+    g.add(
+      round(
+        new THREE.Mesh(
+          new THREE.BoxGeometry(3.1, 1.1, 1.6),
+          mat(0x4a3a28, { roughness: 0.7 }),
+        ),
+      ).translateY(0.55),
+    );
+    const mon = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.8, 0.06),
+      mat(0x111, { emissive: 0x2f8fff, emissiveIntensity: 0.7 }),
+    );
+    mon.position.set(0.2, 1.5, 0);
+    g.add(mon);
+    scene.add(g);
+    const adm = person(0x9aa2b8, 'admin');
+    adm.group.position.set(S.desk.x + 1.2, 0, S.desk.z);
+    adm.group.scale.y = 0.9;
+    stationLabel('ADMIN', S.desk, 3.0);
+  })();
+
+  // trees + planters around the rim
+  function tree(x, z, s = 1) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.scale.setScalar(s);
+    g.add(
+      round(
+        new THREE.Mesh(
+          new THREE.CylinderGeometry(0.18, 0.22, 1.1, 8),
+          mat(0x6b4a2f),
+        ),
+      ).translateY(0.55),
+    );
+    for (let i = 0; i < 3; i++)
+      g.add(
+        round(
+          new THREE.Mesh(
+            new THREE.ConeGeometry(1 - i * 0.22, 1.1, 10),
+            mat(0x4c8b52, { roughness: 0.9 }),
+          ),
+        ).translateY(1.4 + i * 0.55),
+      );
+    scene.add(g);
+  }
+  [
+    [-12, -8, 1.2],
+    [12, -9, 1.3],
+    [13, 6, 1.1],
+    [-13, 7, 1.15],
+    [0, -13, 1.4],
+    [-6, 12.5, 1],
+    [8, 12, 1.05],
+  ].forEach(([x, z, s]) => tree(x, z, s));
+
+  // string-light poles
+  function pole(x, z) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.add(
+      round(
+        new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.08, 4, 8),
+          mat(0x33384a),
+        ),
+      ).translateY(2),
+    );
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 12, 10),
+      mat(0xfff1c0, { emissive: 0xffd98a, emissiveIntensity: 1 }),
+    );
+    bulb.position.y = 4;
+    g.add(bulb);
+    g.add(new THREE.PointLight(0xffe3a3, 0.5, 8).translateY(4));
+    scene.add(g);
+  }
+  [
+    [-10, 10],
+    [10, 10],
+    [-11, -2],
+    [11, -3],
+  ].forEach(([x, z]) => pole(x, z));
+
+  // ---- Labels (CSS2D) --------------------------------------------------------
+  function makeLabel(text, cls) {
+    const d = document.createElement('div');
+    d.className = 'lbl ' + (cls || '');
+    d.textContent = text;
+    return new CSS2DObject(d);
+  }
+  function stationLabel(text, pos, y) {
+    const l = makeLabel(text, 'station');
+    l.position.set(pos.x, y, pos.z);
+    scene.add(l);
+  }
+  stationLabel('SLOTS', { x: S.slot2.x - 1.5, z: S.slot2.z }, 3.6);
+  stationLabel('FOUNTAIN', S.fountain, 3.2);
+
+  // ---- People ----------------------------------------------------------------
+  function person(hex, name) {
+    const group = new THREE.Group();
+    const body = round(
+      new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.36, 0.72, 6, 14),
+        mat(hex, { roughness: 0.6 }),
+      ),
+    );
+    body.position.y = 0.9;
+    group.add(body);
+    const headMat = mat(0xe6e9f2, { roughness: 0.5 });
+    const head = round(
+      new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 16), headMat),
+    );
+    head.position.y = 1.58;
+    group.add(head);
+    scene.add(group);
+    let label = null;
+    if (name && name !== 'admin') {
+      label = makeLabel(name);
+      label.position.set(0, 2.15, 0);
+      group.add(label);
+    }
+    return { group, headMat, label };
+  }
+
+  // ---- Live state ------------------------------------------------------------
+  const people = new Map();
+  const queue = [];
   const balances = new Map();
+  const colorOf = (() => {
+    let i = 0;
+    const m = {};
+    return (a) => (m[a] ??= PALETTE[i++ % PALETTE.length]);
+  })();
+  const hex6 = (n) => '#' + n.toString(16).padStart(6, '0');
   let day = 0;
 
-  const COLORS = {}; // actor -> color, assigned on first sight
-  const PALETTE = [
-    '#4ade80',
-    '#f87171',
-    '#a78bfa',
-    '#fbbf24',
-    '#38bdf8',
-    '#fb923c',
-    '#f472b6',
-    '#2dd4bf',
-  ];
-  let ci = 0;
-  const colorOf = (a) => (COLORS[a] ??= PALETTE[ci++ % PALETTE.length]);
-
+  function ensure(actor) {
+    if (people.has(actor)) return people.get(actor);
+    const p = person(colorOf(actor), actor);
+    p.color = colorOf(actor);
+    p.group.position.set(S.entrance.x, 0, S.entrance.z);
+    people.set(actor, p);
+    return p;
+  }
   function handle(e) {
-    if (typeof e.day === 'number') {
+    if (typeof e.day === 'number' && e.day !== day) {
       day = e.day;
       document.getElementById('day').textContent = 'Day ' + day;
     }
-    if (e.kind === 'finding') {
-      addFinding(e.detail);
-      return;
-    }
+    if (e.kind === 'finding') return addFinding(e.detail);
     if (e.actor === 'admin') {
       if (e.kind === 'admin_picked_up' && e.detail?.customer) {
         const i = queue.indexOf(e.detail.customer);
         if (i >= 0) queue.splice(i, 1);
       }
-      renderQueue();
-      return;
+      return renderQueue();
     }
     if (e.kind === 'complained' && !queue.includes(e.actor))
       queue.push(e.actor);
     if (e.detail?.balance != null) balances.set(e.actor, e.detail.balance);
+    const p = ensure(e.actor);
     const t = targetFor(e);
-    const s = sprites.get(e.actor) || {
-      x: STATIONS.entrance.x,
-      y: STATIONS.entrance.y,
-      color: colorOf(e.actor),
-    };
-    s.tx = t.x;
-    s.ty = t.y;
-    s.mood = t.mood;
-    s.action = e.kind;
-    sprites.set(e.actor, s);
+    p.tx = t.s.x;
+    p.tz = t.s.z;
+    p.mood = t.mood;
+    p.action = e.kind;
     renderQueue();
     renderCustomers();
   }
-
   function addFinding(f) {
+    const box = document.getElementById('findings');
+    if (box.classList.contains('muted')) {
+      box.classList.remove('muted');
+      box.innerHTML = '';
+    }
     const el = document.createElement('div');
     el.className = 'f sev-' + (f?.severity || 'low');
     el.textContent = `[${f?.category || '?'}] ${f?.summary || ''}`;
-    document.getElementById('findings').prepend(el);
+    box.prepend(el);
   }
   function renderQueue() {
     document.getElementById('qdepth').textContent = queue.length;
-    document.getElementById('queue').innerHTML = queue
-      .map(
-        (a) =>
-          `<div class="row"><span><span class="dot" style="background:${colorOf(a)}"></span>${a}</span></div>`,
-      )
-      .join('');
+    const box = document.getElementById('queue');
+    box.classList.toggle('muted', !queue.length);
+    box.innerHTML = queue.length
+      ? queue
+          .map(
+            (a) =>
+              `<div class="row"><span><span class="dot" style="color:${hex6(colorOf(a))}">■</span>${a}</span></div>`,
+          )
+          .join('')
+      : 'empty';
   }
   function renderCustomers() {
-    document.getElementById('customers').innerHTML = [...sprites.entries()]
+    const box = document.getElementById('customers');
+    if (!people.size) return;
+    box.classList.remove('muted');
+    box.innerHTML = [...people.entries()]
+      .filter(([a]) => a !== 'admin')
       .map(
-        ([a, s]) =>
-          `<div class="row"><span><span class="dot" style="background:${s.color}"></span>${a}</span><span>${balances.get(a) ?? '—'} · ${s.action || ''}</span></div>`,
+        ([a, p]) =>
+          `<div class="row"><span><span class="dot" style="color:${hex6(p.color)}">■</span>${a}</span><span class="muted">${balances.get(a) ?? '—'} · ${p.action || ''}</span></div>`,
       )
       .join('');
   }
 
-  function draw() {
-    ctx.clearRect(0, 0, cvs.width, cvs.height);
-    // stations
-    ctx.fillStyle = '#262626';
-    for (const k of ['slot1', 'slot2', 'slot3'])
-      rect(STATIONS[k], 26, 34, '#3b3b3b');
-    rect(STATIONS.vault, 30, 30, '#3f3f46');
-    rect(STATIONS.desk, 40, 26, '#404040');
-    label(STATIONS.vault, 'VAULT');
-    label(STATIONS.desk, 'ADMIN');
-    // sprites
-    for (const s of sprites.values()) {
-      s.x += ((s.tx ?? s.x) - s.x) * 0.12;
-      s.y += ((s.ty ?? s.y) - s.y) * 0.12;
-      ctx.fillStyle = s.color;
-      ctx.fillRect(s.x - 5, s.y - 5, 10, 10);
-      ctx.fillStyle = MOOD[s.mood] || '#e5e5e5';
-      ctx.fillRect(s.x - 5, s.y - 9, 10, 3);
+  // ---- Loop ------------------------------------------------------------------
+  const clock = new THREE.Clock();
+  function tick() {
+    const dt = Math.min(clock.getDelta(), 0.05),
+      t = clock.elapsedTime;
+    for (const p of people.values()) {
+      if (p.tx != null) {
+        p.group.position.x +=
+          (p.tx - p.group.position.x) * Math.min(1, dt * 2.6);
+        p.group.position.z +=
+          (p.tz - p.group.position.z) * Math.min(1, dt * 2.6);
+      }
+      const busy = p.action === 'played_pack' || p.mood === 'busy';
+      p.group.position.y = busy ? Math.abs(Math.sin(t * 6)) * 0.14 : 0;
+      const mc = MOOD[p.mood] ?? MOOD.neutral;
+      p.headMat.color.setHex(mc);
+      p.headMat.emissive.setHex(p.mood === 'neutral' ? 0x000000 : mc);
+      p.headMat.emissiveIntensity = p.mood === 'neutral' ? 0 : 0.55;
     }
-    requestAnimationFrame(draw);
+    screens.forEach(
+      (s, i) =>
+        (s.material.emissiveIntensity = 0.7 + Math.sin(t * 3 + i) * 0.22),
+    );
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+    requestAnimationFrame(tick);
   }
-  function rect(p, w, h, c) {
-    ctx.fillStyle = c;
-    ctx.fillRect(p.x - w / 2, p.y - h / 2, w, h);
+  function resize() {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    labelRenderer.setSize(innerWidth, innerHeight);
   }
-  function label(p, t) {
-    ctx.fillStyle = '#a3a3a3';
-    ctx.font = '9px monospace';
-    ctx.fillText(t, p.x - 14, p.y + 26);
-  }
+  addEventListener('resize', resize);
+  resize();
+  tick();
 
+  // ---- Live feed -------------------------------------------------------------
   const es = new EventSource('/events');
   es.onmessage = (m) => {
     try {
       handle(JSON.parse(m.data));
     } catch {}
   };
-  requestAnimationFrame(draw);
+  es.onerror = () => {
+    document.getElementById('badge').textContent = 'PixelSlot · reconnecting…';
+  };
 </script>

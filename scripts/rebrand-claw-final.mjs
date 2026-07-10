@@ -1,4 +1,4 @@
-// DEFINITIVE claw re-brand. Removes "phygitals" by STROKE-LEVEL inpaint (recolours
+// DEFINITIVE claw re-brand. Removes "source-brand" by STROKE-LEVEL inpaint (recolours
 // ONLY the wordmark's own pixels + glow to the nearest banner pixel on each side) —
 // so the white sign / dark banner is left untouched: no band-fill, no edge streaks,
 // no box. Then draws a centred "Pokenic". Bands/centres come from detect-lines.mjs.

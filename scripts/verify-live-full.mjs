@@ -1,5 +1,5 @@
 // Capture the FULL claw machine (live, :4000) as an element screenshot — to audit ALL
-// phygitals instances (banner + side rails + bottom base), not just the banner.
+// source-brand instances (banner + side rails + bottom base), not just the banner.
 import { chromium } from 'playwright';
 
 const SLUGS = [

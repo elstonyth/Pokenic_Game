@@ -41,7 +41,7 @@ const cell = (
 ) => `<div style="font:12px monospace;color:#fff">${label}</div>
   <div style="width:${dispW}px;height:${cropH}px;overflow:hidden;background:#222;margin-bottom:8px">
     <img src="${src}" style="width:${Math.round(OW * scale)}px;margin-left:-${Math.round(SX * OW * scale)}px;margin-top:-${Math.round(SY * OH * scale)}px"/></div>`;
-const html = `<!doctype html><body style="margin:0;background:#555;padding:8px">${cell(origPng, 'ORIGINAL (phygitals)')}${cell(cur, 'CURRENT (pokenic)')}</body>`;
+const html = `<!doctype html><body style="margin:0;background:#555;padding:8px">${cell(origPng, 'ORIGINAL (source-brand)')}${cell(cur, 'CURRENT (pokenic)')}</body>`;
 const f = resolve('docs/research/packdetail/_diagmg.html').replace(/\\/g, '/');
 writeFileSync(f, html);
 const browser = await chromium.launch();

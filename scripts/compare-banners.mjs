@@ -1,4 +1,4 @@
-// Recheck: stack each machine's ORIGINAL banner (lama-in, with phygitals) over the new
+// Recheck: stack each machine's ORIGINAL banner (lama-in, with source-brand) over the new
 // rebranded banner (disk webp) so colour/position/size/residue can be judged side-by-side.
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';

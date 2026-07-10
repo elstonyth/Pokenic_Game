@@ -1,5 +1,5 @@
 // Render the edited claw-machine webps (banner area) to confirm the seamless
-// "phygitals"→"Pokenic" bake — no box, matched colour/alignment.
+// "source-brand"→"Pokenic" bake — no box, matched colour/alignment.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { writeFileSync } from 'node:fs';

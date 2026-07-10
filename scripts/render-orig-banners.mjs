@@ -1,4 +1,4 @@
-// Grid the ORIGINAL banners (still carrying "phygitals") to read the exact wordmark
+// Grid the ORIGINAL banners (still carrying "source-brand") to read the exact wordmark
 // line extent + center, for product (mythic avif) and the 4 dramatic (-src webp).
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

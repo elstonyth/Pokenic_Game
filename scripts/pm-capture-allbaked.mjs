@@ -1,4 +1,4 @@
-// Verify the rebrand on live pages: 4 dramatic phygitals packs + product-shot regression.
+// Verify the rebrand on live pages: 4 dramatic source-brand packs + product-shot regression.
 import { chromium } from 'playwright';
 const OUT = 'docs/research/packdetail';
 const PACKS = [

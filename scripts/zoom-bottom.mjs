@@ -1,4 +1,4 @@
-// Locate the small bottom-front "phygitals" / "phygitals.com" branding on a product
+// Locate the small bottom-front "source-brand" / "source-brand url" branding on a product
 // (mythic avif) and a dramatic (black-pack -src) machine, with a grid to read it.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

@@ -1,5 +1,5 @@
 // Bake the Pokenic re-brand INTO the claw-machine renders (no runtime overlay box).
-// For the uniform 1440x1000 product shots: remove "phygitals" by reconstructing the
+// For the uniform 1440x1000 product shots: remove "source-brand" by reconstructing the
 // banner from its own neighbouring pixels (per-row edge interpolation → seamless, no
 // box, exact colour/shading), then draw "Pokenic" in the original's sampled purple.
 // Loads source images SAME-ORIGIN (no canvas taint); writes edited webp to disk.
@@ -78,17 +78,17 @@ const results = await page.evaluate(async (PRODUCT) => {
       return [d[i], d[i + 1], d[i + 2]];
     };
 
-    // "phygitals" brand line bbox (validated visually): x 30–58.5%, y 14.7–21.3%
+    // "source-brand" brand line bbox (validated visually): x 30–58.5%, y 14.7–21.3%
     const x0 = 432,
       x1 = 842,
       y0 = 147,
       y1 = 213;
 
-    // The "phygitals" wordmark is the same periwinkle on every render — use it fixed
+    // The "source-brand" wordmark is the same periwinkle on every render — use it fixed
     // (per-image sampling caught machine-frame colour on a few packs).
     const purple = 'rgb(104,108,190)';
 
-    // STROKE-LEVEL inpaint: replace ONLY the purple "phygitals" strokes with the
+    // STROKE-LEVEL inpaint: replace ONLY the purple "source-brand" strokes with the
     // nearest banner pixels on each side. This preserves the banner's curve/shading
     // everywhere else, so there is NO rectangle/box/seam (the previous rect fill did).
     const isText = (x, y) => {

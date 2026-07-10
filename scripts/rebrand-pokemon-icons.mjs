@@ -1,6 +1,6 @@
 // Task E v2 Phase 1 — pack ICON rebrand. Machines were rebranded in the earlier
 // waves (audit crops confirm "pokenic claw."), but every pokemon pack ICON still
-// carries "www.phygitals.com" + the phygitals P logomark sticker. This pass,
+// carries "the source-brand url" + the source-brand P logomark sticker. This pass,
 // per icon zone: detect the ink strokes inside a band, erase them with the
 // nearest-real-pixel row fill (no blur, preserves wrap texture/holo), and bake
 // the replacement text (canvas Poppins at native res) at the detected position.
@@ -74,7 +74,7 @@ const ICONS = {
   'base-set-pack': {
     src: `${STAGE}/base-set-pack-icon.webp`,
     ops: [
-      // "PHYGITALS PRESENTS" headline (dark caps on wavy green lines — the row
+      // "SOURCE-BRAND PRESENTS" headline (dark caps on wavy green lines — the row
       // fill follows the horizontal waves, so the erase stays invisible)
       {
         key: 'presents',
@@ -87,7 +87,7 @@ const ICONS = {
         center: true,
         track: 0.14,
       },
-      // "by phygitals" white text on the green badge strip
+      // "by source-brand" white text on the green badge strip
       {
         key: 'badge',
         band: [0.06, 0.27, 0.835, 0.872],
@@ -98,7 +98,7 @@ const ICONS = {
         fsScale: 1.0,
         center: true,
       },
-      // "phygitals.io" wordmark, dark on the white wrap
+      // "source-brand url" wordmark, dark on the white wrap
       {
         key: 'io',
         band: [0.74, 0.98, 0.852, 0.888],

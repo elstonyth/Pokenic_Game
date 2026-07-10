@@ -1,4 +1,4 @@
-// Render the ORIGINAL (phygitals) banner zone for riftbound + modern-grails so we can
+// Render the ORIGINAL (source-brand) banner zone for riftbound + modern-grails so we can
 // see exactly where the wordmark sat — to match Pokenic's position/extent, not guess.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

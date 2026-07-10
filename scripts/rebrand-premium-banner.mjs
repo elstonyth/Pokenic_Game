@@ -4,9 +4,9 @@
 // refraction) where the stroke-inpaint used elsewhere leaves a readable silhouette, so every brand
 // zone is BLUR-PATCHED (downscale→upscale kills legible text but keeps the local glow/gradient) and
 // the new text is drawn on top. Zones:
-//   banner   "phygitals" -> "Pokenic"      (blur + neon redraw; frozen by make_patch BAND)
-//   placard  "phygitals" -> "pokenic"      (line 1 only; "claw." + serial text left untouched)
-//   url      "phygitals.com" -> "pokenic.com"
+//   banner   "source-brand" -> "Pokenic"      (blur + neon redraw; frozen by make_patch BAND)
+//   placard  "source-brand" -> "pokenic"      (line 1 only; "claw." + serial text left untouched)
+//   url      "source-brand url" -> "pokenic.com"
 //   refl     diamond's mirrored url reflection -> blurred away (no redraw)
 // Writes <base>-machine.webp (the still) AND the bottom-mask docs/research/.../bottom-mask/<base>.png
 // (placard+url+refl boxes) that make_patch.py freezes onto every animation frame. Needs :4000 for the

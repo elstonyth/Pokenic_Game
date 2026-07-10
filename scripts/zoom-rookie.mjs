@@ -1,5 +1,5 @@
 // Zoom into the rookie banner (incl. margin above/left) to find the residual
-// "phygitals" fragment the user circled. Shows x18-64%, y7-27% enlarged ~2.3x.
+// "source-brand" fragment the user circled. Shows x18-64%, y7-27% enlarged ~2.3x.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { writeFileSync } from 'node:fs';

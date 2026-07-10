@@ -1,5 +1,5 @@
 // Measure the rendered width of the claw-machine <img> across breakpoints, to decide
-// whether the baked "phygitals.com" url (native ~12px in a 1000px frame) is legible at any
+// whether the baked "source-brand url" (native ~12px in a 1000px frame) is legible at any
 // supported size. URL CSS height ≈ 0.0083 × rendered machine width. <3px → banner-only scope.
 import { chromium } from 'playwright';
 

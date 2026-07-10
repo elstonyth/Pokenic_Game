@@ -1,4 +1,4 @@
-// Shared motion vocabulary, measured frame-by-frame from live phygitals.com.
+// Shared motion vocabulary, measured frame-by-frame from the reference captures.
 // Source of truth: docs/research/components/motion-fidelity.spec.md (rAF captures in
 // docs/research/openpack-live/ + motion-live/). Use these tokens instead of ad-hoc
 // durations so every surface keeps the live site's exact feel.

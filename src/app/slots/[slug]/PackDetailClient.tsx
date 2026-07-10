@@ -198,7 +198,7 @@ export default function PackDetailClient({
           )}
 
           {/* All cards in this pack — the full public prize pool, value-sorted
-              (phygitals parity: every card with its live price). */}
+              (every card with its live price). */}
           {pool.length > 0 && (
             <Reveal as="section">
               <h2 className="mb-1 font-heading text-lg font-bold tracking-tight text-white">

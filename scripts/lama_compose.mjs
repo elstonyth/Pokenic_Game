@@ -1,9 +1,9 @@
 // Composite "Pokenic" onto LaMa's cleaned banners, AUTO-MATCHING each machine's ORIGINAL
-// phygitals wordmark so the rebrand keeps the same look/design/colour/position per machine:
+// source-brand wordmark so the rebrand keeps the same look/design/colour/position per machine:
 //   • COLOUR  — sampled from the original (lama-in) at the masked wordmark pixels (the core
 //               strokes, farthest from the banner background) → riftbound=gold, elite=red,
 //               pokemon=purple, nba/soccer=white… measured, not assumed.
-//   • POSITION— the mask bounding-box centre (where phygitals actually sat).
+//   • POSITION— the mask bounding-box centre (where source-brand actually sat).
 //   • SIZE    — fit to the wordmark's measured width.
 //   • GLOW    — on for dark/glowing banners (bg luminance low), off for light banners.
 // Text is drawn in the BROWSER (Poppins web font; PIL 9.5 mis-renders TTFs as .notdef).
@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const DIR = 'public/images/claw';
-const IN = 'docs/research/packdetail/lama-in'; // ORIGINAL (with phygitals) — colour source
+const IN = 'docs/research/packdetail/lama-in'; // ORIGINAL (with source-brand) — colour source
 const OUT = 'docs/research/packdetail/lama-out'; // LaMa-cleaned — draw target
 const MASK = 'docs/research/packdetail/lama-mask';
 
@@ -36,12 +36,12 @@ if (UNKNOWN.length) throw new Error(`Unknown base(s): ${UNKNOWN.join(', ')}`);
 const BASES = ONLY.length
   ? ALL_BASES.filter((b) => ONLY.includes(b))
   : ALL_BASES;
-// Match the phygitals wordmark style: LOWERCASE "pokenic" (originals are lowercase), in
-// Poppins 700 (the phygitals face), sized to the wordmark's LETTER HEIGHT (not stretched to
+// Match the source-brand wordmark style: LOWERCASE "pokenic" (originals are lowercase), in
+// Poppins 700 (the source-brand face), sized to the wordmark's LETTER HEIGHT (not stretched to
 // width), baseline-aligned, FLAT (no glow) — except machines whose original wordmark glows.
 const WORD = 'pokenic';
 const FSF = 0.78; // font-size as a fraction of the measured wordmark bbox height (dilate-3 inflated)
-const BASEF = 0.74; // baseline as a fraction down the bbox (so caps rise, 'p' descends, like phygitals)
+const BASEF = 0.74; // baseline as a fraction down the bbox (so caps rise, 'p' descends, like source-brand)
 // Per-base overrides: {color:[r,g,b], glow:bool, blur, fsf, basef, cxabs(0..1 absolute centre)}
 const OVERRIDES = {
   // ornate plate: per-row interpolation smears the filigree, so use the LaMa fill here; gold
@@ -52,7 +52,7 @@ const OVERRIDES = {
     blur: 0.16,
     color: [219, 177, 101],
   },
-  // phygitals sat left over "SOCCER CLAW" (FIFA logo right) → centre on the plate per user.
+  // source-brand sat left over "SOCCER CLAW" (FIFA logo right) → centre on the plate per user.
   'pro-soccer-pack': { cxabs: 0.497 },
 };
 
@@ -167,7 +167,7 @@ const results = await page.evaluate(
         med(core.map((c) => c.b)),
       ];
 
-      // Centre on the MEDIAN x of the wordmark pixels (robust = where phygitals actually sat),
+      // Centre on the MEDIAN x of the wordmark pixels (robust = where source-brand actually sat),
       // not the bbox centre (which strays when the mask catches frame/glow pixels on one side).
       const xsAll = idx.map((p) => p[0]).sort((a, b) => a - b);
       const medX = xsAll.length

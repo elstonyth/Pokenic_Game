@@ -1,4 +1,4 @@
-// BODY-TEXT pass — replaces the baked "phygitals" placard ("phygitals / claw.") + "phygitals.com" on
+// BODY-TEXT pass — replaces the baked "source-brand" placard ("source-brand / claw.") + "source-brand url" on
 // the machine BASE with "pokenic / claw." + "pokenic.com". For each it: detects the text via a robust
 // anchor (top-left of the dense ink block), stroke-level harmonic-erases the old ink (preserving card
 // texture), then BAKES the new text crisply (canvas Poppins, native res) at the detected position/size.
@@ -9,7 +9,7 @@
 // ROBUST ANCHOR approach (the two placard lines overlap vertically — descenders interleave the next
 // line's ascenders — so line-splitting is brittle). Instead, per element we detect ONE robust anchor:
 // the top-left of the dense dark/light text block (first row whose dark-pixel count clears 40% of the
-// peak = top of "phygitals"; leftmost hit = its left edge). Baselines are then derived from the anchor
+// peak = top of "source-brand"; leftmost hit = its left edge). Baselines are then derived from the anchor
 // via fixed Poppins metrics (ascender 0.72em, line-step 0.86em), so the layout tracks per-machine
 // framing drift automatically. Ink colour is sampled from the detected core BEFORE the harmonic
 // (Laplace) erase. Both placard lines are erased and BOTH redrawn ("claw." unchanged = lossless).
@@ -43,7 +43,7 @@ const MODELS = {
       color: [34, 32, 36],
     },
     // white-on-white url: detection fails, so a hardcoded fallback. Coords tuned to the real baked
-    // "phygitals.com" (≈ x40–49.5%, baseline ≈88.7%) so the erase fully covers it (no faint double).
+    // "source-brand url" (≈ x40–49.5%, baseline ≈88.7%) so the erase fully covers it (no faint double).
     url: {
       band: [0.392, 0.531, 0.87, 0.9],
       dir: 'light',
@@ -94,8 +94,8 @@ const MODELS = {
 const OVERRIDES = {
   // The base-group cards (nba/riftbound) each sit at a different x and have the dark machine frame
   // close on their left + "VIBES PACKS" close above — both wreck auto-detection — so their placards
-  // are PINNED to the measured top-left of the original "phygitals" (+ w = its width fraction).
-  // pin.x = original "phygitals" left edge; w = erase width CAPPED at the label's right edge so the
+  // are PINNED to the measured top-left of the original "source-brand" (+ w = its width fraction).
+  // pin.x = original "source-brand" left edge; w = erase width CAPPED at the label's right edge so the
   // erase never reaches the gold box / dark frame — overshooting there masks the shading and paints a
   // white/tan "tab" onto it. Both measured (label-constrained + fine-grid verified), not eyeballed.
   // See bbox_orig_*.png + measure_placard.png.
@@ -105,8 +105,8 @@ const OVERRIDES = {
   },
   'starter-riftbound-pack': { placard: { pin: { x: 0.41, y: 0.76, w: 0.06 } } },
   'pro-soccer-pack': {
-    // soccer's "phygitals" sits LOWER (≈80%) with "VIBES PACKS" close above it; band top must start
-    // below that small text so the anchor lands on "phygitals", not a line too high.
+    // soccer's "source-brand" sits LOWER (≈80%) with "VIBES PACKS" close above it; band top must start
+    // below that small text so the anchor lands on "source-brand", not a line too high.
     placard: { band: [0.392, 0.498, 0.793, 0.845] },
     url: { band: [0.356, 0.51, 0.91, 0.95] },
   },
@@ -237,7 +237,7 @@ const results = await page.evaluate(
         if (ov.pin) {
           // PINNED placard. Detection is unreliable on the base-group cards (the dark frame seam left of
           // the card pulls the left anchor off; "VIBES PACKS" above pulls the top anchor up). pin =
-          // measured top-left of the original "phygitals" + w = its width fraction (erase right edge).
+          // measured top-left of the original "source-brand" + w = its width fraction (erase right edge).
           anchorX = Math.round(ov.pin.x * W);
           anchorY = Math.round(ov.pin.y * H);
           blockRight = Math.round((ov.pin.x + (ov.pin.w ?? 0.12)) * W);
@@ -245,8 +245,8 @@ const results = await page.evaluate(
           color = ov.color || el.color;
         } else if (!ov.force && maxc >= 4 && hits.length >= minHits) {
           const rth = maxc * 0.4;
-          // First dense row from the top = top of "phygitals" (works when the band top sits just above
-          // "phygitals", i.e. pokemon + the soccer override). The base-group cards, where "VIBES PACKS"
+          // First dense row from the top = top of "source-brand" (works when the band top sits just above
+          // "source-brand", i.e. pokemon + the soccer override). The base-group cards, where "VIBES PACKS"
           // intrudes and the frame pollutes the left edge, are PINNED instead (handled above).
           let topIdx = -1;
           for (let i = 0; i < rowc.length; i++)
@@ -317,7 +317,7 @@ const results = await page.evaluate(
           DIL = 2;
         if (!detected) {
           // white-on-white url (no detectable strokes to mask): erase the WHOLE band rect, else the
-          // original faint "phygitals.com" survives under the redrawn "pokenic.com".
+          // original faint "source-brand url" survives under the redrawn "pokenic.com".
           M.fill(1);
         } else {
           for (let gy = ey0; gy <= ey1; gy++)
@@ -434,5 +434,5 @@ await writeFile(
 );
 await browser.close();
 console.log(
-  `\n${Object.keys(results).length} machines: baked "phygitals" blanked, edit-mask + overlay coords written -> ${OVERLAY_JSON}`,
+  `\n${Object.keys(results).length} machines: baked "source-brand" blanked, edit-mask + overlay coords written -> ${OVERLAY_JSON}`,
 );

@@ -1,4 +1,4 @@
-// Calibrate the "phygitals" wordmark position inside the claw-machine renders.
+// Calibrate the "source-brand" wordmark position inside the claw-machine renders.
 // Renders 3 machines (different colors) at a fixed width with a 5% grid so we can
 // read off the banner box as a % of the image — and confirm it's consistent.
 import { chromium } from 'playwright';

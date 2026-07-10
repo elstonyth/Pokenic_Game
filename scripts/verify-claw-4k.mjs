@@ -1,6 +1,6 @@
 // 4K legibility check: render each /claw/[slug] at a 3840 viewport (machine ~2243px wide) and screenshot
 // the machine <img> at full detail, so the bottom brand zones (url / placard / badge) can be read at the
-// largest size the page ever shows. Catches any phygitals residue that is sub-pixel at 1440 but legible at
+// largest size the page ever shows. Catches any source-brand residue that is sub-pixel at 1440 but legible at
 // 4K. node scripts/verify-claw-4k.mjs <slug...>
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';

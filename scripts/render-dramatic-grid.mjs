@@ -1,4 +1,4 @@
-// Render the 10 dramatic renders large with a fine grid to read each "phygitals"
+// Render the 10 dramatic renders large with a fine grid to read each "source-brand"
 // bbox (% of image) and its text colour, so we can bake them per-image.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

@@ -1,5 +1,5 @@
 // Render EVERY machine banner (current baked state) zoomed, to find any residual or
-// missed "phygitals" wording. Auto-detects dims; crops the top 26% (the banner).
+// missed "source-brand" wording. Auto-detects dims; crops the top 26% (the banner).
 import { chromium } from 'playwright';
 import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';

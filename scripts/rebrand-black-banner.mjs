@@ -1,7 +1,7 @@
 // Clean rebrand of the black-pack (and diamond-pack) NEON BANNER from the
-// pristine phygitals source the user supplied — the in-repo rebrand used the
+// pristine source-brand source the user supplied — the in-repo rebrand used the
 // wrong font (bold, capital P) and bloomed. This: erases the glowing
-// "phygitals" wordmark off the illuminated panel by smearing a clean panel
+// "source-brand" wordmark off the illuminated panel by smearing a clean panel
 // column across the glow region, then bakes "pokenic" matching the original
 // neon style (Poppins 600 lowercase, cream core + red outer glow), centered on
 // the original wordmark's midpoint.
@@ -20,7 +20,7 @@ const JOBS = [
   {
     base: 'black-pack',
     srcPng: `${OUT}/black-clean-full.png`,
-    // phygitals core bbox (detected): x 564-829, y 134-212
+    // source-brand core bbox (detected): x 564-829, y 134-212
     text: { lx: 564, rx: 829, ty: 134, by: 212 },
     // erase a bit wider/taller than the core to swallow the glow, but stay
     // below the red top rim (~y122) and above "BLACK PACK" (~y230).

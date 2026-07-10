@@ -1,9 +1,9 @@
 // Rebrand the BOTTOM brand zones of the One Piece (elite/legend/starter) + Yu-Gi-Oh claw machines from
-// phygitals -> pokenic. Unlike the pokemon machines these have NO top "phygitals" banner (the top is the
+// source-brand -> pokenic. Unlike the pokemon machines these have NO top "source-brand" banner (the top is the
 // tier name / "PR-OH"), so we only touch bottom-pedestal zones:
-//   url      "Phygitals.com" -> "Pokenic.com"   (bold, on a box face — flat)
-//   placard  "phygitals"      -> "pokenic"        (yugioh only; line 1 of the "phygitals / claw." placard)
-//   badge    "by phygitals"   -> "by pokenic"     (small text on the "RIP & REVEAL" pill; mild skew)
+//   url      "source-brand url" -> "Pokenic.com"   (bold, on a box face — flat)
+//   placard  "source-brand"      -> "pokenic"        (yugioh only; line 1 of the "source-brand / claw." placard)
+//   badge    "by source-brand"   -> "by pokenic"     (small text on the "RIP & REVEAL" pill; mild skew)
 // Each zone is BLUR-PATCHED (downscale->upscale kills legible text but keeps the local box tone) then the
 // new text is redrawn. Writes <base>-machine.webp (the rebranded still, regenerated from the AVIF frame0 at
 // native res so it matches the pixels the bake composites onto) AND the bottom-mask
@@ -110,7 +110,7 @@ const JOBS = [
       },
     ],
   },
-  // Yu-Gi-Oh (1440x900): placard "phygitals/claw." line 1 only, url, and the RIP&REVEAL pill.
+  // Yu-Gi-Oh (1440x900): placard "source-brand/claw." line 1 only, url, and the RIP&REVEAL pill.
   {
     base: 'yugioh-pro-pack',
     file: 'yugioh-pro-pack-machine.avif',

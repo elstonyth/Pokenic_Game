@@ -1,4 +1,4 @@
-# Test: precise per-letter mask + cv2.inpaint to erase "phygitals" on one product
+# Test: precise per-letter mask + cv2.inpaint to erase "source-brand" on one product
 # (mythic, purple-on-white) and one dramatic (black-pack, white-on-dark) machine.
 # Saves the mask + the inpainted result (NO text yet) so we can verify the removal
 # is clean: no box, no streak, MYTHIC PACK / sport name intact.

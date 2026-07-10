@@ -6,7 +6,7 @@
  * credit ledger; winnings shown in RM), and maps it to the presentational
  * shape the standings render. Returns [] when the backend is unreachable or
  * the board is empty — the page shows an honest empty state instead of fake
- * rows (the old phygitals mock board actively misled operators).
+ * rows (the old mock board actively misled operators).
  *
  * The backend is PII-safe (display name + avatar seed only — never email/id),
  * so nothing sensitive crosses into the storefront.

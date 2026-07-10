@@ -1,5 +1,5 @@
 // Task E v2 Phase 1 — brand-zone crops for every POKEMON claw asset, so the
-// phygitals-branding audit is done by eye (color detection alone proved
+// source-brand-branding audit is done by eye (color detection alone proved
 // unreliable — see the doubled-wordmark incident in AUDIT_PUNCHLIST).
 // Crops → docs/research/brand-audit/<base>-<zone>.png at 2x zoom.
 //   node scripts/audit-pokemon-branding.mjs

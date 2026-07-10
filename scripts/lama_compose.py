@@ -1,6 +1,6 @@
 # Step 3 of the LaMa re-brand: composite a centred "Pokenic" onto each LaMa-cleaned
 # banner and write the final {base}-machine.webp. Also restore the tier-branded
-# one-piece machines to their unmodified originals (no phygitals to remove).
+# one-piece machines to their unmodified originals (no source-brand to remove).
 import os
 import pillow_avif  # noqa: F401 — registers AVIF codec in Pillow
 from PIL import Image, ImageDraw, ImageFont

@@ -22,7 +22,7 @@ export interface CardSeed {
 }
 
 /**
- * Full-screen card detail overlay (phygitals parity, refined). Open = seed
+ * Full-screen card detail overlay. Open = seed
  * present. The URL becomes /card/<handle> via pushState so the link is
  * shareable and browser Back closes the overlay; Esc/backdrop/Close call
  * history.back() so the two paths converge on one popstate. Direct visits to

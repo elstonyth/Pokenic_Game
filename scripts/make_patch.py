@@ -1,6 +1,6 @@
 # Build the RGBA "rebrand patch" for ffmpeg overlay: the rebranded STATIC zones (banner band +
 # placard/url edit-mask) from {base}-machine.webp made OPAQUE, everything else TRANSPARENT. ffmpeg
-# then overlays this onto every animation frame (the static zones replace the baked "phygitals";
+# then overlays this onto every animation frame (the static zones replace the baked "source-brand";
 # the transparent rest lets the moving claw show through). Usage:
 #   <venv>/python make_patch.py mythic-pack [...]
 import sys
@@ -16,7 +16,7 @@ BAND = 0.27   # top fraction = static banner zone
 # diamond at y0.226. The rebranded "Pokenic" text ends ~y0.218, so these cap above the text but below
 # the claw. (default 0.27 would clip black's claw tip by 1px → a one-frame freeze hitch.)
 BAND_OVERRIDE = {"black-pack": 0.255, "diamond-pack": 0.225,
-                 # One Piece / Yu-Gi-Oh have NO top "phygitals" banner (top = tier name / "PR-OH"); only the
+                 # One Piece / Yu-Gi-Oh have NO top "source-brand" banner (top = tier name / "PR-OH"); only the
                  # BOTTOM pedestal zones (url / placard / badge) are rebranded. The default 0.27 band would
                  # freeze the top 27% — i.e. the glass enclosure where the claw travels — so force 0 here.
                  "elite-one-piece-pack": 0.0, "legend-one-piece-pack": 0.0,

@@ -1,4 +1,4 @@
-# Step 1 of the LaMa re-brand: for each phygitals machine, write the clean source as
+# Step 1 of the LaMa re-brand: for each source-brand machine, write the clean source as
 # PNG (LaMa input) and a precise wordmark mask (white=erase) via black-hat/top-hat
 # local-contrast detection, confined to the wordmark band so it never hits the pack name.
 import os

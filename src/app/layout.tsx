@@ -16,7 +16,7 @@ const geistSans = Geist({
   subsets: ['latin'],
 });
 
-// Nekst Black — the display/heading font used on phygitals.com (self-hosted)
+// Nekst Black — the display/heading font (self-hosted)
 const nekst = localFont({
   src: '../../public/fonts/Nekst-Black.woff2',
   variable: '--font-nekst',

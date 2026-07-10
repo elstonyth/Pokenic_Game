@@ -1,5 +1,5 @@
-// Locate the white "phygitals" wordmark on the dramatic banners (tier names are
-// COLOURED, phygitals is WHITE) by detecting near-white horizontal text clusters in
+// Locate the white "source-brand" wordmark on the dramatic banners (tier names are
+// COLOURED, source-brand is WHITE) by detecting near-white horizontal text clusters in
 // the top band. Reports bbox % + dims + density so we can bake per-image.
 import { chromium } from 'playwright';
 

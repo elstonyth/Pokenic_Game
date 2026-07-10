@@ -7,7 +7,7 @@ import type { PackCard } from '@/lib/packs-data';
 /**
  * Shared card grid tile (pack pool, Top Hits): slab thumb + name + "RM … est."
  * The WHOLE tile is one button — tap anywhere on touch; the "View Details"
- * pill fades in on hover AND keyboard focus (phygitals parity, a11y included).
+ * pill fades in on hover AND keyboard focus (a11y included).
  */
 export function CardTile({
   card,

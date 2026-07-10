@@ -5,7 +5,7 @@
 // skipped, consistent with /claw and /pack-party. The global SiteHeader/SiteFooter from
 // layout.tsx still wrap this body.
 //
-// Layout matches the live phygitals /repacks: a hero banner over blurred pack art, a
+// Layout for /repacks: a hero banner over blurred pack art, a
 // category chip rail + sort toolbar, then a grid of BIG pack cards each with a quantity
 // stepper (− 1 + MAX) and an Open button — distinct from /claw (which has no stepper).
 // Pack ART is real (reused from the /claw catalog); the names/creators are community

@@ -1,4 +1,4 @@
-// Detect the baked-in "phygitals" wordmark bbox + local banner (cream) & brand
+// Detect the baked-in "source-brand" wordmark bbox + local banner (cream) & brand
 // (purple) colors in claw-machine renders. Loads images SAME-ORIGIN from the running
 // server so the canvas isn't tainted. Reports bbox as % of the 1440x1000 image.
 import { chromium } from 'playwright';

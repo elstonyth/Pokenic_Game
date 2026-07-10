@@ -1,4 +1,4 @@
-// Bake "Pokenic" into the 4 dramatic renders that carry a white "phygitals" banner.
+// Bake "Pokenic" into the 4 dramatic renders that carry a white "source-brand" banner.
 // Sources are loaded as data-URLs (idempotent: always from a -src backup; no server
 // staleness, no canvas taint). Reconstruct banner per-row, draw white "Pokenic".
 import { chromium } from 'playwright';
@@ -70,7 +70,7 @@ const results = await page.evaluate(
         x1 = Math.round(cfg.box[1] * W),
         y0 = Math.round(cfg.box[2] * H),
         y1 = Math.round(cfg.box[3] * H);
-      // STROKE-LEVEL inpaint: replace ONLY the white "phygitals" strokes with the nearest
+      // STROKE-LEVEL inpaint: replace ONLY the white "source-brand" strokes with the nearest
       // dark-banner pixels on each side — preserves the glowing banner, so NO box/seam.
       const isText = (x, y) => {
         const i = (y * W + x) * 4;

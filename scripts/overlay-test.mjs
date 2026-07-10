@@ -1,5 +1,5 @@
 // Visual harness to dial in the "Pokenic" overlay that covers the baked-in
-// "phygitals" wordmark. Renders 3 differently-colored machines with the overlay
+// "source-brand" wordmark. Renders 3 differently-colored machines with the overlay
 // at the given %; screenshot, tweak COORDS, repeat. Then port values to the component.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

@@ -1,6 +1,6 @@
 'use client';
 
-// /merchants — "Trusted Merchants" directory matching live phygitals: centered hero
+// /merchants — "Trusted Merchants" directory: centered hero
 // (Global Network pill + heading + subtitle + search), centered category chips, and a
 // grid of real, well-known TCG merchants with rating + region + shipping badges.
 

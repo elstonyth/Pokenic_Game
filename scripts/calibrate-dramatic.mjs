@@ -1,5 +1,5 @@
 // The 10 webp-only ("dramatic") claw renders use a different camera than the light
-// product shots. Render them with a % grid to find the "phygitals" banner position
+// product shots. Render them with a % grid to find the "source-brand" banner position
 // and check consistency. Also reports natural dims.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

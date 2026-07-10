@@ -1,4 +1,4 @@
-// Precisely locate the "phygitals" wordmark LINE by detecting text rows on the sign
+// Precisely locate the "source-brand" wordmark LINE by detecting text rows on the sign
 // and taking the upper line. Product = purple text; dramatic = white text. Restricts
 // x to the central band to avoid the machine frame. Reports band + clean sample rows.
 import { chromium } from 'playwright';

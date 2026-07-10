@@ -1,5 +1,5 @@
 // Zoom into the top banner of a few dramatic machines to read the exact wordmark
-// (phygitals vs tier name), its colour and position. Shows top ~24% enlarged + grid.
+// (source-brand vs tier name), its colour and position. Shows top ~24% enlarged + grid.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { writeFileSync } from 'node:fs';

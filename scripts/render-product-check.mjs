@@ -1,4 +1,4 @@
-// Zoom every PRODUCT-shot banner + report dims, to find any with residual "phygitals"
+// Zoom every PRODUCT-shot banner + report dims, to find any with residual "source-brand"
 // or a different render position (the bake assumes 1440x1000, wordmark at y16-22%).
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

@@ -1,4 +1,4 @@
-# Definitive claw re-brand: precise per-letter mask + cv2.inpaint to erase "phygitals"
+# Definitive claw re-brand: precise per-letter mask + cv2.inpaint to erase "source-brand"
 # (rebuilds the banner seamlessly — no box/streak/residual, leaves pack/sport name and
 # logos intact), then composites a centred "Pokenic" (Poppins-Bold). Sources are the
 # CLEAN originals (avif for product shots, -src.webp backups for dramatic). Idempotent.
@@ -12,8 +12,8 @@ FONT = "scripts/Poppins-Bold.ttf" if os.path.exists("scripts/Poppins-Bold.ttf") 
 PURPLE = (104, 108, 190)
 WHITE = (245, 247, 252)
 
-# ONLY machines whose banner actually says "phygitals". The one-piece machines are
-# tier-branded ("ELITE / PACK MACHINE" …) with NO phygitals → restored, not rebranded.
+# ONLY machines whose banner actually says "source-brand". The one-piece machines are
+# tier-branded ("ELITE / PACK MACHINE" …) with NO source-brand → restored, not rebranded.
 POKEMON = ["mythic-pack", "legend-pack", "elite-pack", "platinum-pack", "rookie-pack", "trainer-pack"]
 RESTORE = ["elite-one-piece-pack", "legend-one-piece-pack", "one-piece-platinum-pack",
            "one-piece-sealed-claw-mcmnf5", "starter-one-piece-pack"]
@@ -73,9 +73,9 @@ def process(base, cfg):
 for base, cfg in JOBS.items():
     print(process(base, cfg))
 
-# Restore tier-branded machines to their unmodified original (no phygitals to remove)
+# Restore tier-branded machines to their unmodified original (no source-brand to remove)
 for b in RESTORE:
     Image.open(f"{DIR}/{b}-machine.avif").convert("RGB").save(f"{DIR}/{b}-machine.webp", quality=92, method=6)
-    print(f"{b}: restored (tier-branded, no phygitals)")
+    print(f"{b}: restored (tier-branded, no source-brand)")
 
 print(f"\n{len(JOBS)} re-branded, {len(RESTORE)} restored")

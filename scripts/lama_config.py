@@ -1,5 +1,5 @@
 # Shared config for the LaMa re-brand pipeline. Only the 11 machines whose banner
-# actually says "phygitals". The 5 one-piece machines are tier-branded (restored, not
+# actually says "source-brand". The 5 one-piece machines are tier-branded (restored, not
 # rebranded). kind: "dark" = dark wordmark on light banner (BLACK-HAT); "white" =
 # light wordmark on dark/glowing banner (TOP-HAT).
 PURPLE = (104, 108, 190)

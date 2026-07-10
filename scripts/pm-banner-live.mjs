@@ -1,5 +1,5 @@
 // Capture the live rookie + nba-black machine banner at high res to confirm the
-// fix on the page (no dark edge streaks, Pokenic centred, phygitals gone).
+// fix on the page (no dark edge streaks, Pokenic centred, source-brand gone).
 import { chromium } from 'playwright';
 const OUT = 'docs/research/packdetail';
 const browser = await chromium.launch();

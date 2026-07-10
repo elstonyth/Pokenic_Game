@@ -158,7 +158,7 @@ const CLAW_HAS_ANIM = new Set([
 
 // Packs that ship NO rebranded claw-machine render yet. Empty now that the premium tiers are baked;
 // kept as a guard so a future un-rebranded pack can fall back to its brand-consistent icon instead
-// of a phygitals-branded machine.
+// of an un-rebranded machine.
 const CLAW_NO_MACHINE = new Set<string>([]);
 
 // Bump CLAW_REV whenever the machine pixels change (rebrand passes) so browsers fetch the new

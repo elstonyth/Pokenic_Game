@@ -67,6 +67,7 @@
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
     "prettier": "^3.9.4",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^6",
     "vitest": "^4.1.10"

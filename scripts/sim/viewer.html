@@ -223,7 +223,7 @@
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.42;
+  renderer.toneMappingExposure = 0.34;
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(innerWidth, innerHeight);
@@ -250,7 +250,7 @@
   );
   camera.position.set(28, 24, 30);
 
-  const controls = new OrbitControls(camera, labelRenderer.domElement);
+  const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, 2, 3);
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI * 0.49;
@@ -261,9 +261,9 @@
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(innerWidth, innerHeight),
-    1.1,
-    0.75,
+    0.45,
     0.7,
+    0.88,
   );
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
@@ -662,6 +662,7 @@
     composer.setSize(innerWidth, innerHeight);
     labelRenderer.setSize(innerWidth, innerHeight);
   }
+  neonLights.forEach((L) => (L.intensity *= 0.4)); // dampen neon fill flood
   addEventListener('resize', resize);
   resize();
   tick();

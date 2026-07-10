@@ -20,15 +20,28 @@ if (!base) {
 }
 
 const simUrl = simDatabaseUrl(base);
+// Derive the psql role / password / maintenance-db from DATABASE_URL so we
+// always connect the way the backend does — the container superuser is NOT
+// necessarily "postgres". DROP/CREATE run against the existing base db
+// (pixelslot_sim does not exist yet), passing PGPASSWORD via the container env
+// (never argv/logs) in case socket auth isn't trust.
+const dbu = new URL(base);
+const pgUser = decodeURIComponent(dbu.username) || 'postgres';
+const pgPass = decodeURIComponent(dbu.password);
+const maintenanceDb =
+  decodeURIComponent(dbu.pathname.replace(/^\//, '')) || 'postgres';
 const psql = (sql) =>
   execFileSync(
     'docker',
     [
       'exec',
+      ...(pgPass ? ['-e', `PGPASSWORD=${pgPass}`] : []),
       'pokenic-postgres',
       'psql',
       '-U',
-      'postgres',
+      pgUser,
+      '-d',
+      maintenanceDb,
       '-v',
       'ON_ERROR_STOP=1',
       '-c',

@@ -142,8 +142,11 @@ describe('buildHReelStrip', () => {
     const colorDiffers = a.some((c, i) => c.rarity !== b[i]!.rarity);
     expect(dexDiffers || colorDiffers).toBe(true);
   });
-  test('null / out-of-range winner dex falls back to a valid dex', () => {
-    for (const bad of [null, 0, 99999]) {
+  // `null` is NOT a bad value — it is the idle state, and it never reaches this
+  // fallback (buildHReelStrip skips the pin entirely). Its behavior is pinned by
+  // the periodicity test below.
+  test('out-of-range winner dex falls back to a valid dex', () => {
+    for (const bad of [0, 99999]) {
       const s = buildHReelStrip(
         bad,
         'Common',
@@ -154,6 +157,41 @@ describe('buildHReelStrip', () => {
       expect(w).toBeGreaterThanOrEqual(1);
       expect(w).toBeLessThanOrEqual(1025);
     }
+  });
+  // ReelStrip's idle drift wraps at exactly pool.length cells. That is only
+  // seamless if the IDLE strip (winnerDex === null) is a pure tiling of the
+  // pool — no winner pin, no tease cell — for ANY winnerRarity the caller
+  // happens to pass.
+  test('an idle strip (null winner) is exactly periodic over the pool length', () => {
+    const packPool = [
+      { dex: 201, rarity: 'Immortal' as const },
+      { dex: 202, rarity: 'Common' as const },
+      { dex: 203, rarity: 'Rare' as const },
+    ];
+    // Both the pack pool and the curated fallback (empty pool -> DECOY_DEXES).
+    for (const pool of [packPool, []]) {
+      const period = pool.length > 0 ? pool.length : DECOY_DEXES.length;
+      for (const rarity of ['Common', 'Rare', 'Immortal'] as const) {
+        const s = buildHReelStrip(
+          null,
+          rarity,
+          HREEL_STRIP_LEN,
+          HREEL_WIN_INDEX,
+          1,
+          pool,
+        );
+        for (let i = 0; i + period < s.length; i++) {
+          expect(s[i + period]).toEqual(s[i]);
+        }
+        // idle pins nothing: every cell — including winIndex — is a pool dex.
+        for (const c of s) expect(c.dex).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+  test('a real spin still pins the winner and tease (idle purity is null-only)', () => {
+    const s = buildHReelStrip(150, 'Rare', HREEL_STRIP_LEN, HREEL_WIN_INDEX);
+    expect(s[HREEL_WIN_INDEX]!.dex).toBe(150);
+    expect(s[HREEL_WIN_INDEX - 1]!.rarity).toBe('Mythical');
   });
   test('rejects invalid geometry', () => {
     expect(() => buildHReelStrip(1, 'Common', 0, 0)).toThrow(RangeError);

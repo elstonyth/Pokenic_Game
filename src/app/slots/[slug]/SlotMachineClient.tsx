@@ -39,7 +39,7 @@ import {
 import { resolveCardPokemon } from '@/lib/resolve-card-pokemon';
 import { spriteGif } from '@/lib/mock/pokedex';
 import { SlotReelStack, type ColumnWinner } from './SlotReelStack';
-import type { HReelCell } from '@/lib/hreel';
+import { buildDecoyPool, type HReelCell } from '@/lib/hreel';
 import { SlotStatusBar } from './SlotStatusBar';
 import { SlotControls } from './SlotControls';
 import { OddsSheet } from './OddsSheet';
@@ -137,34 +137,17 @@ export default function SlotMachineClient({
   const cellSize = reels > 1 ? 76 : 96;
 
   // Decoy flicker pool: the pack's OWN cards, each pairing its CONFIGURED
-  // Pokémon with its CONFIGURED rarity, deduped by dex. So the reel only ever
-  // shows the exact species AND the exact rarity colors an admin set for this
-  // pack — never arbitrary hardcoded species, and never a rarity tier the pack
-  // doesn't have (a pack of only Immortal + Common never flickers Legendary/
-  // Mythical/Rare/Uncommon). resolveCardPokemon prefers the card's explicit
-  // pokemon_dex (the mirror of its linked library entry) over name-derivation,
-  // so a card linked to Mewtwo shows Mewtwo even when its NAME wouldn't derive
-  // it. Empty → ReelStrip falls back to its curated set.
+  // Pokémon with its CONFIGURED rarity, deduped by the (dex, rarity) PAIR —
+  // see buildDecoyPool. The reel only ever shows the exact species AND the
+  // exact rarity colors an admin set for this pack, and every tier the pack
+  // has stays in the flicker (an all-Pikachu/Charizard pack across six tiers
+  // flickers all six colors, not just the first card per species).
+  // Empty → ReelStrip falls back to its curated set.
   // ponytail: decoys render the dex sprite (spriteGif); for seeded entries that
   // IS the linked sprite. A custom-uploaded (dex-less) sprite would only flicker
   // via name-derive — threading the custom sprite_image into decoy cells is the
   // upgrade path if that ever matters.
-  const decoyCards = useMemo<HReelCell[]>(() => {
-    const seen = new Set<number>();
-    const out: HReelCell[] = [];
-    for (const c of pool) {
-      const dex = resolveCardPokemon({
-        name: c.name,
-        pokemon_dex: c.pokemonDex,
-        sprite_image: c.spriteImage,
-      }).dex;
-      if (dex !== null && !seen.has(dex)) {
-        seen.add(dex);
-        out.push({ dex, rarity: c.rarity });
-      }
-    }
-    return out;
-  }, [pool]);
+  const decoyCards = useMemo<HReelCell[]>(() => buildDecoyPool(pool), [pool]);
 
   // Balance comes from the app-shell provider (identity-tagged: values from
   // another account never render — push security review). Server-returned

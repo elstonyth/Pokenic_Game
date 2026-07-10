@@ -50,10 +50,13 @@ existing `pokenic-postgres` container, plus a dedicated Redis DB index.
 verified in `modules/packs/rewards-gate.ts`: `POST /store/daily/draw` returns
 403 without it, read at request time.
 
-**Seed (day 0):** packs, cards, odds, FX rates, rewards settings, avatar frames, one
-admin user, one publishable key. **No customer accounts** — agents register themselves
-through the real auth flow on their first active day, so registration is genuinely
-exercised.
+**Seed (day 0):** `provision.mjs` runs `seed.ts` (packs, cards, odds, FX rates, rewards
+settings, avatar frames, one publishable key) and then `create-admin.ts` — `seed.ts`
+does **not** create an admin, so provisioning creates one separately
+(`sim-admin@pixelslot.local`) and writes its creds to `runs/<runId>/diary/admin.md`.
+**No customer accounts** — agents register themselves through the real three-step auth
+flow (register → `POST /store/customers` → login) on their first active day, so
+registration is genuinely exercised.
 
 **Funding:** verified — `POST /store/credits/topup` runs through `mockCharge`, needs an
 `Idempotency-Key` header, and declines any amount ending in `.13`. Agents can fund

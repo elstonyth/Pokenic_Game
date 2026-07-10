@@ -6,6 +6,7 @@ import {
   decoyRarity,
   teaseRarity,
   buildHReelStrip,
+  buildDecoyPool,
 } from '@/lib/hreel';
 
 describe('decoyRarity', () => {
@@ -27,6 +28,43 @@ describe('teaseRarity (spec §7b gating)', () => {
     expect(teaseRarity('Mythical')).toBe('Mythical');
     expect(teaseRarity('Legendary')).toBe('Legendary');
     expect(teaseRarity('Immortal')).toBe('Immortal');
+  });
+});
+
+describe('buildDecoyPool', () => {
+  test('a single-species-heavy pack keeps EVERY rarity tier (dedup by dex+rarity, not dex)', () => {
+    // Regression: an all-Pikachu/Charizard pack used to collapse to 2 pool
+    // entries (first card per dex), so the spin flickered only 2 tier colors.
+    const cards = [
+      {
+        name: 'Charizard [1st Edition] #4',
+        pokemonDex: 6,
+        rarity: 'Immortal' as const,
+      },
+      {
+        name: 'Pikachu #227/S-P',
+        pokemonDex: 25,
+        rarity: 'Legendary' as const,
+      },
+      {
+        name: 'Charizard GX #SV49',
+        pokemonDex: 6,
+        rarity: 'Mythical' as const,
+      },
+      { name: 'Charizard #4', pokemonDex: 6, rarity: 'Rare' as const },
+      { name: 'Pikachu #160', pokemonDex: 25, rarity: 'Uncommon' as const },
+      { name: 'Pikachu ex #219', pokemonDex: 25, rarity: 'Common' as const },
+    ];
+    const pool = buildDecoyPool(cards);
+    expect(new Set(pool.map((c) => c.rarity)).size).toBe(6);
+  });
+  test('drops exact (dex, rarity) duplicates and dex-less cards', () => {
+    const pool = buildDecoyPool([
+      { name: 'Pikachu #1', pokemonDex: 25, rarity: 'Common' as const },
+      { name: 'Pikachu #2', pokemonDex: 25, rarity: 'Common' as const }, // dupe
+      { name: 'Trainer Card', pokemonDex: null, rarity: 'Common' as const }, // no dex
+    ]);
+    expect(pool).toEqual([{ dex: 25, rarity: 'Common' }]);
   });
 });
 

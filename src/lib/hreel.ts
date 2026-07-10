@@ -2,9 +2,10 @@
 // colors (the spin flicker), and the gated near-miss tease (spec §7b). No DOM,
 // no React — see src/lib/__tests__/hreel.test.ts. Physics (spinOffset, blur,
 // timing) stays in vault-reel.ts and is reused unchanged.
-import type { Rarity } from '@/lib/packs-data';
+import type { PackCard, Rarity } from '@/lib/packs-data';
 import { RARITY_ORDER, isTopRarity } from '@/lib/rarity';
 import { POKEDEX_MAX } from '@/lib/reel';
+import { resolveCardPokemon } from '@/lib/resolve-card-pokemon';
 
 /** Winner index sits high on a LONG strip so the reflected right→left travel
  *  (reelPaintX) has runway and stays in bounds — verified in reel.test.ts. */
@@ -21,6 +22,37 @@ export const HREEL_VISIBLE_CELLS = 9;
 export const DECOY_DEXES = [1, 4, 7, 25, 6, 9, 3, 143, 94, 130, 448, 197];
 
 export type HReelCell = { dex: number; rarity: Rarity };
+
+/**
+ * Decoy flicker pool from the pack's OWN cards: each entry pairs a card's
+ * resolved Pokémon with its CONFIGURED rarity, deduped by the (dex, rarity)
+ * PAIR — not by dex alone. A pack of 15 Pikachu/Charizard variants across all
+ * six tiers must flicker all six tier colors; dedup-by-dex used to collapse it
+ * to the first card per species (2 entries → only 2 glow colors all spin).
+ * Dex-less cards (trainer/energy with no resolvable Pokémon) are skipped.
+ */
+export function buildDecoyPool(
+  cards: readonly Pick<
+    PackCard,
+    'name' | 'pokemonDex' | 'spriteImage' | 'rarity'
+  >[],
+): HReelCell[] {
+  const seen = new Set<string>();
+  const out: HReelCell[] = [];
+  for (const c of cards) {
+    const dex = resolveCardPokemon({
+      name: c.name,
+      pokemon_dex: c.pokemonDex,
+      sprite_image: c.spriteImage,
+    }).dex;
+    if (dex === null) continue;
+    const key = `${dex}:${c.rarity}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ dex, rarity: c.rarity });
+  }
+  return out;
+}
 
 /**
  * Deterministic decoy tier for cell `i`: a prime-step walk over the 6-tier

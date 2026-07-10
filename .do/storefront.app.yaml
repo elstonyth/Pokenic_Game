@@ -1,4 +1,4 @@
-# DigitalOcean App Platform spec — pokenic-storefront (Next.js 16).
+# DigitalOcean App Platform spec — pixelslot-storefront (Next.js 16).
 #
 # COMMITTED IaC (single source of truth). No secrets here: the backend URL and
 # the publishable key are NEXT_PUBLIC_* (public by design) and are baked at
@@ -8,7 +8,10 @@
 #   Apply (redeploys prod):     pwsh scripts/do-apply.ps1 storefront
 #
 # Edit here first, then apply — do not edit the app in the DO UI (drift).
-name: pokenic-storefront
+# Must match the LIVE app name, or `doctl apps update --spec` renames the app.
+# The default *.ondigitalocean.app hostname below stays pokenic-* — DO assigns it
+# at creation and it survived the rename. Do not "fix" it to match this name.
+name: pixelslot-storefront
 region: sgp
 
 # App Platform alerts → email on failed deploys / failed custom-domain certs.

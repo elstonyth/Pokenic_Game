@@ -1,4 +1,4 @@
-# DigitalOcean App Platform spec — pokenic-backend (Mercur/Medusa).
+# DigitalOcean App Platform spec — pixelslot-backend (Mercur/Medusa).
 #
 # COMMITTED IaC (single source of truth). The 4 secret env values are redacted
 # (placeholder tokens); the real values live in gitignored deploy/.env.deploy
@@ -19,7 +19,10 @@
 #                         exists. create-admin.ts checks for an existing user and
 #                         SKIPS (no throw), so re-running is safe and self-healing.
 #                         ADMIN_EMAIL/ADMIN_PASSWORD below feed it.
-name: pokenic-backend
+# Must match the LIVE app name, or `doctl apps update --spec` renames the app.
+# The default *.ondigitalocean.app hostname below stays pokenic-* — DO assigns it
+# at creation and it survived the rename. Do not "fix" it to match this name.
+name: pixelslot-backend
 region: sgp
 
 # App Platform alerts → email on failed deploys / failed custom-domain certs.

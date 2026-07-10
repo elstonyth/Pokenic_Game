@@ -13,12 +13,52 @@ if (!runId) throw new Error('args.runId is required');
 
 const CUSTOMERS = args?.activePersonas ?? ['honest', 'refund-seeker'];
 
+// Declared BEFORE the loop: this is a `const`, so referencing it from inside
+// the loop before its declaration line would be a temporal-dead-zone
+// ReferenceError. (The prompt builders below are function declarations and are
+// hoisted, but keep everything above the loop so nothing trails the final
+// `return`.)
+const AUDIT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'day',
+    'invariantsPassed',
+    'confirmed',
+    'unverified',
+    'showstopper',
+  ],
+  properties: {
+    day: { type: 'integer' },
+    invariantsPassed: { type: 'boolean' },
+    confirmed: { type: 'integer' },
+    unverified: { type: 'integer' },
+    showstopper: { type: 'boolean' },
+  },
+};
+
+// --- prompt builders: each reads the charter file and pins the run context ---
+function base(runId, day) {
+  return `Run id: ${runId}. Simulated day: ${day}. Artifacts under scripts/sim/runs/${runId}/. Backend: http://localhost:9000. Publishable key: read runs/${runId}/pk.txt.`;
+}
+function customerPrompt(p, runId, day) {
+  return `${base(runId, day)}\n\nFollow your charter exactly: scripts/sim/personas/${p}.md`;
+}
+function adminPrompt(runId, day) {
+  return `${base(runId, day)}\n\nFollow your charter exactly: scripts/sim/personas/admin.md`;
+}
+function auditorPrompt(runId, day) {
+  return `${base(runId, day)}\n\nFollow your charter exactly: scripts/sim/personas/auditor.md`;
+}
+
 for (let day = 1; day <= days; day++) {
   phase('Day');
   log(`Day ${day} — customers acting`);
 
-  // Customers act concurrently (cap 4 — Knex pool). Each returns its summary.
-  const customerSummaries = await parallel(
+  // Customers act concurrently (cap 4 — Knex pool). Their summaries are not
+  // read here: the agents' real output is the artifacts they write (events,
+  // inbox, findings), which the auditor reads. We await only for sequencing.
+  await parallel(
     CUSTOMERS.map(
       (p) => () =>
         agent(customerPrompt(p, runId, day), {
@@ -30,7 +70,7 @@ for (let day = 1; day <= days; day++) {
   );
 
   log(`Day ${day} — admin working the inbox`);
-  const adminSummary = await agent(adminPrompt(runId, day), {
+  await agent(adminPrompt(runId, day), {
     label: `admin:d${day}`,
     phase: 'Day',
     model: 'opus',
@@ -57,35 +97,3 @@ for (let day = 1; day <= days; day++) {
 }
 
 return { runId, days, complete: true };
-
-// --- prompt builders: each reads the charter file and pins the run context ---
-function base(runId, day) {
-  return `Run id: ${runId}. Simulated day: ${day}. Artifacts under scripts/sim/runs/${runId}/. Backend: http://localhost:9000. Publishable key: read runs/${runId}/pk.txt.`;
-}
-function customerPrompt(p, runId, day) {
-  return `${base(runId, day)}\n\nFollow your charter exactly: scripts/sim/personas/${p}.md`;
-}
-function adminPrompt(runId, day) {
-  return `${base(runId, day)}\n\nFollow your charter exactly: scripts/sim/personas/admin.md`;
-}
-function auditorPrompt(runId, day) {
-  return `${base(runId, day)}\n\nFollow your charter exactly: scripts/sim/personas/auditor.md`;
-}
-const AUDIT_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'day',
-    'invariantsPassed',
-    'confirmed',
-    'unverified',
-    'showstopper',
-  ],
-  properties: {
-    day: { type: 'integer' },
-    invariantsPassed: { type: 'boolean' },
-    confirmed: { type: 'integer' },
-    unverified: { type: 'integer' },
-    showstopper: { type: 'boolean' },
-  },
-};

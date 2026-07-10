@@ -223,7 +223,7 @@
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 0.7;
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(innerWidth, innerHeight);
@@ -269,9 +269,9 @@
   composer.addPass(new OutputPass());
 
   // ---- Lighting: dark cyberpunk (moody key + cool fill + neon point lights) --
-  scene.add(new THREE.HemisphereLight(0x3a4a80, 0x0a0a16, 0.35));
-  scene.add(new THREE.AmbientLight(0x2a2c4a, 0.4));
-  const key = new THREE.DirectionalLight(0x9fb4ff, 0.6);
+  scene.add(new THREE.HemisphereLight(0x3a4a80, 0x0a0a16, 0.14));
+  scene.add(new THREE.AmbientLight(0x2a2c4a, 0.16));
+  const key = new THREE.DirectionalLight(0x9fb4ff, 0.32);
   key.position.set(14, 26, 10);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
@@ -291,7 +291,7 @@
       roughness: 0.92,
       metalness: 0.04,
       flatShading: true,
-      envMapIntensity: 0.5,
+      envMapIntensity: 0.25,
       ...o,
     });
   const neonMat = (color, i = 2.0) =>

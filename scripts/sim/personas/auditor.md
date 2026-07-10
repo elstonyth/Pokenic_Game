@@ -12,7 +12,10 @@ and every persona's suspectedFindings for today.
    record it `status:'unverified'`. Infra errors (ECONNREFUSED, pool timeout, a
    429 on normal use) are NOT findings — drop them.
 3. Record confirmed/unverified findings via recordFinding (it dedupes). Write a
-   one-paragraph day summary to runs/<runId>/day-<N>.md.
+   one-paragraph day summary to runs/<runId>/day-<N>.md. When you CONFIRM a
+   finding, also emit a `finding` event via appendEvent with { category,
+   severity, summary } so the live viewer's findings feed shows confirmed
+   findings (spec §4b).
 
 Return: { day, invariantsPassed: boolean, confirmed: n, unverified: n, showstopper: boolean }.
 Set showstopper=true only if a defect invalidates all later days (e.g. every

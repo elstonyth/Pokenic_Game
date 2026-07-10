@@ -9,6 +9,10 @@ if (!runId) {
   console.error('usage: node scripts/sim/provision.mjs <runId>');
   process.exit(1);
 }
+if (!/^[\w-]+$/.test(runId)) {
+  console.error('runId must be [A-Za-z0-9_-]');
+  process.exit(1);
+}
 const base = process.env.DATABASE_URL;
 if (!base) {
   console.error('DATABASE_URL not set (source backend env first)');
@@ -37,7 +41,14 @@ console.log('[sim] recreating database', SIM.dbName);
 psql(`DROP DATABASE IF EXISTS ${SIM.dbName} WITH (FORCE);`);
 psql(`CREATE DATABASE ${SIM.dbName};`);
 
-const env = { ...process.env, DATABASE_URL: simUrl, ALLOW_MOCK_TOPUP: 'true' };
+const env = {
+  ...process.env,
+  DATABASE_URL: simUrl,
+  ALLOW_MOCK_TOPUP: 'true',
+  // Harmless here; the load-bearing setting is on the backend process itself
+  // (see PILOT.md step 3) since the daily-draw gate reads it at request time.
+  REWARDS_REDEMPTION_ENABLED: 'true',
+};
 const api = join(process.cwd(), 'backend', 'packages', 'api');
 const yarn = (args) =>
   execFileSync('corepack', ['yarn', ...args], {
@@ -57,6 +68,19 @@ execFileSync('corepack', ['yarn', 'medusa', 'exec', './src/scripts/seed.ts'], {
   env,
   stdio: 'inherit',
 });
+
+console.log('[sim] provisioning admin user');
+const adminEnv = {
+  ...env,
+  ADMIN_EMAIL: 'sim-admin@pixelslot.local',
+  ADMIN_PASSWORD: 'SimAdmin2026!',
+};
+execFileSync(
+  'corepack',
+  ['yarn', 'medusa', 'exec', './src/scripts/create-admin.ts'],
+  { cwd: api, env: adminEnv, stdio: 'inherit' },
+);
+
 const out = yarn([
   'medusa',
   'exec',
@@ -71,4 +95,22 @@ if (!token) {
 const dir = runDir(runId);
 mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, 'pk.txt'), token, 'utf8');
+
+const diaryDir = join(dir, 'diary');
+mkdirSync(diaryDir, { recursive: true });
+writeFileSync(
+  join(diaryDir, 'admin.md'),
+  [
+    '# Admin credentials',
+    '',
+    'email: sim-admin@pixelslot.local',
+    'password: SimAdmin2026!',
+    '',
+    'Log in via POST /auth/user/emailpass to get your admin token.',
+    '',
+  ].join('\n'),
+  'utf8',
+);
+
 console.log('[sim] provisioned. publishable key saved to', join(dir, 'pk.txt'));
+console.log('[sim] admin creds written to', join(diaryDir, 'admin.md'));

@@ -28,8 +28,9 @@ export function makeAdminClient({ baseUrl, token, fetchImpl = fetch }) {
       call('POST', '/auth/user/emailpass', { email, password }),
     getCustomerTransactions: (id) =>
       call('GET', `/admin/customers/${id}/transactions`),
-    adjustCredits: (id, amount, reason) =>
-      call('POST', `/admin/customers/${id}/credits`, { amount, reason }),
+    // The route reads body.note (not body.reason) and rejects an empty note.
+    adjustCredits: (id, amount, note) =>
+      call('POST', `/admin/customers/${id}/credits`, { amount, note }),
     freeze: (id, reason) =>
       call('POST', `/admin/customers/${id}/freeze`, { reason }),
     unfreeze: (id) => call('POST', `/admin/customers/${id}/unfreeze`, {}),

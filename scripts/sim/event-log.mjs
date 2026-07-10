@@ -38,7 +38,16 @@ export function readEvents(dir) {
   return readFileSync(path, 'utf8')
     .split('\n')
     .filter((l) => l.trim() !== '')
-    .map((l) => JSON.parse(l));
+    .map((l) => {
+      // A torn/partial final line during a live append must not crash the
+      // viewer's 200ms poll — skip it, the writer will complete it next tick.
+      try {
+        return JSON.parse(l);
+      } catch {
+        return undefined;
+      }
+    })
+    .filter((r) => r !== undefined);
 }
 
 function countLines(text) {

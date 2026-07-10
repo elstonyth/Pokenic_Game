@@ -10,9 +10,15 @@ Prove the harness end-to-end before any 30-day run.
 ## Steps
 
 1. `npm run sim:test` → all unit tests green.
-2. `node scripts/sim/provision.mjs pilot` → recreates pixelslot_sim, seeds, writes runs/pilot/pk.txt.
-3. Start the sim backend (built) on :9000 against the sim DB with ALLOW_MOCK_TOPUP=true:
-   `cd backend/packages/api && DATABASE_URL=<sim url> ALLOW_MOCK_TOPUP=true corepack yarn build && DATABASE_URL=<sim url> ALLOW_MOCK_TOPUP=true corepack yarn start`
+2. `node scripts/sim/provision.mjs pilot` → recreates pixelslot_sim, seeds, writes
+   runs/pilot/pk.txt, and provisions admin `sim-admin@pixelslot.local` /
+   `SimAdmin2026!` (also written to runs/pilot/diary/admin.md — log in via
+   POST /auth/user/emailpass to get the admin token).
+3. Start the sim backend (built) on :9000 against the sim DB with
+   ALLOW_MOCK_TOPUP=true AND REWARDS_REDEMPTION_ENABLED=true (the latter gates
+   `POST /store/daily/draw` — see rewards-gate.ts — and is read at request time
+   by the backend process, not by provisioning):
+   `cd backend/packages/api && DATABASE_URL=<sim url> ALLOW_MOCK_TOPUP=true REWARDS_REDEMPTION_ENABLED=true corepack yarn build && DATABASE_URL=<sim url> ALLOW_MOCK_TOPUP=true REWARDS_REDEMPTION_ENABLED=true corepack yarn start`
    Health: `curl -s localhost:9000/health` → ok.
 4. Start the viewer: `node scripts/sim/viewer.mjs pilot` → open http://localhost:4500.
 5. Run the loop via the Workflow tool: `Workflow({ scriptPath: 'scripts/sim/run-month.workflow.mjs', args: { runId: 'pilot', days: 2 } })`.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendEvent, readEvents } from './event-log.mjs';
@@ -27,6 +27,15 @@ test('append then read round-trips and assigns increasing seq', () => {
 
 test('readEvents returns [] when the log does not exist yet', () => {
   assert.deepEqual(readEvents(fresh()), []);
+});
+
+test('readEvents skips a torn/garbage line and keeps the good record', () => {
+  const dir = fresh();
+  appendEvent(dir, { day: 1, actor: 'honest', kind: 'arrived' });
+  appendFileSync(join(dir, 'events.jsonl'), '{"day":2,"actor":"honest"' + '\n');
+  const evs = readEvents(dir);
+  assert.equal(evs.length, 1);
+  assert.equal(evs[0].kind, 'arrived');
 });
 
 test('concurrent appends do not interleave within a line', () => {

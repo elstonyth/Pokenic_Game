@@ -46,6 +46,9 @@ existing `pokenic-postgres` container, plus a dedicated Redis DB index.
 
 **Environment:** `ALLOW_MOCK_TOPUP=true` is **required**. Verified in
 `workflows/steps/topup-credits.ts`: the mock gateway fails closed without it.
+`REWARDS_REDEMPTION_ENABLED=true` is also **required** on the backend process —
+verified in `modules/packs/rewards-gate.ts`: `POST /store/daily/draw` returns
+403 without it, read at request time.
 
 **Seed (day 0):** packs, cards, odds, FX rates, rewards settings, avatar frames, one
 admin user, one publishable key. **No customer accounts** — agents register themselves

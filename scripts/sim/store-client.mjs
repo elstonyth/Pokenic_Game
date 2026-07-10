@@ -33,6 +33,15 @@ export function makeStoreClient({
       call('POST', '/auth/customer/emailpass/register', {
         body: { email, password },
       }),
+    // Middle step of the three-step onboarding: links the auth identity from
+    // register() to a real customer record. Uses the register token, NOT this
+    // client's own (possibly unset) token — without this call the eventual
+    // login() token resolves no actor and every authed call 400s/401s.
+    createCustomer: (registerToken, { email, first_name }) =>
+      call('POST', '/store/customers', {
+        body: { email, first_name },
+        extraHeaders: { Authorization: `Bearer ${registerToken}` },
+      }),
     login: (email, password) =>
       call('POST', '/auth/customer/emailpass', { body: { email, password } }),
     topup: (amount, idempotencyKey) =>
@@ -45,7 +54,12 @@ export function makeStoreClient({
     getVault: () => call('GET', '/store/vault'),
     buyback: (vaultId) =>
       call('POST', `/store/vault/${vaultId}/buyback`, { body: {} }),
-    requestDelivery: (items) =>
-      call('POST', '/store/delivery-orders', { body: { items } }),
+    createAddress: (address) =>
+      call('POST', '/store/customers/me/addresses', { body: address }),
+    requestDelivery: (pullIds, addressId) =>
+      call('POST', '/store/delivery-orders', {
+        body: { pull_ids: pullIds, address_id: addressId },
+      }),
+    dailyDraw: () => call('POST', '/store/daily/draw', { body: {} }),
   };
 }

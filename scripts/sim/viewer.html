@@ -129,6 +129,22 @@
 </style>
 <canvas id="scene"></canvas>
 <div id="badge">PIXELSLOT · live sim · voxel</div>
+<div
+  id="fps"
+  style="
+    position: fixed;
+    left: 12px;
+    top: 40px;
+    font-size: 11px;
+    color: #7cf3ff;
+    background: rgba(9, 10, 22, 0.7);
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid #23243a;
+  "
+>
+  — fps
+</div>
 <aside id="side">
   <div id="day">Day —</div>
   <h2>Customers</h2>
@@ -218,7 +234,11 @@
 
   // ---- Renderers -------------------------------------------------------------
   const canvas = document.getElementById('scene');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: 'high-performance',
+  });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -560,6 +580,7 @@
     if (people.has(actor)) return people.get(actor);
     const p = person(colorOf(actor), actor);
     p.color = colorOf(actor);
+    p.idx = people.size;
     p.group.position.set(S.entrance.x, 0, S.entrance.z);
     people.set(actor, p);
     return p;
@@ -582,10 +603,15 @@
     if (e.detail?.balance != null) balances.set(e.actor, e.detail.balance);
     const p = ensure(e.actor);
     const t = targetFor(e);
-    p.tx = t.s.x;
-    p.tz = t.s.z;
+    // pull_result shows the outcome where they stand — don't yank them to slot1
+    if (e.kind !== 'pull_result') {
+      p.tx = t.s.x;
+      p.tz = t.s.z;
+    }
     p.mood = t.mood;
     p.action = e.kind;
+    p.lastT = clock.elapsedTime;
+    p.idle = false;
     renderQueue();
     renderCustomers();
   }
@@ -628,10 +654,22 @@
 
   // ---- Loop ------------------------------------------------------------------
   const clock = new THREE.Clock();
+  const fpsEl = document.getElementById('fps');
+  let frames = 0,
+    fpsT = 0;
   function tick() {
     const dt = Math.min(clock.getDelta(), 0.05),
       t = clock.elapsedTime;
     for (const p of people.values()) {
+      // Never freeze in a slot: if no event for a while, drift to the street
+      // front and mill there (spread out by arrival index).
+      if (p.lastT != null && t - p.lastT > 5 && !p.idle) {
+        p.idle = true;
+        p.mood = 'neutral';
+        const i = p.idx || 0;
+        p.tx = -6 + (i % 6) * 2.4;
+        p.tz = 11 + (i % 2) * 1.3;
+      }
       if (p.tx != null) {
         p.group.position.x +=
           (p.tx - p.group.position.x) * Math.min(1, dt * 2.4);
@@ -655,6 +693,12 @@
     controls.update();
     composer.render();
     labelRenderer.render(scene, camera);
+    frames++;
+    if (t - fpsT >= 0.5) {
+      fpsEl.textContent = Math.round(frames / (t - fpsT)) + ' fps';
+      frames = 0;
+      fpsT = t;
+    }
     requestAnimationFrame(tick);
   }
   function resize() {

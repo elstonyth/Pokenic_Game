@@ -13,7 +13,7 @@ import { Pill } from '@/components/ui/pill';
 import { useTopUp } from './TopUpProvider';
 import { TABS, isTabActive } from './tabs';
 
-const LOGO_SRC = '/branding/pokenic-logo.png';
+const LOGO_SRC = '/branding/pixelslot-logo.png';
 
 /**
  * App header: logo left, balance chip + top-up entry right (90scard's
@@ -41,7 +41,7 @@ export default function AppHeader() {
             <img
               src={LOGO_SRC}
               alt="PixelSlot"
-              width={88}
+              width={128}
               height={44}
               className="h-7 w-auto object-contain lg:h-9"
             />

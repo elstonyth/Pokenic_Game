@@ -63,24 +63,21 @@ const env = {
   REWARDS_REDEMPTION_ENABLED: 'true',
 };
 const api = join(process.cwd(), 'backend', 'packages', 'api');
-const yarn = (args) =>
-  execFileSync('corepack', ['yarn', ...args], {
+// Run the medusa CLI directly with node (process.execPath). corepack/yarn are
+// not reliably resolvable via execFileSync on Windows (corepack ENOENT, no
+// .cmd resolution) and Yarn Berry has no `medusa` passthrough. The CLI entry is
+// @medusajs/cli/cli.js (its bin is "medusa").
+const MEDUSA_CLI = join(api, 'node_modules', '@medusajs', 'cli', 'cli.js');
+const medusa = (mArgs, mEnv = env, capture = false) =>
+  execFileSync(process.execPath, [MEDUSA_CLI, ...mArgs], {
     cwd: api,
-    env,
-    stdio: ['inherit', 'pipe', 'inherit'],
+    env: mEnv,
+    stdio: capture ? ['inherit', 'pipe', 'inherit'] : 'inherit',
   });
 
 console.log('[sim] migrating + seeding');
-execFileSync('corepack', ['yarn', 'medusa', 'db:migrate'], {
-  cwd: api,
-  env,
-  stdio: 'inherit',
-});
-execFileSync('corepack', ['yarn', 'medusa', 'exec', './src/scripts/seed.ts'], {
-  cwd: api,
-  env,
-  stdio: 'inherit',
-});
+medusa(['db:migrate']);
+medusa(['exec', './src/scripts/seed.ts']);
 
 console.log('[sim] provisioning admin user');
 const adminEnv = {
@@ -88,17 +85,13 @@ const adminEnv = {
   ADMIN_EMAIL: 'sim-admin@pixelslot.local',
   ADMIN_PASSWORD: 'SimAdmin2026!',
 };
-execFileSync(
-  'corepack',
-  ['yarn', 'medusa', 'exec', './src/scripts/create-admin.ts'],
-  { cwd: api, env: adminEnv, stdio: 'inherit' },
-);
+medusa(['exec', './src/scripts/create-admin.ts'], adminEnv);
 
-const out = yarn([
-  'medusa',
-  'exec',
-  './src/scripts/print-publishable-key.ts',
-]).toString();
+const out = medusa(
+  ['exec', './src/scripts/print-publishable-key.ts'],
+  env,
+  true,
+).toString();
 const token = (out.match(/token=(pk_[A-Za-z0-9]+)/) || [])[1];
 if (!token) {
   console.error('[sim] could not capture publishable key from:\n' + out);

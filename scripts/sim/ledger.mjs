@@ -26,7 +26,15 @@ export function readFindings(dir) {
   return readFileSync(path, 'utf8')
     .split('\n')
     .filter((l) => l.trim())
-    .map((l) => JSON.parse(l));
+    .map((l) => {
+      // Skip a torn/partial final line rather than throwing (see event-log.mjs).
+      try {
+        return JSON.parse(l);
+      } catch {
+        return undefined;
+      }
+    })
+    .filter((r) => r !== undefined);
 }
 
 export function recordFinding(dir, f) {

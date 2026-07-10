@@ -52,3 +52,47 @@ test('login returns the parsed body so the caller can read the token', async () 
   const res = await c.login('a@b.co', 'pw');
   assert.equal(res.body.token, 'jwt-xyz');
 });
+
+test('createCustomer authorizes with the register token, not the client token, and posts email + first_name', async () => {
+  const { fetchImpl, calls } = recorder();
+  const c = makeStoreClient({
+    baseUrl: 'http://h',
+    publishableKey: 'pk',
+    token: 'should-not-be-used',
+    fetchImpl,
+  });
+  await c.createCustomer('reg-tok', { email: 'a@b.co', first_name: 'A' });
+  const { url, opts } = calls[0];
+  assert.equal(url, 'http://h/store/customers');
+  assert.equal(opts.headers['Authorization'], 'Bearer reg-tok');
+  assert.deepEqual(JSON.parse(opts.body), { email: 'a@b.co', first_name: 'A' });
+});
+
+test('dailyDraw posts to the daily draw route', async () => {
+  const { fetchImpl, calls } = recorder();
+  const c = makeStoreClient({
+    baseUrl: 'http://h',
+    publishableKey: 'pk',
+    token: 't',
+    fetchImpl,
+  });
+  await c.dailyDraw();
+  assert.equal(calls[0].url, 'http://h/store/daily/draw');
+  assert.equal(calls[0].opts.method, 'POST');
+});
+
+test('requestDelivery sends pull_ids and address_id', async () => {
+  const { fetchImpl, calls } = recorder();
+  const c = makeStoreClient({
+    baseUrl: 'http://h',
+    publishableKey: 'pk',
+    token: 't',
+    fetchImpl,
+  });
+  await c.requestDelivery(['pull_1', 'pull_2'], 'addr_1');
+  assert.equal(calls[0].url, 'http://h/store/delivery-orders');
+  assert.deepEqual(JSON.parse(calls[0].opts.body), {
+    pull_ids: ['pull_1', 'pull_2'],
+    address_id: 'addr_1',
+  });
+});

@@ -13,7 +13,7 @@ function recorder(status = 200, body = {}) {
   };
 }
 
-test('adjustCredits posts amount + reason to the customer credits route', async () => {
+test('adjustCredits posts amount + note to the customer credits route', async () => {
   const { fetchImpl, calls } = recorder();
   const c = makeAdminClient({ baseUrl: 'http://h', token: 'adm', fetchImpl });
   await c.adjustCredits('cus_1', -25, 'refund: pack DOA');
@@ -21,7 +21,7 @@ test('adjustCredits posts amount + reason to the customer credits route', async 
   assert.equal(calls[0].opts.headers['Authorization'], 'Bearer adm');
   assert.deepEqual(JSON.parse(calls[0].opts.body), {
     amount: -25,
-    reason: 'refund: pack DOA',
+    note: 'refund: pack DOA',
   });
 });
 

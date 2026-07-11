@@ -210,6 +210,9 @@ const AddFromPriceChartingPage = () => {
     pcGrade !== null &&
     marketValue !== null &&
     image.trim() !== '' &&
+    // Required — the backend rejects a from-PC product without a pixel link
+    // (name-derivation fails on suffixed PC names like "Blastoise ex #200").
+    pokemon.pixel_pokemon_id !== null &&
     stock.trim() !== '' &&
     Number.isInteger(Number(stock)) &&
     Number(stock) >= 0 &&
@@ -222,7 +225,8 @@ const AddFromPriceChartingPage = () => {
       !match ||
       !pcProduct ||
       pcGrade === null ||
-      marketValue === null
+      marketValue === null ||
+      pokemon.pixel_pokemon_id === null
     )
       return;
     try {
@@ -238,7 +242,7 @@ const AddFromPriceChartingPage = () => {
         stock: Number(stock),
         // Staged on the product's metadata; the create-card step inherits +
         // mirrors it when the product is later registered as a gacha card.
-        pixel_pokemon_id: pokemon.pixel_pokemon_id ?? undefined,
+        pixel_pokemon_id: pokemon.pixel_pokemon_id,
       });
       setCreated(product);
       toast.success(t('pcAdd.toast.created', { name: pcProduct.name }));
@@ -463,13 +467,20 @@ const AddFromPriceChartingPage = () => {
           </div>
         )}
 
-        {/* Step 5 — pixel Pokémon */}
+        {/* Step 5 — pixel Pokémon (required — see canSave) */}
         {pcGrade !== null && (
-          <CardPokemonFields
-            value={pokemon}
-            onChange={(p) => setPokemon((v) => ({ ...v, ...p }))}
-            suggestionName={pcProduct?.name ?? ''}
-          />
+          <div className="flex flex-col gap-y-2">
+            <CardPokemonFields
+              value={pokemon}
+              onChange={(p) => setPokemon((v) => ({ ...v, ...p }))}
+              suggestionName={pcProduct?.name ?? ''}
+            />
+            {pokemon.pixel_pokemon_id === null && (
+              <Text size="small" className="text-ui-fg-error">
+                {t('pcAdd.pixel.required')}
+              </Text>
+            )}
+          </div>
         )}
 
         {/* Step 6 — submit */}

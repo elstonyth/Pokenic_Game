@@ -167,6 +167,7 @@ medusaIntegrationTestRunner({
         // successful charge.
         const replay = await topUpIdem(50, authed(token), key);
         expect(replay.status).toBe(200);
+        expect(replay.data.amount).toBe(50);
         expect(replay.data.balance).toBe(50);
         expect(replay.data.replayed).toBe(true);
         expect(replay.data.reference).toBe(first.data.reference);

@@ -153,7 +153,9 @@ export function RevealStage({
     if (state.phase === 'vaulted' || expired) {
       return (
         <p className="text-center text-[12px] text-white/60">
-          Stored in your vault — sell anytime at {offer.vaultPercent}%
+          {offer.firm
+            ? `Stored in your vault — sell anytime at ${offer.vaultPercent}%`
+            : 'Stored in your vault — sell once rates are back'}
         </p>
       );
     }

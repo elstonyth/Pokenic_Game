@@ -207,13 +207,16 @@ medusaIntegrationTestRunner({
 
       // Mandatory since the 2026-07-07 audit: a real PSP retry without a key
       // would double-credit, so a keyless top-up is now a hard 400 (this used
-      // to be the "no key → always credits" branch of the test above).
+      // to be the "no key → always credits" branch of the test above). The
+      // 400 message is user-facing since sim P3-6 (PR #128 changed the step
+      // message without updating this expectation) — it tells the human what
+      // to do, so it no longer contains the word "idempotency".
       it('rejects a top-up without an Idempotency-Key header (400, no write)', async () => {
         const token = await registerCustomer('topup-no-key@test.dev');
 
         const res = await topUp(50, authed(token));
         expect(res.status).toBe(400);
-        expect(res.data.message).toMatch(/idempotency/i);
+        expect(res.data.message).toMatch(/could not start your top-up/i);
         expect(await ledgerRows()).toHaveLength(0);
       });
 

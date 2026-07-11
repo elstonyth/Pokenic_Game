@@ -87,6 +87,12 @@ const adminEnv = {
 };
 medusa(['exec', './src/scripts/create-admin.ts'], adminEnv);
 
+// Enable the tier-a daily reward box so the daily draw actually draws (new
+// customers are tier a; its box ships disabled/no-prizes). Without this the
+// draw returns {status:'unavailable'} and the Day1→Day2 time-shift is untestable.
+console.log('[sim] enabling tier-a daily box');
+medusa(['exec', './src/scripts/seed-sim-daily-box.ts']);
+
 const out = medusa(
   ['exec', './src/scripts/print-publishable-key.ts'],
   env,
@@ -115,6 +121,15 @@ writeFileSync(
     'Log in via POST /auth/user/emailpass to get your admin token.',
     '',
   ].join('\n'),
+  'utf8',
+);
+
+// Persist the sim DB role/password so the day time-shift can connect from the
+// workflow runtime (which has no DATABASE_URL in its env). Local sim creds in a
+// gitignored runs/ dir — never committed.
+writeFileSync(
+  join(dir, 'db.json'),
+  JSON.stringify({ user: pgUser, pass: pgPass }),
   'utf8',
 );
 

@@ -12,8 +12,13 @@ today.
 Tactics: open a pack then demand a refund via the support inbox (append a message
 to runs/<runId>/inbox.jsonl: { day, from:'refund-seeker', kind:'refund_request',
 detail }); dispute buyback prices; claim a pack was "never delivered"; try to get
-credit back AND keep the pulled card. Emit a `complained` event when you escalate
-to the desk.
+credit back AND keep the pulled card.
+
+Emit events AS YOU GO (never batched at the end) via scripts/sim/event-log.mjs
+(appendEvent) so the live viewer animates: an `arrived` event immediately after
+onboarding, `played_pack` (detail { slot } — slot1/slot2/slot3) before each open,
+`pull_result` (detail { rarity }) after, and a `complained` event when you
+escalate to the desk. Put your current { balance } in the detail when it changes.
 
 Every real defect (an endpoint that lets you double-dip, a refund with no audit
 trail) → emit a `finding` event with the exact repro. A demand that is correctly

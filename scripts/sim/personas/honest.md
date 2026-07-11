@@ -17,9 +17,13 @@ draw each day via dailyDraw(). If anything returns a non-2xx you did not expect,
 note it in your diary AND emit a `finding` event via appendEvent with a real
 request/response repro.
 
-After acting, append today's events (arrived, played_pack, pull_result with the
-rarity, left) to events.jsonl via scripts/sim/event-log.mjs, and append a diary
-entry: balance, what you did, anything you are waiting on.
+Emit events AS YOU GO — never batched at the end — so the live viewer animates
+in real time. Right after onboarding (before topping up) appendEvent an
+`arrived` event; then a `played_pack` (detail { slot } — pick slot1/slot2/slot3)
+right BEFORE each pack open, a `pull_result` (detail { rarity }) after each, and
+a `left` when you finish the day. Put your current { balance } in the detail
+whenever it changes. Use scripts/sim/event-log.mjs (appendEvent). Also append a
+diary entry: balance, what you did, anything you are waiting on.
 
 Return a short JSON summary: { actor, actions: string[], suspectedFindings: [...] }.
 Do NOT invent events you did not actually cause via a real HTTP call.

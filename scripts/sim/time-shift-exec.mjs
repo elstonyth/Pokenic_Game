@@ -1,17 +1,35 @@
 // scripts/sim/time-shift-exec.mjs
 import { execFileSync } from 'node:child_process';
-import { SIM } from './config.mjs';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { SIM, runDir } from './config.mjs';
 import { buildShiftSql } from './time-shift.mjs';
 
-export function shiftDay(days = 1) {
-  // Match how the backend connects (container superuser is not necessarily
-  // "postgres"): derive role/password from DATABASE_URL when present. Run this
-  // via `node scripts/sim/time-shift-exec.mjs <days>` from a shell that has
-  // DATABASE_URL exported so the credentials are available.
+// Resolve the sim DB role/password. Prefer DATABASE_URL (CLI use from a shell
+// that exported it); otherwise fall back to runs/<runId>/db.json that provision
+// wrote — this is the path the workflow uses, since its runtime has no
+// DATABASE_URL in env.
+function creds(runId) {
   const base = process.env.DATABASE_URL || '';
-  const dbu = base ? new URL(base) : null;
-  const pgUser = (dbu && decodeURIComponent(dbu.username)) || 'postgres';
-  const pgPass = dbu ? decodeURIComponent(dbu.password) : '';
+  if (base) {
+    const u = new URL(base);
+    return {
+      user: decodeURIComponent(u.username) || 'postgres',
+      pass: decodeURIComponent(u.password),
+    };
+  }
+  if (runId) {
+    const f = join(runDir(runId), 'db.json');
+    if (existsSync(f)) {
+      const j = JSON.parse(readFileSync(f, 'utf8'));
+      return { user: j.user || 'postgres', pass: j.pass || '' };
+    }
+  }
+  return { user: 'postgres', pass: '' };
+}
+
+export function shiftDay(days = 1, runId) {
+  const { user: pgUser, pass: pgPass } = creds(runId);
   const sql = buildShiftSql(SIM.TIME_SHIFT_TARGETS, days).join('\n');
   execFileSync(
     'docker',
@@ -48,6 +66,7 @@ export function shiftDay(days = 1) {
 }
 
 if (process.argv[1] && process.argv[1].endsWith('time-shift-exec.mjs')) {
-  shiftDay(Number(process.argv[2] || 1));
+  // node scripts/sim/time-shift-exec.mjs <days> [runId]
+  shiftDay(Number(process.argv[2] || 1), process.argv[3]);
   console.log('[sim] shifted day');
 }

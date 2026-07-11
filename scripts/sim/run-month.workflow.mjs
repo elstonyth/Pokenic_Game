@@ -57,19 +57,23 @@ for (let day = 1; day <= days; day++) {
   phase('Day');
   log(`Day ${day} — customers acting`);
 
-  // Customers act concurrently (cap 4 — Knex pool). Their summaries are not
-  // read here: the agents' real output is the artifacts they write (events,
-  // inbox, findings), which the auditor reads. We await only for sequencing.
-  await parallel(
-    CUSTOMERS.map(
-      (p) => () =>
-        agent(customerPrompt(p, runId, day), {
-          label: `cust:${p}:d${day}`,
-          phase: 'Day',
-          model: 'opus',
-        }),
-    ),
-  );
+  // Customers act in batches of 4 (Knex pool cap — 8 concurrent agents can
+  // exhaust the backend's DB pool). Their summaries aren't read here: the agents'
+  // real output is the artifacts they write (events, inbox, findings). Await for
+  // sequencing only.
+  const CHUNK = 4;
+  for (let i = 0; i < CUSTOMERS.length; i += CHUNK) {
+    await parallel(
+      CUSTOMERS.slice(i, i + CHUNK).map(
+        (p) => () =>
+          agent(customerPrompt(p, runId, day), {
+            label: `cust:${p}:d${day}`,
+            phase: 'Day',
+            model: 'opus',
+          }),
+      ),
+    );
+  }
 
   log(`Day ${day} — admin working the inbox`);
   await agent(adminPrompt(runId, day), {
@@ -94,7 +98,7 @@ for (let day = 1; day <= days; day++) {
   if (day < days) {
     log(`Day ${day} — time-shifting the world back one day`);
     const { shiftDay } = await import('./time-shift-exec.mjs');
-    shiftDay(1);
+    shiftDay(1, runId); // runId → reads runs/<runId>/db.json for creds
   }
 }
 

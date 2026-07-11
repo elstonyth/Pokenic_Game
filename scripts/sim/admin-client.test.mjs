@@ -34,8 +34,26 @@ test('freeze hits the freeze sub-route', async () => {
 });
 
 test('admin client sends no publishable key header', async () => {
-  const { fetchImpl, calls } = recorder();
+  const { fetchImpl, calls } = recorder({ items: [], total: 0 });
   const c = makeAdminClient({ baseUrl: 'http://h', token: 'adm', fetchImpl });
   await c.getCustomerTransactions('cus_3');
   assert.equal(calls[0].opts.headers['x-publishable-api-key'], undefined);
+});
+
+test('getCustomerTransactions pages through ALL rows (not just the first page)', async () => {
+  // total 150: first page 100, second page 50 — the bug summed only the first.
+  const fetchImpl = async (url) => {
+    const offset = Number(new URL(url).searchParams.get('offset'));
+    const n = offset < 100 ? 100 : 50;
+    const items = Array.from({ length: n }, (_, i) => ({
+      id: 'tx' + (offset + i),
+      amount: 1,
+    }));
+    return { status: 200, json: async () => ({ total: 150, items }) };
+  };
+  const c = makeAdminClient({ baseUrl: 'http://h', token: 'adm', fetchImpl });
+  const r = await c.getCustomerTransactions('cus_4');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.items.length, 150);
+  assert.equal(r.body.total, 150);
 });

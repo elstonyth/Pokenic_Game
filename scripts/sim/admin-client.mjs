@@ -49,6 +49,30 @@ export function makeAdminClient({ baseUrl, token, fetchImpl = fetch }) {
       }
       return { status: 200, body: { total: items.length, items } };
     },
+    // Support view for buyback price disputes (sim P1-3): every pull with
+    // status, paid buyback_amount/buyback_at, and a payable-now `quote`
+    // ({percent, amount, rate_type, firm, instant_deadline_ms}) on vaulted
+    // card pulls; response-level fx {rate, firm}. Pages through all rows.
+    getCustomerPulls: async (id) => {
+      const items = [];
+      let offset = 0;
+      let total = Infinity;
+      let fx = null;
+      while (offset < total) {
+        const r = await call(
+          'GET',
+          `/admin/customers/${id}/pulls?limit=100&offset=${offset}`,
+        );
+        if (r.status !== 200 || !r.body) return r;
+        fx = r.body.fx ?? fx;
+        const page = r.body.items || [];
+        items.push(...page);
+        total = r.body.total ?? items.length;
+        if (page.length === 0) break; // guard against a stuck cursor
+        offset += page.length;
+      }
+      return { status: 200, body: { total: items.length, fx, items } };
+    },
     // The route reads body.note (not body.reason) and rejects an empty note.
     adjustCredits: (id, amount, note) =>
       call('POST', `/admin/customers/${id}/credits`, { amount, note }),

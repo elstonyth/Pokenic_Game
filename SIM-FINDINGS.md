@@ -35,6 +35,7 @@ Ranked by priority. Each is reproduced in `findings.jsonl` with the exact reques
 ### Unverified (low)
 
 11. **bug (suspected) — missing showcase-sell guard.** `buyback-pull.ts` guards only `status !== "vaulted"` with no explicit showcase check. Not reproduced under load; worth a code read.
+    → **Code-read 2026-07-11: not a bug.** The public profile collection filters `showcased && status === 'vaulted'` (`store/profiles/[handle]/route.ts`), so a bought-back pull drops out of showcases automatically; selling a showcased card is legitimate and leaves nothing rendered stale. No guard needed.
 
 ## Harness caveat the auditor caught (already fixed)
 

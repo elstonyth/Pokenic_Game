@@ -127,6 +127,43 @@ describe('resolveFxRateInfo — quotes must know whether FX is firm (sim finding
     expect(info).toEqual({ rate: DEFAULT_USD_MYR, firm: false });
   });
 
+  // Row fields are bigNumber-backed and can come back as strings — the
+  // Number(...) normalization must treat a numeric string as a real rate.
+  it('normalizes string row fields and stays firm (manual override wins)', async () => {
+    const info = await resolveFxRateInfo({
+      listFxRates: async () => [
+        {
+          rate: '4.55',
+          manual_override: true,
+          manual_rate: '4.2',
+        } as unknown as { rate: number; manual_override: boolean; manual_rate: number },
+      ],
+    });
+    expect(info).toEqual({ rate: 4.2, firm: true });
+  });
+
+  it('is NOT firm when the stored rate normalizes to NaN', async () => {
+    const info = await resolveFxRateInfo({
+      listFxRates: async () => [
+        { rate: NaN, manual_override: false, manual_rate: null },
+      ],
+    });
+    expect(info).toEqual({ rate: DEFAULT_USD_MYR, firm: false });
+  });
+
+  it('is NOT firm when the row field is a non-numeric string', async () => {
+    const info = await resolveFxRateInfo({
+      listFxRates: async () => [
+        {
+          rate: 'not-a-rate',
+          manual_override: false,
+          manual_rate: null,
+        } as unknown as { rate: number; manual_override: boolean; manual_rate: null },
+      ],
+    });
+    expect(info).toEqual({ rate: DEFAULT_USD_MYR, firm: false });
+  });
+
   // The invariant that closes the finding: the quote is firm exactly when the
   // money path would pay. If these ever diverge, a shown quote can be refused.
   it('firm === strict-resolver-succeeds, and both agree on the rate', async () => {

@@ -1,20 +1,46 @@
 'use client';
 
 // One shared 30s sell window for the whole pull (spec features 9-10). Behavior
-// lifted from SellBackPanel (reveal ping once when active → server deadline →
-// wall-clock countdown) but SHARED: one deadline (earliest across pulls), one
-// countdown, per-card sell states, and a 'vaulted' terminal state at expiry.
+// lifted from the since-deleted SellBackPanel (reveal ping once when active →
+// server deadline → wall-clock countdown) but SHARED: one deadline (earliest
+// across pulls), one countdown, per-card sell states, and a 'vaulted' terminal
+// state at expiry. The SellBackOffer/SellBackFn/RevealFn types moved here when
+// that component was removed (PR #129 review — it was dead code that absorbed
+// the P1-1 firmness fix).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   SELL_COUNTDOWN_SECS,
   sellSecondsLeft,
   sharedDeadlineMs,
 } from '@/lib/sell-countdown';
-import type {
-  SellBackOffer,
-  SellBackFn,
-  RevealFn,
-} from '@/components/SellBackPanel';
+export type SellBackOffer = {
+  pullId: string;
+  fmv: number;
+  cardName: string;
+  image: string;
+  slabImage: string | null;
+  percent: number;
+  amount: number;
+  vaultPercent: number;
+  vaultAmount: number;
+  /** Fallback instant deadline (epoch ms) if the reveal ping fails. */
+  instantDeadlineMs: number;
+  /** false = the quote was priced on the backend's FX display fallback and
+   *  selling would be refused ("Exchange rate unavailable") — render the
+   *  unavailable state instead of a firm offer (sim finding P1-1). */
+  firm: boolean;
+};
+
+export type SellBackFn = (
+  pullId: string,
+) => Promise<
+  | { ok: true; amount: number; percent: number; balance: number }
+  | { ok: false; error: string; needsAuth?: boolean }
+>;
+
+export type RevealFn = (
+  pullId: string,
+) => Promise<{ ok: true; instantDeadlineMs: number } | { ok: false }>;
 
 export type SellState =
   | { phase: 'idle' }
@@ -128,6 +154,10 @@ export function useSellWindow({
     async (index: number): Promise<boolean> => {
       const offer = offers[index];
       if (!offer) return false;
+      // Non-firm quote (FX display fallback): the server would refuse the
+      // sell with "Exchange rate unavailable" — never fire it. The reveal UI
+      // hides the Sell CTA too; this guard is defense in depth.
+      if (!offer.firm) return false;
       let blocked = false;
       setStates((prev) => {
         const cur = prev[index];

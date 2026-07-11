@@ -100,6 +100,11 @@ export default function VaultClient({
   const selectedPercent =
     selectedItems[0]?.buyback.percent ?? FLAT_BUYBACK_PERCENT;
 
+  // FX firmness is global (one rate), so any non-firm quote means all quotes
+  // are on the display fallback and the backend would refuse every sell —
+  // gate the sell CTAs and say why instead of letting the 400 explain it.
+  const quotesFirm = items.every((i) => i.buyback.firm);
+
   const vaultValue = items.reduce(
     (sum, i) => sum + (i.card.marketPriceMyr ?? 0),
     0,
@@ -379,6 +384,16 @@ export default function VaultClient({
         </p>
       )}
 
+      {!quotesFirm && (
+        <p
+          role="status"
+          className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-[13px] font-medium text-amber-300"
+        >
+          Sell-back is temporarily unavailable while pricing is refreshed — your
+          cards are safe here and can be sold once rates are back.
+        </p>
+      )}
+
       {items.length === 0 ? (
         <div className="mt-5 rounded-2xl border border-white/10 bg-neutral-900 px-6 py-12 text-center">
           <p className="text-sm font-semibold text-white">
@@ -555,7 +570,7 @@ export default function VaultClient({
                     variant="secondary"
                     size="sm"
                     onClick={() => setConfirmItem(item)}
-                    disabled={sellingId !== null}
+                    disabled={sellingId !== null || !item.buyback.firm}
                     className="mt-2 h-8 px-2 text-[11px] text-buyback-fg sm:mt-2.5 sm:h-9 sm:text-[12px]"
                   >
                     {sellingId === item.pullId ? (
@@ -596,7 +611,11 @@ export default function VaultClient({
             </span>
           </div>
           <div className="mt-3 flex gap-2">
-            <Pill onClick={() => setConfirmBulkSell(true)} className="flex-1">
+            <Pill
+              onClick={() => setConfirmBulkSell(true)}
+              disabled={!quotesFirm}
+              className="flex-1"
+            >
               Sell {selected.size}
             </Pill>
             <Pill

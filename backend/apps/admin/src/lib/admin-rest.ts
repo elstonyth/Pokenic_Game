@@ -126,6 +126,19 @@ export interface SupportPull {
   rolled_at: string;
   status: 'vaulted' | 'bought_back';
   buyback_amount: number | null;
+  /** When the sell-back was paid (bought_back only). Optional: the /gacha
+   *  fallback rows don't carry the dispute fields — only /pulls does. */
+  buyback_at?: string | null;
+  /** Payable-now sell quote on a vaulted card pull — same helpers as the
+   *  customer's vault, so this number matches their sell button exactly.
+   *  firm:false = priced on the FX display fallback (sells are refused). */
+  quote?: {
+    percent: number;
+    amount: number;
+    rate_type: string;
+    firm: boolean;
+    instant_deadline_ms: number;
+  } | null;
   card: {
     handle: string;
     name: string;
@@ -163,7 +176,13 @@ export const getCustomerTransactions = (id: string, page = 0, limit = 25) =>
   );
 
 export const getCustomerPulls = (id: string, page = 0, limit = 25) =>
-  getJson<{ items: SupportPull[]; total: number }>(
+  getJson<{
+    items: SupportPull[];
+    total: number;
+    /** firm:false = the backend is on its FX display fallback — every
+     *  customer sell is being refused while quotes still show amounts. */
+    fx?: { rate: number; firm: boolean };
+  }>(
     `/admin/customers/${encodeURIComponent(id)}/pulls?limit=${limit}&offset=${page * limit}`,
   );
 

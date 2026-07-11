@@ -7,11 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import type { WonCard } from '@/lib/actions/packs';
-import type {
-  SellBackOffer,
-  SellBackFn,
-  RevealFn,
-} from '@/components/SellBackPanel';
+import type { SellBackOffer, SellBackFn, RevealFn } from './useSellWindow';
 import SellConfirmModal from '@/components/SellConfirmModal';
 import { rm } from '@/lib/format';
 import { rarityRgb, isTopRarity } from '@/lib/rarity';
@@ -79,6 +75,9 @@ export function RevealStage({
     });
 
   const anyTop = cards.some((c) => isTopRarity(c.rarity));
+  // Firmness is global per batch (one FX rate), but derive per-offer anyway:
+  // no firm offer ⇒ nothing is sellable now ⇒ no countdown-pressure clock.
+  const anyFirm = offers.some((o) => o?.firm);
 
   useEffect(() => {
     if (phase === 'transform') sfx('chime');
@@ -154,8 +153,35 @@ export function RevealStage({
     if (state.phase === 'vaulted' || expired) {
       return (
         <p className="text-center text-[12px] text-white/60">
-          Stored in your vault — sell anytime at {offer.vaultPercent}%
+          {offer.firm
+            ? `Stored in your vault — sell anytime at ${offer.vaultPercent}%`
+            : 'Stored in your vault — sell once rates are back'}
         </p>
+      );
+    }
+    // Non-firm quote (sim finding P1-1): the backend priced this on its FX
+    // display fallback and a sell would be refused — never present the amount
+    // as a firm, countdown-pressured offer. Keep stays available (it's a pure
+    // client-side conclude; the card is already vaulted server-side).
+    if (!offer.firm) {
+      return (
+        <>
+          <p className="flex h-12 w-full items-center justify-center rounded-xl border border-white/15 bg-white/5 text-sm font-bold text-white/50">
+            Sell-back temporarily unavailable
+          </p>
+          <button
+            type="button"
+            onClick={() => keep(i)}
+            disabled={!flipped}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-white/12 bg-white/5 text-[13px] font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+          >
+            Keep in vault
+          </button>
+          <p className="text-center text-[11px] text-white/50">
+            Pricing is being refreshed — this card is safe in your vault and can
+            be sold once rates are back.
+          </p>
+        </>
       );
     }
     // Both actions after reveal (spec decision #26): Sell (primary) + Keep in
@@ -268,13 +294,17 @@ export function RevealStage({
           on flip doesn't grow the centered column and nudge the card up — the
           card must stay put (spec decision #23). */}
       <div className="flex h-5 w-full items-center justify-center">
-        {phase === 'review' && flipped && deadlineMs !== null && !expired && (
-          <AuctionClock
-            deadlineMs={deadlineMs}
-            secondsLeft={secondsLeft}
-            reduced={reduced}
-          />
-        )}
+        {phase === 'review' &&
+          flipped &&
+          anyFirm &&
+          deadlineMs !== null &&
+          !expired && (
+            <AuctionClock
+              deadlineMs={deadlineMs}
+              secondsLeft={secondsLeft}
+              reduced={reduced}
+            />
+          )}
       </div>
       {confirmIndex !== null && offers[confirmIndex] && (
         <SellConfirmModal

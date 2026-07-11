@@ -370,6 +370,16 @@ const SupportPage = () => {
             <div className="px-6 py-4">
               <Heading level="h2">{t("support.pulls")}</Heading>
             </div>
+            {/* FX-fallback warning (sim P1-3): while the backend has no usable
+                FX row, customer quotes are indicative-only and every sell is
+                refused — the desk needs to know that before adjudicating. */}
+            {pullHistory.data?.fx && !pullHistory.data.fx.firm && (
+              <div className="border-t px-6 py-3">
+                <Text className="text-ui-fg-error text-[13px]">
+                  {t("support.fxNotFirm")}
+                </Text>
+              </div>
+            )}
             {pullRows.length === 0 ? (
               <div className="border-t px-6 py-6">
                 <Text className="text-ui-fg-subtle">{t("support.empty")}</Text>
@@ -415,15 +425,41 @@ const SupportPage = () => {
                         </Table.Cell>
                         <Table.Cell>
                           {p.status === "bought_back" ? (
-                            <StatusBadge color="orange">
-                              {t("pulls.boughtBack", {
-                                amount: rm(p.buyback_amount),
-                              })}
-                            </StatusBadge>
+                            <div className="flex flex-col gap-0.5">
+                              <StatusBadge color="orange">
+                                {t("pulls.boughtBack", {
+                                  amount: rm(p.buyback_amount),
+                                })}
+                              </StatusBadge>
+                              {p.buyback_at && (
+                                <span className="text-ui-fg-subtle text-[12px]">
+                                  {new Date(p.buyback_at).toLocaleString(
+                                    "en-US",
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           ) : (
-                            <StatusBadge color="green">
-                              {t("pulls.vaulted")}
-                            </StatusBadge>
+                            <div className="flex flex-col gap-0.5">
+                              <StatusBadge color="green">
+                                {t("pulls.vaulted")}
+                              </StatusBadge>
+                              {/* Payable-now quote — the dispute desk's
+                                  quote-vs-paid anchor (sim P1-3). Matches the
+                                  customer's sell button exactly. */}
+                              {p.quote && (
+                                <span className="text-ui-fg-subtle text-[12px] tabular-nums">
+                                  {p.quote.firm
+                                    ? t("support.sellsNowFor", {
+                                        amount: rm(p.quote.amount),
+                                        percent: p.quote.percent,
+                                      })
+                                    : t("support.quoteNotFirm", {
+                                        amount: rm(p.quote.amount),
+                                      })}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </Table.Cell>
                         <Table.Cell className="text-ui-fg-subtle text-right">

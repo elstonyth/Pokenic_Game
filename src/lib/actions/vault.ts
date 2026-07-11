@@ -27,27 +27,10 @@ import {
   CreditsSchema,
   CreditTransactionSchema,
 } from '@/lib/data/schemas';
+import { mapVaultItem, type BackendVaultItem } from './vault-map';
+export type { VaultItem } from './vault-map';
 
-export type VaultItem = {
-  pullId: string;
-  rolledAt: string;
-  packId: string;
-  packTitle: string;
-  showcased: boolean;
-  card: {
-    handle: string;
-    name: string;
-    image: string;
-    slabImage: string | null;
-    rarity: string;
-    marketValue: number;
-    marketPriceMyr: number;
-  };
-  buyback: {
-    percent: number;
-    amount: number;
-  };
-};
+import type { VaultItem } from './vault-map';
 
 export type VaultResult =
   | { ok: true; items: VaultItem[]; balance: number }
@@ -56,23 +39,6 @@ export type VaultResult =
 export type SellBackResult =
   | { ok: true; amount: number; percent: number; balance: number }
   | { ok: false; error: string; needsAuth?: boolean };
-
-interface BackendVaultItem {
-  pull_id: string;
-  rolled_at: string;
-  pack_id: string;
-  pack_title: string;
-  card: {
-    handle: string;
-    name: string;
-    image: string;
-    slab_image?: string | null;
-    rarity: string;
-    market_value: number;
-    marketPriceMyr?: number;
-  };
-  buyback: { percent: number; amount: number };
-}
 
 // Patterns local to the vault/credit actions (rate-limit, auth, the demo
 // gateway decline, amount/already-sold/not-found). Order matters — first match.
@@ -120,23 +86,7 @@ export async function getVault(): Promise<VaultResult> {
         VaultItemSchema,
         (vaultRes as { items?: unknown }).items,
       ) as unknown as BackendVaultItem[]
-    ).map((i) => ({
-      pullId: i.pull_id,
-      rolledAt: i.rolled_at,
-      packId: i.pack_id,
-      packTitle: i.pack_title,
-      showcased: (i as unknown as { showcased?: boolean }).showcased ?? false,
-      card: {
-        handle: i.card.handle,
-        name: i.card.name,
-        image: i.card.image,
-        slabImage: i.card.slab_image ?? null,
-        rarity: i.card.rarity,
-        marketValue: i.card.market_value,
-        marketPriceMyr: i.card.marketPriceMyr ?? 0,
-      },
-      buyback: { percent: i.buyback.percent, amount: i.buyback.amount },
-    }));
+    ).map(mapVaultItem);
     const credit = parseOne(BalanceSchema, creditRes);
 
     return { ok: true, items, balance: credit ? credit.balance : 0 };

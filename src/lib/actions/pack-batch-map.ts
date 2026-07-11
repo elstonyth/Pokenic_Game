@@ -19,6 +19,8 @@ export type BuybackOffer = {
   vaultPercent: number | null;
   vaultAmount: number | null;
   instantDeadlineMs: number | null;
+  /** false = quoted on the FX display fallback (sell would be refused). */
+  firm: boolean;
 };
 
 /** One roll in an open-batch response, mapped for the client reveal. */
@@ -98,6 +100,7 @@ export function mapBatchRoll(rawRoll: RawBatchRollItem): BatchRoll | null {
           vaultPercent: offer.vault_percent ?? null,
           vaultAmount: offer.vault_amount ?? null,
           instantDeadlineMs: offer.instant_deadline_ms ?? null,
+          firm: offer.firm ?? true,
         }
       : null,
   };

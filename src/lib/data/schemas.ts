@@ -121,7 +121,14 @@ export const VaultItemSchema = z.looseObject({
   pull_id: z.string(),
   showcased: z.boolean().optional(),
   card: z.looseObject({ name: z.string() }),
-  buyback: z.looseObject({ amount: finite, percent: finite }),
+  // `firm` is false when the backend priced the quote on its FX display
+  // fallback — selling would be refused, so the UI must not offer it as firm.
+  // Optional: an older backend omits it (treated as firm).
+  buyback: z.looseObject({
+    amount: finite,
+    percent: finite,
+    firm: z.boolean().optional(),
+  }),
 });
 
 /** POST /store/vault/:id/showcase response — pull_id + final showcased state. */
@@ -213,13 +220,16 @@ export const WonCardSchema = z.looseObject({
 });
 
 /** Open-route `buyback` offer — instant percent/amount (required) + the vault
- *  rate/amount and instant deadline (optional; older backends omit them). */
+ *  rate/amount and instant deadline (optional; older backends omit them).
+ *  `firm:false` = quoted on the FX display fallback; selling would be refused
+ *  ("Exchange rate unavailable"), so the reveal must not present it as firm. */
 export const OpenBuybackSchema = z.looseObject({
   percent: finite,
   amount: finite,
   vault_percent: finite.optional(),
   vault_amount: finite.optional(),
   instant_deadline_ms: finite.optional(),
+  firm: z.boolean().optional(),
 });
 
 // --- actions/wallet.ts ------------------------------------------------------

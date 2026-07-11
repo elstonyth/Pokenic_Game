@@ -153,7 +153,19 @@ describe('mapBatchRoll — buyback validation', () => {
       vaultPercent: 30,
       vaultAmount: 11.99,
       instantDeadlineMs: 1_750_000_000_000,
+      // Absent from the raw offer = firm (older backend, pre-firmness).
+      firm: true,
     });
+  });
+
+  it('passes firm:false through so the reveal can suppress the offer', () => {
+    const roll = rawRoll(undefined, {
+      percent: 50,
+      amount: 19.99,
+      firm: false,
+    });
+    const result = mapBatchRoll(roll);
+    expect(result!.buyback!.firm).toBe(false);
   });
 });
 

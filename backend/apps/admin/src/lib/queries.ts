@@ -218,7 +218,11 @@ export const useCustomerTransactions = (
 export const useCustomerPulls = (
   id: string | null,
   page = 0,
-): UseQueryResult<{ items: SupportPull[]; total: number }> =>
+): UseQueryResult<{
+  items: SupportPull[];
+  total: number;
+  fx?: { rate: number; firm: boolean };
+}> =>
   useQuery({
     queryKey: qk.customerPulls(id ?? '', page),
     queryFn: () => getCustomerPulls(id!, page),

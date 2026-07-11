@@ -1,0 +1,73 @@
+/**
+ * Pure mapper for a single raw /store/vault item.
+ *
+ * Extracted from the 'use server' boundary (same pattern as pack-batch-map.ts)
+ * so the firm-default logic can be unit-tested without the Next.js
+ * server-action constraint. Nothing here is server-only.
+ */
+
+export type VaultItem = {
+  pullId: string;
+  rolledAt: string;
+  packId: string;
+  packTitle: string;
+  showcased: boolean;
+  card: {
+    handle: string;
+    name: string;
+    image: string;
+    slabImage: string | null;
+    rarity: string;
+    marketValue: number;
+    marketPriceMyr: number;
+  };
+  buyback: {
+    percent: number;
+    amount: number;
+    /** false = quoted on the FX display fallback; the sell would be refused,
+     *  so CTAs must not present the amount as a firm offer. */
+    firm: boolean;
+  };
+};
+
+export interface BackendVaultItem {
+  pull_id: string;
+  rolled_at: string;
+  pack_id: string;
+  pack_title: string;
+  card: {
+    handle: string;
+    name: string;
+    image: string;
+    slab_image?: string | null;
+    rarity: string;
+    market_value: number;
+    marketPriceMyr?: number;
+  };
+  buyback: { percent: number; amount: number; firm?: boolean };
+}
+
+export function mapVaultItem(i: BackendVaultItem): VaultItem {
+  return {
+    pullId: i.pull_id,
+    rolledAt: i.rolled_at,
+    packId: i.pack_id,
+    packTitle: i.pack_title,
+    showcased: (i as unknown as { showcased?: boolean }).showcased ?? false,
+    card: {
+      handle: i.card.handle,
+      name: i.card.name,
+      image: i.card.image,
+      slabImage: i.card.slab_image ?? null,
+      rarity: i.card.rarity,
+      marketValue: i.card.market_value,
+      marketPriceMyr: i.card.marketPriceMyr ?? 0,
+    },
+    buyback: {
+      percent: i.buyback.percent,
+      amount: i.buyback.amount,
+      // Absent on an older backend = firm (pre-firmness behavior).
+      firm: i.buyback.firm ?? true,
+    },
+  };
+}

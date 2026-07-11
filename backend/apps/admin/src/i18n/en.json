@@ -245,6 +245,9 @@
   "support": {
     "title": "Customer Support",
     "subtitle": "Look up a customer's credits, pulls, and vault — and apply credit adjustments.",
+    "sellsNowFor": "Sells now for {{amount}} ({{percent}}%)",
+    "quoteNotFirm": "Indicative {{amount}} — FX fallback, sells refused",
+    "fxNotFirm": "FX rate unavailable — customer sell-backs are currently refused; quotes below are indicative only.",
     "searchLabel": "Customer email",
     "searchPlaceholder": "name@example.com",
     "search": "Search",

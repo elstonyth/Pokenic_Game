@@ -74,14 +74,8 @@ const DELIVERY_RULES: ErrorRule[] = [
     /already in a pending delivery/i,
     'One or more cards are already in a pending delivery request.',
   ],
-  [
-    /already been delivered/i,
-    'One or more cards have already been delivered.',
-  ],
-  [
-    /already sold back/i,
-    'One or more cards were already sold back.',
-  ],
+  [/already been delivered/i, 'One or more cards have already been delivered.'],
+  [/already sold back/i, 'One or more cards were already sold back.'],
   [
     /no longer available|not allowed|409/i,
     'One or more cards are no longer available to deliver.',

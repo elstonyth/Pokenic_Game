@@ -116,9 +116,18 @@ export async function POST(
     body.stock === undefined
       ? 0
       : requireNonNegativeInteger(body.stock, 'stock');
-  // Fresh product → no field to "leave as-is": undefined coerces to null (none).
+  // Required (2026-07-11): a from-PC product must carry its pixel Pokémon at
+  // add-time. The old "resolves from the card name" fallback fails on suffixed
+  // PC names (e.g. "Blastoise ex #200") and ships a card with no reel sprite.
+  // optPixelPokemonId still does the type/trim validation; null is rejected.
   const pixel_pokemon_id =
     optPixelPokemonId(body as Record<string, unknown>) ?? null;
+  if (pixel_pokemon_id === null) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      "'pixel_pokemon_id' is required — link a PixelPokemon library entry or upload a custom sprite.",
+    );
+  }
 
   const { result } = await createProductFromPriceChartingWorkflow(
     req.scope,

@@ -140,6 +140,9 @@
       "hint": "Auto-filled from the PriceCharting card photo when a match is picked. Paste a different PriceCharting image URL or upload your own to override. A PriceCharting URL is fetched and stored through the media pipeline on save — never hotlinked.",
       "autoFilled": "Will be fetched & stored on save"
     },
+    "pixel": {
+      "required": "Required — the reel can't render this card without a pixel sprite. Link a library entry or upload one above."
+    },
     "submit": "Add product",
     "created": "Created",
     "toast": {

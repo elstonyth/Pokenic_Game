@@ -1,17 +1,20 @@
-// FIXME(ui-drift, PR #85): asserts the old li-based published-odds panel that
-// the slots-only storefront no longer renders. The 100%-win reflection idea is
-// still the headline test — rewrite the storefront half against /slots.
 // THE headline: an admin win-rate adjustment must take effect on the real
-// storefront pull, even though the storefront's *displayed* Pull Odds are a
-// hardcoded marketing table that is decoupled from the secret weights by design.
+// storefront pull, even though the storefront's *displayed* Pull Odds are the
+// admin-PUBLISHED rates (pack.published_odds — a display-only setting) that are
+// decoupled from the secret per-card weights by design.
 //
 // Proof (per the operator's spec): set ONE card to 100% win rate, open the pack
 // a few times — every pull must be that same card. Repeat on a DIFFERENT pack
 // with a DIFFERENT card so it's not a one-pack fluke. Pack A is adjusted through
 // the admin UI; pack B through the odds API (the same mutation the UI performs).
 // Throughout, assert the published Pull Odds panel never moves.
+//
+// Re-authored 2026-07-12 against the /slots storefront (plan 023): the old
+// hardcoded-ODDS <li> assertion is gone — the panel now renders the backend's
+// published_odds, so the invariant is checked as a before/after snapshot of the
+// panel itself (win-rate writes must never leak into the published display).
 import { test, expect } from '@playwright/test';
-import { BASE, PUBLISHED_ODDS } from './helpers/constants';
+import { BASE } from './helpers/constants';
 import {
   adminToken,
   createCustomer,
@@ -31,7 +34,7 @@ let customer: CustomerCreds;
 
 test.beforeAll(async () => {
   admin = await adminToken();
-  // Fund enough for OPENS opens of both packs (rookie $25, elite $50) + margin.
+  // Fund enough for OPENS opens of both packs (rookie RM25, elite RM50) + margin.
   customer = await createCustomer(400);
 });
 
@@ -45,16 +48,19 @@ function pickTarget(odds: OddsRow[]): OddsRow {
   return target;
 }
 
-async function assertPublishedOddsUnchanged(
+// Snapshot the player-facing Pull Odds panel on /slots/<slug> (the admin-
+// published rates), or its absence when the pack has none published. Comparing
+// before/after proves a win-rate adjustment never moves the published display.
+async function publishedOddsSnapshot(
   page: import('@playwright/test').Page,
   slug: string,
-): Promise<void> {
-  await page.goto(`${BASE}/claw/${slug}`, { waitUntil: 'domcontentloaded' });
-  for (const [rarity, pct] of PUBLISHED_ODDS) {
-    await expect(
-      page.locator('li', { hasText: rarity }).filter({ hasText: pct }),
-    ).toHaveCount(1);
-  }
+): Promise<string> {
+  await page.goto(`${BASE}/slots/${slug}`, { waitUntil: 'domcontentloaded' });
+  const panel = page
+    .locator('section', { hasText: 'Pull Odds (by rarity)' })
+    .locator('ul');
+  if ((await panel.count()) === 0) return 'no published odds panel';
+  return (await panel.innerText()).trim();
 }
 
 async function assertEveryPullIs(
@@ -71,11 +77,12 @@ async function assertEveryPullIs(
   expect(pulled).toEqual(Array(OPENS).fill(expectedName));
 }
 
-test.fixme('pack A (pokemon-rookie): 100% via admin UI → every pull is that card', async ({
+test('pack A (pokemon-rookie): 100% via admin UI → every pull is that card', async ({
   page,
 }) => {
   const slug = 'pokemon-rookie';
   const original = snapshotOdds((await getOdds(admin, slug)).odds);
+  const publishedBefore = await publishedOddsSnapshot(page, slug);
   try {
     const target = pickTarget((await getOdds(admin, slug)).odds);
 
@@ -89,8 +96,8 @@ test.fixme('pack A (pokemon-rookie): 100% via admin UI → every pull is that ca
     );
     expect(after?.pct).toBe(100);
 
-    // The decorative published odds did NOT move.
-    await assertPublishedOddsUnchanged(page, slug);
+    // The published Pull Odds display did NOT move.
+    expect(await publishedOddsSnapshot(page, slug)).toBe(publishedBefore);
 
     // The REAL pull behavior did: every open returns the forced card.
     await assertEveryPullIs(customer.token, slug, target.name);
@@ -99,12 +106,13 @@ test.fixme('pack A (pokemon-rookie): 100% via admin UI → every pull is that ca
   }
 });
 
-test.fixme('pack B (pokemon-elite): 100% via odds API → every pull is that card', async ({
+test('pack B (pokemon-elite): 100% via odds API → every pull is that card', async ({
   page,
 }) => {
   const slug = 'pokemon-elite';
   const before = (await getOdds(admin, slug)).odds;
   const original = snapshotOdds(before);
+  const publishedBefore = await publishedOddsSnapshot(page, slug);
   try {
     const target = pickTarget(before);
 
@@ -125,7 +133,7 @@ test.fixme('pack B (pokemon-elite): 100% via odds API → every pull is that car
     );
     expect(after?.pct).toBe(100);
 
-    await assertPublishedOddsUnchanged(page, slug);
+    expect(await publishedOddsSnapshot(page, slug)).toBe(publishedBefore);
     await assertEveryPullIs(customer.token, slug, target.name);
   } finally {
     await setOdds(admin, slug, original);

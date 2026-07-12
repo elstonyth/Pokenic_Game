@@ -200,6 +200,31 @@ medusaIntegrationTestRunner({
             ?.stocked_quantity;
         expect(Number(stocked)).toBe(0);
       });
+
+      it('rejects creation without a pixel_pokemon_id', async () => {
+        // Business rule (2026-07-11): a from-PC product must carry its pixel
+        // Pokémon at add-time. The old "resolves from the card name" fallback
+        // fails on suffixed PC names (e.g. "Blastoise ex #200") and ships a
+        // card with no reel sprite — so the route now rejects instead.
+        const res = await unwrapResponse(
+          api.post(
+            '/admin/products/from-pricecharting',
+            {
+              pc_product_id: '6912',
+              pc_grade: 'PSA 10',
+              name: 'Blastoise ex #200',
+              set: 'Scarlet & Violet 151',
+              grader: 'PSA',
+              grade: '10',
+              market_value: 60,
+              image: 'https://example.com/blastoise.png',
+            },
+            adminHeaders(),
+          ),
+        );
+        expect(res.status).toBe(400);
+        expect(res.data.message).toContain('pixel_pokemon_id');
+      });
     });
   },
 });

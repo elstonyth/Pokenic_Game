@@ -94,6 +94,20 @@ medusaIntegrationTestRunner({
       });
 
       it("card registered from a PC product inherits the link", async () => {
+        // pixel_pokemon_id is now required at product creation (2026-07-11) —
+        // stage a library entry like the operator flow does.
+        const pp = await unwrapResponse(
+          api.post(
+            "/admin/pixel-pokemon",
+            {
+              name: "Charizard",
+              dex: 6,
+              image_url: "https://example.com/charizard-pixel.png",
+            },
+            adminHeaders(),
+          ),
+        );
+
         const p = await unwrapResponse(
           api.post(
             "/admin/products/from-pricecharting",
@@ -106,6 +120,7 @@ medusaIntegrationTestRunner({
               grade: "10",
               market_value: 100,
               image: "https://example.com/charizard.png",
+              pixel_pokemon_id: pp.data.pixel_pokemon.id as string,
             },
             adminHeaders(),
           ),

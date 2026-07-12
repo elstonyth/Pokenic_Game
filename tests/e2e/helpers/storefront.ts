@@ -102,13 +102,12 @@ export async function login(
 }
 
 export async function logout(page: Page, slug: string): Promise<void> {
-  await gotoPack(page, slug);
-  await page.locator('header').getByRole('button').last().click();
-  await page.getByRole('menuitem', { name: /log out/i }).click();
-  // Logout redirects to the home page, so the pack CTA isn't on the current
-  // view; reload the pack as a guest to prove it re-gated to "Log in to open"
-  // (mirrors the demo journey's logout beat).
-  await page.waitForTimeout(1000);
+  // The header user menu is gone — logout lives on the account page (/me) as a
+  // "Log out" button (MeActions.LogoutButton), which pushes home on success.
+  await page.goto(`${BASE}/me`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /^log out$/i }).click();
+  await page.waitForURL((u) => u.pathname === '/', { timeout: 15_000 });
+  // Reload the pack as a guest to prove the CTA re-gated to "Log in to open".
   await gotoPack(page, slug);
   await page
     .getByRole('button', { name: /log in to open/i })
@@ -119,9 +118,7 @@ export async function logout(page: Page, slug: string): Promise<void> {
 // The old "/slots" per-open price line ("Each open costs RM …") was removed in the
 // redesign; exact per-open pricing is covered by the backend charge tests.
 export async function readBalance(page: Page): Promise<number> {
-  const chip = page
-    .getByRole('button', { name: /Balance .* top up/i })
-    .first();
+  const chip = page.getByRole('button', { name: /Balance .* top up/i }).first();
   await chip.waitFor({ timeout: 15_000 });
   const text = (await chip.textContent()) ?? '';
   const m = text.match(/RM\s*([\d,.]+)/);

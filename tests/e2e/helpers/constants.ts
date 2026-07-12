@@ -15,16 +15,5 @@ export const ADMIN_EMAIL = process.env.PW_ADMIN_EMAIL ?? 'admin@pokenic.local';
 export const ADMIN_PASSWORD =
   process.env.PW_ADMIN_PASSWORD ?? 'pokenicadmin2026';
 
-// The statically published Pull Odds (src/app/claw/packs-data.ts ODDS). These
-// are decoupled from the admin-tuned secret weights ON PURPOSE — the storefront
-// must keep showing exactly these regardless of any odds adjustment.
-export const PUBLISHED_ODDS: ReadonlyArray<readonly [string, string]> = [
-  ['Legendary', '0.5%'],
-  ['Epic', '4.5%'],
-  ['Rare', '15%'],
-  ['Uncommon', '30%'],
-  ['Common', '50%'],
-];
-
 // Unique-per-run id so reruns never collide on email/slug.
 export const stamp = (): string => `${Date.now()}`;

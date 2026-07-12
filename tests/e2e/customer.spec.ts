@@ -1,9 +1,10 @@
-// FIXME(ui-drift, PR #85): drives the retired /claw/<pack> route and the old
-// Demo Spin button (slots-only shell PR #61, demo-spin rework PR #78). Needs a
-// rewrite against the /slots flow; parked so the nightly reflects real signal.
 // Customer workflow, end to end through the storefront UI:
 //   create account → top up credits → open a pack → keep the card in the vault
 //   → sell it back. Backend ledgers are asserted via API as ground truth.
+// Re-authored 2026-07-12 against the redesigned /slots + /vault UI (plan 023):
+// the pack detail is a configurator whose "Open Pack" CTA navigates to the slot
+// reel (/slots/<slug>/spin), the won card auto-vaults server-side, and top-up
+// is the global header-chip sheet. The old /claw reveal theater is retired.
 import { test, expect } from '@playwright/test';
 import { BASE, stamp } from './helpers/constants';
 import { api } from './helpers/api';
@@ -17,7 +18,7 @@ test.describe('customer workflow', () => {
   const email = `pw-cust-${id}@pokenic.local`;
   const password = 'PwCust2026!';
 
-  test.fixme('signup → top up → open → keep → vault → sell-back', async ({
+  test('signup → top up → open → keep → vault → sell-back', async ({
     page,
   }) => {
     await test.step('create account via the auth modal', async () => {
@@ -31,20 +32,22 @@ test.describe('customer workflow', () => {
     await test.step('top up RM100 and see it on the vault balance', async () => {
       await sf.topUp(page, 100);
       await sf.gotoVault(page);
+      // Stat strip shows whole-ringgit ("RM 100"); the header chip carries the
+      // exact figure — read that as the canonical balance.
       await expect(page.getByText(/^Balance$/).first()).toBeVisible();
-      await expect(page.getByText('RM 100.00').first()).toBeVisible();
+      expect(await sf.readBalance(page)).toBe(100);
     });
 
     await test.step('open a pack — balance debits by the open cost', async () => {
       await sf.gotoPack(page, PACK);
       const before = await sf.readBalance(page);
       await sf.openPackAndKeep(page);
-      // The spin view shows the balance as bare text; leave it (to the vault) so
-      // the "Balance … top up" chip is present for the after-read.
+      // The spin view hides the chrome; leave (to the vault) so the header
+      // "Balance … top up" chip is present for the after-read.
       await sf.gotoVault(page);
       const after = await sf.readBalance(page);
       // The exact per-open price is asserted by the backend charge tests; the
-      // /slots page no longer shows a price line, so here we confirm the spin
+      // /slots page shows the price inside the CTA, so here we confirm the spin
       // debited the balance.
       expect(before - after).toBeGreaterThan(0);
     });
@@ -89,13 +92,18 @@ test.describe('customer workflow', () => {
   });
 });
 
-test.fixme('anonymous demo spin creates NO backend pull', async ({ page }) => {
+test('anonymous demo spin creates NO backend pull', async ({ page }) => {
   const newest = (pulls: Array<{ rolled_at: string }>): string | null =>
     pulls[0]?.rolled_at ?? null;
   const before = await api<{ pulls: Array<{ rolled_at: string }> }>(
     '/store/pulls/recent',
   );
-  await page.goto(`${BASE}/claw/${PACK}`, { waitUntil: 'domcontentloaded' });
+  // Guest demo mode lives on the reel at /slots/<slug>/spin?demo=1 (the pack
+  // page's "Try a free demo spin" CTA links here). It is pure client-side
+  // theater — no charge, no Pull row — which is exactly what this asserts.
+  await page.goto(`${BASE}/slots/${PACK}/spin?demo=1`, {
+    waitUntil: 'domcontentloaded',
+  });
   await page.getByRole('button', { name: /demo spin/i }).click();
   await page.waitForTimeout(3000); // let any (erroneous) write land before re-checking
   const after = await api<{ pulls: Array<{ rolled_at: string }> }>(

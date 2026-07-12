@@ -13,11 +13,17 @@ const sleep = (ms: number): Promise<void> =>
 // the hint and retry so a multi-customer / multi-open suite paces itself.
 export async function api<T>(
   path: string,
-  opts: { method?: Method; body?: unknown; token?: string } = {},
+  opts: {
+    method?: Method;
+    body?: unknown;
+    token?: string;
+    headers?: Record<string, string>;
+  } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'x-publishable-api-key': PK,
+    ...opts.headers,
   };
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -80,6 +86,9 @@ export async function topup(token: string, amount: number): Promise<number> {
     method: 'POST',
     token,
     body: { amount },
+    // Idempotency-Key is MANDATORY since the 2026-07-07 audit (a keyless
+    // request 400s before touching the gateway) — mint a fresh one per call.
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
   });
   return r.balance;
 }
@@ -156,8 +165,19 @@ export const eligibleProducts = (
 export interface AdminCard {
   handle: string;
   name: string;
+  /** Raw USD FMV (PriceCharting-native). Operators enter RM in the admin UI;
+   *  it is stored as USD (RM ÷ fx) — see priceBreakdown for the RM figures. */
   market_value: number;
   for_sale: boolean;
+  priceBreakdown?: {
+    raw: number;
+    fxRate: number;
+    /** market_value × fx — the RM figure the admin FMV field round-trips. */
+    marketMyr: number;
+    /** marketMyr × the card's own multiplier — what the storefront displays. */
+    displayPrice: number;
+    markup: number;
+  };
 }
 
 export const listCards = (token: string): Promise<{ cards: AdminCard[] }> =>
@@ -194,9 +214,12 @@ interface VaultItem {
 
 // First vaulted pull id for the customer (open one pack first).
 export async function firstVaultPullId(token: string): Promise<string> {
-  const { items } = await api<{ items: VaultItem[] }>('/store/vault', { token });
+  const { items } = await api<{ items: VaultItem[] }>('/store/vault', {
+    token,
+  });
   const id = items[0]?.pull_id;
-  if (!id) throw new Error('vault empty — open a pack before requesting delivery');
+  if (!id)
+    throw new Error('vault empty — open a pack before requesting delivery');
   return id;
 }
 

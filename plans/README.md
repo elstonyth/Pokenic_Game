@@ -337,15 +337,15 @@ and several publicly reachable pages present fabricated data — including
 
 ### Round-3 plans (written per the skill's non-interactive default: top items by leverage)
 
-| Plan | Title                                                                 | Priority | Effort | Depends on | Status |
-| ---- | --------------------------------------------------------------------- | -------- | ------ | ---------- | ------ |
-| 019  | Make CI type-check `backend/packages/api`                             | P1       | S      | —          | TODO   |
-| 020  | Onboarding truthfulness: `.env.example`, README DB step, compose name | P2       | S      | —          | TODO   |
-| 021  | Commission-maturity job: one transaction per beneficiary              | P2       | M      | —          | TODO   |
-| 022  | Public profile route: SQL aggregates + 30s cache                      | P2       | M      | —          | TODO   |
-| 023  | Revive the disabled E2E money-loop specs                              | P2       | M      | —          | TODO   |
-| 024  | Storefront honesty cleanup (fake trust signals, dead flows/code)      | P2       | M      | —          | TODO   |
-| 025  | Local integration-test runbook + smoke subset                         | P3       | S–M    | —          | TODO   |
+| Plan | Title                                                                 | Priority | Effort | Depends on | Status                                                                                                                                                                                                                                          |
+| ---- | --------------------------------------------------------------------- | -------- | ------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 019  | Make CI type-check `backend/packages/api`                             | P1       | S      | —          | DONE (advisor-executed 2026-07-12; script pins `node node_modules/typescript/bin/tsc` because the api-local `.bin/tsc` shim mis-resolves under `yarn run` (3,585 phantom errors); direct binary + turbo `@acme/api:check-types` verified green) |
+| 020  | Onboarding truthfulness: `.env.example`, README DB step, compose name | P2       | S      | —          | TODO                                                                                                                                                                                                                                            |
+| 021  | Commission-maturity job: one transaction per beneficiary              | P2       | M      | —          | TODO                                                                                                                                                                                                                                            |
+| 022  | Public profile route: SQL aggregates + 30s cache                      | P2       | M      | —          | TODO                                                                                                                                                                                                                                            |
+| 023  | Revive the disabled E2E money-loop specs                              | P2       | M      | —          | TODO                                                                                                                                                                                                                                            |
+| 024  | Storefront honesty cleanup (fake trust signals, dead flows/code)      | P2       | M      | —          | TODO                                                                                                                                                                                                                                            |
+| 025  | Local integration-test runbook + smoke subset                         | P3       | S–M    | —          | TODO                                                                                                                                                                                                                                            |
 
 Dependency notes: all independent; run **019 first** (cheapest, gates
 everything after it in CI). **025 before 021/022** if the executor wants

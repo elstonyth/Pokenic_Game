@@ -1,9 +1,11 @@
-// FIXME(ui-drift, PR #85): waits for the vault 'Select cards' button removed in
-// the vault redesign (PR #80/#82 era). Rewrite against the current vault UI.
 // Customer bulk sell-back through the storefront UI:
 //   a funded customer opens two packs (API setup for speed) → logs into the UI →
-//   drives the vault multi-select → "Sell (N)" → confirms → both cards leave the
-//   vault and the credit ledger gains two 'buyback' rows.
+//   enters the vault's select mode → selects both cards → "Sell 2" in the bulk
+//   action bar → confirms → both cards leave the vault and the credit ledger
+//   gains two 'buyback' rows.
+// Re-authored 2026-07-12 against the redesigned vault (plan 023): the mode
+// toggle reads "Select"/"Done" and bulk actions live in a floating bar with
+// "Sell N" / "Deliver N" pills.
 // The single-card sell-back is covered by customer.spec; this covers the bulk path.
 import { test, expect } from '@playwright/test';
 import { BASE } from './helpers/constants';
@@ -14,7 +16,7 @@ const PACK = 'pokemon-rookie';
 // createCustomer() registers every customer with this fixed password.
 const PASSWORD = 'PwE2e2026!';
 
-test.fixme('customer bulk-sells multiple vaulted cards via the UI', async ({
+test('customer bulk-sells multiple vaulted cards via the UI', async ({
   page,
 }) => {
   // Funded customer holding two vaulted cards (API setup), then log into the UI.
@@ -24,20 +26,20 @@ test.fixme('customer bulk-sells multiple vaulted cards via the UI', async ({
   await sf.login(page, PACK, cust.email, PASSWORD);
 
   await page.goto(`${BASE}/vault`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /^Select cards$/i }).click();
+  await page.getByRole('button', { name: 'Select', exact: true }).click();
 
-  // In select mode each card is a button labelled "Select <name>"; clicking one
-  // flips its label to "Deselect <name>", so repeatedly click the first
-  // remaining "Select …" until all are selected. (The mode toggle now reads
-  // "Cancel selection", so it doesn't match this locator.)
-  const unselected = page.getByRole('button', { name: /^Select / });
+  // In select mode each card tile is a button labelled "Select <name>"; clicking
+  // one flips its label to "Deselect <name>", so repeatedly click the first
+  // remaining "Select …" until all are selected. (The mode toggle reads "Done"
+  // while selecting, so it doesn't match this locator.)
+  const unselected = page.getByRole('button', { name: /^Select .+/ });
   await expect(unselected).toHaveCount(2);
   while ((await unselected.count()) > 0) {
     await unselected.first().click();
   }
 
-  // Bulk sell → the shared confirm dialog (aria-label "Confirm sell-back").
-  await page.getByRole('button', { name: /^Sell \(2\)/ }).click();
+  // Bulk action bar → the shared confirm dialog (aria-label "Confirm sell-back").
+  await page.getByRole('button', { name: /^Sell 2$/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Confirm sell-back' });
   await expect(dialog.getByText(/Sell 2 cards\?/i)).toBeVisible();
   await dialog.getByRole('button', { name: /^Sell for RM/i }).click();

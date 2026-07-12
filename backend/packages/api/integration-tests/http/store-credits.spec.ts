@@ -99,6 +99,26 @@ medusaIntegrationTestRunner({
         expect(typeof res.data.spend_total).toBe('number');
         expect(Array.isArray(res.data.transactions)).toBe(true);
       });
+
+      it('(auth) GET /store/credits/balance returns 401 without a bearer token', async () => {
+        const res = await unwrapResponse(
+          api.get('/store/credits/balance', { headers: storeHeaders }),
+        );
+        expect(res.status).toBe(401);
+      });
+
+      it('GET /store/credits/balance returns the same balance as the full route', async () => {
+        const lean = await unwrapResponse(
+          api.get('/store/credits/balance', { headers: authed(customerToken) }),
+        );
+        expect(lean.status).toBe(200);
+        expect(typeof lean.data.balance).toBe('number');
+
+        const full = await unwrapResponse(
+          api.get('/store/credits', { headers: authed(customerToken) }),
+        );
+        expect(lean.data.balance).toBe(full.data.balance);
+      });
     });
   },
 });

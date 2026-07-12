@@ -3433,14 +3433,22 @@ class PacksModuleService extends MedusaService({
   // balance gate already treats a pending row as available once matures_at passes,
   // so this flip never changes spendability.
   //
-  // Per-beneficiary: acquires the credit: advisory lock (same keyspace as
-  // mutateCreditAtomic / settleOpen) so concurrent reversal writes on the same
-  // beneficiary are serialized. Uses SKIP LOCKED chunked UPDATEs so a second
-  // concurrent run skips already-locked rows rather than blocking.
+  // Shape (plan 021): this enumerator runs OUTSIDE any transaction (@InjectManager,
+  // plain read) and delegates each beneficiary to
+  // matureDueCommissionsForBeneficiary, which opens its OWN short transaction and
+  // holds exactly one credit: advisory lock for its duration. Invariant to
+  // protect: at most one credit: advisory lock held per transaction, ever —
+  // never forward this method's sharedContext into the per-beneficiary calls,
+  // or they would join one outer transaction and re-accumulate locks across
+  // beneficiaries (blocking every money path behind the batch until commit).
   //
-  // Status-guarded (status='pending' in WHERE) → idempotent, never clobbers
-  // reversed/suspended rows.
-  @InjectTransactionManager()
+  // Notifications fire AFTER each beneficiary's transaction commits, and are
+  // best-effort: the flip is already committed; the notification is feed-only
+  // and idempotent (`${commissionId}:matured`), so a failed notify must not
+  // abort the remaining beneficiaries — and can never roll back flips anymore.
+  // A crash between commit and notify means a missed notification (acceptable,
+  // feed-only); a re-run cannot double-notify.
+  @InjectManager()
   async matureDueCommissions(
     notify?: (
       beneficiaryId: string,
@@ -3449,16 +3457,15 @@ class PacksModuleService extends MedusaService({
     ) => Promise<void>,
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{ flipped: number }> {
-    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
-    const CHUNK = 500;
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
 
     // 1) Enumerate all distinct beneficiaries that have at least one due pending row.
     //    COLLATE "C" forces byte-order (C locale) sort on the outer ORDER BY,
-    //    matching JS plain Array.sort() (UTF-16 lexicographic). Without it, Postgres
-    //    uses the DB's default collation (e.g. en_US.utf8), which reorders mixed-case
-    //    IDs differently — creating an AB-BA deadlock vector when this job and a
-    //    concurrent reverseOpen/reverseCommission acquire credit: locks on the same
-    //    beneficiaries in conflicting orders.
+    //    matching JS plain Array.sort() (UTF-16 lexicographic). With one advisory
+    //    lock per (per-beneficiary) transaction the old AB-BA deadlock vector
+    //    against reverseOpen/reverseCommission is gone — the ordering is retained
+    //    for deterministic processing order only.
     //    The subquery pattern is required because Postgres rejects COLLATE in ORDER BY
     //    when SELECT DISTINCT is used (the ORDER BY expression must appear literally
     //    in the SELECT list; COLLATE makes it a distinct expression).
@@ -3473,48 +3480,86 @@ class PacksModuleService extends MedusaService({
     let flipped = 0;
 
     for (const { beneficiary } of due) {
-      // 2) Acquire per-beneficiary advisory lock (same credit: keyspace used by
-      //    mutateCreditAtomic, settleOpen, reverseCommission, reverseOpen).
-      //    Transaction-scoped — auto-releases on commit/rollback.
-      await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
-        `credit:${beneficiary}`,
-      ]);
+      // One SHORT transaction per beneficiary (deliberately no sharedContext —
+      // see the invariant in the method comment above).
+      const result = await this.matureDueCommissionsForBeneficiary(beneficiary);
+      flipped += result.flipped;
 
-      // 3) Check freeze state inside the lock so the flag is consistent with
-      //    the advisory-locked read (isFrozen reads on sharedContext's connection).
-      const frozen = await this.isFrozen(beneficiary, sharedContext);
-
-      // 4) Chunked flip: Postgres rejects LIMIT on a bare UPDATE, so use a
-      //    sub-select with FOR UPDATE SKIP LOCKED + RETURNING. Loop until the
-      //    batch returns fewer than CHUNK rows (i.e. no more to process).
-      for (;;) {
-        const rows = await em.execute<{ id: string }[]>(
-          `UPDATE commission
-              SET status = 'available', updated_at = now()
-            WHERE id IN (
-              SELECT id FROM commission
-               WHERE beneficiary = ?
-                 AND status = 'pending'
-                 AND matures_at <= now()
-                 AND deleted_at IS NULL
-               ORDER BY matures_at
-               LIMIT ?
-               FOR UPDATE SKIP LOCKED
-            )
-            RETURNING id`,
-          [beneficiary, CHUNK],
-        );
-
-        for (const r of rows) {
-          flipped++;
-          if (notify) await notify(beneficiary, r.id, frozen);
+      if (!notify) continue;
+      for (const id of result.flippedIds) {
+        try {
+          await notify(beneficiary, id, result.frozen);
+        } catch (err) {
+          // Best-effort (see method comment): flip already committed, feed-only,
+          // idempotent — log and keep going.
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[matureDueCommissions] notify failed (flip already committed)',
+            { beneficiary, commission_id: id, error: String(err) },
+          );
         }
-
-        if (rows.length < CHUNK) break;
       }
     }
 
     return { flipped };
+  }
+
+  // Per-beneficiary maturity flip: ONE beneficiary, ONE short transaction, ONE
+  // credit: advisory lock (same keyspace as mutateCreditAtomic / settleOpen) so
+  // concurrent reversal writes on the same beneficiary are serialized. Uses
+  // SKIP LOCKED chunked UPDATEs so a second concurrent run skips already-locked
+  // rows rather than blocking.
+  //
+  // Status-guarded (status='pending' in WHERE) → idempotent, never clobbers
+  // reversed/suspended rows. Returns the flipped ids so the caller can notify
+  // AFTER this transaction commits — no notify call belongs inside this method.
+  @InjectTransactionManager()
+  private async matureDueCommissionsForBeneficiary(
+    beneficiary: string,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<{ flipped: number; flippedIds: string[]; frozen: boolean }> {
+    const em = sharedContext.transactionManager as unknown as LedgerSqlManager;
+    const CHUNK = 500;
+
+    // 2) Acquire the per-beneficiary advisory lock (same credit: keyspace used by
+    //    mutateCreditAtomic, settleOpen, reverseCommission, reverseOpen).
+    //    Transaction-scoped — auto-releases on commit/rollback.
+    await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      `credit:${beneficiary}`,
+    ]);
+
+    // 3) Check freeze state inside the lock so the flag is consistent with
+    //    the advisory-locked read (isFrozen reads on sharedContext's connection).
+    const frozen = await this.isFrozen(beneficiary, sharedContext);
+
+    // 4) Chunked flip: Postgres rejects LIMIT on a bare UPDATE, so use a
+    //    sub-select with FOR UPDATE SKIP LOCKED + RETURNING. Loop until the
+    //    batch returns fewer than CHUNK rows (i.e. no more to process).
+    const flippedIds: string[] = [];
+    for (;;) {
+      const rows = await em.execute<{ id: string }[]>(
+        `UPDATE commission
+            SET status = 'available', updated_at = now()
+          WHERE id IN (
+            SELECT id FROM commission
+             WHERE beneficiary = ?
+               AND status = 'pending'
+               AND matures_at <= now()
+               AND deleted_at IS NULL
+             ORDER BY matures_at
+             LIMIT ?
+             FOR UPDATE SKIP LOCKED
+          )
+          RETURNING id`,
+        [beneficiary, CHUNK],
+      );
+
+      for (const r of rows) flippedIds.push(r.id);
+
+      if (rows.length < CHUNK) break;
+    }
+
+    return { flipped: flippedIds.length, flippedIds, frozen };
   }
 
   // ---- Daily Rewards (Task 5) ----------------------------------------------

@@ -70,6 +70,10 @@ const isPrivateHost = (hostname: string): boolean => {
     return (
       host === '::1' ||
       host === '::' ||
+      // IPv4-mapped IPv6 (::ffff:a.b.c.d) — a classic SSRF-filter bypass. Node
+      // renders the embedded v4 as hex (::ffff:7f00:1), so block the whole
+      // prefix; a legit card/frame image never uses a mapped-v6 literal.
+      host.startsWith('::ffff:') ||
       host.startsWith('fc') ||
       host.startsWith('fd') ||
       host.startsWith('fe80')

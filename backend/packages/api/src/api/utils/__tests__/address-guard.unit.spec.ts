@@ -56,6 +56,29 @@ describe("validateDeliverableAddress (create)", () => {
     expect((err as MedusaError).type).toBe(MedusaError.Types.INVALID_DATA);
     expect((err as MedusaError).message).toMatch(/country and postal code/i);
   });
+
+  // Sim day-2 follow-up: the 400 must NAME the offending field(s), not just
+  // say "needs a country and postal code" — otherwise the customer still has
+  // to guess which field is wrong.
+  it("names only the missing field when one field is bad", () => {
+    const err = run("create", { ...GOOD, country_code: null }) as MedusaError;
+    expect(err.message).toContain("country_code");
+    expect(err.message).not.toContain("postal_code");
+
+    const err2 = run("create", { ...GOOD, postal_code: "" }) as MedusaError;
+    expect(err2.message).toContain("postal_code");
+    expect(err2.message).not.toContain("country_code");
+  });
+
+  it("names both fields when both are missing", () => {
+    const err = run("create", {
+      ...GOOD,
+      country_code: null,
+      postal_code: null,
+    }) as MedusaError;
+    expect(err.message).toContain("country_code");
+    expect(err.message).toContain("postal_code");
+  });
 });
 
 describe("validateDeliverableAddress (update)", () => {
@@ -78,5 +101,11 @@ describe("validateDeliverableAddress (update)", () => {
     const err = run("update", body);
     expect(err).toBeInstanceOf(MedusaError);
     expect((err as MedusaError).type).toBe(MedusaError.Types.INVALID_DATA);
+  });
+
+  it("names the blanked field in the message", () => {
+    const err = run("update", { postal_code: null }) as MedusaError;
+    expect(err.message).toContain("postal_code");
+    expect(err.message).not.toContain("country_code");
   });
 });

@@ -1,10 +1,12 @@
-// FIXME(ui-drift, PR #85): waits for the vault 'Select cards' button removed in
-// the vault redesign (PR #80/#82 era). Rewrite against the current vault UI.
 // Customer ordering flow through the storefront UI:
 //   a funded customer opens a pack (API setup for speed) → logs into the UI →
-//   drives the vault "select cards to ship" → request delivery → add-address form
-//   → submit → and confirms the order is tracked on /orders as 'requested'.
-// The admin-side fulfilment (pack → ship) is covered by ship-orders.spec.
+//   enters the vault's select mode → "Deliver 1" in the bulk action bar →
+//   add-address form → submit → and confirms the order is tracked on /orders
+//   as 'Requested'.
+// Re-authored 2026-07-12 against the redesigned vault (plan 023): selection is
+// the "Select" mode toggle + per-tile "Select <name>" buttons, and delivery is
+// the bulk bar's "Deliver N" pill (the old "Request delivery (N)" button is
+// gone). The admin-side fulfilment (pack → ship) is covered by ship-orders.spec.
 import { test, expect } from '@playwright/test';
 import { BASE, stamp } from './helpers/constants';
 import { createCustomer, openPack } from './helpers/api';
@@ -14,7 +16,7 @@ const PACK = 'pokemon-rookie';
 // createCustomer() registers every customer with this fixed password.
 const PASSWORD = 'PwE2e2026!';
 
-test.fixme('customer requests delivery of a vaulted card via the UI', async ({
+test('customer requests delivery of a vaulted card via the UI', async ({
   page,
 }) => {
   // Funded customer holding one vaulted card (API setup), then log into the UI.
@@ -23,13 +25,13 @@ test.fixme('customer requests delivery of a vaulted card via the UI', async ({
   await sf.login(page, PACK, cust.email, PASSWORD);
 
   await page.goto(`${BASE}/vault`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /^select cards$/i }).click();
-  // In select mode each card is an aria-label "Select <name>" button.
+  await page.getByRole('button', { name: 'Select', exact: true }).click();
+  // In select mode each card tile is an aria-label "Select <name>" button.
   await page
-    .getByRole('button', { name: /^Select / })
+    .getByRole('button', { name: /^Select .+/ })
     .first()
     .click();
-  await page.getByRole('button', { name: /^Request delivery \(/ }).click();
+  await page.getByRole('button', { name: /^Deliver 1$/ }).click();
 
   // A fresh customer has no saved address → the add-address form shows at once.
   const modal = page.getByRole('dialog', { name: 'Request delivery' });
@@ -55,9 +57,10 @@ test.fixme('customer requests delivery of a vaulted card via the UI', async ({
   // (otherwise the goto aborts the in-flight requestDelivery server action).
   await expect(modal).toBeHidden({ timeout: 15_000 });
 
-  // Tracked on the orders page.
+  // Tracked on the orders page: the row's status badge reads "Requested".
+  // (Scope to tbody — the table HEADER also carries a "Requested" column.)
   await page.goto(`${BASE}/orders`, { waitUntil: 'domcontentloaded' });
-  await expect(page.getByText(/requested/i).first()).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(
+    page.locator('tbody').getByText('Requested', { exact: true }).first(),
+  ).toBeVisible({ timeout: 15_000 });
 });

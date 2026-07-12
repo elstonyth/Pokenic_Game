@@ -16,7 +16,7 @@ The experience: pack drops, slot-machine pack opening, a vault, a marketplace, a
 | ------------- | ---------------------------------------------------------------------------------- |
 | Storefront    | Next.js 16 · React 19 · TypeScript (strict)                                        |
 | Styling       | Tailwind CSS v4 · hardcoded dark neutrals                                          |
-| UI primitives | shadcn-style components on `@base-ui/react` · Lucide icons                         |
+| UI primitives | shadcn-style components (Tailwind-only, `src/components/ui`) · Lucide icons        |
 | Animation     | Framer Motion (`motion`) + a custom scroll-reveal engine (`src/lib/use-reveal.ts`) |
 | Backend       | Medusa v2 + Mercur (multi-vendor marketplace)                                      |
 | Data          | PostgreSQL · Redis (via Docker)                                                    |
@@ -107,7 +107,7 @@ UI work is measurement-driven, not eyeballed. The `scripts/*.mjs` Playwright scr
 src/
   app/                # Next.js routes (~36)
   components/
-    ui/               # shadcn-style primitives on @base-ui
+    ui/               # shadcn-style primitives (Tailwind-only)
   lib/                # cn(), use-reveal.ts, utilities
   hooks/              # custom React hooks
 public/

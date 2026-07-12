@@ -26,6 +26,8 @@ describe('isAllowedImageUrl', () => {
     ['0.0.0.0', 'http://0.0.0.0/x.png'],
     ['localhost', 'http://localhost:9000/static/x.png'],
     ['IPv6 loopback', 'http://[::1]/x.png'],
+    ['IPv4-mapped IPv6 loopback', 'http://[::ffff:127.0.0.1]/x.png'],
+    ['IPv4-mapped IPv6 metadata', 'http://[::ffff:169.254.169.254]/x.png'],
     ['file: scheme', 'file:///etc/passwd'],
     ['protocol-relative', '//evil.example.com/x.png'],
     ['garbage', 'not a url'],

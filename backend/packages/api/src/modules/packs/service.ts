@@ -2215,9 +2215,10 @@ class PacksModuleService extends MedusaService({
     // Raw balance = Σ(amount) over the append-only ledger, summed in integer
     // cents to avoid float drift (matches availableBalance pattern, spec §8).
     // Same scan also folds the playthrough inputs: deposited = Σ positive
-    // topup rows; used = Σ −amount over pack_open rows (net — a reversed open
-    // is a positive pack_open row and gives its playthrough back). Buyback /
-    // promo / commission rows touch neither sum.
+    // topup rows; used = Σ −external_funded_cents over pack_open rows —
+    // deposit-funded spend only; commission/buyback/adjustment-funded opens
+    // contribute 0, and a reversed open restores its basis via the mirror
+    // row's −originalExt. Buyback / promo / commission rows touch neither sum.
     const balRows = await em.execute<
       {
         balance_cents: string | null;
@@ -2227,7 +2228,7 @@ class PacksModuleService extends MedusaService({
     >(
       'SELECT COALESCE(SUM(ROUND(amount * 100)), 0)::bigint AS balance_cents, ' +
         "COALESCE(SUM(ROUND(amount * 100)) FILTER (WHERE reason = 'topup' AND amount > 0), 0)::bigint AS deposited_cents, " +
-        "COALESCE(SUM(-ROUND(amount * 100)) FILTER (WHERE reason = 'pack_open'), 0)::bigint AS used_cents " +
+        "COALESCE(SUM(-external_funded_cents) FILTER (WHERE reason = 'pack_open'), 0)::bigint AS used_cents " +
         'FROM credit_transaction WHERE customer_id = ? AND deleted_at IS NULL',
       [customerId],
     );

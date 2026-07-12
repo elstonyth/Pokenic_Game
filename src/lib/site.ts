@@ -7,7 +7,8 @@ export const SITE_URL = (
 ).replace(/\/$/, '');
 
 // Indexable, public routes only (no account/auth pages, no dynamic detail
-// pages). Feature-flagged sections are included only when enabled.
+// pages, no demo pages — /series is reachable but stays out of the sitemap).
+// Feature-flagged sections are included only when enabled.
 export const ROUTES: string[] = [
   '/',
   '/slots',
@@ -17,7 +18,6 @@ export const ROUTES: string[] = [
   '/fairness',
   '/about',
   '/contact',
-  '/series',
   ...(features.marketplace ? ['/marketplace'] : []),
   ...(features.packParty ? ['/pack-party'] : []),
 ];

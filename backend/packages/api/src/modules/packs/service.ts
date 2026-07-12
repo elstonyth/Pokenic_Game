@@ -694,7 +694,18 @@ class PacksModuleService extends MedusaService({
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
         input.reason === 'pack_open'
-          ? 'Not enough credits to open this pack.'
+          ? // "your balance" is beforeCents — this check's basis — so
+            // price − balance = shortfall. (Reached only if a future caller
+            // routes a pack_open debit through mutateCreditAtomic; real opens
+            // charge via settleOpen below.)
+            `Not enough credits to open this pack. It costs RM ${(
+              -deltaCents / 100
+            ).toFixed(2)}, your balance is RM ${(beforeCents / 100).toFixed(
+              2,
+            )} — top up RM ${(
+              (floorCents - (beforeCents + deltaCents)) /
+              100
+            ).toFixed(2)} more.`
           : `Deduction exceeds the customer's balance (RM ${(
               beforeCents / 100
             ).toFixed(2)}) — the balance cannot go below RM ${(
@@ -1858,7 +1869,16 @@ class PacksModuleService extends MedusaService({
     if (availableCents + deltaCents < 0) {
       throw new MedusaError(
         MedusaError.Types.NOT_ALLOWED,
-        'Not enough credits to open this pack.',
+        // "your balance" is availableCents (raw − locked commission) — the
+        // basis THIS check uses — so price − balance = shortfall holds even
+        // when some credit is locked behind pending commission.
+        `Not enough credits to open this pack. It costs RM ${(
+          -deltaCents / 100
+        ).toFixed(2)}, your balance is RM ${(availableCents / 100).toFixed(
+          2,
+        )} — top up RM ${(-(availableCents + deltaCents) / 100).toFixed(
+          2,
+        )} more.`,
       );
     }
 

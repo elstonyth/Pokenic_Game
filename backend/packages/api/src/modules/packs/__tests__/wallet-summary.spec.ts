@@ -491,6 +491,60 @@ moduleIntegrationTestRunner<PacksModuleService>({
           expect(w.withdrawable).toBeCloseTo(50, 2);
         },
       );
+
+      it(
+        'walletSummary: precomputed inputs agree with the self-scan path',
+        async () => {
+          const cust = 'cus_ws_bothpaths';
+
+          // Mixed ledger: a pre-1b topup (NULL basis, grandfathered out of
+          // deposited), a post-1b topup (RM120 → +12000 basis), and a partial
+          // deposit-funded open (RM50). Exercises non-trivial balance /
+          // deposited / used so an agreement between paths is meaningful.
+          await service.createCreditTransactions([
+            {
+              customer_id: cust,
+              amount: 30,
+              reason: 'topup' as const,
+              pull_id: null,
+              reference: 'bothpaths_pre1b',
+            } as Record<string, unknown>,
+          ]);
+          await service.mutateCreditAtomic({
+            customerId: cust,
+            amount: 120,
+            reason: 'topup',
+            reference: 'bothpaths_post1b',
+          });
+          await service.createCreditTransactions([
+            {
+              customer_id: cust,
+              amount: -50,
+              reason: 'pack_open' as const,
+              pull_id: null,
+              reference: null,
+              external_funded_cents: -5000,
+            } as Record<string, unknown>,
+          ]);
+
+          const s = await service.creditSummary(cust);
+          const scanned = await service.walletSummary(cust);
+          const threaded = await service.walletSummary(cust, {
+            balance: s.balance,
+            depositedCents: Math.round(s.depositedPlaythroughTotal * 100),
+            usedCents: Math.round(s.externalFundedSpendTotal * 100),
+          });
+
+          // The two paths must return an identical wallet summary — proving the
+          // threaded scalars reproduce the self-scan exactly (the single-scan
+          // refactor is behavior-preserving) and that the optional-arg path
+          // still receives its injected context at the shifted parameter index.
+          expect(threaded).toEqual(scanned);
+          // Sanity: the shared basis is actually non-trivial here.
+          expect(scanned.playthrough.deposited).toBeCloseTo(120, 2);
+          expect(scanned.playthrough.used).toBeCloseTo(50, 2);
+        },
+      );
     });
   },
 });

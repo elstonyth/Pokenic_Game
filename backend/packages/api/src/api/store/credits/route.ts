@@ -18,14 +18,23 @@ export async function GET(
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerId = req.auth_context.actor_id;
 
-  const [summary, transactions, wallet] = await Promise.all([
+  // creditSummary already scans the full ledger; thread its scalars into
+  // walletSummary so the wallet view reuses that one scan instead of issuing a
+  // second identical SUM (balance/deposited/used are a strict subset). This
+  // serializes walletSummary after creditSummary — intended; it still runs its
+  // own lockedCommission/nextUnlock/isFrozen queries.
+  const [summary, transactions] = await Promise.all([
     packs.creditSummary(customerId),
     packs.listCreditTransactions(
       { customer_id: customerId },
       { order: { created_at: "DESC" }, take: RECENT_TRANSACTIONS }
     ),
-    packs.walletSummary(customerId),
   ]);
+  const wallet = await packs.walletSummary(customerId, {
+    balance: summary.balance,
+    depositedCents: Math.round(summary.depositedPlaythroughTotal * 100),
+    usedCents: Math.round(summary.externalFundedSpendTotal * 100),
+  });
 
   res.json({
     balance: summary.balance,

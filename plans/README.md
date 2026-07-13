@@ -584,6 +584,10 @@ Ordered by leverage. Confidence is the advisor's after re-reading the code.
   `pokemon-elite`; CI reseeds fresh, but local runs fail opaquely if the
   shared dev DB drifts (it happened once). S nicety: fail-fast preflight
   in `tests/e2e/helpers/`.
+- **`reward-draw.spec.ts` product-link case uses an orphan string id**
+  (`pull_abc123`) instead of a real created Pull — flagged by CodeRabbit on
+  PR #143; valid, but pre-existing content (the PR only renamed the file).
+  S: create a reward Pull and assert the association with its generated id.
 - **Admin SPA `src/lib` churn helpers still untested** (`admin-rest.ts`,
   `queries.ts`, `image-validation.ts`) — round-3 backlog; `format`/
   `odds-rows`/`query-keys` gained specs, these didn't. Worth more once 027

@@ -48,6 +48,16 @@ const SETTLE_PEAK = (2 / SETTLE_K) ** 2 * Math.exp(-2); // max of p²e^{-kp}
 const settleShape = (p: number) =>
   (p * p * Math.exp(-SETTLE_K * p)) / SETTLE_PEAK;
 
+// Tuned landing distances, in cells — the SINGLE source shared by BOTH
+// trajectories (spinOffset and the press-launched pressSpinOffset), so a
+// retune can never silently desync their landing feel.
+/** Friction travel of the landing. */
+const FRICTION_CELLS = 6;
+/** Suspense-crawl travel (LAST column only). */
+const CRAWL_CELLS = 2;
+/** Settle overshoot depth past the payline; kept < 0.6 cells (test-bounded). */
+const OVERSHOOT_CELLS = 0.32;
+
 /** Total run time of column `colIndex` of `count` (all columns start together). */
 export function columnDurationMs(colIndex: number, count: number): number {
   const isLast = colIndex === count - 1;
@@ -102,10 +112,9 @@ export function spinOffset(
   const isLast = colIndex === count - 1;
   const blur = BLUR_MS + colIndex * STOP_STAGGER_MS;
   const windupPx = itemH / 2;
-  const crawlPx = isLast ? itemH * 2 : 0;
-  const frictionPx = itemH * 6;
-  // Settle overshoot depth (below the payline); kept < 0.6 cells (test-bounded).
-  const overshootPx = itemH * 0.32;
+  const crawlPx = isLast ? itemH * CRAWL_CELLS : 0;
+  const frictionPx = itemH * FRICTION_CELLS;
+  const overshootPx = itemH * OVERSHOOT_CELLS;
   // Blur travel sized so the blur's EXIT velocity equals friction's ENTRY
   // velocity (easeOutCubic'(0) = 3·frictionPx/FRICTION_MS), keeping the handoff
   // velocity-continuous for ANY FRICTION_MS. Derived, not a magic divisor.
@@ -164,14 +173,9 @@ const accelMs = (colIndex: number) => BLUR_MS + colIndex * STOP_STAGGER_MS;
 const frictionShare = (colIndex: number) =>
   1 / (1 + (3 * accelMs(colIndex)) / (2 * FRICTION_MS));
 
-/** Friction travel of the tuned landing, in cells (mirrors spinOffset's itemH*6). */
-const PRESS_FRICTION_CELLS = 6;
-/** Suspense-crawl travel (LAST column only), in cells (mirrors itemH*2). */
-const PRESS_CRAWL_CELLS = 2;
-
 /**
  * Ideal press-spin travel (px) for column `colIndex`: the forward distance that
- * makes the landing friction exactly PRESS_FRICTION_CELLS deep under the fixed
+ * makes the landing friction exactly FRICTION_CELLS deep under the fixed
  * phase durations — i.e. the same landing feel as spinOffset, launched from an
  * arbitrary position. The caller rounds `startPx + pressTravelPx(...)` to the
  * nearest cell center to pick the winner's strip index; pressSpinOffset then
@@ -182,9 +186,9 @@ export function pressTravelPx(
   count: number,
   pitch: number,
 ): number {
-  const frictionPx = pitch * PRESS_FRICTION_CELLS;
+  const frictionPx = pitch * FRICTION_CELLS;
   const span = frictionPx / frictionShare(colIndex); // accel + friction
-  const crawlPx = colIndex === count - 1 ? pitch * PRESS_CRAWL_CELLS : 0;
+  const crawlPx = colIndex === count - 1 ? pitch * CRAWL_CELLS : 0;
   return span + crawlPx - pitch / 2; // windup gives back half a cell
 }
 
@@ -213,12 +217,12 @@ export function pressSpinOffset(
   const isLast = colIndex === count - 1;
   const T = accelMs(colIndex);
   const windupPx = pitch / 2;
-  const crawlPx = isLast ? pitch * PRESS_CRAWL_CELLS : 0;
+  const crawlPx = isLast ? pitch * CRAWL_CELLS : 0;
   // Combined accel+friction span, measured from the wound-back position.
   const span = targetPx - startPx + windupPx - crawlPx;
   const frictionPx = span * frictionShare(colIndex);
   const accelPx = span - frictionPx;
-  const overshootPx = pitch * 0.32;
+  const overshootPx = pitch * OVERSHOOT_CELLS;
 
   const t1 = WINDUP_MS;
   const t2 = t1 + T;

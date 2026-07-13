@@ -35,9 +35,16 @@ await page.goto(`${BASE}/slots/${PACK}/spin?demo=1`, {
 await page.waitForSelector(STRIP, { timeout: 20_000 });
 await page.waitForTimeout(2000); // sprites paint + auth mode resolves (demo)
 
+// Guarded reads: fail with a diagnosable message (which strip state broke)
+// instead of a bare TypeError if the selector or DOM structure ever changes.
 const readStrip = () =>
   page.evaluate((sel) => {
     const strip = document.querySelector(sel);
+    if (!strip || strip.children.length < 2) {
+      throw new Error(
+        `qa: expected "${sel}" with >=2 cells, got ${strip ? `${strip.children.length} children` : 'no match'}`,
+      );
+    }
     const cs = getComputedStyle(strip);
     const x = new DOMMatrixReadOnly(cs.transform).m41;
     const a = strip.children[0].getBoundingClientRect();
@@ -48,6 +55,11 @@ const readStrip = () =>
 const readSrcs = () =>
   page.evaluate((sel) => {
     const strip = document.querySelector(sel);
+    if (!strip || strip.children.length < 2) {
+      throw new Error(
+        `qa: expected "${sel}" with >=2 cells, got ${strip ? `${strip.children.length} children` : 'no match'}`,
+      );
+    }
     return [...strip.children].map(
       (c) => c.querySelector('img')?.getAttribute('src') ?? '?',
     );

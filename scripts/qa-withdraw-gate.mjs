@@ -53,16 +53,22 @@ if (!/^wdtest-.*@pokenic\.test$/.test(custEmail)) {
 // Atomic reseed: DELETE + INSERTs commit together or not at all.
 function seed(rows) {
   const inserts = rows
-    .map(
-      (r, i) =>
+    .map((r, i) => {
+      // The gate sums external_funded_cents (deposit-funded spend), not amount.
+      // These scenarios model fully deposit-funded opens, so an open's basis is
+      // its whole amount in sen; non-open rows carry none (NULL reads as 0).
+      const ext =
+        r.reason === 'pack_open' ? `${Math.round(r.amount * 100)}` : 'NULL';
+      return (
         `('ctx_wdui_${Date.now()}_${i}', '${CUST_ID}', ${r.amount}, '${r.reason}', ` +
-        `'{"value": "${r.amount}", "precision": 20}')`,
-    )
+        `'{"value": "${r.amount}", "precision": 20}', ${ext})`
+      );
+    })
     .join(',\n   ');
   psql(
     `BEGIN;
      DELETE FROM credit_transaction WHERE customer_id = '${CUST_ID}';
-     INSERT INTO credit_transaction (id, customer_id, amount, reason, raw_amount) VALUES
+     INSERT INTO credit_transaction (id, customer_id, amount, reason, raw_amount, external_funded_cents) VALUES
      ${inserts};
      COMMIT;`,
   );

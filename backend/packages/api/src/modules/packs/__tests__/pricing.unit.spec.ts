@@ -4,8 +4,13 @@ import {
   resolveFxRate,
   resolveFxRateInfo,
   resolveFxRateStrict,
+  clearFxDisplayCache,
   DEFAULT_USD_MYR,
 } from "../pricing";
+
+// resolveFxRate's 30s cache is module state; the unit run is --runInBand, so a
+// warm cache would leak into the next test/spec. Reset after every test.
+afterEach(clearFxDisplayCache);
 
 test("raw×fx×mult rounded", () => {
   expect(displayMarketPrice(100, 4.7, 1.2)).toBe(564);
@@ -175,6 +180,9 @@ describe('resolveFxRateInfo — quotes must know whether FX is firm (sim finding
       'throw',
     ] as const;
     for (const rows of fixtures) {
+      // resolveFxRate is cached; each fixture must resolve fresh to compare
+      // against this iteration's info/strict (not the prior iteration's rate).
+      clearFxDisplayCache();
       const packs = {
         listFxRates: async () => {
           if (rows === 'throw') throw new Error('db down');
@@ -191,5 +199,59 @@ describe('resolveFxRateInfo — quotes must know whether FX is firm (sim finding
       // The lenient resolver is the same resolution's rate view.
       expect(await resolveFxRate(packs)).toBe(info.rate);
     }
+  });
+});
+
+describe('resolveFxRate — 30s display cache (display reads only)', () => {
+  it('serves a second call within TTL without re-querying', async () => {
+    let calls = 0;
+    const packs = {
+      listFxRates: async () => {
+        calls++;
+        return [{ rate: 4.55, manual_override: false, manual_rate: null }];
+      },
+    };
+    expect(await resolveFxRate(packs)).toBe(4.55);
+    expect(await resolveFxRate(packs)).toBe(4.55);
+    expect(calls).toBe(1); // second call hit the cache
+  });
+
+  it('re-reads after clearFxDisplayCache()', async () => {
+    let calls = 0;
+    const packs = {
+      listFxRates: async () => {
+        const rate = calls === 0 ? 4.55 : 4.9;
+        calls++;
+        return [{ rate, manual_override: false, manual_rate: null }];
+      },
+    };
+    expect(await resolveFxRate(packs)).toBe(4.55);
+    clearFxDisplayCache();
+    expect(await resolveFxRate(packs)).toBe(4.9); // fresh read after clear
+    expect(calls).toBe(2);
+  });
+
+  it('strict resolver bypasses the display cache (money writes uncached)', async () => {
+    // Warm the display cache with a firm rate.
+    expect(
+      await resolveFxRate({
+        listFxRates: async () => [
+          { rate: 4.55, manual_override: false, manual_rate: null },
+        ],
+      }),
+    ).toBe(4.55);
+
+    // Strict reads its own source, not the warm cache — so an empty source
+    // throws even though a cached display value exists.
+    let strictCalls = 0;
+    await expect(
+      resolveFxRateStrict({
+        listFxRates: async () => {
+          strictCalls++;
+          return [];
+        },
+      }),
+    ).rejects.toThrow(/exchange rate/i);
+    expect(strictCalls).toBe(1);
   });
 });

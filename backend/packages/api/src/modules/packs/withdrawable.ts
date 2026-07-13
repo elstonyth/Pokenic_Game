@@ -1,11 +1,13 @@
 // Playthrough withdrawal gate: a balance is withdrawable only once the
-// customer's lifetime pack-open spend covers their lifetime deposits
-// (used >= deposited). Buyback / promo / commission credits raise the balance
-// but never count as "used" — selling a card back does NOT unlock deposits
-// that were never played through:
-//   deposit 100, used 100            -> withdrawable
-//   deposit 20,  used 0              -> locked
-//   deposit 100, used 50, sold 100   -> locked (balance 150 is irrelevant)
+// customer's lifetime DEPOSIT-FUNDED pack spend covers their lifetime deposits
+// (used >= deposited). "Used" counts only the deposit-funded portion of each
+// open (its external_funded_cents basis) — play funded by buyback / promo /
+// commission credit banks NO playthrough, so selling a card back (or spending
+// non-deposit credit on packs) does NOT unlock deposits never played through:
+//   deposit 100, used 100                -> withdrawable
+//   deposit 20,  used 0                  -> locked
+//   deposit 100, used 50, sold 100       -> locked (balance 150 is irrelevant)
+//   commission 100 spent, deposit 100    -> locked (promo play banks 0 used)
 //
 // Pure cent math, unit-tested here; walletSummary computes the same two sums
 // in SQL and feeds them through this gate. The future cashout writer MUST
@@ -13,8 +15,10 @@
 export interface PlaythroughInput {
   /** Σ positive `topup` rows, in cents (lifetime deposits). */
   depositedCents: number;
-  /** Σ −amount over `pack_open` rows, in cents. Net: a reversed open is a
-   *  positive pack_open row, so it gives its playthrough back. */
+  /** Σ −external_funded_cents over `pack_open` rows, in cents — deposit-funded
+   *  spend only (0 for commission/buyback/adjustment-funded opens). Net: a
+   *  reversed open's mirror row carries −originalExt, so it gives its
+   *  playthrough back. */
   usedCents: number;
 }
 

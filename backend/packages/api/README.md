@@ -54,8 +54,8 @@ the local equivalent.
 - **Postgres + Redis** — the shared local containers `pokenic-postgres`
   (Postgres 16) and `pokenic-redis` (Redis 7) must be running:
   `docker start pokenic-postgres pokenic-redis`. First time on a machine,
-  create them per the root `README.md` ("Running the backend") — e.g.
-  `pwsh scripts/launch-stack.ps1`.
+  create them with the `docker run` commands in the root `README.md`
+  ("Running the backend").
 - **Install + build workspace deps** — from `backend/`:
   `corepack yarn install --immutable && corepack yarn build --filter="@acme/api^..."`.
   Jest resolves workspace deps such as `@acme/odds-math` via their `dist/`
@@ -79,7 +79,7 @@ From `backend/packages/api`:
 
 | Command                                              | What it runs                                                                                                                          |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `corepack yarn test:integration:smoke`                | Money-loop smoke (5 suites, ~5–7 min): economy report, credit top-up, pack-open charge, vault buyback, commission maturity              |
+| `corepack yarn test:integration:smoke`                | Money-loop smoke (6 suites, ~6–8 min): economy report, credit top-up, pack-open charge, vault buyback, commission maturity, ledger conservation (Σ ledger == balance across topup → open → buyback) |
 | `corepack yarn test:integration:http economy.spec`    | Filtered subset — one or more jest path patterns, single non-sharded process                                                          |
 | `corepack yarn test:integration:http`                 | Full gate (all 66 suites) in 3 sequential shards                                                                                       |
 

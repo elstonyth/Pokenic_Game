@@ -302,6 +302,11 @@ export default defineMiddlewares({
       middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
     },
     {
+      // Bare balance for hot storefront callers (GET /store/credits/balance).
+      matcher: '/store/credits/balance',
+      middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
       // The customer's own VIP level, progress, and next-rung reward (GET /store/vip).
       matcher: '/store/vip',
       method: 'GET',

@@ -75,7 +75,7 @@ export async function getVault(): Promise<VaultResult> {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       }),
-      sdk.client.fetch('/store/credits', {
+      sdk.client.fetch('/store/credits/balance', {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       }),
@@ -109,7 +109,7 @@ export async function getCreditBalance(): Promise<number | null> {
   try {
     const credit = parseOne(
       BalanceSchema,
-      await sdk.client.fetch('/store/credits', {
+      await sdk.client.fetch('/store/credits/balance', {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       }),

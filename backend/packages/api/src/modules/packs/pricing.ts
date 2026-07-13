@@ -95,10 +95,30 @@ export async function resolveFxRateInfo(packs: FxRateSource): Promise<FxRateInfo
   return { rate: DEFAULT_USD_MYR, firm: false };
 }
 
+// ponytail: 30s process cache, display reads only — the strict resolver
+// (money writes) stays uncached by design (round-3 decision). No admin-edit
+// invalidation: worst case a displayed price is 30s stale. Single-instance
+// cache; upgrade to Redis if we ever run >1 instance.
+const FX_DISPLAY_TTL_MS = 30_000;
+let fxDisplayCache: { value: number; expiresAt: number } | null = null;
+
+/** Test seam: module state outlives a test's fixtures (unit run is --runInBand,
+ *  one process), so a cached rate would leak into the next spec. */
+export function clearFxDisplayCache(): void {
+  fxDisplayCache = null;
+}
+
 // Lenient view for DISPLAY-ONLY call sites that don't quote a sell-back
-// (catalog prices, admin lists): the rate, fallback tolerated.
+// (catalog prices, admin lists): the rate, fallback tolerated. Cached 30s —
+// the value only changes on an admin FX edit and this feeds most catalog/
+// vault/profile renders.
 export async function resolveFxRate(packs: FxRateSource): Promise<number> {
-  return (await resolveFxRateInfo(packs)).rate;
+  if (fxDisplayCache && fxDisplayCache.expiresAt > Date.now()) {
+    return fxDisplayCache.value;
+  }
+  const value = (await resolveFxRateInfo(packs)).rate;
+  fxDisplayCache = { value, expiresAt: Date.now() + FX_DISPLAY_TTL_MS };
+  return value;
 }
 
 // STRICT view for MONEY WRITES (buyback credits). Display routes tolerate

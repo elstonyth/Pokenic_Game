@@ -221,6 +221,8 @@ moduleIntegrationTestRunner<PacksModuleService>({
               reason: 'pack_open' as const,
               pull_id: null,
               reference: null,
+              // deposit-funded open: the gate sums external basis, not amount
+              external_funded_cents: -4000,
             } as Record<string, unknown>,
             {
               customer_id: cust,
@@ -249,6 +251,7 @@ moduleIntegrationTestRunner<PacksModuleService>({
               reason: 'pack_open' as const,
               pull_id: null,
               reference: null,
+              external_funded_cents: -6000,
             } as Record<string, unknown>,
           ]);
           w = await service.walletSummary(cust);
@@ -259,6 +262,92 @@ moduleIntegrationTestRunner<PacksModuleService>({
           });
           expect(w.withdrawable).toBeCloseTo(w.available, 2);
           expect(w.withdrawable).toBeCloseTo(100, 2);
+        },
+      );
+
+      it(
+        'walletSummary: playthrough gate — promo-funded play does not unlock a later deposit',
+        async () => {
+          const cust = 'cus_ws_promo_basis';
+
+          // Earn no-deposit (commission) credit, then spend it on packs. A real
+          // open funded entirely by non-deposit balance writes
+          // external_funded_cents: 0 (consumeExternalSen returns 0 when the
+          // external balance is 0), so it banks NO playthrough.
+          await service.createCreditTransactions([
+            {
+              customer_id: cust,
+              amount: 100,
+              reason: 'direct_referral' as const,
+              external_funded_cents: 0,
+              pull_id: null,
+              reference: null,
+            } as Record<string, unknown>,
+            {
+              customer_id: cust,
+              amount: -100,
+              reason: 'pack_open' as const,
+              external_funded_cents: 0,
+              pull_id: null,
+              reference: null,
+            } as Record<string, unknown>,
+          ]);
+
+          // NOW deposit real money. The lifetime gate must NOT already be
+          // satisfied by the earlier promo-funded play (timing can't save it —
+          // the sums are lifetime aggregates).
+          await service.mutateCreditAtomic({
+            customerId: cust,
+            amount: 100,
+            reason: 'topup',
+            reference: 'topup_ws_promo',
+          });
+
+          // Under the pre-plan `amount` basis this assertion fails: used would be
+          // 100 and the untouched deposit instantly withdrawable — the
+          // deposit-passthrough hole this plan closes. On the external basis the
+          // promo-funded open contributes 0 used, so the deposit stays locked.
+          let w = await service.walletSummary(cust);
+          expect(w.playthrough).toEqual({
+            deposited: 100,
+            used: 0,
+            remaining: 100,
+          });
+          expect(w.withdrawable).toBe(0);
+
+          // Play the deposit through (a real deposit-funded open) -> gate opens.
+          await service.createCreditTransactions([
+            {
+              customer_id: cust,
+              amount: -100,
+              reason: 'pack_open' as const,
+              external_funded_cents: -10000,
+              pull_id: null,
+              reference: null,
+            } as Record<string, unknown>,
+          ]);
+          w = await service.walletSummary(cust);
+          expect(w.playthrough.remaining).toBe(0);
+          expect(w.withdrawable).toBeCloseTo(w.available, 2);
+
+          // Balance is 0 here, so withdrawable≈available alone is 0≈0 — it
+          // would pass even with the gate stuck closed. Add a non-deposit
+          // credit and prove a POSITIVE balance is actually withdrawable.
+          await service.createCreditTransactions([
+            {
+              customer_id: cust,
+              amount: 25,
+              reason: 'buyback' as const,
+              external_funded_cents: 0,
+              pull_id: null,
+              reference: null,
+            } as Record<string, unknown>,
+          ]);
+          w = await service.walletSummary(cust);
+          expect(w.playthrough.remaining).toBe(0); // buyback doesn't re-lock
+          expect(w.withdrawable).toBeGreaterThan(0);
+          expect(w.withdrawable).toBeCloseTo(w.available, 2);
+          expect(w.withdrawable).toBeCloseTo(25, 2);
         },
       );
 

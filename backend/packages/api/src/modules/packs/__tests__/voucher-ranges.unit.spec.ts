@@ -1,4 +1,4 @@
-import { foldRanges, collapseLadder, type VoucherRange } from '../voucher-ranges';
+import { foldRanges, collapseLadder, MAX_VOUCHER_MYR, type VoucherRange } from '../voucher-ranges';
 
 const full = (amount = 0): VoucherRange[] => [{ from: 1, to: 100, amount_myr: amount }];
 
@@ -40,6 +40,27 @@ describe('foldRanges', () => {
     expect(() => foldRanges([{ from: 1, to: 100, amount_myr: -1 }])).toThrow();
     expect(() => foldRanges([{ from: 1.5, to: 100, amount_myr: 1 }])).toThrow();
     expect(() => foldRanges([])).toThrow();
+  });
+  test('accepts amount exactly at MAX_VOUCHER_MYR', () => {
+    const out = foldRanges([{ from: 1, to: 100, amount_myr: MAX_VOUCHER_MYR }]);
+    expect(out[0]).toBe(MAX_VOUCHER_MYR);
+    expect(out[99]).toBe(MAX_VOUCHER_MYR);
+  });
+  test('rejects amount above MAX_VOUCHER_MYR', () => {
+    expect(() => foldRanges([{ from: 1, to: 100, amount_myr: MAX_VOUCHER_MYR + 0.01 }]))
+      .toThrow(/at most 2 decimals/i);
+  });
+  test('rejects non-cent-precise amount', () => {
+    expect(() => foldRanges([{ from: 1, to: 100, amount_myr: 1.005 }]))
+      .toThrow(/at most 2 decimals/i);
+  });
+  test('accepts the seeded 0–888 ladder (regression)', () => {
+    const out = foldRanges([
+      { from: 1, to: 9, amount_myr: 0 },
+      { from: 10, to: 99, amount_myr: 10 },
+      { from: 100, to: 100, amount_myr: 888 },
+    ]);
+    expect(out[99]).toBe(888);
   });
 });
 

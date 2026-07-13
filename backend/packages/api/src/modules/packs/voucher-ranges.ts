@@ -4,6 +4,12 @@ export type VoucherRange = { from: number; to: number; amount_myr: number };
 
 const LEVELS = 100;
 
+// Per-level payout ceiling. voucher_amount is a credit-minting lever once the
+// rewards economy is live, so an admin write needs an upper bound like every
+// sibling money input. 10_000 mirrors the credit-adjust ADJUST_MAX_RM ceiling
+// and sits well above the seeded 0–888 range (see seed-reward-economy-demo.ts).
+export const MAX_VOUCHER_MYR = 10_000;
+
 export function foldRanges(ranges: VoucherRange[]): number[] {
   if (!Array.isArray(ranges) || ranges.length === 0) {
     throw new Error('At least one range is required.');
@@ -16,8 +22,14 @@ export function foldRanges(ranges: VoucherRange[]): number[] {
     ) {
       throw new Error(`Invalid range ${r.from}–${r.to}: levels must be integers within 1–${LEVELS}.`);
     }
-    if (!(Number.isFinite(r.amount_myr) && r.amount_myr >= 0)) {
-      throw new Error(`Invalid amount for range ${r.from}–${r.to}: must be ≥ 0.`);
+    // Same binary-representation epsilon as credit-adjust's adjustAmountError:
+    // an exact integer-cents comparison would reject valid money like 10.1.
+    const cents = r.amount_myr * 100;
+    if (
+      !(Number.isFinite(r.amount_myr) && r.amount_myr >= 0 && r.amount_myr <= MAX_VOUCHER_MYR) ||
+      Math.abs(cents - Math.round(cents)) > 1e-6
+    ) {
+      throw new Error(`Invalid amount for range ${r.from}–${r.to}: must be between 0 and ${MAX_VOUCHER_MYR} with at most 2 decimals.`);
     }
     for (let level = r.from; level <= r.to; level++) {
       if (out[level - 1] !== -1) {

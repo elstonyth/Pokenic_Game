@@ -3,6 +3,7 @@ import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../modules/packs';
 import type PacksModuleService from '../../modules/packs/service';
 import { pickWonRow } from '../../modules/packs/pick';
+import { pageAll } from '../../api/utils/page-all';
 
 type RollPackInput = {
   pack_id: string; // = Pack.slug
@@ -49,8 +50,10 @@ export type PackData = {
 // Call this before a draw loop so listPacks + listPackOdds run only once per
 // batch regardless of count. The validations (active check, empty odds, zero
 // weight) all belong here — they are pack-level invariants, not per-draw logic.
-// NOTE: take: 1000 on listPackOdds is intentional and pre-existing; packs with
-// >1000 odds rows are not a realistic scenario (skipping Fix #2 per spec).
+// The odds read is PAGED (pageAll), not take:1000: a pack may hold 2000+ card
+// rows, and a bare cap would make cards past the 1000th unwinnable AND compute
+// totalWeight over a truncated pool (skewing every published odds ratio). The
+// read runs once per batch, so paging cost is amortized across all draws.
 export async function fetchPackData(
   packs: PacksModuleService,
   packId: string,
@@ -70,7 +73,9 @@ export async function fetchPackData(
       MedusaError.Types.NOT_FOUND,
       `Pack '${packId}' is not available.`,
     );
-  const allOdds = await packs.listPackOdds({ pack_id: packId }, { take: 1000 });
+  const allOdds = await pageAll((opts) =>
+    packs.listPackOdds({ pack_id: packId }, opts),
+  );
   // Normal pack draw rolls cards only — drop reward rows (card_id null). This
   // narrows card_id/rarity to string and keeps totalWeight over the card pool.
   const odds = allOdds.filter((o): o is CardOddsRow => o.card_id != null);

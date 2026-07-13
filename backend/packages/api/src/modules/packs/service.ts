@@ -41,6 +41,7 @@ import RewardDraw from './models/reward-draw';
 import RewardBox from './models/reward-box';
 import RewardBoxPrize from './models/reward-box-prize';
 import PixelPokemon from './models/pixel-pokemon';
+import { pageAll } from '../../api/utils/page-all';
 import {
   resolveBuybackRate,
   buybackAmount,
@@ -338,10 +339,12 @@ class PacksModuleService extends MedusaService({
     await em.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
       `pack:${diff.pack_id}`,
     ]);
-    const current = await this.listPackOdds(
-      { pack_id: diff.pack_id },
-      { take: 1000 },
-      sharedContext,
+    // PAGED under the lock — a truncated re-read would miss a card past the cap
+    // and let its stale "create" through, doubling weight. Same reason as the
+    // pre-read in set-pack-members; both must see the whole pool for a pack
+    // that can hold 2000+ card rows.
+    const current = await pageAll((opts) =>
+      this.listPackOdds({ pack_id: diff.pack_id }, opts, sharedContext),
     );
     const presentCards = new Set(current.map((o) => o.card_id));
     const presentIds = new Set(current.map((o) => o.id));
@@ -2220,7 +2223,11 @@ class PacksModuleService extends MedusaService({
     // same units this method's own scan produces. Omitted → self-scan (direct
     // callers and module specs are unchanged). lockedCommission/nextUnlock/
     // isFrozen always query regardless (they're not in creditSummary).
-    precomputed?: { balance: number; depositedCents: number; usedCents: number },
+    precomputed?: {
+      balance: number;
+      depositedCents: number;
+      usedCents: number;
+    },
     @MedusaContext() sharedContext: Context = {},
   ): Promise<{
     balance: number;
@@ -2554,7 +2561,10 @@ class PacksModuleService extends MedusaService({
       sql,
       params,
     );
-    return rows.map((r) => ({ reason: r.reason, amount: Number(r.cents) / 100 }));
+    return rows.map((r) => ({
+      reason: r.reason,
+      amount: Number(r.cents) / 100,
+    }));
   }
 
   // Vault liability = Σ over vaulted pulls of ROUND(card FMV × fx × 100) sen,

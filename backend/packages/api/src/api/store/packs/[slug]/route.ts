@@ -3,6 +3,7 @@ import PacksModuleService from '../../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../../modules/packs';
 import { cardByHandle, toCardView } from '../../../../modules/packs/card-view';
 import { toMoney } from '../../../../modules/packs/money';
+import { pageAll } from '../../../utils/page-all';
 import {
   DEFAULT_MARKET_MULTIPLIER,
   displayMarketPrice,
@@ -64,10 +65,10 @@ export async function GET(
     return;
   }
 
-  const allOdds = await packsModuleService.listPackOdds(
-    { pack_id: slug },
-    // Explicit take so a framework default can't silently cap the prize pool.
-    { take: 1000 },
+  // PAGED so the public prize pool renders in full for a 2000+ card pack (the
+  // rarity-odds summary counts every row; a cap would skew the displayed mix).
+  const allOdds = await pageAll((opts) =>
+    packsModuleService.listPackOdds({ pack_id: slug }, opts),
   );
   // Public card-odds view — reward rows (card_id null) are not cards and must
   // not appear. Narrows card_id to string for the card join below.

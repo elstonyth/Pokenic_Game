@@ -11,6 +11,7 @@ import {
 } from '../../../../../modules/packs/pricing';
 import { cardByHandle } from '../../../../../modules/packs/card-view';
 import { clearPackDetailCache } from '../../../../store/packs/[slug]/route';
+import { pageAll } from '../../../../utils/page-all';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -53,9 +54,11 @@ export async function GET(
     return;
   }
 
-  const allOdds = await packsModuleService.listPackOdds(
-    { pack_id: slug },
-    { take: 1000 },
+  // PAGED — the editor must list EVERY card row so an operator can see and tune
+  // a pack with 2000+ members; a take:1000 cap would hide (and risk dropping on
+  // save) every card past the 1000th.
+  const allOdds = await pageAll((opts) =>
+    packsModuleService.listPackOdds({ pack_id: slug }, opts),
   );
   // This route renders the card-odds form — reward rows (card_id null) have no
   // Card and must stay invisible here. Narrows card_id to string.

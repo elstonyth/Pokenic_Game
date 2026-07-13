@@ -6,6 +6,7 @@ import { getCardStockByHandle } from '../../../modules/packs/card-stock';
 import { coerceRegisterCardBody } from './validate';
 import { toAdminCardDto } from '../../../modules/packs/admin-card';
 import { resolveFxRate, DEFAULT_USD_MYR } from '../../../modules/packs/pricing';
+import { pageAll } from '../../utils/page-all';
 
 // GET /admin/cards — the catalog list for the admin Gacha Cards page (auto-
 // protected by Medusa admin auth). Returns every card, alphabetical by name.
@@ -19,7 +20,9 @@ export async function GET(
   // The catalog must render even if the FX read fails — fall back to the
   // default rate (display-only) rather than 500-ing the whole page.
   const [cards, fxRate] = await Promise.all([
-    packs.listCards({}, { take: 1000 }),
+    // PAGED — the catalog must list every card even past 1000, or newly added
+    // cards silently vanish from the picker and the Gacha Cards page.
+    pageAll((opts) => packs.listCards({}, opts)),
     resolveFxRate(packs).catch((e: unknown) => {
       (req.scope.resolve('logger') as { warn: (m: string) => void }).warn(
         `[admin/cards] FX read failed; using default USD_MYR=${DEFAULT_USD_MYR}: ` +

@@ -57,6 +57,17 @@ export const PackOdds = model
       on: ['card_id'],
       where: 'deleted_at IS NULL',
     },
+    // One CARD row per (pack, card): the reconcile diff computes membership from
+    // a paged read, but a missed page (or a racing edit) must never silently
+    // create a second row for the same card — that doubles its draw weight
+    // invisibly. Partial + card_id IS NOT NULL so reward_box packs keep holding
+    // multiple null-card prize rows.
+    {
+      name: 'UQ_pack_odds_pack_card',
+      on: ['pack_id', 'card_id'],
+      unique: true,
+      where: 'deleted_at IS NULL AND card_id IS NOT NULL',
+    },
   ]);
 
 export default PackOdds;

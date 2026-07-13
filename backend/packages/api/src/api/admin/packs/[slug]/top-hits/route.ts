@@ -3,6 +3,7 @@ import { MedusaError } from '@medusajs/framework/utils';
 import PacksModuleService from '../../../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../../../modules/packs';
 import { clearPackDetailCache } from '../../../../store/packs/[slug]/route';
+import { pageAll } from '../../../../utils/page-all';
 
 // POST /admin/packs/:slug/top-hits — set the pack's Top Hits IN DISPLAY ORDER
 // (storefront display only; never touches weights/locks). Body:
@@ -43,7 +44,10 @@ export async function POST(
   }
 
   // Card rows only (reward entries have card_id null and can't be Top Hits).
-  const allOdds = await packs.listPackOdds({ pack_id: slug }, { take: 1000 });
+  // PAGED so Top Hits can reference any member of a 2000+ card pool.
+  const allOdds = await pageAll((opts) =>
+    packs.listPackOdds({ pack_id: slug }, opts),
+  );
   const cardRows = allOdds.filter(
     (o): o is typeof o & { card_id: string } => o.card_id != null,
   );

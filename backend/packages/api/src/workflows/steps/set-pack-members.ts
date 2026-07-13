@@ -3,6 +3,7 @@ import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../modules/packs';
 import type PacksModuleService from '../../modules/packs/service';
 import { computeOdds, type OddsInput, type OddsRarity } from '@acme/odds-math';
+import { pageAll } from '../../api/utils/page-all';
 
 export type SetPackMembersInput = {
   pack_id: string; // = Pack.slug
@@ -65,9 +66,13 @@ export const setPackMembersStep = createStep(
       }
     }
 
-    const allExisting = await packs.listPackOdds(
-      { pack_id: input.pack_id },
-      { take: 1000 },
+    // PAGED, not take:1000 — the reconcile diff must see EVERY existing row or
+    // a row past the cap looks "missing" and gets re-added, silently doubling
+    // that card's weight (the DB now also blocks the duplicate via
+    // UQ_pack_odds_pack_card, but the read must be correct so the diff doesn't
+    // 500 on the constraint for a legitimately-present card).
+    const allExisting = await pageAll((opts) =>
+      packs.listPackOdds({ pack_id: input.pack_id }, opts),
     );
     // Reconcile CARD membership only — reward rows (card_id null) are not cards
     // and must never be flagged for removal by a desired-card-set diff.

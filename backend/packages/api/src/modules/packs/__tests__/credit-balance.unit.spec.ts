@@ -14,6 +14,7 @@ type FakeRow = {
   topup_cents: string | null;
   spend_cents: string | null;
   ext_spend_cents: string | null;
+  deposited_pt_cents: string | null;
 };
 
 /** Fake service: @InjectManager reads `sharedContext.manager` when present
@@ -42,6 +43,7 @@ describe("PacksModuleService.creditSummary (SQL aggregate)", () => {
       topupTotal: 0,
       spendTotal: 0,
       externalFundedSpendTotal: 0,
+      depositedPlaythroughTotal: 0,
     });
   });
 
@@ -51,12 +53,14 @@ describe("PacksModuleService.creditSummary (SQL aggregate)", () => {
       topup_cents: "10000",
       spend_cents: "7947",
       ext_spend_cents: "500",
+      deposited_pt_cents: "8000",
     });
     expect(await svc.creditSummary("cus_1", { manager })).toEqual({
       balance: 20.53,
       topupTotal: 100,
       spendTotal: 79.47,
       externalFundedSpendTotal: 5,
+      depositedPlaythroughTotal: 80,
     });
   });
 
@@ -69,6 +73,7 @@ describe("PacksModuleService.creditSummary (SQL aggregate)", () => {
       topup_cents: "0",
       spend_cents: "0",
       ext_spend_cents: "0",
+      deposited_pt_cents: "0",
     });
     expect((await svc.creditSummary("cus_1", { manager })).balance).toBe(
       30000
@@ -81,6 +86,7 @@ describe("PacksModuleService.creditSummary (SQL aggregate)", () => {
       topup_cents: "0",
       spend_cents: "0",
       ext_spend_cents: "0",
+      deposited_pt_cents: "0",
     });
     await svc.creditSummary("cus_42", { manager });
     expect(calls[0]).toEqual(["cus_42"]);

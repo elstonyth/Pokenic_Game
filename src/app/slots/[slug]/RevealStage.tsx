@@ -4,8 +4,9 @@
 // Reveal orchestrator (flood → transform → review). Owns the shared sell
 // window, the all-cards-flip-together gesture, and the auto-vault-at-expiry
 // glide-out. Mounted by SlotMachineClient once the reel has settled.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { motion } from 'motion/react';
+import { SLAB_ASPECT } from '@/components/SlabImage';
 import type { WonCard } from '@/lib/actions/packs';
 import type { SellBackOffer, SellBackFn, RevealFn } from './useSellWindow';
 import SellConfirmModal from '@/components/SellConfirmModal';
@@ -272,8 +273,24 @@ export function RevealStage({
   };
 
   return (
+    // m-auto (not parent justify-center): auto margins center when the column
+    // fits and keep the top edge reachable if the overlay ever has to scroll —
+    // justify-center would push the card's top past the scroll origin.
+    // --slab-w is THE card width, shared by SlabCard (the slab itself) and
+    // GalleryRail (its item step = slab + gutter, so the neighbor peek shows
+    // real card, not empty rail). Width- AND height-aware: 100cqh is the
+    // reveal overlay's height ([container-type:size] in SlotMachineClient);
+    // 250px is the fixed chrome around the card (info stamp 52 + footer 112 +
+    // clock 20 + gaps + rail counter). 64vw/300px are the phone/desktop caps;
+    // 96px floors pathologically short viewports (the overlay then scrolls as
+    // a last resort).
     <div
-      className="relative z-10 flex w-full flex-col items-center gap-4"
+      className="relative z-10 m-auto flex w-full flex-col items-center gap-3 sm:gap-4"
+      style={
+        {
+          '--slab-w': `max(96px, min(64vw, 300px, calc((100cqh - 250px) * ${SLAB_ASPECT})))`,
+        } as CSSProperties
+      }
       onPointerDown={phase === 'transform' ? onSkip : undefined}
     >
       {cards.length === 1 ? (

@@ -278,9 +278,15 @@ export function ReelStrip({
   ]);
 
   return (
+    // Responsive frame: the strip's engine math runs on a fixed-width core
+    // (winW, 9 visible cells), but the visible WINDOW clips to whatever width
+    // the stage offers. flex + justify-center overflows the core evenly on
+    // BOTH edges, so the winning line's center cell stays dead-center on any
+    // viewport — a phone simply sees fewer cells through the window. The rim
+    // tunnels live on the frame so they always hug the visible edges.
     <div
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)]"
-      style={{ width: `${winW}px`, height: `${cellSize + 16}px` }}
+      className="relative flex max-w-full justify-center overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)]"
+      style={{ height: `${cellSize + 16}px` }}
       aria-hidden
     >
       {/* rim shading at the left/right edges (drum tunnels, flat version) */}
@@ -294,8 +300,8 @@ export function ReelStrip({
       />
       <div
         ref={stripRef}
-        className="flex h-full flex-row items-center will-change-transform"
-        style={{ gap: `${CELL_GAP}px` }}
+        className="flex h-full shrink-0 flex-row items-center will-change-transform"
+        style={{ width: `${winW}px`, gap: `${CELL_GAP}px` }}
       >
         {strip.map((cell, i) => {
           const isWinnerCell = winIdx !== null && i === winIdx;

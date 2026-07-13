@@ -95,12 +95,14 @@ export function SlabCard({
         onClick={flipped ? undefined : onFlip} // flip is one-way; guard mid-flight re-taps
         disabled={!onFlip || flipped}
         aria-label={flipped ? card.name : 'Flip to reveal your card'}
-        // 64vw (was 75vw): the slab presents smaller on phones so it clears the
-        // top plate with the lowered stage (spec decision #29); 300px cap keeps
-        // desktop unchanged.
-        className="relative block w-[64vw] max-w-[300px] [transform-style:preserve-3d]"
+        className="relative block [transform-style:preserve-3d]"
         style={
           {
+            // Card width is owned by RevealStage (--slab-w: width- AND
+            // height-aware so the reveal always fits the stage) and shared
+            // with GalleryRail's item step. Fallback covers any future
+            // standalone mount.
+            width: 'var(--slab-w, min(64vw, 300px))',
             // Slab proportions since the frame overlay shipped: the reel tile
             // is still CARD_ASPECT, so the shape-synced morph (spec #16) is a
             // uniform-scale grow with a slight height drift — invisible at

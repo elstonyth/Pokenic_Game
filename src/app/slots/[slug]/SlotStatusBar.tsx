@@ -19,8 +19,8 @@ export function SlotStatusBar({
     // gives it — without it the w-max marquee track below sets the item's
     // min-content width and pushes the plate past the viewport edge on phones
     // (spec decision #28). The marquee then clips inside via overflow-hidden.
-    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-5">
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-3 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-2">
+      <div className="flex items-center gap-4 sm:gap-5">
         {balance !== null && (
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60">
@@ -30,7 +30,7 @@ export function SlotStatusBar({
               value={balance}
               direction={null}
               reduced={reduced}
-              className="font-heading text-lg font-bold"
+              className="font-heading text-base font-bold sm:text-lg"
             />
           </div>
         )}
@@ -38,7 +38,7 @@ export function SlotStatusBar({
           <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60">
             Wins
           </p>
-          <p className="font-heading text-lg font-bold tabular-nums text-white">
+          <p className="font-heading text-base font-bold tabular-nums text-white sm:text-lg">
             {recent.length}
           </p>
         </div>

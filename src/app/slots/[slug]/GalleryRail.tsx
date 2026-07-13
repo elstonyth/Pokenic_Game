@@ -99,12 +99,17 @@ export function GalleryRail({
                 <motion.div
                   key={i}
                   ref={i === 0 ? itemRef : undefined}
-                  // 70vw (was 78vw) leaves ~40px of neighbor inside a 390px
-                  // viewport — the peek that makes swiping discoverable (spec
-                  // decision #30). Origin anchors to the INNER edge so the
-                  // 0.9 shrink can't pull that peek back off-screen.
-                  className="w-[70vw] max-w-[320px] shrink-0 px-2"
+                  // Item = actual card width (--slab-w, owned by RevealStage)
+                  // + the px-2 gutters. A fixed 70vw item left the peek as
+                  // empty rail once the card became height-fitted (smaller
+                  // than the item) — deriving from the card itself means the
+                  // visible sliver of each neighbor IS card (spec decision
+                  // #30's swipe-discoverability peek). Origin anchors to the
+                  // INNER edge so the 0.9 shrink can't pull the peek back
+                  // off-screen.
+                  className="shrink-0 px-2"
                   style={{
+                    width: 'calc(var(--slab-w, 280px) + 16px)',
                     transformOrigin:
                       i < activeIndex
                         ? '100% 50%'

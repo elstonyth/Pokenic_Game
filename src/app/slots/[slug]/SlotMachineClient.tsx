@@ -61,7 +61,12 @@ const POKEBALL_PLACEHOLDER =
   );
 
 type Phase =
-  'idle' | 'resolving' | 'spinning' | 'flood' | 'transform' | 'review';
+  | 'idle'
+  | 'resolving'
+  | 'spinning'
+  | 'flood'
+  | 'transform'
+  | 'review';
 
 /** Highest-rarity tier present in a batch, for the room flood color. */
 function topRarityOf(cards: WonCard[]): Rarity {
@@ -594,9 +599,13 @@ export default function SlotMachineClient({
     ) ?? [];
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-neutral-50 pb-[env(safe-area-inset-bottom)]">
-      {/* Top plate (Task 12 restyles). */}
-      <div className="flex items-center justify-between gap-4 px-fluid py-4">
+    // Safe-area padding on ALL edges: modern flagships (Dynamic Island /
+    // punch-hole tops, gesture bars, curved edges) inset every side, and this
+    // room is a fixed full-viewport surface with no site chrome to absorb it.
+    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-neutral-50 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[env(safe-area-inset-top)]">
+      {/* Top plate (Task 12 restyles) — compact on phones so the stage keeps
+          every vertical px it can (the reveal sizes itself from stage height). */}
+      <div className="flex items-center justify-between gap-3 px-fluid py-2 sm:gap-4 sm:py-4">
         <div className="flex items-center gap-3">
           <Link
             href={`/slots/${pack.id}`}
@@ -621,15 +630,22 @@ export default function SlotMachineClient({
         tension={tension}
         blast={blast}
       >
-        {/* Scrolls if a short viewport can't fit the reveal, so the prize +
-            sell-back are never hidden behind the fixed controls. */}
+        {/* The stage never scrolls in normal use: the reel clips symmetrically
+            to the viewport width and the reveal card sizes itself from stage
+            height. overflow-y-auto stays as a last-resort fallback (extreme
+            landscape phones); overflow-x is hard-locked — vertical overflow
+            must never re-enable sideways panning. */}
         <div
-          className="min-h-0 flex-1 overflow-y-auto px-fluid"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-fluid"
           aria-busy={phase === 'spinning'}
         >
-          <div className="relative flex min-h-full flex-col items-center justify-center gap-6 py-6">
-            {/* Machine: entrance-choreographed column group + pedestal. */}
+          <div className="relative flex min-h-full flex-col items-center justify-center gap-6 py-4 sm:py-6">
+            {/* Machine: entrance-choreographed column group + pedestal.
+                w-full down this chain gives the reel strip a real width to
+                clip against (fit-content flex items would let it overflow
+                narrow phones sideways). */}
             <motion.div
+              className="w-full"
               variants={{
                 hidden: {},
                 shown: reduced ? {} : { transition: { staggerChildren: 0.12 } },
@@ -665,7 +681,7 @@ export default function SlotMachineClient({
                   },
                 }}
                 className={cn(
-                  'flex flex-col items-center gap-3',
+                  'flex w-full flex-col items-center gap-3',
                   // pointer-events-none so a tap during transform reaches the
                   // skip gesture on the reveal overlay, not a dead reel column.
                   machineHidden && 'pointer-events-none',
@@ -699,9 +715,14 @@ export default function SlotMachineClient({
                 FLIP morph uses viewport-relative coordinates, so an absolute
                 overlay here doesn't invalidate the morph math. */}
             {inReveal && spin && (
-              // pt-14 biases the presentation DOWNWARD (spec decision #29) so
-              // the card sits clearly below the top plate instead of crowding it.
-              <div className="absolute inset-0 flex items-center justify-center px-fluid pt-14">
+              // [container-type:size] makes this overlay the size container the
+              // SlabCard width formula queries (100cqh = stage height), so the
+              // card + sell footer always fit the visible stage — the pt-14
+              // downward bias (old spec #29) is gone; true centering replaces
+              // it now that the card can never crowd the top plate. The overlay
+              // scrolls only as a last resort (RevealStage m-auto keeps the top
+              // edge reachable then).
+              <div className="absolute inset-0 flex overflow-y-auto overflow-x-hidden px-fluid py-2 [container-type:size]">
                 <RevealStage
                   phase={phase}
                   cards={spin.cards}
@@ -725,8 +746,16 @@ export default function SlotMachineClient({
           </div>
         </div>
 
-        {/* Bottom controls (Task 12 restyles). */}
-        <div className="px-fluid pb-6 pt-2">
+        {/* Bottom controls (Task 12 restyles). On phones they leave the stage
+            during the reveal (they're spin-guarded/disabled then anyway, spec
+            #43) so the card + sell window get the full screen height; they
+            return when the reveal concludes. Desktop keeps them in place. */}
+        <div
+          className={cn(
+            'px-fluid pb-4 pt-2 sm:pb-6',
+            machineHidden && 'max-sm:hidden',
+          )}
+        >
           <SlotControls
             costLine={
               isDemo ? (

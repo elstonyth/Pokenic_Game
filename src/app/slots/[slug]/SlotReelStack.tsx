@@ -61,13 +61,16 @@ export function SlotReelStack({
   }, [count]);
 
   return (
-    <div className="relative flex flex-col items-center justify-center gap-3 sm:gap-4">
+    // w-full (not fit-content): gives each strip's max-w-full clip frame a real
+    // bound so the 9-cell window can't push the stage sideways on phones.
+    <div className="relative flex w-full flex-col items-center justify-center gap-3 sm:gap-4">
       <AnimatePresence initial={false} mode="popLayout">
         {Array.from({ length: count }, (_, i) => {
           const w = winners ? winners[i] : null;
           return (
             <motion.div
               key={`strip-${i}`}
+              className="flex w-full min-w-0 justify-center"
               layout={!reduced}
               initial={
                 reduced ? { opacity: 0 } : { opacity: 0, x: 60, scale: 0.96 }

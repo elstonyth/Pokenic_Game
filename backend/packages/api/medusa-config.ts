@@ -174,7 +174,10 @@ module.exports = defineConfig({
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
       authCors: process.env.AUTH_CORS!,
-      // @ts-expect-error: vendorCors is not defined in medusa config module
+      // @ts-expect-error: vendorCors is a Mercur extension key, not in Medusa's
+      // http-config type. @mercurjs/core reads it at runtime in
+      // src/api/utils/vendor-cors-middleware.ts (applied to /vendor/* via
+      // src/api/vendor/middlewares.ts) — so this is live config, not dead.
       vendorCors: process.env.VENDOR_CORS!,
       jwtSecret: secretFromEnv('JWT_SECRET'),
       cookieSecret: secretFromEnv('COOKIE_SECRET'),
@@ -182,7 +185,13 @@ module.exports = defineConfig({
   },
   featureFlags: {
     rbac: true,
-    seller_registration: true,
+    // Disabled (was the Mercur basic-starter default `true`): this is a
+    // single-house-seller storefront (marketplace P2P is flag-gated off), so the
+    // public /vendor/sellers self-registration surface is unused attack surface.
+    // The house seller is seeded directly (scripts/seed.ts createSellers, status
+    // OPEN), not via registration, so this is safe. Re-enable only as a
+    // deliberate, audited choice if P2P vendor onboarding is ever built.
+    seller_registration: false,
   },
   modules: [
     // Empty in dev (built-in local file provider stays active); registers the

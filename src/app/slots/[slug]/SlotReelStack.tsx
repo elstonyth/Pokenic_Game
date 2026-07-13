@@ -80,8 +80,11 @@ export function SlotReelStack({
                   : { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
               }
             >
+              {/* NO spin-keyed remount: ReelStrip carries its live position
+                  across idle→spin so the press accelerates the ongoing drift
+                  instead of teleporting a fresh strip. spinKey retriggers its
+                  engine per spin as a prop. */}
               <ReelStrip
-                key={`${spinKey}-${i}`}
                 winnerDex={w ? w.dex : null}
                 winnerImage={w?.image}
                 winnerName={w?.name}
@@ -90,6 +93,7 @@ export function SlotReelStack({
                 reduced={reduced}
                 colIndex={i}
                 count={count}
+                spinKey={spinKey}
                 cellSize={cellSize}
                 decoyCards={decoyCards}
                 onSettled={winners ? handleColSettled : undefined}

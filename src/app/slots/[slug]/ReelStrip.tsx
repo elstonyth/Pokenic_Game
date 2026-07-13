@@ -2,22 +2,28 @@
 'use client';
 
 // Flat HORIZONTAL reel strip (spec Spec-1): cells stream RIGHT→LEFT through a
-// central winning line, the winner arriving from the right. rAF-driven, reusing
-// the tuned physics (spinOffset/blur/timing) unchanged; the right→left travel is
-// reelPaintX's reflection of the vertical easing. No 3D barrel. Same settle
-// contract as the old VaultReelColumn: reports the landed cell rect and calls
+// central winning line, the winner arriving from the right. rAF-driven, one
+// CONTINUOUS position timeline: the idle drift and the spin share `pxRef`, so
+// pressing spin ACCELERATES the strip from wherever it is drifting — never a
+// teleport to a fresh offset. The spin's runway cells are randomized per spin
+// (buildPressStrip) while everything visible at press time is preserved, and
+// the winner index is picked dynamically so the tuned landing physics
+// (pressSpinOffset — same phases/durations as the old spinOffset) always fits.
+// Same settle contract as before: reports the landed cell rect and calls
 // onSettled once, after this strip stops.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Rarity } from '@/lib/packs-data';
-import { reelTarget, reelPaintX } from '@/lib/reel';
+import { reelTarget } from '@/lib/reel';
 import {
-  spinOffset,
+  pressSpinOffset,
+  pressTravelPx,
   columnDurationMs,
   blurStretch,
   CARD_ASPECT,
 } from '@/lib/vault-reel';
 import {
   buildHReelStrip,
+  buildPressStrip,
   DECOY_DEXES,
   HREEL_WIN_INDEX,
   HREEL_STRIP_LEN,
@@ -28,7 +34,6 @@ import { rarityRgb } from '@/lib/rarity';
 import { spriteGif } from '@/lib/mock/pokedex';
 import { CardTile } from './CardTile';
 
-const EAGER_RADIUS = 3;
 const CELL_GAP = 10;
 /** Idle creep speed (px/ms) — ~20px/s, roughly one cell every 4s. Slow enough to
  *  read every Pokémon, fast enough that the machine never looks dead. Below
@@ -47,6 +52,7 @@ export function ReelStrip({
   reduced,
   colIndex,
   count,
+  spinKey,
   cellSize = 96,
   decoyCards,
   onSettled,
@@ -61,6 +67,10 @@ export function ReelStrip({
   reduced: boolean;
   colIndex: number;
   count: number;
+  /** Spin identity (the spin nonce). Retriggers the engine per spin — the
+   *  component itself must NOT remount, or the continuous position is lost —
+   *  and seeds the per-spin decoy randomization. */
+  spinKey: string | number;
   cellSize?: number;
   /** The pack's own cards (dex + configured rarity, paired) the decoy cells
    *  flicker — so the reel shows only the pack's Pokémon in only the pack's
@@ -74,6 +84,14 @@ export function ReelStrip({
   const cellRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [done, setDone] = useState(false);
   const settled = useRef(false);
+  /** Live paint position (px of leftward travel) — persists across idle↔spin
+   *  effect re-runs. THE seam-free handoff: the spin launches from this. */
+  const pxRef = useRef<number | null>(null);
+  /** Spin-time strip: randomized runway + dynamic winner index. null = idle. */
+  const [view, setView] = useState<{
+    cells: HReelCell[];
+    winIdx: number;
+  } | null>(null);
   const onSettledRef = useRef(onSettled);
   const onWinnerRectRef = useRef(onWinnerRect);
   useEffect(() => {
@@ -91,21 +109,25 @@ export function ReelStrip({
     decoyCards && decoyCards.length > 0
       ? decoyCards.length
       : DECOY_DEXES.length;
-  const strip = useMemo(
+  // Idle tiling — a PURE period-poolLen tiling (buildHReelStrip with no winner)
+  // so the idle drift's wrap stays seamless.
+  const idleStrip = useMemo(
     () =>
       buildHReelStrip(
-        winnerDex,
-        winnerRarity,
+        null,
+        'Common',
         HREEL_STRIP_LEN,
         HREEL_WIN_INDEX,
         colIndex, // per-strip decoy seed → stacked strips look independent
-        decoyCards, // pack's own cards {dex, rarity} (empty → curated fallback)
+        decoyCards,
       ),
-    [winnerDex, winnerRarity, colIndex, decoyCards],
+    [colIndex, decoyCards],
   );
+  const strip = view?.cells ?? idleStrip;
+  const winIdx = view?.winIdx ?? null;
 
-  const reportWinnerRect = () => {
-    const rect = cellRefs.current[HREEL_WIN_INDEX]?.getBoundingClientRect();
+  const reportWinnerRect = (idx: number) => {
+    const rect = cellRefs.current[idx]?.getBoundingClientRect();
     if (rect) onWinnerRectRef.current?.(rect);
   };
 
@@ -121,15 +143,12 @@ export function ReelStrip({
     setDone(false);
     const stripEl = stripRef.current;
     if (!stripEl) return;
-    // reelTarget centers the pitch-midpoint; cells render at their cell-center,
-    // and the flex `gap: CELL_GAP` offsets those by CELL_GAP/2. Subtract it so the
-    // winner cell's center lands exactly on the winning line (window center).
-    const target = Math.round(
-      reelTarget(HREEL_WIN_INDEX, pitch, winW) - CELL_GAP / 2,
+    const basePx = Math.round(
+      reelTarget(IDLE_BASE_INDEX, pitch, winW) - CELL_GAP / 2,
     );
 
-    const paint = (offset: number, velocity: number) => {
-      const px = reelPaintX(offset, target);
+    const paint = (px: number, velocity: number) => {
+      pxRef.current = px;
       stripEl.style.transform = `translate3d(${-px}px, 0, 0)`;
       // One real motion blur on the whole moving strip — NO per-cell transforms
       // (the old vertical column warned 48 cells × N per frame cooked phone GPUs;
@@ -140,25 +159,32 @@ export function ReelStrip({
     };
 
     // Idle: creep right→left forever (same travel direction as a spin) so the
-    // machine never looks dead. buildHReelStrip leaves the idle strip a PURE
-    // tiling of the decoy pool, so it repeats every `poolLen` cells and wrapping
-    // the drift at exactly `poolLen * pitch` px is seamless. Rest sharp instead
-    // when motion is reduced, or when one whole period + the visible window
-    // wouldn't fit on the strip (the drift would run off its end).
+    // machine never looks dead. The idle strip is a PURE tiling of the decoy
+    // pool, so it repeats every `poolLen` cells and wrapping the drift at
+    // exactly `poolLen * pitch` px is seamless. Rest sharp instead when motion
+    // is reduced, or when one whole period + the visible window wouldn't fit on
+    // the strip (the drift would run off its end).
     if (!isWin) {
-      const basePx = Math.round(
-        reelTarget(IDLE_BASE_INDEX, pitch, winW) - CELL_GAP / 2,
-      );
+      setView(null);
       stripEl.style.filter = '';
+      const wrapPx = poolLen * pitch;
       if (
         reduced ||
         IDLE_BASE_INDEX + HREEL_VISIBLE_CELLS + poolLen > HREEL_STRIP_LEN
       ) {
+        pxRef.current = basePx;
         stripEl.style.transform = `translate3d(${-basePx}px, 0, 0)`;
         return;
       }
-      const wrapPx = poolLen * pitch;
-      let px = basePx;
+      // Resume from wherever the strip was left; anything outside the idle
+      // band (e.g. the landed position of the previous spin — the reveal
+      // theater covers this cut, as it always has) restarts at base.
+      let px =
+        pxRef.current !== null &&
+        pxRef.current >= basePx &&
+        pxRef.current < basePx + wrapPx
+          ? pxRef.current
+          : basePx;
       let prev = performance.now();
       let raf = 0;
       const drift = (now: number) => {
@@ -167,53 +193,78 @@ export function ReelStrip({
         px += Math.min(50, now - prev) * IDLE_DRIFT_PX_PER_MS;
         prev = now;
         if (px - basePx >= wrapPx) px -= wrapPx;
+        pxRef.current = px;
         stripEl.style.transform = `translate3d(${-px}px, 0, 0)`;
         raf = requestAnimationFrame(drift);
       };
       raf = requestAnimationFrame(drift);
       return () => cancelAnimationFrame(raf);
     }
-    if (reduced) {
+
+    // Spin: launch from the CURRENT position (idle drift left it in pxRef) so
+    // the press reads as the ongoing motion accelerating — no teleport. The
+    // winner cell is whichever cell sits one ideal-travel ahead of here; cells
+    // between the visible window and the winner are randomized per spin.
+    const startPx = pxRef.current ?? basePx;
+    const travel = pressTravelPx(colIndex, count, pitch);
+    // Invert reelTarget: the cell whose center-target is nearest startPx+travel.
+    const idx = Math.round(
+      (startPx + travel + winW / 2 + CELL_GAP / 2 - pitch / 2) / pitch,
+    );
+    // Everything on screen (plus margin) at press time keeps its idle content.
+    const keep = Math.min(Math.ceil((startPx + winW) / pitch) + 2, idx - 1);
+    setView({
+      cells: buildPressStrip({
+        winnerDex,
+        winnerRarity,
+        winIndex: idx,
+        keepCells: keep,
+        seed: colIndex,
+        rngSeed:
+          (typeof spinKey === 'number' ? spinKey : 0) + colIndex * 0x1003,
+        decoyCards,
+      }),
+      winIdx: idx,
+    });
+    const target = Math.round(reelTarget(idx, pitch, winW) - CELL_GAP / 2);
+
+    const finish = () => {
       paint(target, 0);
-      const id = setTimeout(() => {
-        if (!settled.current) {
-          settled.current = true;
-          setDone(true);
-          reportWinnerRect();
-          onSettledRef.current?.();
-        }
-      }, 0);
+      if (!settled.current) {
+        settled.current = true;
+        setDone(true);
+        reportWinnerRect(idx);
+        onSettledRef.current?.();
+      }
+    };
+    if (reduced) {
+      const id = setTimeout(finish, 0);
       return () => clearTimeout(id);
     }
     const dur = columnDurationMs(colIndex, count);
     const start = performance.now();
-    let prevOffset = spinOffset(0, target, colIndex, count, pitch);
+    let prevPx = startPx;
     let prevT = start;
     let raf = 0;
     const frame = (now: number) => {
       const t = now - start;
-      const offset = spinOffset(t, target, colIndex, count, pitch);
+      const px = pressSpinOffset(t, startPx, target, colIndex, count, pitch);
       const dt = Math.max(1, now - prevT);
-      paint(offset, (offset - prevOffset) / dt);
-      prevOffset = offset;
+      paint(px, (px - prevPx) / dt);
+      prevPx = px;
       prevT = now;
       if (t >= dur) {
-        paint(target, 0);
-        if (!settled.current) {
-          settled.current = true;
-          setDone(true);
-          reportWinnerRect();
-          onSettledRef.current?.();
-        }
+        finish();
         return;
       }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pitch/winW derive from cellSize; re-running on spin identity is intended
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pitch/winW derive from cellSize; re-running on spin identity (spinKey/isWin) is intended
   }, [
     isWin,
+    spinKey,
     reduced,
     colIndex,
     count,
@@ -221,6 +272,7 @@ export function ReelStrip({
     winnerRarity,
     cellSize,
     poolLen,
+    decoyCards,
   ]);
 
   return (
@@ -244,16 +296,15 @@ export function ReelStrip({
         style={{ gap: `${CELL_GAP}px` }}
       >
         {strip.map((cell, i) => {
-          const isWinnerCell = i === HREEL_WIN_INDEX;
+          const isWinnerCell = winIdx !== null && i === winIdx;
           // WYSIWYG (what you see is what you get): the winner cell shows the
           // reward's TRUE tier color the WHOLE time — it never flickers a decoy
           // tier and then "changes" hue on stop. The color that lands on the
           // line IS the reward (orange ⟹ Immortal, gray ⟹ Common), matching the
           // reveal; it only intensifies (bloom + scale) when it locks. Decoys
           // flicker their own tier while spinning, then fade neutral on settle.
-          // Idle has no winner, so the winner CELL must not wear the winner's
-          // color either — it would be the one off-pattern tile on an otherwise
-          // periodic strip, i.e. a seam the moment the idle drift reaches it.
+          // Idle has no winner cell at all (winIdx is null), so the periodic
+          // idle tiling never carries an off-pattern seam.
           const litColor =
             isWinnerCell && isWin
               ? winnerRarityRgb
@@ -276,7 +327,14 @@ export function ReelStrip({
                 dex={cell.dex}
                 name={isWinnerCell ? (winnerName ?? '') : ''}
                 size={cellSize}
-                eager={Math.abs(i - HREEL_WIN_INDEX) <= EAGER_RADIUS}
+                // Spin: every cell streams through the window within seconds —
+                // load them all. Idle: only the drift's early cells need to be
+                // ready up front; the slow creep laziness-loads the rest.
+                eager={
+                  winIdx !== null
+                    ? true
+                    : i <= IDLE_BASE_INDEX + HREEL_VISIBLE_CELLS
+                }
                 imageSrc={isWinnerCell ? winnerImage : undefined}
                 glowRgb={litColor}
                 lit={done ? isWinnerCell : true}

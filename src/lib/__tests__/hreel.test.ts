@@ -6,6 +6,7 @@ import {
   decoyRarity,
   teaseRarity,
   buildHReelStrip,
+  buildPressStrip,
   buildDecoyPool,
 } from '@/lib/hreel';
 
@@ -234,5 +235,81 @@ describe('buildHReelStrip', () => {
   test('rejects invalid geometry', () => {
     expect(() => buildHReelStrip(1, 'Common', 0, 0)).toThrow(RangeError);
     expect(() => buildHReelStrip(1, 'Common', 10, 10)).toThrow(RangeError);
+  });
+});
+
+describe('buildPressStrip (press-launched spin strip)', () => {
+  const POOL = [
+    { dex: 1, rarity: 'Common' },
+    { dex: 4, rarity: 'Rare' },
+    { dex: 7, rarity: 'Uncommon' },
+    { dex: 25, rarity: 'Legendary' },
+    { dex: 130, rarity: 'Mythical' },
+  ] as const;
+  const base = {
+    winnerDex: 6,
+    winnerRarity: 'Rare',
+    winIndex: 30,
+    keepCells: 12,
+    seed: 1,
+    rngSeed: 12345,
+    decoyCards: POOL,
+  } as const;
+
+  test('cells [0, keepCells) reproduce the idle tiling EXACTLY (seamless press)', () => {
+    const idle = buildHReelStrip(null, 'Common', 64, 48, base.seed, POOL);
+    const press = buildPressStrip(base);
+    for (let i = 0; i < base.keepCells; i++) {
+      expect(press[i]).toEqual(idle[i]);
+    }
+  });
+
+  test('winner pinned at winIndex, tease one cell before it', () => {
+    const press = buildPressStrip(base);
+    expect(press[base.winIndex]!.dex).toBe(6);
+    // Rare teases one tier up (Mythical) at winIndex - 1 (spec §7b).
+    expect(press[base.winIndex - 1]!.rarity).toBe('Mythical');
+  });
+
+  test('strip covers the landed window (winner + right half + margin)', () => {
+    const press = buildPressStrip(base);
+    expect(press.length).toBeGreaterThanOrEqual(base.winIndex + 5);
+  });
+
+  test('runway is randomized: NOT the periodic 1-2-3 tiling', () => {
+    const idle = buildHReelStrip(null, 'Common', 64, 48, base.seed, POOL);
+    const press = buildPressStrip(base);
+    const runway = press.slice(base.keepCells, base.winIndex - 1);
+    const tiled = idle.slice(base.keepCells, base.winIndex - 1);
+    expect(runway).not.toEqual(tiled);
+    // every runway cell still comes from the pack's own pool
+    const dexes = new Set<number>(POOL.map((c) => c.dex));
+    for (const c of runway) expect(dexes.has(c.dex)).toBe(true);
+  });
+
+  test('no immediate sprite repeats in the runway (no stutter at speed)', () => {
+    const press = buildPressStrip({ ...base, winIndex: 60, rngSeed: 99 });
+    for (let i = base.keepCells + 1; i < 59; i++) {
+      expect(press[i]!.dex).not.toBe(press[i - 1]!.dex);
+    }
+  });
+
+  test('deterministic per seed, different across spins', () => {
+    expect(buildPressStrip(base)).toEqual(buildPressStrip(base));
+    expect(buildPressStrip(base)).not.toEqual(
+      buildPressStrip({ ...base, rngSeed: 54321 }),
+    );
+  });
+
+  test('null/garbage winner dex falls back to a pool dex', () => {
+    const press = buildPressStrip({ ...base, winnerDex: null });
+    expect(press[base.winIndex]!.dex).toBe(POOL[0].dex);
+  });
+
+  test('rejects invalid geometry', () => {
+    expect(() => buildPressStrip({ ...base, winIndex: 0 })).toThrow(RangeError);
+    expect(() => buildPressStrip({ ...base, keepCells: 30 })).toThrow(
+      RangeError,
+    );
   });
 });

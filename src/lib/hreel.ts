@@ -90,6 +90,100 @@ export function teaseRarity(winner: Rarity): Rarity | null {
  * Immortal + Common never flickers Legendary/Mythical/Rare/Uncommon). Empty/
  * omitted → the curated DECOY_DEXES with cycled colors (fallback only).
  */
+/** Deterministic 32-bit PRNG (mulberry32) — seeds the per-spin decoy shuffle so
+ *  a spin's strip is stable across React re-renders but different every spin. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Build the strip for a PRESS-launched spin — the spin that starts from the
+ * live idle drift instead of a fresh paint:
+ *   • cells [0, keepCells) reproduce the idle tiling EXACTLY (same formula as
+ *     buildHReelStrip's idle branch), so swapping the strip in at press time
+ *     changes nothing on screen — the launch is seamless;
+ *   • cells beyond that (the runway the spin streams through) are drawn
+ *     RANDOMLY from the pool via `rngSeed` (no adjacent repeats), so the reel
+ *     never shows the tiling's 1-2-3 sequence at speed and no two spins route
+ *     the same;
+ *   • the winner is pinned at `winIndex` with the gated near-miss tease at
+ *     `winIndex - 1` (spec §7b), exactly like buildHReelStrip.
+ * `winIndex` is dynamic — the caller picks it from the strip's live position so
+ * the travel distance always fits the physics (see pressTravelPx).
+ */
+export function buildPressStrip({
+  winnerDex,
+  winnerRarity,
+  winIndex,
+  keepCells,
+  seed,
+  rngSeed,
+  decoyCards = [],
+}: {
+  winnerDex: number | null;
+  winnerRarity: Rarity;
+  winIndex: number;
+  keepCells: number;
+  /** Idle tiling seed — MUST match the idle strip's (the reel index). */
+  seed: number;
+  /** Per-spin randomness (spin nonce ⊕ column). */
+  rngSeed: number;
+  decoyCards?: readonly HReelCell[];
+}): HReelCell[] {
+  if (!Number.isInteger(winIndex) || winIndex < 1) {
+    throw new RangeError(
+      'buildPressStrip: winIndex must be a positive integer',
+    );
+  }
+  if (!Number.isInteger(keepCells) || keepCells < 0 || keepCells >= winIndex) {
+    throw new RangeError(
+      'buildPressStrip: keepCells must be within [0, winIndex)',
+    );
+  }
+  const pool: readonly HReelCell[] =
+    decoyCards.length > 0
+      ? decoyCards
+      : DECOY_DEXES.map((dex, i) => ({ dex, rarity: decoyRarity(i) }));
+  // Enough tail past the winner to fill the window's right half when it lands.
+  const length = winIndex + Math.ceil(HREEL_VISIBLE_CELLS / 2) + 2;
+  const rand = mulberry32(rngSeed);
+  const cells: HReelCell[] = [];
+  for (let i = 0; i < length; i++) {
+    if (i < keepCells) {
+      // Idle tiling, verbatim — what is already on screen at press time.
+      const c = pool[(i + seed * 4) % pool.length]!;
+      cells.push({ dex: c.dex, rarity: c.rarity });
+      continue;
+    }
+    let c = pool[Math.floor(rand() * pool.length)]!;
+    // Reroll immediate sprite repeats — a doubled cell reads as a stutter at
+    // speed. Bounded tries so a single-entry pool can't loop forever.
+    for (let tries = 0; tries < 4 && c.dex === cells[i - 1]?.dex; tries++) {
+      c = pool[Math.floor(rand() * pool.length)]!;
+    }
+    cells.push({ dex: c.dex, rarity: c.rarity });
+  }
+  const safeWinner =
+    winnerDex !== null &&
+    Number.isInteger(winnerDex) &&
+    winnerDex >= 1 &&
+    winnerDex <= POKEDEX_MAX
+      ? winnerDex
+      : pool[0]!.dex;
+  cells[winIndex] = { dex: safeWinner, rarity: winnerRarity };
+  const tease = teaseRarity(winnerRarity);
+  if (tease && winIndex - 1 >= 0) {
+    cells[winIndex - 1] = { ...cells[winIndex - 1]!, rarity: tease };
+  }
+  return cells;
+}
+
 export function buildHReelStrip(
   winnerDex: number | null,
   winnerRarity: Rarity,

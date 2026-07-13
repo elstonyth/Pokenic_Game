@@ -685,7 +685,9 @@ export default function VaultClient({
         }}
       />
 
-      {toast && <SuccessToast message={toast} onClose={() => setToast(null)} />}
+      {/* Always mounted: the live region must pre-exist its message so screen
+          readers announce it (see SuccessToast). */}
+      <SuccessToast message={toast} onClose={() => setToast(null)} />
 
       <CardDetailOverlay seed={openCard} onClose={() => setOpenCard(null)} />
     </>

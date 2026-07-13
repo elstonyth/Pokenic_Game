@@ -53,10 +53,9 @@ describe('timeAgo', () => {
 // table encodes the shared rule so the mirror can't silently drift. If the
 // backend rounding basis changes, update BOTH functions and this table.
 //
-// Scope: parity holds across the valid FMV domain (usd >= 0, fx > 0) and the
-// shared bad-input guards (both collapse to 0). Negative usd is deliberately NOT
-// asserted equal — displayMarketPrice returns 0 for raw < 0 while usdToMyr does
-// not guard sign; card FMV is never negative, so that case never occurs in prod.
+// The mirror is complete: usdToMyr guards `usd >= 0` exactly like
+// displayMarketPrice's `raw < 0` guard, so both collapse every bad input
+// (non-finite, fx <= 0, negative usd) to 0 and agree on the whole domain.
 describe('usdToMyr — parity with backend displayMarketPrice(usd, fx, 1)', () => {
   it.each([
     // usd,     fx,    expected = Math.round(usd*fx*100)/100
@@ -78,16 +77,10 @@ describe('usdToMyr — parity with backend displayMarketPrice(usd, fx, 1)', () =
     ['fx = NaN', 10, NaN],
     ['usd = NaN', NaN, 4.7],
     ['usd = Infinity', Infinity, 4.7],
+    ['usd < 0 (matches displayMarketPrice raw < 0 guard)', -5, 4.7],
   ])('collapses to 0 on bad input (%s)', (_label, usd, fx) => {
     expect(usdToMyr(usd, fx)).toBe(0);
   });
-
-  // NOTE (reviewer): usdToMyr and displayMarketPrice(...,1) DIVERGE on negative
-  // usd — displayMarketPrice returns 0 (raw < 0 guard) while usdToMyr returns a
-  // negative value (no sign guard). Card FMV is never negative, so this can't
-  // bite in prod, but it is a real gap. Not asserted here — the fix (add
-  // `usd >= 0` to usdToMyr for a true mirror) is a reviewer call, not papered
-  // over with a test locking the divergent value.
 });
 
 describe('fmtPct', () => {

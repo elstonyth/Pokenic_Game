@@ -12,12 +12,13 @@ export const rm = (n: number | null): string =>
 // USD → MYR at the given rate (2dp), mirroring the backend displayMarketPrice at
 // multiplier 1. Card FMV is tracked in USD (PriceCharting-native); the admin
 // shows RM at the live rate, no markup (markup lives on the sale price). Bad
-// inputs collapse to 0 (same guard as myrToUsd) rather than emitting NaN.
+// inputs — non-finite, fx <= 0, or negative usd (FMV is never negative) —
+// collapse to 0 rather than emitting NaN.
 // COUPLED MIRROR of displayMarketPrice(usd, fx, 1) in
 // backend/packages/api/src/modules/packs/pricing.ts — keep in sync; parity
 // asserted in ./format.test.ts (separate packages, no shared import).
 export const usdToMyr = (usd: number, fx: number): number =>
-  Number.isFinite(usd) && Number.isFinite(fx) && fx > 0
+  Number.isFinite(usd) && usd >= 0 && Number.isFinite(fx) && fx > 0
     ? Math.round(usd * fx * 100) / 100
     : 0;
 

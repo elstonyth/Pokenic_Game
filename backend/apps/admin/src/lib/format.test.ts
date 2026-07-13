@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rm, timeAgo, fmtPct } from './format';
+import { rm, timeAgo, fmtPct, usdToMyr } from './format';
 
 describe('rm', () => {
   it('formats a number with two decimals and an RM prefix', () => {
@@ -42,6 +42,50 @@ describe('timeAgo', () => {
   });
   it('clamps a future timestamp to "just now"', () => {
     expect(timeAgo(new Date(now + 5_000).toISOString(), now)).toBe('just now');
+  });
+});
+
+// usdToMyr is a hand-mirror of the backend displayMarketPrice(usd, fx, 1)
+// (backend/packages/api/src/modules/packs/pricing.ts) — same rule
+// `Math.round(usd * fx * 100) / 100`, same finite/positive-fx guards. @acme/api
+// exports only `./_generated`, so displayMarketPrice can't be imported here to
+// assert equality directly (Option A blocked by the exports field); instead this
+// table encodes the shared rule so the mirror can't silently drift. If the
+// backend rounding basis changes, update BOTH functions and this table.
+//
+// Scope: parity holds across the valid FMV domain (usd >= 0, fx > 0) and the
+// shared bad-input guards (both collapse to 0). Negative usd is deliberately NOT
+// asserted equal — displayMarketPrice returns 0 for raw < 0 while usdToMyr does
+// not guard sign; card FMV is never negative, so that case never occurs in prod.
+describe('usdToMyr — parity with backend displayMarketPrice(usd, fx, 1)', () => {
+  it.each([
+    // usd,     fx,    expected = Math.round(usd*fx*100)/100
+    [8.47, 4.7, 39.81], // float basis: 8.47*4.7 = 39.808999… → 39.81
+    [10, 4.7, 47], // exact
+    [0.01, 4.7, 0.05], // small: 0.047 → rounds up
+    [1234.56, 4.73, 5839.47], // non-integer fx, large usd
+    [1_000_000, 4.7, 4_700_000], // large usd
+    [0.125, 1, 0.13], // half-up rounding at .xx5
+    [0, 4.7, 0], // zero usd
+  ])('usdToMyr(%f, %f) === %f', (usd, fx, expected) => {
+    expect(usdToMyr(usd, fx)).toBe(expected);
+  });
+
+  it.each([
+    ['fx = 0', 10, 0],
+    ['fx < 0', 10, -4.7],
+    ['fx = Infinity', 10, Infinity],
+    ['fx = NaN', 10, NaN],
+    ['usd = NaN', NaN, 4.7],
+    ['usd = Infinity', Infinity, 4.7],
+  ])('collapses to 0 on bad input (%s)', (_label, usd, fx) => {
+    expect(usdToMyr(usd, fx)).toBe(0);
+  });
+
+  it('does not guard negative usd (documented divergence from displayMarketPrice)', () => {
+    // displayMarketPrice(-5, 4.7, 1) === 0 (raw < 0 guard); usdToMyr does not
+    // guard sign. Out of the valid FMV domain — locked here to flag the gap.
+    expect(usdToMyr(-5, 4.7)).toBe(-23.5);
   });
 });
 

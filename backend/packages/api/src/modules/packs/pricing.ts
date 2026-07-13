@@ -10,6 +10,9 @@ export const FX_USD_MYR_URL =
   process.env.FX_USD_MYR_URL ??
   'https://api.frankfurter.app/latest?from=USD&to=MYR';
 
+// At multiplier 1 this is mirrored by the admin `usdToMyr` in
+// backend/apps/admin/src/lib/format.ts (separate package, no shared import) —
+// keep in sync; parity asserted in that app's format.test.ts.
 export function displayMarketPrice(
   marketValueUsd: number,
   fxUsdMyr: number,

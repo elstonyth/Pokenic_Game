@@ -13,6 +13,9 @@ export const rm = (n: number | null): string =>
 // multiplier 1. Card FMV is tracked in USD (PriceCharting-native); the admin
 // shows RM at the live rate, no markup (markup lives on the sale price). Bad
 // inputs collapse to 0 (same guard as myrToUsd) rather than emitting NaN.
+// COUPLED MIRROR of displayMarketPrice(usd, fx, 1) in
+// backend/packages/api/src/modules/packs/pricing.ts — keep in sync; parity
+// asserted in ./format.test.ts (separate packages, no shared import).
 export const usdToMyr = (usd: number, fx: number): number =>
   Number.isFinite(usd) && Number.isFinite(fx) && fx > 0
     ? Math.round(usd * fx * 100) / 100

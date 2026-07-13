@@ -39,14 +39,20 @@ await page.getByPlaceholder('Email').fill(EMAIL);
 await page.getByPlaceholder('Password', { exact: true }).fill(OLD_PASSWORD);
 await page.getByPlaceholder('Confirm password').fill(OLD_PASSWORD);
 await page.getByRole('button', { name: 'Create account' }).click();
-await page.waitForTimeout(2500);
-check(
-  !(await page
-    .getByRole('dialog')
-    .isVisible()
-    .catch(() => false)),
-  'signup closes the auth modal',
-);
+// Scope to the AUTH modal by its aria-label, then wait for it to unmount.
+// A bare getByRole('dialog') also matches the persistent CookieConsent banner
+// (role="dialog" aria-label="Cookie consent"), which never detaches — so the
+// unscoped wait times out even though signup succeeded. Deadline is generous
+// so a slow round-trip (or the auth limiter's 429 backoff — burst 5/10s, see
+// backend .../utils/rate-limit.ts) never trips a false failure.
+const signedUp = await page
+  .getByRole('dialog', { name: 'Create account' })
+  .waitFor({ state: 'detached', timeout: 30000 })
+  .then(
+    () => true,
+    () => false,
+  );
+check(signedUp, 'signup closes the auth modal');
 
 // ── 2. Forgot password from a logged-out context ────────────────────────────
 await page.context().clearCookies();
@@ -119,19 +125,23 @@ check(
 await page.getByPlaceholder('Password', { exact: true }).fill(NEW_PASSWORD);
 await page.getByRole('button', { name: 'Log in', exact: true }).click();
 // Login is several server round-trips (token, customer, profile handle) —
-// wait for the modal to actually unmount instead of a fixed pause.
+// wait for the AUTH modal to unmount. Must scope to the "Log in" dialog: a
+// bare getByRole('dialog') also matches the persistent CookieConsent banner
+// (aria-label="Cookie consent"), which never detaches, so an unscoped wait
+// times out even after a successful login (verified 2026-07-13 — the header
+// showed the logged-in state while the cookie dialog kept the count at 1).
 const loggedIn = await page
-  .getByRole('dialog')
-  .waitFor({ state: 'detached', timeout: 15000 })
+  .getByRole('dialog', { name: 'Log in' })
+  .waitFor({ state: 'detached', timeout: 30000 })
   .then(
     () => true,
     () => false,
   );
 if (!loggedIn) {
   console.log(
-    '[debug] dialog text:',
+    '[debug] login dialog text:',
     await page
-      .getByRole('dialog')
+      .getByRole('dialog', { name: 'Log in' })
       .innerText()
       .catch(() => '(gone)'),
   );

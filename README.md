@@ -103,7 +103,7 @@ UI work is measurement-driven, not eyeballed. The `scripts/*.mjs` Playwright scr
 
 ## Project Structure
 
-```
+```text
 src/
   app/                # Next.js routes (~36)
   components/

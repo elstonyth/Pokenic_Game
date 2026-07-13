@@ -79,7 +79,7 @@ From `backend/packages/api`:
 
 | Command                                              | What it runs                                                                                                                          |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `corepack yarn test:integration:smoke`                | Money-loop smoke (5 suites, ~5–7 min): economy report, credit top-up, pack-open charge, vault buyback, commission maturity              |
+| `corepack yarn test:integration:smoke`                | Money-loop smoke (6 suites, ~6–8 min): economy report, credit top-up, pack-open charge, vault buyback, commission maturity, ledger conservation (Σ ledger == balance across topup → open → buyback) |
 | `corepack yarn test:integration:http economy.spec`    | Filtered subset — one or more jest path patterns, single non-sharded process                                                          |
 | `corepack yarn test:integration:http`                 | Full gate (all 66 suites) in 3 sequential shards                                                                                       |
 

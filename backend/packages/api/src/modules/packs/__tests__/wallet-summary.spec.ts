@@ -329,6 +329,25 @@ moduleIntegrationTestRunner<PacksModuleService>({
           w = await service.walletSummary(cust);
           expect(w.playthrough.remaining).toBe(0);
           expect(w.withdrawable).toBeCloseTo(w.available, 2);
+
+          // Balance is 0 here, so withdrawable≈available alone is 0≈0 — it
+          // would pass even with the gate stuck closed. Add a non-deposit
+          // credit and prove a POSITIVE balance is actually withdrawable.
+          await service.createCreditTransactions([
+            {
+              customer_id: cust,
+              amount: 25,
+              reason: 'buyback' as const,
+              external_funded_cents: 0,
+              pull_id: null,
+              reference: null,
+            } as Record<string, unknown>,
+          ]);
+          w = await service.walletSummary(cust);
+          expect(w.playthrough.remaining).toBe(0); // buyback doesn't re-lock
+          expect(w.withdrawable).toBeGreaterThan(0);
+          expect(w.withdrawable).toBeCloseTo(w.available, 2);
+          expect(w.withdrawable).toBeCloseTo(25, 2);
         },
       );
 

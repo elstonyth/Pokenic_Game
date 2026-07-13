@@ -1,14 +1,16 @@
 // Pure horizontal-reel strip logic: winner pinning, deterministic decoy tier
-// colors (the spin flicker), and the gated near-miss tease (spec §7b). No DOM,
-// no React — see src/lib/__tests__/hreel.test.ts. Physics (spinOffset, blur,
-// timing) stays in vault-reel.ts and is reused unchanged.
+// colors (the spin flicker), the gated near-miss tease (spec §7b), and the
+// press-spin strip (buildPressStrip). No DOM, no React — see
+// src/lib/__tests__/hreel.test.ts. Physics (pressSpinOffset, blur, timing)
+// stays in vault-reel.ts.
 import type { PackCard, Rarity } from '@/lib/packs-data';
 import { RARITY_ORDER, isTopRarity } from '@/lib/rarity';
 import { POKEDEX_MAX } from '@/lib/reel';
 import { resolveCardPokemon } from '@/lib/resolve-card-pokemon';
 
-/** Winner index sits high on a LONG strip so the reflected right→left travel
- *  (reelPaintX) has runway and stays in bounds — verified in reel.test.ts. */
+/** IDLE-strip build parameter only (spins pick their winner index dynamically
+ *  from the live position — see buildPressStrip). The idle build ignores the
+ *  winner slot entirely, keeping the strip a pure periodic tiling. */
 export const HREEL_WIN_INDEX = 48;
 export const HREEL_STRIP_LEN = 64;
 /** Cells visible across a strip window — a long horizontal reel. */
@@ -75,6 +77,121 @@ export function teaseRarity(winner: Rarity): Rarity | null {
   if (winner === 'Common') return null;
   const up = RARITY_ORDER.indexOf(winner) - 1; // one step toward the top
   return RARITY_ORDER[Math.max(0, up)]!;
+}
+
+/** Deterministic 32-bit PRNG (mulberry32) — seeds the per-spin decoy shuffle so
+ *  a spin's strip is stable across React re-renders but different every spin. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Build the strip for a PRESS-launched spin — the spin that starts from the
+ * live idle drift instead of a fresh paint:
+ *   • cells [0, keepCells) reproduce the idle tiling EXACTLY (same formula as
+ *     buildHReelStrip's idle branch), so swapping the strip in at press time
+ *     changes nothing on screen — the launch is seamless;
+ *   • cells beyond that (the runway the spin streams through) are drawn
+ *     RANDOMLY from the pool via `rngSeed` (no adjacent repeats), so the reel
+ *     never shows the tiling's 1-2-3 sequence at speed and no two spins route
+ *     the same;
+ *   • the winner is pinned at `winIndex` with the gated near-miss tease at
+ *     `winIndex - 1` (spec §7b), exactly like buildHReelStrip.
+ * `winIndex` is dynamic — the caller picks it from the strip's live position so
+ * the travel distance always fits the physics (see pressTravelPx).
+ */
+export function buildPressStrip({
+  winnerDex,
+  winnerRarity,
+  winIndex,
+  keepCells,
+  seed,
+  rngSeed,
+  decoyCards = [],
+}: {
+  winnerDex: number | null;
+  winnerRarity: Rarity;
+  winIndex: number;
+  keepCells: number;
+  /** Idle tiling seed — MUST match the idle strip's (the reel index). */
+  seed: number;
+  /** Per-spin randomness (spin nonce ⊕ column). */
+  rngSeed: number;
+  decoyCards?: readonly HReelCell[];
+}): HReelCell[] {
+  if (!Number.isInteger(winIndex) || winIndex < 1) {
+    throw new RangeError(
+      'buildPressStrip: winIndex must be a positive integer',
+    );
+  }
+  if (!Number.isInteger(keepCells) || keepCells < 0 || keepCells >= winIndex) {
+    throw new RangeError(
+      'buildPressStrip: keepCells must be within [0, winIndex)',
+    );
+  }
+  const pool: readonly HReelCell[] =
+    decoyCards.length > 0
+      ? decoyCards
+      : DECOY_DEXES.map((dex, i) => ({ dex, rarity: decoyRarity(i) }));
+  // Enough tail past the winner to fill the window's right half when it lands.
+  const length = winIndex + Math.ceil(HREEL_VISIBLE_CELLS / 2) + 2;
+  const safeWinner =
+    winnerDex !== null &&
+    Number.isInteger(winnerDex) &&
+    winnerDex >= 1 &&
+    winnerDex <= POKEDEX_MAX
+      ? winnerDex
+      : pool[0]!.dex;
+  const rand = mulberry32(rngSeed);
+  const cells: HReelCell[] = [];
+  for (let i = 0; i < length; i++) {
+    if (i < keepCells) {
+      // Idle tiling, verbatim — what is already on screen at press time.
+      const c = pool[(i + seed * 4) % pool.length]!;
+      cells.push({ dex: c.dex, rarity: c.rarity });
+      continue;
+    }
+    if (i === winIndex) {
+      // Pin the winner INLINE so the neighbor rerolls below can see it — a
+      // post-loop overwrite let winIndex±1 double the winner's sprite at the
+      // most-watched moment (the landing).
+      cells.push({ dex: safeWinner, rarity: winnerRarity });
+      continue;
+    }
+    let c = pool[Math.floor(rand() * pool.length)]!;
+    // Reroll immediate sprite repeats — a doubled cell reads as a stutter at
+    // speed. cells[i-1] covers the winner's RIGHT neighbor (the winner is
+    // already pushed); the LEFT neighbor must also reject the winner's dex
+    // ahead of time. Bounded tries so a single-entry pool can't loop forever.
+    const prevDex = cells[i - 1]?.dex;
+    const winnerAhead = i === winIndex - 1 ? safeWinner : undefined;
+    const blocked = (p: HReelCell) =>
+      p.dex === prevDex || p.dex === winnerAhead;
+    for (let tries = 0; tries < 4 && blocked(c); tries++) {
+      c = pool[Math.floor(rand() * pool.length)]!;
+    }
+    if (blocked(c)) {
+      // Small pools can exhaust the tries; pick deterministically rather than
+      // give up — doubling the WINNER's sprite at the landing is the artifact
+      // that matters most, so prefer avoiding both, then at least the winner.
+      c =
+        pool.find((p) => !blocked(p)) ??
+        pool.find((p) => p.dex !== winnerAhead) ??
+        c;
+    }
+    cells.push({ dex: c.dex, rarity: c.rarity });
+  }
+  const tease = teaseRarity(winnerRarity);
+  if (tease && winIndex - 1 >= 0) {
+    cells[winIndex - 1] = { ...cells[winIndex - 1]!, rarity: tease };
+  }
+  return cells;
 }
 
 /**

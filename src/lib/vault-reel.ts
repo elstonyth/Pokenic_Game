@@ -48,6 +48,16 @@ const SETTLE_PEAK = (2 / SETTLE_K) ** 2 * Math.exp(-2); // max of p²e^{-kp}
 const settleShape = (p: number) =>
   (p * p * Math.exp(-SETTLE_K * p)) / SETTLE_PEAK;
 
+// Tuned landing distances, in cells — the SINGLE source shared by BOTH
+// trajectories (spinOffset and the press-launched pressSpinOffset), so a
+// retune can never silently desync their landing feel.
+/** Friction travel of the landing. */
+const FRICTION_CELLS = 6;
+/** Suspense-crawl travel (LAST column only). */
+const CRAWL_CELLS = 2;
+/** Settle overshoot depth past the payline; kept < 0.6 cells (test-bounded). */
+const OVERSHOOT_CELLS = 0.32;
+
 /** Total run time of column `colIndex` of `count` (all columns start together). */
 export function columnDurationMs(colIndex: number, count: number): number {
   const isLast = colIndex === count - 1;
@@ -86,6 +96,11 @@ export function spinTotalMs(count: number): number {
  *   • friction/crawl → settle: friction (easeOutCubic) and crawl (easeOutQuad)
  *     both arrive at ~zero velocity, and settleShape STARTS at zero velocity,
  *     so the landing eases in instead of kicking (spec #33 — natural landing).
+ *
+ * NOTE: no production caller since the press-launched spin (pressSpinOffset)
+ * replaced it. Kept deliberately as the tuned-physics derivation reference —
+ * pressSpinOffset's distances/handoffs are derived from THIS trajectory — and
+ * it stays test-covered in vault-reel.test.ts.
  */
 export function spinOffset(
   tMs: number,
@@ -97,10 +112,9 @@ export function spinOffset(
   const isLast = colIndex === count - 1;
   const blur = BLUR_MS + colIndex * STOP_STAGGER_MS;
   const windupPx = itemH / 2;
-  const crawlPx = isLast ? itemH * 2 : 0;
-  const frictionPx = itemH * 6;
-  // Settle overshoot depth (below the payline); kept < 0.6 cells (test-bounded).
-  const overshootPx = itemH * 0.32;
+  const crawlPx = isLast ? itemH * CRAWL_CELLS : 0;
+  const frictionPx = itemH * FRICTION_CELLS;
+  const overshootPx = itemH * OVERSHOOT_CELLS;
   // Blur travel sized so the blur's EXIT velocity equals friction's ENTRY
   // velocity (easeOutCubic'(0) = 3·frictionPx/FRICTION_MS), keeping the handoff
   // velocity-continuous for ANY FRICTION_MS. Derived, not a magic divisor.
@@ -144,6 +158,104 @@ export function spinOffset(
   // kick, no sudden stop (spec decision #33).
   const p = (tMs - t4) / SETTLE_MS;
   return targetPx - overshootPx * settleShape(p);
+}
+
+/** Accel-phase duration for column `colIndex` — the blur phase plus the L→R
+ *  stop stagger, exactly as columnDurationMs counts it. */
+const accelMs = (colIndex: number) => BLUR_MS + colIndex * STOP_STAGGER_MS;
+
+/**
+ * Friction's share of the combined accel+friction distance when the handoff is
+ * velocity-continuous: accel (easeInQuad over `accelMs`) exits at 2·A/T, friction
+ * (easeOutCubic over FRICTION_MS) enters at 3·F/FRICTION_MS, so A = 3·F·T/(2·FRICTION_MS)
+ * — the same derivation spinOffset uses, solved for F given a total span.
+ */
+const frictionShare = (colIndex: number) =>
+  1 / (1 + (3 * accelMs(colIndex)) / (2 * FRICTION_MS));
+
+/**
+ * Ideal press-spin travel (px) for column `colIndex`: the forward distance that
+ * makes the landing friction exactly FRICTION_CELLS deep under the fixed
+ * phase durations — i.e. the same landing feel as spinOffset, launched from an
+ * arbitrary position. The caller rounds `startPx + pressTravelPx(...)` to the
+ * nearest cell center to pick the winner's strip index; pressSpinOffset then
+ * absorbs the sub-cell rounding in its accel/friction split.
+ */
+export function pressTravelPx(
+  colIndex: number,
+  count: number,
+  pitch: number,
+): number {
+  const frictionPx = pitch * FRICTION_CELLS;
+  const span = frictionPx / frictionShare(colIndex); // accel + friction
+  const crawlPx = colIndex === count - 1 ? pitch * CRAWL_CELLS : 0;
+  return span + crawlPx - pitch / 2; // windup gives back half a cell
+}
+
+/**
+ * Press-spin paint position (px, painted as `translateX(-px)`) at time `tMs`.
+ * Unlike spinOffset (fixed start, reflected paint), this trajectory begins at
+ * `startPx` — wherever the idle drift left the strip when the player pressed
+ * spin — so the launch is CONTINUOUS with the ongoing idle motion: no teleport,
+ * no content jump. Phases and durations are spinOffset's exactly (windup →
+ * accel → friction → crawl(last col) → damped-overshoot settle, total =
+ * columnDurationMs), so every downstream timer (stop clacks, tension window,
+ * settle watchdog) stays valid. Distances are derived from the actual travel
+ * `targetPx - startPx` with the same velocity-continuous handoffs.
+ *
+ * Precondition: targetPx − startPx ≈ pressTravelPx(...) (the caller picks the
+ * winner index from it), which keeps every phase distance positive.
+ */
+export function pressSpinOffset(
+  tMs: number,
+  startPx: number,
+  targetPx: number,
+  colIndex: number,
+  count: number,
+  pitch: number,
+): number {
+  const isLast = colIndex === count - 1;
+  const T = accelMs(colIndex);
+  const windupPx = pitch / 2;
+  const crawlPx = isLast ? pitch * CRAWL_CELLS : 0;
+  // Combined accel+friction span, measured from the wound-back position.
+  const span = targetPx - startPx + windupPx - crawlPx;
+  const frictionPx = span * frictionShare(colIndex);
+  const accelPx = span - frictionPx;
+  const overshootPx = pitch * OVERSHOOT_CELLS;
+
+  const t1 = WINDUP_MS;
+  const t2 = t1 + T;
+  const t3 = t2 + FRICTION_MS;
+  const t4 = t3 + (isLast ? CRAWL_MS : 0);
+  const t5 = t4 + SETTLE_MS;
+
+  if (tMs <= 0) return startPx;
+  if (tMs >= t5) return targetPx;
+  if (tMs < t1) {
+    // Ratchet wind-up: the strip pulls back half a cell before release.
+    return startPx - windupPx * easeOutQuad(tMs / t1);
+  }
+  const from = startPx - windupPx;
+  if (tMs < t2) {
+    // Accelerate forward; easeInQuad exits at friction's entry velocity.
+    return from + accelPx * easeInQuad((tMs - t1) / T);
+  }
+  if (tMs < t3) {
+    // Friction: decelerating approach to the crawl/settle position.
+    return (
+      targetPx -
+      crawlPx -
+      frictionPx +
+      frictionPx * easeOutCubic((tMs - t2) / FRICTION_MS)
+    );
+  }
+  if (tMs < t4) {
+    // Crawl: slow, readable, last two cells (last column only).
+    return targetPx - crawlPx + crawlPx * easeOutQuad((tMs - t3) / CRAWL_MS);
+  }
+  // Settle: damped overshoot PAST the payline, easing back to rest.
+  return targetPx + overshootPx * settleShape((tMs - t4) / SETTLE_MS);
 }
 
 /** Peak `filter: blur()` radius (px) at full spin speed — capped so a phone

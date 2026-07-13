@@ -11,9 +11,18 @@ import {
   columnDurationMs,
   spinTotalMs,
   spinOffset,
+  pressTravelPx,
+  pressSpinOffset,
   blurStretch,
+  CARD_ASPECT,
 } from '@/lib/vault-reel';
-import { ITEM_H as REEL_ITEM_H, STRIP_LEN, reelTargetY } from '@/lib/reel';
+import {
+  ITEM_H as REEL_ITEM_H,
+  STRIP_LEN,
+  reelTarget,
+  reelTargetY,
+} from '@/lib/reel';
+import { HREEL_VISIBLE_CELLS } from '@/lib/hreel';
 
 const ITEM_H = 112;
 const TARGET = 3000;
@@ -231,5 +240,172 @@ describe('blurStretch', () => {
     // at the settle entry velocity (~0.68px/ms) blur should be a soft trace,
     // not a smear — the winner reads crisp as it stops.
     expect(blurStretch(0.68).blurPx).toBeLessThan(1.5);
+  });
+});
+
+describe('pressTravelPx / pressSpinOffset (press-launched spin)', () => {
+  const PITCH = 79;
+  // A plausible idle position (mid-drift) and the target one ideal-travel ahead.
+  const START = 500;
+  const targetFor = (col: number, count: number) =>
+    START + Math.round(pressTravelPx(col, count, PITCH));
+
+  test('travel is long enough for the full landing (friction + crawl + windup)', () => {
+    for (let col = 0; col < 3; col++) {
+      expect(pressTravelPx(col, 3, PITCH)).toBeGreaterThan(PITCH * 9);
+    }
+  });
+
+  test('stagger: later columns travel farther (they stop later at equal feel)', () => {
+    expect(pressTravelPx(1, 3, PITCH)).toBeGreaterThan(
+      pressTravelPx(0, 3, PITCH),
+    );
+    expect(pressTravelPx(2, 3, PITCH)).toBeGreaterThan(
+      pressTravelPx(1, 3, PITCH),
+    );
+  });
+
+  test('starts EXACTLY at the current position and ends exactly at target', () => {
+    const target = targetFor(0, 1);
+    expect(pressSpinOffset(0, START, target, 0, 1, PITCH)).toBe(START);
+    const dur = columnDurationMs(0, 1);
+    expect(pressSpinOffset(dur, START, target, 0, 1, PITCH)).toBe(target);
+    expect(pressSpinOffset(dur + 5000, START, target, 0, 1, PITCH)).toBe(
+      target,
+    );
+  });
+
+  test('duration parity: the trajectory rests at target from columnDurationMs on', () => {
+    for (const [col, count] of [
+      [0, 3],
+      [2, 3],
+      [0, 1],
+    ] as const) {
+      const target = targetFor(col, count);
+      const dur = columnDurationMs(col, count);
+      expect(pressSpinOffset(dur, START, target, col, count, PITCH)).toBe(
+        target,
+      );
+      // ...and is NOT yet at rest just before the settle completes.
+      expect(
+        pressSpinOffset(dur - SETTLE_MS / 2, START, target, col, count, PITCH),
+      ).not.toBe(target);
+    }
+  });
+
+  test('wind-up pulls BACK below the start, never more than half a cell', () => {
+    const target = targetFor(0, 1);
+    let minPx = Infinity;
+    for (let t = 0; t <= WINDUP_MS; t += 10) {
+      minPx = Math.min(minPx, pressSpinOffset(t, START, target, 0, 1, PITCH));
+    }
+    expect(minPx).toBeLessThan(START);
+    expect(minPx).toBeGreaterThanOrEqual(START - PITCH / 2);
+  });
+
+  test('no teleport: the position is CONTINUOUS (bounded per-ms step) end to end', () => {
+    for (const [col, count] of [
+      [0, 3],
+      [2, 3],
+    ] as const) {
+      const target = targetFor(col, count);
+      const dur = columnDurationMs(col, count);
+      let prev = pressSpinOffset(0, START, target, col, count, PITCH);
+      let maxStep = 0;
+      for (let t = 1; t <= dur + 50; t += 1) {
+        const px = pressSpinOffset(t, START, target, col, count, PITCH);
+        maxStep = Math.max(maxStep, Math.abs(px - prev));
+        prev = px;
+      }
+      // Peak speed is the accel→friction handoff ≈ 3·frictionPx/FRICTION_MS
+      // (a few px/ms). Anything double-digit would be a visible jump.
+      expect(maxStep).toBeLessThan(6);
+    }
+  });
+
+  test('forward-only after the wind-up until the settle (monotonic travel)', () => {
+    const target = targetFor(2, 3);
+    const dur = columnDurationMs(2, 3);
+    let prev = -Infinity;
+    for (let t = WINDUP_MS; t <= dur - SETTLE_MS; t += 5) {
+      const px = pressSpinOffset(t, START, target, 2, 3, PITCH);
+      expect(px).toBeGreaterThanOrEqual(prev);
+      prev = px;
+    }
+  });
+
+  test('settle overshoots PAST the target by less than 0.4 cells, then returns', () => {
+    const target = targetFor(0, 1);
+    const dur = columnDurationMs(0, 1);
+    let maxPx = -Infinity;
+    for (let t = dur - SETTLE_MS; t <= dur; t += 5) {
+      maxPx = Math.max(maxPx, pressSpinOffset(t, START, target, 0, 1, PITCH));
+    }
+    expect(maxPx).toBeGreaterThan(target);
+    expect(maxPx).toBeLessThan(target + PITCH * 0.4);
+  });
+
+  test('velocity-continuous accel→friction handoff (no jerk at the blur exit)', () => {
+    const target = targetFor(0, 1);
+    const tHandoff = WINDUP_MS + BLUR_MS; // accelMs(0) = BLUR_MS
+    const d = 4;
+    const vBefore =
+      (pressSpinOffset(tHandoff - 1, START, target, 0, 1, PITCH) -
+        pressSpinOffset(tHandoff - 1 - d, START, target, 0, 1, PITCH)) /
+      d;
+    const vAfter =
+      (pressSpinOffset(tHandoff + 1 + d, START, target, 0, 1, PITCH) -
+        pressSpinOffset(tHandoff + 1, START, target, 0, 1, PITCH)) /
+      d;
+    expect(Math.abs(vAfter - vBefore)).toBeLessThan(vBefore * 0.1);
+  });
+});
+
+describe('press-spin paint bounds (regression: never paints past either strip end)', () => {
+  // Mirrors ReelStrip's exact arithmetic (cellSize -> pitch/winW, CELL_GAP=10,
+  // IDLE_BASE_INDEX=5, the winner-index inversion of reelTarget) and
+  // buildPressStrip's length formula (winIdx + ceil(visible/2) + 2). The old
+  // reel.test.ts "strip bounds" test guarded this invariant for the retired
+  // spinOffset/reelPaintX path; this is its press-spin successor. The margins
+  // are tight and load-bearing: settle overshoot (0.32 cells) vs the 2-cell
+  // tail margin on the right, windup (0.5 cells) vs IDLE_BASE_INDEX on the left.
+  const CELL_GAP = 10;
+  const IDLE_BASE_INDEX = 5;
+
+  test('window stays on the strip for every frame, start position, pool and column', () => {
+    for (const cellSize of [76, 96]) {
+      const pitch = Math.round(cellSize * CARD_ASPECT) + CELL_GAP;
+      const winW = pitch * HREEL_VISIBLE_CELLS;
+      const basePx = Math.round(
+        reelTarget(IDLE_BASE_INDEX, pitch, winW) - CELL_GAP / 2,
+      );
+      for (const poolLen of [1, 12, 50]) {
+        for (const [col, count] of [
+          [0, 1],
+          [0, 3],
+          [2, 3],
+        ] as const) {
+          // Sample the whole idle band, including just below the wrap boundary.
+          for (const frac of [0, 0.37, 0.99]) {
+            const startPx = basePx + frac * poolLen * pitch;
+            const travel = pressTravelPx(col, count, pitch);
+            const idx = Math.round(
+              (startPx + travel + winW / 2 + CELL_GAP / 2 - pitch / 2) / pitch,
+            );
+            const target = Math.round(
+              reelTarget(idx, pitch, winW) - CELL_GAP / 2,
+            );
+            const stripPx =
+              (idx + Math.ceil(HREEL_VISIBLE_CELLS / 2) + 2) * pitch;
+            const dur = columnDurationMs(col, count);
+            for (let t = 0; t <= dur + 32; t += 16) {
+              const px = pressSpinOffset(t, startPx, target, col, count, pitch);
+              expect(px).toBeGreaterThanOrEqual(0);
+              expect(px + winW).toBeLessThanOrEqual(stripPx);
+            }
+          }
+        }
+      }
+    }
   });
 });

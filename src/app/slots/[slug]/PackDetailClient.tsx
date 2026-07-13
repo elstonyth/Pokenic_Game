@@ -28,6 +28,7 @@ import {
   clawMachine,
   priceNumber,
 } from '@/lib/packs-data';
+import { Pill } from '@/components/ui/pill';
 import { PublishedOddsList } from './OddsSheet';
 import { PoolByRarity } from './PoolByRarity';
 import { publishedOddsRows } from '@/lib/packs-format';
@@ -138,7 +139,8 @@ export default function PackDetailClient({
   }
 
   return (
-    <div className="mx-auto w-full px-fluid py-4">
+    // pb clears the mobile sticky buy bar (fixed above the tab bar).
+    <div className="mx-auto w-full px-fluid pb-28 pt-4 lg:pb-4">
       {/* Back link */}
       <Link
         href="/slots"
@@ -315,8 +317,9 @@ export default function PackDetailClient({
                 </div>
               </div>
 
-              {/* Quantity */}
-              <div className="flex items-center gap-2">
+              {/* Quantity — desktop only; on phones it lives in the sticky
+                  buy bar so there is a single Open Pack control per zone. */}
+              <div className="hidden items-center gap-2 lg:flex">
                 <button
                   type="button"
                   aria-label="Decrease quantity"
@@ -347,21 +350,22 @@ export default function PackDetailClient({
               </div>
             </div>
 
-            {/* Open Pack — sticky footer of the panel */}
-            <div className="border-t border-white/10 p-4">
-              <button
-                type="button"
+            {/* Open Pack — desktop panel footer (phones use the sticky bar) */}
+            <div className="hidden border-t border-white/10 p-4 lg:block">
+              {/* DESIGN.md primary: Paper White pill, Ink text — buyback green
+                  is a money-IN signal and never a spend CTA. Money in Nekst. */}
+              <Pill
+                variant="primary"
+                size="lg"
                 onClick={handleGoToReel}
-                className="flex h-12 w-full items-center justify-between rounded-xl bg-buyback px-5 text-sm font-bold text-white shadow-lg shadow-buyback/30 transition-opacity hover:opacity-95 disabled:opacity-60"
+                className="w-full justify-between px-5"
               >
-                <span className="flex items-center gap-2">
-                  {customer ? 'Open Pack' : 'Log in to open'}
-                </span>
-                <span className="flex items-center gap-1.5">
+                {customer ? 'Open Pack' : 'Log in to open'}
+                <span className="flex items-center gap-1.5 font-heading text-base tracking-tight tabular-nums">
                   {rm0(priceNum * qty)}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </span>
-              </button>
+              </Pill>
               {openError && (
                 <p
                   role="alert"
@@ -541,6 +545,75 @@ export default function PackDetailClient({
             )}
           </ul>
         </Reveal>
+      </div>
+
+      {/* ===== Mobile buy dock =====
+          Docked flush onto the tab bar as ONE bottom chrome unit — same ink
+          surface, a single hairline seam, no floating card. Total in Nekst
+          left (money is the content), quiet capsule stepper, and one
+          single-purpose white pill (the panel's own qty/footer are lg-only,
+          so there is exactly one CTA per zone). Max = two taps of +. */}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-white/10 bg-neutral-950 px-fluid py-2.5 lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-heading text-xl font-bold leading-none tracking-tight text-white tabular-nums">
+              {rm0(priceNum * qty)}
+            </p>
+            <p className="mt-1 text-[11px] leading-none text-white/60">
+              {active.buybackPercent ?? FLAT_BUYBACK_PERCENT}% buyback
+            </p>
+          </div>
+          <div className="flex h-11 shrink-0 items-center rounded-full bg-white/5">
+            <button
+              type="button"
+              aria-label="Decrease quantity"
+              onClick={() => setQ(qty - 1)}
+              disabled={qty <= 1}
+              className="flex h-11 w-10 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white disabled:opacity-40"
+            >
+              <Minus className="h-4 w-4" aria-hidden />
+            </button>
+            <span className="w-5 text-center text-sm font-semibold tabular-nums text-white">
+              {qty}
+            </span>
+            <button
+              type="button"
+              aria-label="Increase quantity"
+              onClick={() => setQ(qty + 1)}
+              className="flex h-11 w-10 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+          <Pill
+            variant="primary"
+            size="md"
+            onClick={handleGoToReel}
+            className="shrink-0 px-5"
+          >
+            {customer ? 'Open Pack' : 'Log in'}
+          </Pill>
+        </div>
+        {openError && (
+          <p role="alert" className="mt-2 text-center text-[11px] text-red-300">
+            {openError}
+            {needsTopUp && (
+              <>
+                {' '}
+                {balance !== null && priceNum * qty - balance > 0 && (
+                  <>You&apos;re {rm(priceNum * qty - balance)} short. </>
+                )}
+                <button
+                  type="button"
+                  onClick={openTopUp}
+                  className="font-bold text-buyback-fg underline underline-offset-2 hover:text-buyback-fg"
+                >
+                  Top up credits →
+                </button>
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       <CardDetailOverlay

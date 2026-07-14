@@ -100,6 +100,17 @@
   }
 }
 
+/* Hero spotlight slab — idle float (±8px; Drop Board board 01) */
+@keyframes slabFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
 /* Modal enter animations */
 @keyframes fadeIn {
   from {

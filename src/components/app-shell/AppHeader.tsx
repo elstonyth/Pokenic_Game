@@ -28,7 +28,7 @@ export default function AppHeader() {
   return (
     <header
       data-site-chrome
-      className="px-fluid sticky top-0 z-50 border-b border-white/10 bg-neutral-950 py-2.5"
+      className="px-fluid sticky top-0 z-50 border-b border-white/10 bg-neutral-950 py-3"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-5">
@@ -43,7 +43,7 @@ export default function AppHeader() {
               alt="Polycards"
               width={128}
               height={44}
-              className="h-6 w-auto object-contain lg:h-7"
+              className="h-7 w-auto object-contain lg:h-8"
             />
           </Link>
 

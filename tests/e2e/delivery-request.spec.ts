@@ -1,6 +1,6 @@
 // Customer ordering flow through the storefront UI:
 //   a funded customer opens a pack (API setup for speed) → logs into the UI →
-//   enters the vault's select mode → "Deliver 1" in the bulk action bar →
+//   taps the card tile to select it → "Deliver 1" in the persistent action bar →
 //   add-address form → submit → and confirms the order is tracked on /orders
 //   as 'Requested'.
 // Re-authored 2026-07-14 against the always-on vault (spec 2026-07-14):

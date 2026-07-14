@@ -1,8 +1,7 @@
 // Customer bulk sell-back through the storefront UI:
 //   a funded customer opens two packs (API setup for speed) → logs into the UI →
-//   enters the vault's select mode → selects both cards → "Sell 2" in the bulk
-//   action bar → confirms → both cards leave the vault and the credit ledger
-//   gains two 'buyback' rows.
+//   taps "Select All" in the persistent action bar → "Sell 2" → confirms →
+//   both cards leave the vault and the credit ledger gains two 'buyback' rows.
 // Re-authored 2026-07-14 against the always-on vault (spec 2026-07-14):
 // selection has no mode toggle — tiles are always "Select <name>" buttons,
 // the persistent action bar carries "Select All" + "Sell N" / "Deliver N".

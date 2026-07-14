@@ -536,7 +536,7 @@ export default function VaultClient({
         arrives with checkout.
       </p>
 
-      <div aria-hidden className="h-36" />
+      {items.length > 0 && <div aria-hidden className="h-36" />}
 
       {items.length > 0 && (
         <VaultActionBar

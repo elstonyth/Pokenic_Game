@@ -63,7 +63,9 @@ export function VaultActionBar({
       <div className="mt-2 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-            FMV {fmv > 0 ? rm(fmv) : '—'}
+            {/* Idle (0 selected) shows real zeroes like the Show Go reference;
+                the dash is reserved for a selection whose MYR price is unknown. */}
+            FMV {none ? rm(0) : fmv > 0 ? rm(fmv) : '—'}
           </p>
           <p className="text-[15px] font-bold text-buyback-fg">
             Sell for {rm(sellTotal)}

@@ -25,7 +25,11 @@ test.describe('customer workflow', () => {
     // fresh-context banner (z-50, bottom-anchored) overlays the vault's
     // persistent action bar and intercepts the "Sell 1" pill click below.
     await page.addInitScript(() => {
-      window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+      try {
+        window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+      } catch {
+        // Cross-origin iframes deny localStorage — only the top frame matters.
+      }
     });
 
     await test.step('create account via the auth modal', async () => {

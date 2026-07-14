@@ -39,7 +39,7 @@ New file `src/components/account/VaultActionBar.tsx` — presentational, props o
 - Docked with the same fixed treatment as today's bulk sheet (`fixed inset-x-4 bottom-24 lg:bottom-8`, `max-w-md`, neutral-900 panel), rendered whenever the vault has ≥1 card (hidden on the empty state).
 - Layout (doc: image8 "FMV … change to above", image9 "fmv smaller then sell for", image10 "select all - 5 selected", "sell change to right side"):
 
-  ```
+  ```text
   ◯ Select All · 5 selected
   FMV RM 2,379            (small, muted)
   Sell for RM 2,141       (big, buyback-green)

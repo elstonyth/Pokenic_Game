@@ -22,7 +22,11 @@ test('customer bulk-sells multiple vaulted cards via the UI', async ({
   // context banner (z-50, bottom-anchored) overlays the action bar's pills and
   // intercepts their clicks; suppressing it also keeps the screenshots clean.
   await page.addInitScript(() => {
-    window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+    try {
+      window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+    } catch {
+      // Cross-origin iframes deny localStorage — only the top frame matters.
+    }
   });
 
   // Funded customer holding two vaulted cards (API setup), then log into the UI.

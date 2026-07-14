@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
-import { getConsent, setConsent, CONSENT_KEY } from '../consent';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { getConsent, setConsent, CONSENT_KEY, CONSENT_EVENT } from '../consent';
 
 describe('consent store', () => {
   beforeEach(() => localStorage.clear());
@@ -18,5 +18,15 @@ describe('consent store', () => {
   it('ignores an unrecognised stored value', () => {
     localStorage.setItem(CONSENT_KEY, 'garbage');
     expect(getConsent()).toBeNull();
+  });
+
+  it('dispatches CONSENT_EVENT after the choice is persisted', () => {
+    const spy = vi.fn(() => getConsent());
+    window.addEventListener(CONSENT_EVENT, spy);
+    setConsent('rejected');
+    window.removeEventListener(CONSENT_EVENT, spy);
+    expect(spy).toHaveBeenCalledOnce();
+    // Listener ran after the write: it already saw the new value.
+    expect(spy).toHaveReturnedWith('rejected');
   });
 });

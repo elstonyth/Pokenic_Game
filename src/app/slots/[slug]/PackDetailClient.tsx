@@ -171,6 +171,7 @@ export default function PackDetailClient({
             )}
             <Image
               key={active.id}
+              data-testid="pack-hero-image"
               src={active.displayImage}
               alt={active.name}
               fill

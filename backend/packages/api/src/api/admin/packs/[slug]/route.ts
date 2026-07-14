@@ -36,6 +36,7 @@ export async function GET(
       category: pack.category,
       price: pack.price,
       image: pack.image,
+      display_image: pack.display_image ?? null,
       buyback_percent: pack.buyback_percent,
       boost: pack.boost,
       rank: pack.rank,

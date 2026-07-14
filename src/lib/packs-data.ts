@@ -17,6 +17,10 @@ export type Pack = {
   price: string;
   /** Path under /public — verified to exist in public/images/claw/. */
   image: string;
+  /** Admin-uploaded pack-page HERO scene (wide landscape, may be animated).
+   *  Only the /slots/<slug> stage uses it; tiles/selector always use `image`.
+   *  Absent → the stage falls back to the claw render / pack image. */
+  displayImage?: string;
   /** Shows the green buyback-boost badge on the card. */
   boost?: boolean;
   /** INSTANT ("sell on the spot") buyback % — also the boost-badge number
@@ -196,7 +200,12 @@ export function priceNumber(price: string): number {
 // ---------------------------------------------------------------------------
 
 export type Rarity =
-  'Immortal' | 'Legendary' | 'Mythical' | 'Rare' | 'Uncommon' | 'Common';
+  | 'Immortal'
+  | 'Legendary'
+  | 'Mythical'
+  | 'Rare'
+  | 'Uncommon'
+  | 'Common';
 export type PackCard = {
   id: string;
   name: string;

@@ -36,6 +36,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const rawKind = (req.body as { kind?: string } | undefined)?.kind;
   if (
     rawKind !== 'pack' &&
+    rawKind !== 'display' &&
     rawKind !== 'card' &&
     rawKind !== 'sprite' &&
     rawKind !== 'frame' &&
@@ -44,7 +45,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   ) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
-      "Field 'kind' must be 'pack', 'card', 'sprite', 'frame', 'avatar-frame', or 'delivery'.",
+      "Field 'kind' must be 'pack', 'display', 'card', 'sprite', 'frame', 'avatar-frame', or 'delivery'.",
     );
   }
   const kind: ImageKind = rawKind;

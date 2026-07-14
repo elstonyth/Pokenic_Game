@@ -4,7 +4,13 @@
 // operator instant feedback instead of a round-trip. KEEP THESE NUMBERS IN
 // SYNC with validate.ts.
 
-export type ImageKind = 'pack' | 'card' | 'sprite' | 'frame' | 'avatar-frame';
+export type ImageKind =
+  | 'pack'
+  | 'display'
+  | 'card'
+  | 'sprite'
+  | 'frame'
+  | 'avatar-frame';
 
 const ALLOWED_MIME = [
   'image/webp',
@@ -35,6 +41,13 @@ const PROFILES: Record<
     minHeight: 512,
     targetRatio: 1,
     aspectTolerance: 0.05,
+  },
+  // Pack-page hero scene — wide landscape (36:25 target, 16:9 admitted).
+  display: {
+    minWidth: 1280,
+    minHeight: 720,
+    targetRatio: 36 / 25,
+    aspectTolerance: 0.25,
   },
   sprite: {
     minWidth: 64,
@@ -106,9 +119,11 @@ export async function validateImageFile(
         ? 'Card'
         : kind === 'pack'
           ? 'Pack'
-          : kind === 'frame' || kind === 'avatar-frame'
-            ? 'Frame'
-            : 'Sprite';
+          : kind === 'display'
+            ? 'Display'
+            : kind === 'frame' || kind === 'avatar-frame'
+              ? 'Frame'
+              : 'Sprite';
     return `${label} art must be at least ${profile.minWidth}×${profile.minHeight}px.`;
   }
 
@@ -117,7 +132,9 @@ export async function validateImageFile(
   if (deviation > profile.aspectTolerance) {
     return kind === 'card'
       ? 'Card art must be roughly 5:7 (portrait).'
-      : 'Sprite/pack art must be roughly square (1:1).';
+      : kind === 'display'
+        ? 'Display art must be landscape (wider than tall, up to ~16:9).'
+        : 'Sprite/pack art must be roughly square (1:1).';
   }
 
   return null;

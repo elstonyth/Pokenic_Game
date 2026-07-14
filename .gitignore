@@ -139,3 +139,6 @@ GEMINI.md
 
 # Pixel-Pokémon backfill review file (generated per-run by the propose script; never commit)
 pixel-pokemon-backfill.json
+
+# local-only QA asset for the display_image feature (never ship)
+public/images/claw/polycards-factory-test.png

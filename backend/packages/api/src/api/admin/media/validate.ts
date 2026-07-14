@@ -15,6 +15,7 @@
 // security gates (type sniff, byte cap, bomb guard) run unchanged.
 export type ImageKind =
   | 'pack'
+  | 'display'
   | 'card'
   | 'sprite'
   | 'pc-card'
@@ -83,6 +84,18 @@ export const IMAGE_RULES = {
       minHeight: 512,
       targetRatio: 1,
       aspectTolerance: 0.05,
+    },
+    // Pack-page hero ("factory" scene): a wide landscape render shown in the
+    // /slots/<slug> stage (aspect-[36/25], object-cover). Target 36:25 ≈ 1.44;
+    // tolerance 0.25 admits 16:9 (≈1.78, cover-cropped ~10% per side) down to
+    // near-square (~1.08). Min 1280×720 keeps it crisp at the desktop stage size (~830 CSS px
+    // wide, 2× DPR); 2560×1778 is the comfortable master. Animation IS allowed
+    // (animated WebP/GIF/AVIF) — the factory scene is meant to move.
+    display: {
+      minWidth: 1280,
+      minHeight: 720,
+      targetRatio: 36 / 25,
+      aspectTolerance: 0.25,
     },
     // Pixel sprite: small + square-ish. Generous tolerance — pixel art is often
     // a few px off square; the storefront renders it object-contain regardless.
@@ -172,7 +185,9 @@ export function validateImage(
   }
 
   // 3 — no animated/multi-frame art (server only): we store a single image.
-  if (facts.frames !== undefined && facts.frames > 1) {
+  // EXCEPT 'display': the pack-page hero is meant to animate (factory scene),
+  // and the storefront renders it unoptimized so frames survive.
+  if (kind !== 'display' && facts.frames !== undefined && facts.frames > 1) {
     return fail(
       'animated',
       "Animated images aren't supported — upload a single frame.",
@@ -210,7 +225,9 @@ export function validateImage(
         ? 'Card'
         : kind === 'pack'
           ? 'Pack'
-          : kind === 'avatar'
+          : kind === 'display'
+            ? 'Display'
+            : kind === 'avatar'
             ? 'Profile photo'
             : kind === 'avatar-frame' || kind === 'frame'
               ? 'Frame'
@@ -233,7 +250,9 @@ export function validateImage(
         ? 'Card art must be roughly 5:7 (portrait).'
         : kind === 'delivery'
           ? 'Delivery photo is too stretched — use a normal photo, not a panorama.'
-          : 'Sprite/pack art must be roughly square (1:1).',
+          : kind === 'display'
+            ? 'Display art must be landscape (wider than tall, up to ~16:9).'
+            : 'Sprite/pack art must be roughly square (1:1).',
     );
   }
 

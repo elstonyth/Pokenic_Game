@@ -9,7 +9,9 @@ import { FLAT_PERCENT } from '../../../modules/packs/buyback-rate';
 const HANDLE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_TEXT = 512;
 const MAX_URL = 2048;
-const IMAGE_RE = /^(https?:\/\/|\/)/;
+// http(s) or storefront-relative — the (?!\/) excludes protocol-relative
+// `//host/...` URLs, which would silently point at a foreign host.
+const IMAGE_RE = /^(https?:\/\/|\/(?!\/))/;
 
 const bad = (message: string): never => {
   throw new MedusaError(MedusaError.Types.INVALID_DATA, message);
@@ -29,6 +31,26 @@ const imageStr = (b: Record<string, unknown>, key: string): string => {
   const v = b[key];
   if (typeof v !== 'string' || v.trim() === '') bad(`'${key}' is required.`);
   const s = (b[key] as string).trim();
+  if (s.length > MAX_URL) bad(`'${key}' is too long (max ${MAX_URL} chars).`);
+  if (!IMAGE_RE.test(s)) {
+    bad(`'${key}' must be an http(s) URL or a /storefront path.`);
+  }
+  return s;
+};
+
+// Optional image, tri-state like published_odds: undefined → keep the stored
+// value (a writer that doesn't send the field must not clear it — deploy-skew
+// safety); null/'' → explicit clear; otherwise same gate as imageStr.
+const optImageStr = (
+  b: Record<string, unknown>,
+  key: string,
+): string | null | undefined => {
+  const v = b[key];
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') bad(`'${key}' must be a string or null.`);
+  const s = (v as string).trim();
+  if (s === '') return null;
   if (s.length > MAX_URL) bad(`'${key}' is too long (max ${MAX_URL} chars).`);
   if (!IMAGE_RE.test(s)) {
     bad(`'${key}' must be an http(s) URL or a /storefront path.`);
@@ -120,6 +142,7 @@ export function coercePackBody(raw: unknown, slug: string): PackWriteInput {
     category: reqStr(b, 'category'),
     price: num(b, 'price', 0),
     image: imageStr(b, 'image'),
+    display_image: optImageStr(b, 'display_image'),
     buyback_percent: buybackPercent,
     boost: b.boost === true,
     rank: Math.trunc(num(b, 'rank', 0)),

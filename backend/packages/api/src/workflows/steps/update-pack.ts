@@ -14,6 +14,7 @@ type PackSnapshot = {
   category: string;
   price: number;
   image: string;
+  display_image: string | null;
   buyback_percent: number;
   boost: boolean;
   rank: number;
@@ -56,6 +57,7 @@ export const updatePackStep = createStep(
       category: pack.category,
       price: pack.price,
       image: pack.image,
+      display_image: pack.display_image ?? null,
       buyback_percent: pack.buyback_percent,
       boost: pack.boost,
       rank: pack.rank,
@@ -75,7 +77,11 @@ export const updatePackStep = createStep(
         rank: input.rank,
         status: input.status,
         // undefined = the writer didn't send the field — keep the stored value
-        // (the list-page edit modal doesn't know about published odds).
+        // (the list-page edit modal doesn't know about published odds; an older
+        // admin bundle doesn't know about display_image).
+        ...(input.display_image !== undefined
+          ? { display_image: input.display_image }
+          : {}),
         ...(input.published_odds !== undefined
           ? { published_odds: input.published_odds }
           : {}),

@@ -156,7 +156,31 @@ export default function PackDetailClient({
           card pool; on lg the configurator becomes the sticky right column. */}
       <div className="grid items-start gap-6 lg:grid-cols-[1.55fr_1fr]">
         {/* ---- Stage ---- */}
-        {hasMachineRender ? (
+        {active.displayImage ? (
+          /* Admin-uploaded hero scene (display_image) — a wide render that
+             carries its OWN background (e.g. the factory diorama), so it sits
+             on the dark shell full-bleed, object-cover (uploads are gated to
+             ~6:5–16:9 landscape; a 16:9 crops ~10% per side in this 36:25
+             box). unoptimized: the source may be an ANIMATED webp/gif and
+             next/image optimization would flatten it to one frame. */
+          <div className="relative aspect-[36/25] overflow-hidden rounded-2xl border border-white/10 bg-neutral-900">
+            {active.boost && (
+              <span className="absolute left-4 top-4 z-20 rounded-md bg-buyback px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                +{active.buybackPercent ?? FLAT_BUYBACK_PERCENT}% Buyback Boost
+              </span>
+            )}
+            <Image
+              key={active.id}
+              src={active.displayImage}
+              alt={active.name}
+              fill
+              priority
+              unoptimized
+              sizes="(max-width: 1024px) 100vw, 60vw"
+              className="z-10 object-cover"
+            />
+          </div>
+        ) : hasMachineRender ? (
           /* Baked claw-machine render — full-bleed scene, the light studio bg
              is part of the art, so the light gradient stage blends with it.
              ANIMATED AVIF (the claw slides left↔right INSIDE the file) in a

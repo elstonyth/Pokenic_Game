@@ -55,6 +55,7 @@ export async function GET(
       category: p.category,
       price: p.price,
       image: p.image,
+      display_image: p.display_image ?? null,
       boost: p.boost,
       buyback_percent: p.buyback_percent,
       in_stock: p.in_stock,

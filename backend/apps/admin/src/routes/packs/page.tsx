@@ -62,6 +62,7 @@ type FormState = {
   category: string;
   price: string;
   image: string;
+  displayImage: string;
   buybackPercent: string;
   boost: boolean;
   rank: string;
@@ -74,6 +75,7 @@ const EMPTY_FORM: FormState = {
   category: 'pokemon',
   price: '',
   image: '',
+  displayImage: '',
   buybackPercent: '90',
   boost: false,
   rank: '0',
@@ -89,6 +91,7 @@ const formFromPack = (p: AdminPack): FormState => ({
   category: p.category,
   price: String(p.price),
   image: p.image,
+  displayImage: p.display_image ?? '',
   buybackPercent: String(p.buyback_percent),
   boost: p.boost,
   rank: String(p.rank),
@@ -112,6 +115,7 @@ const PacksListPage = () => {
   );
   const filtering = q.trim() !== '' || statusFilter !== 'all';
   const fileRef = useRef<HTMLInputElement>(null);
+  const displayFileRef = useRef<HTMLInputElement>(null);
   const uploading = uploadImg.isPending;
   const saving = createPack.isPending || updatePack.isPending;
 
@@ -147,6 +151,27 @@ const PacksListPage = () => {
     }
   };
 
+  // Hero scene upload — same flow as the pack shot, but the wide 'display'
+  // profile (landscape, animation allowed server-side).
+  const handleDisplayFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const problem = await validateImageFile(file, 'display');
+    if (problem) {
+      toast.error(problem);
+      if (displayFileRef.current) displayFileRef.current.value = '';
+      return;
+    }
+    try {
+      const url = await uploadImg.mutateAsync({ file, kind: 'display' });
+      patch({ displayImage: url });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (displayFileRef.current) displayFileRef.current.value = '';
+    }
+  };
+
   const handleOk =
     form.title.trim() !== '' &&
     form.image.trim() !== '' &&
@@ -166,6 +191,7 @@ const PacksListPage = () => {
       category: form.category,
       price: Number(form.price),
       image: form.image.trim(),
+      display_image: form.displayImage.trim() || null,
       buyback_percent: Math.trunc(Number(form.buybackPercent)),
       boost: form.boost,
       rank: form.rank.trim() === '' ? 0 : Math.trunc(Number(form.rank)),
@@ -506,6 +532,66 @@ const PacksListPage = () => {
                       value={form.image}
                       onChange={(e) => patch({ image: e.target.value })}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Display image — the wide pack-page hero scene. Optional:
+                  empty = the pack page stage falls back to the pack image. */}
+              <div className="flex flex-col gap-y-2">
+                <Label size="small" weight="plus" htmlFor="pack-display-image">
+                  {t('packs.form.displayImage')}
+                </Label>
+                <div className="flex items-center gap-4">
+                  {form.displayImage ? (
+                    <img
+                      src={resolveImageUrl(form.displayImage)}
+                      alt=""
+                      className="border-ui-border-base h-24 w-36 shrink-0 rounded border object-cover"
+                    />
+                  ) : (
+                    <div className="border-ui-border-base bg-ui-bg-subtle text-ui-fg-muted flex h-24 w-36 shrink-0 items-center justify-center rounded border text-xs">
+                      —
+                    </div>
+                  )}
+                  <div className="flex flex-1 flex-col gap-y-2">
+                    <input
+                      ref={displayFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleDisplayFile}
+                    />
+                    <div className="flex gap-x-2">
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        type="button"
+                        onClick={() => displayFileRef.current?.click()}
+                        isLoading={uploading}
+                      >
+                        {t('packs.form.uploadImage')}
+                      </Button>
+                      {form.displayImage && (
+                        <Button
+                          size="small"
+                          variant="transparent"
+                          type="button"
+                          onClick={() => patch({ displayImage: '' })}
+                        >
+                          {t('packs.form.displayImageClear')}
+                        </Button>
+                      )}
+                    </div>
+                    <Input
+                      id="pack-display-image"
+                      placeholder={t('packs.form.imageUrlPlaceholder')}
+                      value={form.displayImage}
+                      onChange={(e) => patch({ displayImage: e.target.value })}
+                    />
+                    <Text className="text-ui-fg-subtle text-xs">
+                      {t('packs.form.displayImageHint')}
+                    </Text>
                   </div>
                 </div>
               </div>

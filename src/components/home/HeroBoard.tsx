@@ -3,15 +3,14 @@ import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pillVariants } from '@/components/ui/pill';
-import { SlabImage } from '@/components/SlabImage';
 import HeroSlab from '@/components/home/HeroSlab';
-import { priceNumber, type Pack, type PackCard } from '@/lib/packs-data';
-import { rarityRgb } from '@/lib/rarity';
-import { priceTier, TIER_COLOR } from '@/lib/price-tier';
+import { type Pack, type PackCard } from '@/lib/packs-data';
 
 /**
- * Board 01 — TOP CHASE IN THE BUILDING. One slab lit by its own rarity in the
- * dark room. Phone: stacked near-full-viewport; desktop: type left, slab right.
+ * Board 01 — THE SHOP IS OPEN. The glowing Polycards shop diorama floating on
+ * the ink page (its warm interior light replaces the old per-rarity glow).
+ * Phone: stacked near-full-viewport; desktop: type left, shop right. The top
+ * chase still headlines the type block when the pool has one.
  * CTA → /slots (the routing rule: home never deep-links a product).
  */
 export default function HeroBoard({
@@ -21,11 +20,6 @@ export default function HeroBoard({
   pack: Pack;
   chase: PackCard | null;
 }) {
-  // Glow hue: the chase card's rarity; pack-art fallback uses the price tier.
-  const glow = chase
-    ? rarityRgb(chase.rarity)
-    : TIER_COLOR[priceTier(priceNumber(pack.price))];
-
   return (
     // Phone: kicker → slab → value/name → CTA, all inside the first viewport
     // (media height is capped so the pill stays in thumb reach). Desktop: the
@@ -40,42 +34,34 @@ export default function HeroBoard({
         id="hero-heading"
         className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-400 lg:col-start-1 lg:row-start-1 lg:self-end"
       >
-        Top chase in the building
+        The shop is open
       </p>
 
-      {/* The slab (or pack art fallback) on its spotlight */}
+      {/* The glowing shop diorama — its own warm light is the spotlight
+          (transparent cutout, so it floats directly on the ink page). */}
       <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <HeroSlab>
-          <div
-            className="rounded-xl"
-            style={{ boxShadow: `0 0 80px 8px rgba(${glow}, 0.35)` }}
-          >
-            {chase ? (
-              <SlabImage
-                src={chase.image}
-                slabSrc={chase.slabImage}
-                alt={chase.name}
-                sizes="(min-width: 1024px) 420px, 60vw"
-                // The near-full-viewport hero is the page's LCP — load eagerly.
-                priority
-                className="max-h-[42svh] w-auto max-w-[min(60vw,15rem)] lg:max-h-[60svh] lg:max-w-[26rem]"
-              />
-            ) : (
-              <Image
-                src={pack.image}
-                alt={pack.name}
-                width={420}
-                height={420}
-                unoptimized
-                priority
-                className="h-auto max-h-[42svh] w-auto max-w-[min(60vw,15rem)] object-contain lg:max-h-[60svh] lg:max-w-[26rem]"
-              />
-            )}
+          {/* No backing glow: a box-shadow reads as a rectangle behind the
+              cutout — the shop's own interior light does the lighting. */}
+          <div>
+            <Image
+              src="/images/polycards/shop-night.webp"
+              alt="The Polycards shop, glowing at night"
+              width={2200}
+              height={1458}
+              // Static webp — let next/image serve responsive sizes (the
+              // animated pack heroes need `unoptimized`; this one doesn't,
+              // and the full 2200px master is too heavy for phone LCP).
+              sizes="(min-width: 1024px) 34rem, 88vw"
+              // The near-full-viewport hero is the page's LCP — load eagerly.
+              priority
+              className="h-auto max-h-[44svh] w-auto max-w-[min(88vw,24rem)] object-contain lg:max-h-[62svh] lg:max-w-[34rem]"
+            />
           </div>
         </HeroSlab>
       </div>
 
-      {/* Type block */}
+      {/* Type block — the top chase still gets the headline when one exists. */}
       <div className="flex flex-col items-center lg:col-start-1 lg:row-start-2 lg:items-start lg:self-start">
         {chase ? (
           <>
@@ -83,13 +69,18 @@ export default function HeroBoard({
               {chase.value}
             </p>
             <p className="mt-2 max-w-xs truncate text-sm text-neutral-400 lg:max-w-md">
-              {chase.name} · {pack.name}
+              Top chase: {chase.name} · {pack.name}
             </p>
           </>
         ) : (
-          <p className="font-heading text-5xl leading-none text-white lg:mt-3 lg:text-7xl">
-            {pack.name}
-          </p>
+          <>
+            <p className="font-heading text-5xl leading-none text-white lg:mt-3 lg:text-7xl">
+              Rip real graded cards
+            </p>
+            <p className="mt-2 max-w-xs text-sm text-neutral-400 lg:max-w-md">
+              Every pack holds a real, professionally graded slab.
+            </p>
+          </>
         )}
         <Link
           href="/slots"

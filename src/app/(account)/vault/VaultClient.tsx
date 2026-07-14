@@ -28,6 +28,7 @@ import {
 import { formatValue, isRarity } from '@/lib/packs-format';
 import { toggleSelectAll } from '@/lib/vault-selection';
 import { VaultActionBar } from '@/components/account/VaultActionBar';
+import { useConsent } from '@/lib/use-consent';
 
 // The customer's vault: every pulled card still held, each with a sell-back
 // offer (current FMV × the flat buyback rate — the server quotes the percent).
@@ -60,6 +61,11 @@ export default function VaultClient({
   // applyBalance; top-ups made in the global sheet flow back down through
   // providerBalance (review finding — the stat went stale one-way).
   const { balance: providerBalance, applyBalance } = useTopUp();
+  // While cookie consent is undecided, the banner (z-50) docks exactly where
+  // the action bar (z-40) lives and would cover its pills — hide the bar (and
+  // its scroll spacer) until the visitor answers; CONSENT_EVENT re-shows it
+  // the moment they do.
+  const consent = useConsent();
   const syncBalance = (next: number) => {
     setBalance(next);
     applyBalance(next);
@@ -536,9 +542,11 @@ export default function VaultClient({
         arrives with checkout.
       </p>
 
-      {items.length > 0 && <div aria-hidden className="h-36" />}
+      {items.length > 0 && consent !== null && (
+        <div aria-hidden className="h-36" />
+      )}
 
-      {items.length > 0 && (
+      {items.length > 0 && consent !== null && (
         <VaultActionBar
           selectedCount={selected.size}
           allVisibleSelected={allVisibleSelected}
@@ -558,9 +566,7 @@ export default function VaultClient({
       {confirmBulkSell && (
         <SellConfirmModal
           open
-          count={
-            selectedItems.length === 1 ? undefined : selectedItems.length
-          }
+          count={selectedItems.length === 1 ? undefined : selectedItems.length}
           cardName={
             selectedItems.length === 1
               ? (selectedItems[0]?.card.name ?? '')

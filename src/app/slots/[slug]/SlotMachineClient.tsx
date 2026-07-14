@@ -182,6 +182,13 @@ export default function SlotMachineClient({
     if (phase !== 'idle') return;
     setDecoyPools(Array.from({ length: reels }, () => shuffleCells(basePool)));
   }, [phase, reels, basePool]);
+  // A just-added reel must show pack cards in the SAME render (the reshuffle
+  // effect only lands next tick) — pad with basePool instead of letting
+  // ReelStrip fall back to the non-pack DECOY_DEXES for a frame.
+  const renderPools =
+    decoyPools.length >= reels
+      ? decoyPools
+      : Array.from({ length: reels }, (_, i) => decoyPools[i] ?? basePool);
   // True once the player has spun at least once this session — drives the
   // "Spin again" button label, which must persist after the reveal concludes
   // back to 'idle' (spec decision #27), not only during 'review'.
@@ -708,7 +715,7 @@ export default function SlotMachineClient({
                       : (spin?.winners ?? null)
                   }
                   reduced={reduced}
-                  decoyPools={decoyPools}
+                  decoyPools={renderPools}
                   onAllSettled={handleSettled}
                   onWinnerRect={(i, r) => {
                     winnerRects.current[i] = r;

@@ -1,16 +1,15 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pillVariants } from '@/components/ui/pill';
-import HeroSlab from '@/components/home/HeroSlab';
+import { AmbientVideo } from '@/components/AmbientVideo';
 import { type Pack, type PackCard } from '@/lib/packs-data';
 
 /**
- * Board 01 — THE SHOP IS OPEN. The glowing Polycards shop diorama floating on
- * the ink page (its warm interior light replaces the old per-rarity glow).
- * Phone: stacked near-full-viewport; desktop: type left, shop right. The top
- * chase still headlines the type block when the pool has one.
+ * Board 01 — THE SHOP IS OPEN. A framed, always-looping scene of the Polycards
+ * shop at night (customers browsing, the cashier at the counter). Phone:
+ * stacked near-full-viewport; desktop: type left, shop right. The top chase
+ * still headlines the type block when the pool has one.
  * CTA → /slots (the routing rule: home never deep-links a product).
  */
 export default function HeroBoard({
@@ -37,28 +36,20 @@ export default function HeroBoard({
         The shop is open
       </p>
 
-      {/* The glowing shop diorama — its own warm light is the spotlight
-          (transparent cutout, so it floats directly on the ink page). */}
-      <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
-        <HeroSlab>
-          {/* No backing glow: a box-shadow reads as a rectangle behind the
-              cutout — the shop's own interior light does the lighting. */}
-          <div>
-            <Image
-              src="/images/polycards/shop-night.webp"
-              alt="The Polycards shop, glowing at night"
-              width={2200}
-              height={1458}
-              // Static webp — let next/image serve responsive sizes (the
-              // animated pack heroes need `unoptimized`; this one doesn't,
-              // and the full 2200px master is too heavy for phone LCP).
-              sizes="(min-width: 1024px) 34rem, 88vw"
-              // The near-full-viewport hero is the page's LCP — load eagerly.
-              priority
-              className="h-auto max-h-[44svh] w-auto max-w-[min(88vw,24rem)] object-contain lg:max-h-[62svh] lg:max-w-[34rem]"
-            />
-          </div>
-        </HeroSlab>
+      {/* The glowing shop at night — an ambient looping scene (customers walk
+          in, the cashier serves) framed in a grounded panel: the clip carries
+          its own dark background, so a rounded bordered box reads as an intended
+          window into the shop rather than a floating cutout. */}
+      <div className="w-full max-w-[min(92vw,30rem)] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:w-[38rem] lg:max-w-none">
+        <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.85)]">
+          <AmbientVideo
+            mp4="/images/polycards/shop-night.mp4"
+            webm="/images/polycards/shop-night.webm"
+            poster="/images/polycards/shop-night-poster.webp"
+            label="The Polycards shop at night — customers browsing, a cashier at the counter"
+            className="absolute inset-0 h-full w-full"
+          />
+        </div>
       </div>
 
       {/* Type block — the top chase still gets the headline when one exists. */}

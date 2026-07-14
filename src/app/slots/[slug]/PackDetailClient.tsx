@@ -26,7 +26,9 @@ import {
   type PackCard,
   FLAT_BUYBACK_PERCENT,
   priceNumber,
+  factoryVideo,
 } from '@/lib/packs-data';
+import { AmbientVideo } from '@/components/AmbientVideo';
 import { Pill } from '@/components/ui/pill';
 import { PublishedOddsList } from './OddsSheet';
 import { PoolByRarity } from './PoolByRarity';
@@ -83,6 +85,8 @@ export default function PackDetailClient({
   const recent = useLiveRecentPulls(recentPulls);
 
   const priceNum = priceNumber(active.price);
+  // Baked Polycards tiers animate their factory stage (still poster otherwise).
+  const heroVideo = factoryVideo(active.displayImage);
 
   // Top Hits come from the backend prize pool (highest market_value) — the
   // backend is the source of truth, so a missing/empty pool renders an empty
@@ -162,17 +166,35 @@ export default function PackDetailClient({
                 +{active.buybackPercent ?? FLAT_BUYBACK_PERCENT}% Buyback Boost
               </span>
             )}
-            <Image
-              key={active.id}
-              data-testid="pack-hero-image"
-              src={active.displayImage}
-              alt={active.name}
-              fill
-              priority
-              unoptimized
-              sizes="(max-width: 1024px) 100vw, 60vw"
-              className="z-10 object-cover"
-            />
+            {heroVideo ? (
+              /* Baked factory scene — animated loop (robots + conveyor +
+                 forklift). Poster is the clip's own first frame, so the still
+                 that paints first (and the reduced-motion fallback) matches
+                 the video exactly. */
+              <AmbientVideo
+                key={active.id}
+                mp4={heroVideo.mp4}
+                webm={heroVideo.webm}
+                poster={heroVideo.poster}
+                label={`${active.name} factory line`}
+                className="absolute inset-0 z-10 h-full w-full"
+              />
+            ) : (
+              /* Arbitrary uploaded hero (no matching loop) — still render.
+                 unoptimized: the source may be an ANIMATED webp/gif and
+                 next/image optimization would flatten it to one frame. */
+              <Image
+                key={active.id}
+                data-testid="pack-hero-image"
+                src={active.displayImage}
+                alt={active.name}
+                fill
+                priority
+                unoptimized
+                sizes="(max-width: 1024px) 100vw, 60vw"
+                className="z-10 object-cover"
+              />
+            )}
           </div>
         ) : (
           /* Uploaded pack photo — compact product shot on the dark surface

@@ -7,7 +7,6 @@ import { SlabImage } from '@/components/SlabImage';
 import { rm, rm0 } from '@/lib/format';
 import {
   getVault,
-  sellBackPull,
   sellBackPullsBatch,
   toggleShowcase,
   type VaultItem,
@@ -27,6 +26,8 @@ import {
   type CardSeed,
 } from '@/components/cards/CardDetailOverlay';
 import { formatValue, isRarity } from '@/lib/packs-format';
+import { toggleSelectAll } from '@/lib/vault-selection';
+import { VaultActionBar } from '@/components/account/VaultActionBar';
 
 // The customer's vault: every pulled card still held, each with a sell-back
 // offer (current FMV × the flat buyback rate — the server quotes the percent).
@@ -44,7 +45,6 @@ export default function VaultClient({
   const [balance, setBalance] = useState<number>(
     initial.ok ? initial.balance : 0,
   );
-  const [sellingId, setSellingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(
     initial.ok ? null : initial.error,
   );
@@ -53,7 +53,6 @@ export default function VaultClient({
   const [notice, setNotice] = useState<string | null>(null);
   // Transient top-of-screen confirmation for shipping orders (auto-dismisses).
   const [toast, setToast] = useState<string | null>(null);
-  const [confirmItem, setConfirmItem] = useState<VaultItem | null>(null);
   const [showcasingId, setShowcasingId] = useState<string | null>(null);
   const [openCard, setOpenCard] = useState<CardSeed | null>(null);
 
@@ -71,7 +70,6 @@ export default function VaultClient({
   const [rarityFilter, setRarityFilter] = useState<string | null>(null);
 
   // Multi-select → bulk ship or bulk sell-back.
-  const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deliverOpen, setDeliverOpen] = useState(false);
   const [confirmBulkSell, setConfirmBulkSell] = useState(false);
@@ -127,6 +125,10 @@ export default function VaultClient({
     );
   }, [items, query, rarityFilter]);
 
+  const visibleIds = visible.map((i) => i.pullId);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+
   async function handleToggleShowcase(item: VaultItem) {
     if (showcasingId) return;
     setShowcasingId(item.pullId);
@@ -164,27 +166,6 @@ export default function VaultClient({
       setError('Something went wrong. Please try again.');
     } finally {
       setShowcasingId(null);
-    }
-  }
-
-  async function sell(item: VaultItem) {
-    if (sellingId) return;
-    setError(null);
-    setNotice(null);
-    setSellingId(item.pullId);
-    try {
-      const res = await sellBackPull(item.pullId);
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      setItems((prev) => prev.filter((i) => i.pullId !== item.pullId));
-      syncBalance(res.balance);
-    } catch {
-      // A transport-level throw must still surface feedback, not fail silently.
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setSellingId(null);
     }
   }
 
@@ -256,7 +237,6 @@ export default function VaultClient({
             res.credited,
           )} — added to your balance.`,
         );
-        setSelectMode(false);
       }
     } finally {
       // Always re-enable the button — never strand it disabled if the action
@@ -267,30 +247,11 @@ export default function VaultClient({
 
   return (
     <>
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="font-heading text-3xl text-white">VAULT</h1>
-          <p className="mt-1 text-[13px] text-neutral-400">
-            Every card you&rsquo;ve pulled — hold, ship, or sell back instantly.
-          </p>
-        </div>
-        {items.length > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectMode((s) => !s);
-              setSelected(new Set());
-            }}
-            className={cn(
-              'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-semibold transition-colors',
-              selectMode
-                ? 'bg-neutral-50 text-neutral-950'
-                : 'bg-neutral-800 text-neutral-300 hover:text-white',
-            )}
-          >
-            {selectMode ? 'Done' : 'Select'}
-          </button>
-        )}
+      <div>
+        <h1 className="font-heading text-3xl text-white">VAULT</h1>
+        <p className="mt-1 text-[13px] text-neutral-400">
+          Every card you&rsquo;ve pulled — hold, ship, or sell back instantly.
+        </p>
       </div>
 
       {/* Stat strip */}
@@ -460,12 +421,12 @@ export default function VaultClient({
                 key={item.pullId}
                 className={cn(
                   'relative flex flex-col rounded-2xl border bg-neutral-900 p-2 transition-colors sm:p-3',
-                  selectMode && isSelected
+                  isSelected
                     ? 'border-white ring-2 ring-white/50'
                     : 'border-white/10',
                 )}
               >
-                {selectMode ? (
+                <div className="relative">
                   <button
                     type="button"
                     onClick={() => toggleSelect(item.pullId)}
@@ -490,59 +451,54 @@ export default function VaultClient({
                       ✓
                     </span>
                   </button>
-                ) : (
-                  <div className="relative">
-                    {art}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenCard({
-                          handle: item.card.handle,
-                          name: item.card.name,
-                          image: item.card.image,
-                          slabImage: item.card.slabImage,
-                          value: formatValue(item.card.marketPriceMyr),
-                          rarity: isRarity(item.card.rarity)
-                            ? item.card.rarity
-                            : null,
-                        });
-                      }}
-                      aria-label={`View details for ${item.card.name}`}
-                      className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-neutral-950/70 text-white/80 backdrop-blur transition-colors hover:bg-neutral-950/90 hover:text-white sm:right-2 sm:top-2 sm:h-8 sm:w-8"
-                    >
-                      <Eye className="h-4 w-4" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleShowcase(item)}
-                      disabled={showcasingId !== null}
-                      aria-pressed={item.showcased}
-                      title={
-                        item.showcased
-                          ? 'Remove from profile showcase'
-                          : 'Feature on profile'
-                      }
+                  <button
+                    type="button"
+                    onClick={() => handleToggleShowcase(item)}
+                    disabled={showcasingId !== null}
+                    aria-pressed={item.showcased}
+                    title={
+                      item.showcased
+                        ? 'Remove from profile showcase'
+                        : 'Feature on profile'
+                    }
+                    className={cn(
+                      'absolute left-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 transition-colors disabled:opacity-50 sm:h-9 sm:w-9',
+                      item.showcased
+                        ? 'text-chase'
+                        : 'text-neutral-400 hover:text-white',
+                    )}
+                  >
+                    <Star
                       className={cn(
-                        'absolute left-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 transition-colors disabled:opacity-50 sm:h-9 sm:w-9',
-                        item.showcased
-                          ? 'text-chase'
-                          : 'text-neutral-400 hover:text-white',
+                        'h-3.5 w-3.5',
+                        item.showcased && 'fill-current',
                       )}
-                    >
-                      <Star
-                        className={cn(
-                          'h-3.5 w-3.5',
-                          item.showcased && 'fill-current',
-                        )}
-                        aria-hidden
-                      />
-                      <span className="sr-only">
-                        {item.showcased ? 'On profile' : 'Feature on profile'}
-                      </span>
-                    </button>
-                  </div>
-                )}
+                      aria-hidden
+                    />
+                    <span className="sr-only">
+                      {item.showcased ? 'On profile' : 'Feature on profile'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenCard({
+                        handle: item.card.handle,
+                        name: item.card.name,
+                        image: item.card.image,
+                        slabImage: item.card.slabImage,
+                        value: formatValue(item.card.marketPriceMyr),
+                        rarity: isRarity(item.card.rarity)
+                          ? item.card.rarity
+                          : null,
+                      })
+                    }
+                    aria-label={`View details for ${item.card.name}`}
+                    className="absolute bottom-1 left-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-neutral-950/70 text-white/80 backdrop-blur transition-colors hover:bg-neutral-950/90 hover:text-white sm:bottom-2 sm:left-2 sm:h-8 sm:w-8"
+                  >
+                    <Eye className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
                 <p
                   className="mt-1.5 line-clamp-2 min-h-[1.9rem] text-[11px] font-semibold leading-snug text-white sm:mt-2 sm:min-h-[2.1rem] sm:text-[12px]"
                   title={item.card.name}
@@ -568,27 +524,6 @@ export default function VaultClient({
                 >
                   from {item.packTitle}
                 </p>
-                {!selectMode && (
-                  <Pill
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setConfirmItem(item)}
-                    disabled={sellingId !== null || !item.buyback.firm}
-                    className="mt-2 h-8 px-2 text-[11px] text-buyback-fg sm:mt-2.5 sm:h-9 sm:text-[12px]"
-                  >
-                    {sellingId === item.pullId ? (
-                      'Selling…'
-                    ) : (
-                      <>
-                        Sell · {rm(item.buyback.amount)}
-                        <span className="hidden sm:inline">
-                          {' '}
-                          ({item.buyback.percent}%)
-                        </span>
-                      </>
-                    )}
-                  </Pill>
-                )}
               </div>
             );
           })}
@@ -601,65 +536,46 @@ export default function VaultClient({
         arrives with checkout.
       </p>
 
-      {/* Bulk action bar — floats above the tab bar while selecting. */}
-      {selectMode && selected.size > 0 && (
-        <div className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-md rounded-2xl border border-white/10 bg-neutral-900 p-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)] lg:bottom-8">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-              {selected.size} selected · FMV{' '}
-              {selectedFmv > 0 ? rm(selectedFmv) : '—'}
-            </span>
-            <span className="text-[13px] font-semibold text-buyback-fg">
-              Sell for {rm(selectedBuyback)}
-            </span>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <Pill
-              onClick={() => setConfirmBulkSell(true)}
-              disabled={!quotesFirm}
-              className="flex-1"
-            >
-              Sell {selected.size}
-            </Pill>
-            <Pill
-              variant="secondary"
-              onClick={() => setDeliverOpen(true)}
-              className="flex-1"
-            >
-              Deliver {selected.size}
-            </Pill>
-          </div>
-        </div>
-      )}
+      <div aria-hidden className="h-36" />
 
-      {confirmItem && (
-        <SellConfirmModal
-          open
-          cardName={confirmItem.card.name}
-          image={confirmItem.card.image}
-          slabImage={confirmItem.card.slabImage}
-          fmv={confirmItem.card.marketPriceMyr ?? 0}
-          rateType="flat"
-          percent={confirmItem.buyback.percent}
-          netCredit={confirmItem.buyback.amount}
-          busy={sellingId === confirmItem.pullId}
-          onConfirm={async () => {
-            const item = confirmItem;
-            await sell(item);
-            setConfirmItem(null);
-          }}
-          onCancel={() => setConfirmItem(null)}
+      {items.length > 0 && (
+        <VaultActionBar
+          selectedCount={selected.size}
+          allVisibleSelected={allVisibleSelected}
+          visibleCount={visibleIds.length}
+          fmv={selectedFmv}
+          sellTotal={selectedBuyback}
+          quotesFirm={quotesFirm}
+          busy={bulkSelling}
+          onToggleSelectAll={() =>
+            setSelected((prev) => toggleSelectAll(prev, visibleIds))
+          }
+          onSell={() => setConfirmBulkSell(true)}
+          onDeliver={() => setDeliverOpen(true)}
         />
       )}
 
       {confirmBulkSell && (
         <SellConfirmModal
           open
-          count={selectedItems.length}
-          cardName={`${selectedItems.length} card${
-            selectedItems.length === 1 ? '' : 's'
-          } from your vault`}
-          image=""
+          count={
+            selectedItems.length === 1 ? undefined : selectedItems.length
+          }
+          cardName={
+            selectedItems.length === 1
+              ? (selectedItems[0]?.card.name ?? '')
+              : `${selectedItems.length} cards from your vault`
+          }
+          image={
+            selectedItems.length === 1
+              ? (selectedItems[0]?.card.image ?? '')
+              : ''
+          }
+          slabImage={
+            selectedItems.length === 1
+              ? selectedItems[0]?.card.slabImage
+              : undefined
+          }
           fmv={selectedFmv}
           rateType="flat"
           percent={selectedPercent}
@@ -678,7 +594,6 @@ export default function VaultClient({
         onSubmitted={(pullIds) => {
           setItems((prev) => prev.filter((i) => !pullIds.includes(i.pullId)));
           setSelected(new Set());
-          setSelectMode(false);
           setDeliverOpen(false);
           setError(null);
           setToast('Shipping order created successfully!');

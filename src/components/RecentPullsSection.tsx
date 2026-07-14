@@ -1,21 +1,25 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useLiveRecentPulls } from '@/lib/use-recent-pulls';
 import { PEDESTAL_BG, PEDESTAL_FRAME_HOVER } from '@/components/card-pedestal';
 import { SlabImage } from '@/components/SlabImage';
+import { rarityRgb } from '@/lib/rarity';
 import type { RecentPull } from '@/lib/data/packs';
 
 function PullCard({ pull }: { pull: RecentPull }) {
   return (
-    <div
+    <Link
+      href="/slots"
       className={cn(
-        'group/card w-[240px] shrink-0 overflow-hidden rounded-2xl',
-        'border border-neutral-700 bg-neutral-800',
+        'group/card block w-[240px] shrink-0 overflow-hidden rounded-2xl',
+        'animate-[fadeIn_400ms_ease-out] motion-reduce:animate-none',
+        'border bg-neutral-800',
         PEDESTAL_FRAME_HOVER,
-        'hover:border-neutral-500',
       )}
+      style={{ borderColor: `rgba(${rarityRgb(pull.rarity)}, 0.35)` }}
     >
       <div className="flex flex-col">
         {/* Slab on a dark pedestal / spotlight backdrop */}
@@ -42,6 +46,7 @@ function PullCard({ pull }: { pull: RecentPull }) {
 
         {/* Footer */}
         <div className="flex flex-col gap-2 p-3">
+          <p className="font-heading text-lg text-white">{pull.value}</p>
           <p className="line-clamp-2 min-h-[40px] text-sm font-bold leading-5 text-white">
             {pull.name}
           </p>
@@ -64,7 +69,7 @@ function PullCard({ pull }: { pull: RecentPull }) {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -78,22 +83,24 @@ export default function RecentPullsSection({
   const pulls = useLiveRecentPulls(initialPulls ?? []);
 
   return (
-    <section className="w-full bg-neutral-950 py-16 sm:py-20">
+    <section className="mt-14 w-full bg-neutral-950">
       <div className="mx-auto w-full">
-        {/* Header */}
-        <div className="mx-auto mb-10 flex max-w-2xl flex-col items-center text-center">
-          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-white/60">
-            Live from the slots
-          </p>
+        {/* Header — drop-board lockup */}
+        <div className="px-fluid mb-6 flex items-baseline gap-3">
           <h2
             id="recent-pulls-heading"
-            className="font-heading mt-1.5 text-2xl font-bold leading-tight tracking-tight text-white md:text-3xl"
+            className="font-heading text-2xl text-white"
           >
-            Recent Pulls
+            JUST PULLED
           </h2>
-          <p className="mt-1.5 text-sm text-neutral-400">
-            See what collectors are pulling right now.
-          </p>
+          <span className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-2.5 py-1 text-[11px] font-semibold text-white">
+            {/* White dot — LIVE is not a money signal, so no green (Signal Rule) */}
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-white motion-reduce:animate-none"
+              aria-hidden
+            />
+            LIVE
+          </span>
         </div>
 
         {/* Horizontally-scrollable row of pulled-card cards. tabIndex makes it
@@ -101,8 +108,10 @@ export default function RecentPullsSection({
             users a clear indicator; aria-labelledby names it from the section
             heading instead of a duplicated literal. */}
         {pulls.length === 0 ? (
-          <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-[13px] text-white/60">
-            No pulls yet — be the first to open a pack.
+          <div className="px-fluid">
+            <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-[13px] text-white/60">
+              No pulls yet — be the first to open a pack.
+            </div>
           </div>
         ) : (
           <div
@@ -110,7 +119,7 @@ export default function RecentPullsSection({
             aria-labelledby="recent-pulls-heading"
             tabIndex={0}
             className={cn(
-              'flex gap-4 overflow-x-auto pb-4',
+              'px-fluid flex gap-4 overflow-x-auto pb-4',
               '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
               'snap-x snap-mandatory scroll-px-4',
               'focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',

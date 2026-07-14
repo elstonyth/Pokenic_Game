@@ -8,8 +8,8 @@ Home's job changes: every product tap now routes to `/slots` (the catalog), neve
 pack detail page. That makes home a **hype funnel** — the movie trailer, not the
 store. This redesign rebuilds the home sections (and lightly the app shell) as a
 phone-first editorial scroll story in the shipped Midnight Rip system
-(`DESIGN.md`), with hypebeast-drop energy: huge Nekst lockups, tier racks, data
-marquees, one white pill per zone.
+(`DESIGN.md`), with hypebeast-drop energy: huge Nekst lockups, a tier ladder,
+data marquees, one white pill per zone.
 
 ## Locked decisions (brainstorm 2026-07-14)
 
@@ -38,8 +38,8 @@ marquees, one white pill per zone.
 ## The routing rule
 
 Every **product** tap on home lands on plain `/slots`:
-hero CTA pill, marquee band, every shelf tile, rack ghost tiles, JUST PULLED
-cards, final CTA pill. Sold-out tiles stay inert (non-links). Non-product links
+hero CTA pill, marquee band, every ladder row, JUST PULLED
+cards, final CTA pill. Sold-out rows stay inert (non-links). Non-product links
 keep their targets: `All packs →` (`/slots`), `How it works →`
 (`/how-it-works`), `See ranks →` (`/leaderboard`).
 
@@ -48,10 +48,10 @@ keep their targets: `All packs →` (`/slots`), `How it works →`
 ### 01 · HERO — "TOP CHASE IN THE BUILDING"
 
 - Phone: near-full-viewport (`min-h-[calc(100svh-3.5rem)]`), stacked — kicker
-  label (Label style, silver, tracked) → slab centered (~55% viewport height,
+  label (Label style, silver, tracked) → slab centered (height-capped at 42svh,
   rarity-hue glow) → value in chase-gold Nekst Display (`RM 21,350`) → card
   name + source pack in one silver line → white pill **`RIP A PACK →`**.
-- Slab motion: idle float (±4px, ~6s ease loop) + subtle scroll-linked
+- Slab motion: idle float (±8px, ~6s ease loop) + subtle scroll-linked
   tilt/parallax on exit. Reduced motion: perfectly still, fully lit.
 - Data: existing featured logic (most expensive in-stock pack's `topHits[0]`).
 - Fallbacks: no chase image → pack art on the pedestal; no packs → hero
@@ -72,18 +72,22 @@ keep their targets: `All packs →` (`/slots`), `How it works →`
 
 ### 02 · THE SHELF — "RIP A PACK"
 
+> Revised 2026-07-14 (operator): the catalog carries ~one pack per tier, so
+> horizontal racks (one tile each) read as dead air. The shelf is a **tier
+> ladder** instead — one full-width row per pack.
+
 - Headline lockup `RIP A PACK` + `All packs →` text link.
-- Packs grouped into horizontal snap racks by price tier (existing
-  `priceTier`/`TIER_COLOR` from `src/lib/price-tier`). Each rack: tier chip
-  (`GOLD TIER` in tier hue) + hairline in tier hue at 40%.
-- Tile: pack art large on charcoal, price in Nekst, `TOP CHASE RM X` line in
-  chase gold (uses existing per-pack chase lookup — note: home currently caps
-  lookups at `CHASE_LOOKUPS = 8`; the plan must size this for all visible
-  tiles or degrade gracefully by omitting the line), press-scale 0.98. Sold
-  out: dimmed, badge, inert.
-- Racks stagger-reveal on scroll. Each rack ends in a ghost `See all →` tile.
-- Empty tier → rack omitted; zero packs → single empty-state card.
-- Desktop: 4–5 tiles visible per rack.
+- One ladder row per pack, ordered by price tier high→low (existing
+  `priceTier`/`TIER_COLOR` from `src/lib/price-tier`), catalog order within a
+  tier. Row: tier-tinted art pedestal + tier chip in tier hue, pack name,
+  `TOP CHASE RM X` line in chase gold (existing per-pack chase lookup;
+  `CHASE_LOOKUPS = 16` covers the ladder — rows beyond omit the line), price
+  in Nekst right-aligned, quiet `Rip it →` affordance, tier-hue border at
+  40%, press-scale. Sold out: dimmed, SOLD OUT label, inert.
+- Rows stagger-reveal on scroll.
+- Zero packs → single empty-state card.
+- Desktop: the top rung spans full width (the ladder's crown); remaining rows
+  sit two-up.
 
 ### 03 · HOW IT RIPS — trust engine
 
@@ -107,7 +111,7 @@ Three numbered editorial rows; the old trust chips are absorbed here:
 - Existing 4s-polling feed, restyled: pedestal spotlight, **value added in
   Nekst** (data already in `RecentPull.value`, currently unused here), rarity
   ring, masked `who` + `agoLabel` silver.
-- New pulls slide in from the left (spring); reduced motion: instant swap.
+- New pulls fade in (400ms); reduced motion: instant swap.
 - Cards → `/slots`. Empty: "No pulls yet — be the first" card.
 
 ### 05 · THE GAME — "THE FLOOR PAYS OUT"

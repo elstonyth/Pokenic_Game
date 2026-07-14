@@ -53,11 +53,12 @@ try {
     const offenders = await page.$$eval('main a[href^="/slots/"]', (as) =>
       as.map((a) => a.getAttribute('href')),
     );
-    console.log(
-      offenders.length === 0
-        ? `[${name}] routing rule OK — no /slots/<pack> links on home`
-        : `[${name}] ROUTING VIOLATIONS: ${offenders.join(', ')}`,
-    );
+    if (offenders.length === 0) {
+      console.log(`[${name}] routing rule OK — no /slots/<pack> links on home`);
+    } else {
+      console.log(`[${name}] ROUTING VIOLATIONS: ${offenders.join(', ')}`);
+      process.exitCode = 1; // usable as a gate, not just a log
+    }
     await ctx.close();
   }
 } finally {

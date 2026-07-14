@@ -3,8 +3,13 @@ import { ArrowRight } from 'lucide-react';
 import Reveal from '@/components/Reveal';
 import type { LeaderboardEntry } from '@/lib/data/leaderboard';
 
-/** Medal disc colors, rank 1→3 (gold / silver / bronze). */
-const MEDAL = ['#eab308', '#a3a3a3', '#b45309'] as const;
+/** Medal disc classes, rank 1→3 — mirrors the leaderboard's medalStyle()
+ *  (chase gold / silver / bronze) so "See ranks" lands on the same golds. */
+const MEDAL = [
+  'bg-chase text-neutral-950',
+  'bg-neutral-300 text-neutral-950',
+  'bg-amber-700 text-amber-50',
+] as const;
 
 /**
  * Board 05 — THE FLOOR PAYS OUT. Phase 1 renders two moments: top-3 weekly
@@ -45,8 +50,7 @@ export default function TheGame({
                 {podium.map((entry, i) => (
                   <li key={entry.rank} className="flex items-center gap-3">
                     <span
-                      className="font-heading flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm text-neutral-950"
-                      style={{ backgroundColor: MEDAL[i] }}
+                      className={`font-heading flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${MEDAL[i] ?? MEDAL[2]}`}
                     >
                       {entry.rank}
                     </span>

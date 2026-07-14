@@ -32,7 +32,9 @@ export default function HeroBoard({
     // kicker + type block form the left column, the slab the right.
     <section
       aria-labelledby="hero-heading"
-      className="px-fluid flex min-h-[calc(100svh-64px)] w-full flex-col items-center justify-center gap-5 py-8 text-center lg:grid lg:grid-cols-[1fr_auto] lg:content-center lg:items-center lg:gap-x-12 lg:py-16 lg:text-left"
+      // Phone height subtracts header (64) + fixed TabBar (64) so the CTA
+      // clears the bar even on short phones; desktop has no TabBar.
+      className="px-fluid flex min-h-[calc(100svh-128px)] w-full flex-col items-center justify-center gap-5 py-8 text-center lg:grid lg:min-h-[calc(100svh-64px)] lg:grid-cols-[1fr_auto] lg:content-center lg:items-center lg:gap-x-12 lg:py-16 lg:text-left"
     >
       <p
         id="hero-heading"
@@ -54,6 +56,8 @@ export default function HeroBoard({
                 slabSrc={chase.slabImage}
                 alt={chase.name}
                 sizes="(min-width: 1024px) 420px, 60vw"
+                // The near-full-viewport hero is the page's LCP — load eagerly.
+                priority
                 className="max-h-[42svh] w-auto max-w-[min(60vw,15rem)] lg:max-h-[60svh] lg:max-w-[26rem]"
               />
             ) : (
@@ -63,6 +67,7 @@ export default function HeroBoard({
                 width={420}
                 height={420}
                 unoptimized
+                priority
                 className="h-auto max-h-[42svh] w-auto max-w-[min(60vw,15rem)] object-contain lg:max-h-[60svh] lg:max-w-[26rem]"
               />
             )}

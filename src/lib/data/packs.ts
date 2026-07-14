@@ -332,25 +332,35 @@ export async function getRecentPulls(): Promise<RecentPull[]> {
     );
     if (!Array.isArray(pulls)) return [];
 
+    // Stable ids: suffix with a per-(handle, rolled_at) occurrence counter,
+    // NOT the array index — index-suffixed ids shift whenever the poll
+    // prepends a new pull, remounting every feed card (and replaying entry
+    // animations) instead of just adding one.
+    const seen = new Map<string, number>();
     return (
       parseList(RecentPullSchema, pulls) as unknown as BackendRecentPull[]
-    ).map((p, i) => ({
-      id: `${p.handle}-${p.rolled_at}-${i}`,
-      handle: p.handle,
-      name: p.name,
-      image: p.image,
-      slabImage: p.slab_image ?? null,
-      // Raw USD market_value must never render behind "RM" (same contract
-      // as the odds-row toCard above).
-      value: p.marketPriceMyr != null ? formatValue(p.marketPriceMyr) : '—',
-      rarity: p.rarity as Rarity,
-      // Pack label straight from the backend catalog (source of truth) — a
-      // since-deleted pack degrades to the neutral label, never a wrong one.
-      packName: p.pack_title ?? 'Mystery Pack',
-      packIcon: p.pack_image ?? FALLBACK_PACK_ICON,
-      who: p.who ?? 'Anonymous',
-      agoLabel: relativeTime(p.rolled_at),
-    }));
+    ).map((p) => {
+      const key = `${p.handle}-${p.rolled_at}`;
+      const n = seen.get(key) ?? 0;
+      seen.set(key, n + 1);
+      return {
+        id: `${key}-${n}`,
+        handle: p.handle,
+        name: p.name,
+        image: p.image,
+        slabImage: p.slab_image ?? null,
+        // Raw USD market_value must never render behind "RM" (same contract
+        // as the odds-row toCard above).
+        value: p.marketPriceMyr != null ? formatValue(p.marketPriceMyr) : '—',
+        rarity: p.rarity as Rarity,
+        // Pack label straight from the backend catalog (source of truth) — a
+        // since-deleted pack degrades to the neutral label, never a wrong one.
+        packName: p.pack_title ?? 'Mystery Pack',
+        packIcon: p.pack_image ?? FALLBACK_PACK_ICON,
+        who: p.who ?? 'Anonymous',
+        agoLabel: relativeTime(p.rolled_at),
+      };
+    });
   } catch (error) {
     logger.error('[packs] failed to load recent pulls:', error);
     return [];

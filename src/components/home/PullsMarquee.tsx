@@ -42,11 +42,13 @@ export default function PullsMarquee({ pulls }: { pulls: RecentPull[] }) {
       aria-label="Live pulls — browse all packs"
       className="block w-full border-y border-white/10 bg-neutral-900 py-2.5 transition-colors hover:bg-neutral-800"
     >
-      {/* Animated loop; reduced motion → static swipeable row */}
-      <div className="overflow-hidden motion-reduce:overflow-x-auto">
-        <div className="px-fluid flex w-max animate-[sp-scroll-x_30s_linear_infinite] hover:[animation-play-state:paused] active:[animation-play-state:paused] motion-reduce:animate-none">
+      {/* Animated loop; reduced motion → static swipeable row (gutter lives on
+          the wrapper — track padding would break the −50% loop invariant, see
+          SlotStatusBar's marquee). */}
+      <div className="overflow-hidden motion-reduce:overflow-x-auto motion-reduce:px-4">
+        <div className="flex w-max animate-[sp-scroll-x_30s_linear_infinite] hover:[animation-play-state:paused] active:[animation-play-state:paused] motion-reduce:animate-none">
           {track(false)}
-          <span className="motion-reduce:hidden">{track(true)}</span>
+          <div className="motion-reduce:hidden">{track(true)}</div>
         </div>
       </div>
     </Link>

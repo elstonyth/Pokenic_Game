@@ -229,10 +229,10 @@ git commit -m "feat(home): groupPacksByTier — tier-rack grouping for the shelf
 - Consumes: `RecentPull` from `@/lib/data/packs`; `rarityRgb` from `@/lib/rarity`; existing `sp-scroll-x` keyframe.
 - Produces: `export default function PullsMarquee({ pulls }: { pulls: RecentPull[] })` — server component; renders `null` when `pulls.length === 0`.
 
-- [ ] **Step 1: Add the hero slab float keyframe to globals.css** (used by Task 3; ±4px, gentler than `clawFloat`):
+- [ ] **Step 1: Add the hero slab float keyframe to globals.css** (used by Task 3; ±8px, gentler than `clawFloat`):
 
 ```css
-/* Hero spotlight slab — idle float (±4px; Drop Board board 01) */
+/* Hero spotlight slab — idle float (±8px; Drop Board board 01) */
 @keyframes slabFloat {
   0%,
   100% {

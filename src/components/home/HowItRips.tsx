@@ -6,12 +6,12 @@ const STEPS = [
   {
     num: '01',
     title: 'BUY CREDITS',
-    copy: <>Top up in seconds. RM in, credits out.</>,
+    copy: 'Top up in seconds. RM in, credits out.',
   },
   {
     num: '02',
     title: 'RIP THE REEL',
-    copy: <>Spin the pack. Watch the reveal land.</>,
+    copy: 'Spin the pack. Watch the reveal land.',
   },
   {
     num: '03',

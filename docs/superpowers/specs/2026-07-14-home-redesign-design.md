@@ -48,10 +48,10 @@ keep their targets: `All packs →` (`/slots`), `How it works →`
 ### 01 · HERO — "TOP CHASE IN THE BUILDING"
 
 - Phone: near-full-viewport (`min-h-[calc(100svh-3.5rem)]`), stacked — kicker
-  label (Label style, silver, tracked) → slab centered (~55% viewport height,
+  label (Label style, silver, tracked) → slab centered (height-capped at 42svh,
   rarity-hue glow) → value in chase-gold Nekst Display (`RM 21,350`) → card
   name + source pack in one silver line → white pill **`RIP A PACK →`**.
-- Slab motion: idle float (±4px, ~6s ease loop) + subtle scroll-linked
+- Slab motion: idle float (±8px, ~6s ease loop) + subtle scroll-linked
   tilt/parallax on exit. Reduced motion: perfectly still, fully lit.
 - Data: existing featured logic (most expensive in-stock pack's `topHits[0]`).
 - Fallbacks: no chase image → pack art on the pedestal; no packs → hero
@@ -107,7 +107,7 @@ Three numbered editorial rows; the old trust chips are absorbed here:
 - Existing 4s-polling feed, restyled: pedestal spotlight, **value added in
   Nekst** (data already in `RecentPull.value`, currently unused here), rarity
   ring, masked `who` + `agoLabel` silver.
-- New pulls slide in from the left (spring); reduced motion: instant swap.
+- New pulls fade in (400ms); reduced motion: instant swap.
 - Cards → `/slots`. Empty: "No pulls yet — be the first" card.
 
 ### 05 · THE GAME — "THE FLOOR PAYS OUT"

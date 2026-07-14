@@ -34,6 +34,9 @@ export default async function HomePage() {
 
   // Chase lookups cover the first N tiles PLUS the featured pack, so the hero
   // never silently loses its chase when featured falls outside the first N.
+  // ponytail: while every pack shares one card pool (see getPackDetail's
+  // Phase-5a note) these N parallel lookups fetch identical payloads — collapse
+  // to one fetch or a short-TTL cache when per-pack pools ship (Phase 3).
   const lookupPacks = [
     ...new Set([
       ...(featured ? [featured] : []),

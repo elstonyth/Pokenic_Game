@@ -32,9 +32,13 @@ export function CardDetail({
   // 30-day delta from price history (the chart itself was removed — boss doc
   // "Cancel first", 2026-07-14; the badge stays).
   const history = detail?.priceHistory; // stable ref from state; undefined when no detail
+  // A 30d delta needs two points — a single-entry history has no change to report.
   const first = history?.[0]?.valueMyr;
-  const last = history?.[history.length - 1]?.valueMyr;
-  const delta = first !== undefined && last !== undefined ? last - first : null;
+  const last = history?.at(-1)?.valueMyr;
+  const delta =
+    history && history.length >= 2 && first !== undefined && last !== undefined
+      ? last - first
+      : null;
 
   return (
     <div className="grid w-full items-center gap-5 md:grid-cols-[minmax(0,420px)_1fr] md:gap-12">

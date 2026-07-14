@@ -118,8 +118,9 @@ GEMINI.md
 .claude/
 # Codex CLI config + hooks (AI tooling, mirrors .claude/) — local only
 .codex/
-# Docs corpus (research, plans, specs, handoffs, demos) — local only
-/docs/
+# Docs are tracked (plans, specs, handoffs) EXCEPT the research capture corpus
+# (reference-site screenshots/JSON — deliberately local-only, see CLAUDE.md).
+/docs/research/
 # Local-only test harnesses (demo videos, prod smoke). tests/e2e IS committed —
 # the nightly E2E workflow (.github/workflows/e2e.yml) checks it out in CI; its
 # runtime artifacts stay ignored via the explicit rules above.

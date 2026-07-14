@@ -45,7 +45,8 @@ export default function PullsMarquee({ pulls }: { pulls: RecentPull[] }) {
       {/* Animated loop; reduced motion → static swipeable row (gutter lives on
           the wrapper — track padding would break the −50% loop invariant, see
           SlotStatusBar's marquee). */}
-      <div className="overflow-hidden motion-reduce:overflow-x-auto motion-reduce:px-4">
+      {/* Reduced-motion gutter mirrors .px-fluid (can't variant-prefix a custom class) */}
+      <div className="overflow-hidden motion-reduce:overflow-x-auto motion-reduce:[padding-inline:clamp(1rem,1.6vw,4.5rem)]">
         <div className="flex w-max animate-[sp-scroll-x_30s_linear_infinite] hover:[animation-play-state:paused] active:[animation-play-state:paused] motion-reduce:animate-none">
           {track(false)}
           <div className="motion-reduce:hidden">{track(true)}</div>

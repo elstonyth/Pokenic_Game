@@ -83,11 +83,13 @@ function LadderRow({
 
   const body = (
     <>
-      {/* Pack art on its own tier-tinted pedestal */}
+      {/* Pack art on its own tier-tinted pedestal. Sold out dims art/name/
+          price individually — never the status label, which must stay legible
+          (DESIGN.md contrast floor) since it's what explains the inert row. */}
       <div
         className={`flex shrink-0 items-center justify-center rounded-xl ${
           lead ? 'h-24 w-24 lg:h-32 lg:w-32' : 'h-24 w-24'
-        }`}
+        } ${soldOut ? 'opacity-50' : ''}`}
         style={{ backgroundColor: `rgba(${rgb}, 0.08)` }}
       >
         <Image
@@ -117,12 +119,12 @@ function LadderRow({
         <p
           className={`mt-1.5 truncate font-semibold text-white ${
             lead ? 'text-[15px] lg:text-lg' : 'text-[15px]'
-          }`}
+          } ${soldOut ? 'opacity-50' : ''}`}
         >
           {pack.name}
         </p>
         {soldOut ? (
-          <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+          <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
             Sold out
           </p>
         ) : (
@@ -140,7 +142,7 @@ function LadderRow({
         <span
           className={`font-heading whitespace-nowrap text-white ${
             lead ? 'text-2xl lg:text-3xl' : 'text-2xl'
-          }`}
+          } ${soldOut ? 'opacity-50' : ''}`}
         >
           {pack.price}
         </span>
@@ -153,13 +155,15 @@ function LadderRow({
     </>
   );
 
+  // h-full: grid cells stretch equal-height; the row must fill its cell so
+  // 2-up card bottoms stay aligned if one card ever gains an extra line.
   const rowClass =
-    'flex w-full items-center gap-4 rounded-2xl border bg-neutral-900 p-3';
+    'flex h-full w-full items-center gap-4 rounded-2xl border bg-neutral-900 p-3';
   const rowStyle = { borderColor: `rgba(${rgb}, 0.4)` };
 
   if (soldOut) {
     return (
-      <div className={`${rowClass} opacity-50`} style={rowStyle}>
+      <div className={rowClass} style={rowStyle}>
         {body}
       </div>
     );

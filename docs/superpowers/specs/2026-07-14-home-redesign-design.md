@@ -8,8 +8,8 @@ Home's job changes: every product tap now routes to `/slots` (the catalog), neve
 pack detail page. That makes home a **hype funnel** — the movie trailer, not the
 store. This redesign rebuilds the home sections (and lightly the app shell) as a
 phone-first editorial scroll story in the shipped Midnight Rip system
-(`DESIGN.md`), with hypebeast-drop energy: huge Nekst lockups, tier racks, data
-marquees, one white pill per zone.
+(`DESIGN.md`), with hypebeast-drop energy: huge Nekst lockups, a tier ladder,
+data marquees, one white pill per zone.
 
 ## Locked decisions (brainstorm 2026-07-14)
 
@@ -38,8 +38,8 @@ marquees, one white pill per zone.
 ## The routing rule
 
 Every **product** tap on home lands on plain `/slots`:
-hero CTA pill, marquee band, every shelf tile, rack ghost tiles, JUST PULLED
-cards, final CTA pill. Sold-out tiles stay inert (non-links). Non-product links
+hero CTA pill, marquee band, every ladder row, JUST PULLED
+cards, final CTA pill. Sold-out rows stay inert (non-links). Non-product links
 keep their targets: `All packs →` (`/slots`), `How it works →`
 (`/how-it-works`), `See ranks →` (`/leaderboard`).
 

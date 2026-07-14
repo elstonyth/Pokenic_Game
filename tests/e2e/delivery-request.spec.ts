@@ -3,10 +3,9 @@
 //   enters the vault's select mode → "Deliver 1" in the bulk action bar →
 //   add-address form → submit → and confirms the order is tracked on /orders
 //   as 'Requested'.
-// Re-authored 2026-07-12 against the redesigned vault (plan 023): selection is
-// the "Select" mode toggle + per-tile "Select <name>" buttons, and delivery is
-// the bulk bar's "Deliver N" pill (the old "Request delivery (N)" button is
-// gone). The admin-side fulfilment (pack → ship) is covered by ship-orders.spec.
+// Re-authored 2026-07-14 against the always-on vault (spec 2026-07-14):
+// no mode toggle — tap the tile's "Select <name>" button directly; delivery
+// stays the bar's "Deliver N" pill.
 import { test, expect } from '@playwright/test';
 import { BASE, stamp } from './helpers/constants';
 import { createCustomer, openPack } from './helpers/api';
@@ -19,16 +18,23 @@ const PASSWORD = 'PwE2e2026!';
 test('customer requests delivery of a vaulted card via the UI', async ({
   page,
 }) => {
+  // Pre-accept cookie consent (key: src/lib/consent.ts CONSENT_KEY): the fresh-
+  // context banner (z-50, bottom-anchored) overlays the action bar's pills and
+  // intercepts their clicks; suppressing it also keeps the screenshots clean.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+  });
+
   // Funded customer holding one vaulted card (API setup), then log into the UI.
   const cust = await createCustomer(100);
   await openPack(cust.token, PACK); // auto-vaults the pull
   await sf.login(page, PACK, cust.email, PASSWORD);
 
   await page.goto(`${BASE}/vault`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: 'Select', exact: true }).click();
-  // In select mode each card tile is an aria-label "Select <name>" button.
+  // Selection is always on — tap the tile directly. (?!All\b) skips the
+  // bar's "Select All" button.
   await page
-    .getByRole('button', { name: /^Select .+/ })
+    .getByRole('button', { name: /^Select (?!All\b).+/ })
     .first()
     .click();
   await page.getByRole('button', { name: /^Deliver 1$/ }).click();

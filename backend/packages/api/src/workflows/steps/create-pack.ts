@@ -17,6 +17,10 @@ export type PackWriteInput = {
   category: string;
   price: number;
   image: string;
+  // Optional pack-page hero (wide stage/"factory" render). Tri-state like
+  // published_odds: undefined = leave as-is (writers that don't send the field
+  // must not clear it); null = explicit clear — the stage falls back to `image`.
+  display_image?: string | null;
   // Instant sell-back rate (% of FMV) at the reveal, within the post-pull
   // window; later sells from the vault are always at the flat rate — see
   // modules/packs/buyback-rate.ts.
@@ -65,6 +69,7 @@ export const createPackStep = createStep(
         category: input.category,
         price: input.price,
         image: input.image,
+        display_image: input.display_image ?? null,
         buyback_percent: input.buyback_percent,
         boost: input.boost,
         rank: input.rank,

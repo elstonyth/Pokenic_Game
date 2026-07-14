@@ -1,9 +1,5 @@
 import { CreateInventoryLevelInput, ExecArgs } from '@medusajs/framework/types';
-import {
-  ContainerRegistrationKeys,
-  Modules,
-  ProductStatus,
-} from '@medusajs/framework/utils';
+import { ContainerRegistrationKeys, Modules } from '@medusajs/framework/utils';
 import {
   createWorkflow,
   transform,
@@ -12,7 +8,6 @@ import {
 import {
   createApiKeysWorkflow,
   createInventoryLevelsWorkflow,
-  createProductsWorkflow,
   createRegionsWorkflow,
   createSalesChannelsWorkflow,
   createShippingOptionsWorkflow,
@@ -26,13 +21,10 @@ import {
   updateStoresWorkflow,
 } from '@medusajs/medusa/core-flows';
 import { MercurModules, SellerStatus } from '@mercurjs/types';
-import { rebakeAllGradedCards } from '../api/admin/media/bake-slab';
 import PacksModuleService from '../modules/packs/service';
 import { PACKS_MODULE } from '../modules/packs';
 import type { HouseSellerService } from '../modules/packs/card-product';
-import { buildCardProductInput } from '../modules/packs/card-product';
 import { HANDLE_RE, deriveHandle } from '../utils/profile-handle';
-import { RARITY_WEIGHT, type OddsRarity } from '@acme/odds-math';
 import { VIP_LEVELS } from './vip-levels.data';
 
 const updateStoreCurrencies = createWorkflow(
@@ -81,398 +73,50 @@ const HOUSE_SELLER = {
   email: 'house@pokenic.local',
 } as const;
 
-// Only 7 real graded-slab images were harvested from the live site; the 16
-// listings intentionally reuse them (matching the original clone's static data).
-// Each id maps to an existing public/cdn/cards/<id>.webp — adding a new card
-// without a real image should reuse one of these, not invent a missing filename.
-const CARD_IMG = {
-  celebi: 'FQEYWuGiKTkJpZSG6XqGHDBmH6EmxctEqk1kAT2MYzHc',
-  mewtwo: '9kRLkdbbvzm335GBvraQrWrNVs72gzEzynvP1RPvftTx',
-  darkrai: '4h13RDtFX4MWNYjvgMPeBS1hcL4AewupiFzDvyFUUTkd',
-  jolteon: 'BEnddEeBXBHyL5qWXCg6sKS5VmUbUtZaKJ1aVB8yCWHN',
-  rapidash: 'FFbo5jfXHHQWN8bmc88UDYSDP5QzYCCj6RwUkiWYyffC',
-  hooh: 'FjAJZ7en585MpnoLUGbuALHEmbBAPd61EZCefQzFMmRX',
-  gengar: '6noxMybjBLtLqicAUTrG63VhWG2FgWzDBsQGnnZEyNCG',
-} as const;
-
-const cardImage = (id: string) => `/cdn/cards/${id}.webp`;
-
-// The 5 gacha rarity tiers — aliased to @acme/odds-math's OddsRarity so the seed's
-// tier set and the canonical odds table share one source (a tier rename can't
-// silently desync them). Typing CardSeed.rarity as this union (not string) makes a
-// rarity typo a compile error instead of a silent RARITY_WEIGHT miss.
-type Rarity = OddsRarity;
-
-type CardSeed = {
-  handle: string;
-  title: string;
-  price: number; // MYR listing price
-  fmv: number; // MYR fair-market value
-  points: number;
-  grade: string;
-  grader: string;
-  set: string;
-  // Seeds PackOdds.rarity (the per-pack tier) + the rarity-relative weight for
-  // every pack this card joins — it is NOT a Card-model field anymore.
-  rarity: Rarity;
-  year: number;
-  image: string;
-  // Gacha pool key — MUST match a Pack.category exactly. The catalog is
-  // Pokémon-only, so this is omitted on every card (omitted == "pokemon");
-  // kept on the type so a future non-Pokémon category can scope its own
-  // PackOdds rows. Only used at seed time — it is NOT a Card-model field
-  // (nothing queries cards by category at runtime).
-  category?: string;
-};
-
-const CARD_PRODUCTS: CardSeed[] = [
-  {
-    handle: 'celebi',
-    title:
-      '2021 Pokemon Japanese Sword & Shield Jet-Black Spirit Celebi V #3 CGC 10 GEM MINT',
-    price: 18.4,
-    fmv: 19.2,
-    points: 93,
-    grade: '10 GEM MINT',
-    grader: 'CGC',
-    set: 'Jet-Black Spirit',
-    rarity: 'Rare',
-    year: 2021,
-    image: cardImage(CARD_IMG.celebi),
-  },
-  {
-    handle: 'mewtwo',
-    title:
-      '2025 Pokemon Japanese SV Glory Of Rocket Gang Holo Team Rockets Mewtwo ex CGC 10',
-    price: 24.75,
-    fmv: 23.9,
-    points: 100,
-    grade: '10 GEM MINT',
-    grader: 'CGC',
-    set: 'Glory of Team Rocket',
-    rarity: 'Rare',
-    year: 2025,
-    image: cardImage(CARD_IMG.mewtwo),
-  },
-  {
-    handle: 'darkrai-gg',
-    title:
-      '2023 Pokemon Sword and Shield Crown Zenith Galarian Gallery Darkrai Vstar #GG50 PSA 10',
-    price: 41.2,
-    fmv: 39.8,
-    points: 100,
-    grade: '10',
-    grader: 'PSA',
-    set: 'Crown Zenith',
-    rarity: 'Mythical',
-    year: 2023,
-    image: cardImage(CARD_IMG.darkrai),
-  },
-  {
-    handle: 'jolteon',
-    title:
-      '2024 Pokemon Japanese Scarlet & Violet Terastal Fest ex Holo Jolteon ex #52 CGC 10 PRISTINE',
-    price: 15.6,
-    fmv: 16.1,
-    points: 96,
-    grade: '10 PRISTINE',
-    grader: 'CGC',
-    set: 'Terastal Festival ex',
-    rarity: 'Uncommon',
-    year: 2024,
-    image: cardImage(CARD_IMG.jolteon),
-  },
-  {
-    handle: 'shaymin',
-    title:
-      '2022 Pokemon Japanese Sword & Shield Star Birth Holo Shaymin VSTAR #13 CGC 9.5 MINT+',
-    price: 12.9,
-    fmv: 13.4,
-    points: 95,
-    grade: '9.5 MINT+',
-    grader: 'CGC',
-    set: 'Star Birth',
-    rarity: 'Uncommon',
-    year: 2022,
-    image: cardImage(CARD_IMG.celebi),
-  },
-  {
-    handle: 'rapidash',
-    title:
-      '2025 Pokemon Japanese Mega Start Deck 100 Battle Collection Reverse Holo Rapidash #90 CGC 10',
-    price: 8.45,
-    fmv: 8.9,
-    points: 92,
-    grade: '10',
-    grader: 'CGC',
-    set: 'Battle Collection',
-    rarity: 'Common',
-    year: 2025,
-    image: cardImage(CARD_IMG.rapidash),
-  },
-  {
-    handle: 'hooh',
-    title:
-      '2022 Pokemon Japanese Sword & Shield Incandescent Arcana Ho-Oh V #55 CGC 10 GEM MINT',
-    price: 21.3,
-    fmv: 20.5,
-    points: 98,
-    grade: '10 GEM MINT',
-    grader: 'CGC',
-    set: 'Incandescent Arcana',
-    rarity: 'Rare',
-    year: 2022,
-    image: cardImage(CARD_IMG.hooh),
-  },
-  {
-    handle: 'gengar',
-    title:
-      '2023 Pokemon Japanese Scarlet & Violet 151 Holo Gengar #94 CGC 10 GEM MINT',
-    price: 29.99,
-    fmv: 31.2,
-    points: 100,
-    grade: '10 GEM MINT',
-    grader: 'CGC',
-    set: 'Scarlet & Violet 151',
-    rarity: 'Mythical',
-    year: 2023,
-    image: cardImage(CARD_IMG.gengar),
-  },
-  {
-    handle: 'espathra',
-    title:
-      '2023 Pokemon Scarlet & Violet Paradox Rift Reverse Holo Espathra #081 CGC 8.5 NM-MT+',
-    price: 9.59,
-    fmv: 9.96,
-    points: 90,
-    grade: '8.5 NM-MT+',
-    grader: 'CGC',
-    set: 'Paradox Rift',
-    rarity: 'Common',
-    year: 2023,
-    image: cardImage(CARD_IMG.gengar),
-  },
-  {
-    handle: 'mimikyu',
-    title:
-      '2021 Pokemon Japanese SWSH VMAX Climax Mimikyu VMAX #77 CGC 8.5 NM-MT+',
-    price: 9.33,
-    fmv: 9.96,
-    points: 92,
-    grade: '8.5 NM-MT+',
-    grader: 'CGC',
-    set: 'VMAX Climax',
-    rarity: 'Common',
-    year: 2021,
-    image: cardImage(CARD_IMG.celebi),
-  },
-  {
-    handle: 'lycanroc',
-    title:
-      '2016 Pokemon Japanese Sun & Moon Rockruff Full Power Deck Holo Lycanroc GX #9 CGC 5.5',
-    price: 7.8,
-    fmv: 8.4,
-    points: 92,
-    grade: '5.5',
-    grader: 'CGC',
-    set: 'Sun & Moon',
-    rarity: 'Common',
-    year: 2016,
-    image: cardImage(CARD_IMG.rapidash),
-  },
-  {
-    handle: 'garchomp',
-    title:
-      "2025 Pokemon Japanese Mega Dream ex Holo Cynthia's Garchomp ex #90 CGC 8.5 NM-MT+",
-    price: 9.1,
-    fmv: 9.5,
-    points: 92,
-    grade: '8.5 NM-MT+',
-    grader: 'CGC',
-    set: 'Mega Dream ex',
-    rarity: 'Common',
-    year: 2025,
-    image: cardImage(CARD_IMG.mewtwo),
-  },
-  {
-    handle: 'ribombee',
-    title:
-      "2025 Pokemon Scarlet & Violet Journey Together Holo Lillie's Ribombee #67 CGC 9.5 MINT",
-    price: 11.2,
-    fmv: 10.8,
-    points: 97,
-    grade: '9.5 MINT',
-    grader: 'CGC',
-    set: 'Journey Together',
-    rarity: 'Uncommon',
-    year: 2025,
-    image: cardImage(CARD_IMG.jolteon),
-  },
-  {
-    handle: 'obstagoon',
-    title:
-      '2023 Pokemon Sword & Shield Fusion Strike K.O. Collection Galarian Obstagoon #161 CGC 9',
-    price: 12.0,
-    fmv: 11.5,
-    points: 100,
-    grade: '9',
-    grader: 'CGC',
-    set: 'Fusion Strike',
-    rarity: 'Uncommon',
-    year: 2023,
-    image: cardImage(CARD_IMG.hooh),
-  },
-  {
-    handle: 'darkrai-tot',
-    title:
-      '2024 Pokemon Scarlet & Violet Obsidian Flames Trick Or Trade Holo Darkrai #136 CGC 9.5',
-    price: 13.4,
-    fmv: 12.9,
-    points: 100,
-    grade: '9.5',
-    grader: 'CGC',
-    set: 'Obsidian Flames',
-    rarity: 'Uncommon',
-    year: 2024,
-    image: cardImage(CARD_IMG.darkrai),
-  },
-  {
-    handle: 'dustox',
-    title: '2025 Pokemon Japanese Mega Dream ex AR Dustox #195 CGC 9 MINT',
-    price: 10.2,
-    fmv: 9.25,
-    points: 100,
-    grade: '9 MINT',
-    grader: 'CGC',
-    set: 'Mega Dream ex',
-    rarity: 'Common',
-    year: 2025,
-    image: cardImage(CARD_IMG.celebi),
-  },
-];
-
-const CARD_HANDLES = CARD_PRODUCTS.map((c) => c.handle);
-// Handle = the storefront's /card/<slug> id and the seed's idempotency key, so a
-// duplicate would silently drop a card (the existing-handle guard dedupes it).
-// Fail fast at load instead of seeding a short catalog.
-if (new Set(CARD_HANDLES).size !== CARD_HANDLES.length) {
-  throw new Error('CARD_PRODUCTS contains duplicate handles');
-}
+// Medusa's default demo apparel — purged by the seed for a clean catalog.
 const DEMO_APPAREL_HANDLES = ['t-shirt', 'sweatshirt', 'sweatpants', 'shorts'];
 
 // ---------------------------------------------------------------------------
-// Gacha pack catalog (Phase 4) — mirrors the storefront's
-// src/app/claw/packs-data.ts so /claw and the home "Open Packs" tiles can read
-// real backend packs. `slug` matches the storefront pack id (= /claw/<slug>
-// route), `category` is a stable key the storefront maps to labels/icons, and
-// `rank` is the display order within a category. Prices are whole-ringgit MYR
-// decimals (Medusa stores prices as-is, never cents). Backend & storefront are
-// separate workspaces so the list is duplicated by design (as CARD_PRODUCTS is
-// vs. the storefront CARD_POOL); the storefront also keeps these as its
-// backend-down fallback.
+// Gacha pack catalog — the Polycards tier ladder (2026-07 cutover; the old
+// 8-pack seeded catalog + seeded cards/odds/demo pulls were removed for good —
+// see scripts/replace-catalog-polycards.ts for the live-DB wipe half). Packs
+// seed as DRAFTS with EMPTY prize pools: cards are operator-registered in
+// admin, assigned to packs, then the pack is activated (an active empty pack
+// would fail every spin). `slug` = the /slots/<slug> route id; asset paths
+// live in the storefront's public/images/polycards/. Prices are whole-ringgit
+// MYR decimals (Medusa stores prices as-is, never cents).
 // ---------------------------------------------------------------------------
 type PackSeed = {
   slug: string;
   title: string;
   price: number;
   image: string;
+  display_image: string;
   category: string;
   rank: number;
   boost: boolean;
   buyback_percent: number;
   in_stock: boolean;
+  status: 'draft';
 };
 
-const clawIcon = (base: string) => `/images/claw/${base}-icon.webp`;
-
-const PACK_SEED_GROUPS: {
-  category: string;
-  packs: {
-    slug: string;
-    title: string;
-    price: number;
-    image: string;
-    boost?: boolean;
-    buyback?: number;
-    inStock?: boolean;
-  }[];
-}[] = [
-  {
-    category: 'pokemon',
-    packs: [
-      {
-        slug: 'pokemon-mythic',
-        title: 'Mythic Pack',
-        price: 1000,
-        image: clawIcon('mythic-pack'),
-        boost: true,
-      },
-      {
-        slug: 'pokemon-legend',
-        title: 'Legend Pack',
-        price: 250,
-        image: clawIcon('legend-pack'),
-        boost: true,
-      },
-      {
-        slug: 'pokemon-elite',
-        title: 'Elite Pack',
-        price: 50,
-        image: clawIcon('elite-pack'),
-      },
-      {
-        slug: 'pokemon-platinum',
-        title: 'Platinum Pack',
-        price: 500,
-        image: clawIcon('platinum-pack'),
-        boost: true,
-      },
-      {
-        slug: 'pokemon-rookie',
-        title: 'Rookie Pack',
-        price: 25,
-        image: clawIcon('rookie-pack'),
-      },
-      {
-        slug: 'pokemon-black',
-        title: 'Black Pack',
-        price: 2500,
-        image: clawIcon('black-pack'),
-        boost: true,
-        buyback: 92,
-      },
-      {
-        slug: 'pokemon-diamond',
-        title: 'Diamond Pack',
-        price: 5000,
-        image: clawIcon('diamond-pack'),
-        boost: true,
-        buyback: 92,
-      },
-      {
-        slug: 'pokemon-trainer',
-        title: 'Trainer Pack',
-        price: 10,
-        image: clawIcon('trainer-pack'),
-        inStock: false,
-      },
-    ],
-  },
-];
-
-const PACK_SEED: PackSeed[] = PACK_SEED_GROUPS.flatMap((group) =>
-  group.packs.map((pack, index) => ({
-    slug: pack.slug,
-    title: pack.title,
-    price: pack.price,
-    image: pack.image,
-    category: group.category,
-    rank: index,
-    boost: pack.boost ?? false,
-    buyback_percent: pack.buyback ?? 90,
-    in_stock: pack.inStock ?? true,
-  })),
-);
+const PACK_SEED: PackSeed[] = [
+  { slug: 'bronze-pack', title: 'Bronze Pack', price: 50, rank: 0 },
+  { slug: 'silver-pack', title: 'Silver Pack', price: 250, rank: 1 },
+  { slug: 'gold-pack', title: 'Gold Pack', price: 1000, rank: 2 },
+  { slug: 'platinum-pack', title: 'Platinum Pack', price: 2500, rank: 3 },
+  { slug: 'diamond-pack', title: 'Diamond Pack', price: 5000, rank: 4 },
+].map((p) => ({
+  ...p,
+  category: 'pokemon',
+  image: `/images/polycards/${p.slug}.webp`,
+  // The wide per-tier "factory" hero scene shown only on the pack page stage.
+  display_image: `/images/polycards/${p.slug.replace('-pack', '')}-factory.webp`,
+  boost: false,
+  buyback_percent: 90,
+  in_stock: true,
+  status: 'draft' as const,
+}));
 
 const PACK_SLUGS = PACK_SEED.map((p) => p.slug);
 // slug is the storefront route id AND this seed's idempotency key, so a
@@ -914,52 +558,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
     }
   }
 
-  // Seed the 16 cards as house-seller products (guarded by handle). The
-  // createProductsWorkflow `productsCreated` hook reads `additional_data.seller_id`
-  // and creates the product->seller (+ inventory->seller) links automatically.
-  const existingCards = await productModule.listProducts({
-    handle: CARD_HANDLES,
-  });
-  const existingCardHandles = new Set(existingCards.map((p) => p.handle));
-  const cardsToCreate = CARD_PRODUCTS.filter(
-    (c) => !existingCardHandles.has(c.handle),
-  );
-
-  if (cardsToCreate.length === 0) {
-    logger.info('Card products already exist, skipping.');
-  } else {
-    await createProductsWorkflow(container).run({
-      input: {
-        products: cardsToCreate.map((card) =>
-          buildCardProductInput(
-            {
-              handle: card.handle,
-              title: card.title,
-              image: card.image,
-              price: card.price,
-              metadata: {
-                fmv: card.fmv,
-                points: card.points,
-                grade: card.grade,
-                grader: card.grader,
-                set: card.set,
-                year: card.year,
-              },
-            },
-            {
-              shippingProfileId: shippingProfile.id,
-              salesChannelId: defaultSalesChannel[0].id,
-              status: ProductStatus.PUBLISHED,
-              manageInventory: true,
-            },
-          ),
-        ),
-        additional_data: { seller_id: houseSeller.id },
-      },
-    });
-    logger.info(`Seeded ${cardsToCreate.length} card product(s).`);
-  }
-
   logger.info('Finished seeding marketplace catalog.');
 
   logger.info('Seeding inventory levels.');
@@ -1017,11 +615,12 @@ export default async function seedDemoData({ container }: ExecArgs) {
   if (packsToCreate.length === 0) {
     logger.info('Gacha packs already exist, skipping.');
   } else {
-    // No `status` field on seed packs is intentional: Pack.status defaults to
-    // "active" (the correct production state). The /store/packs[/:slug] routes
-    // filter status:"active", so a future draft pack would 404 → mock fallback.
+    // Seeded as DRAFT (empty prize pool — see PACK_SEED note): the operator
+    // registers cards, assigns them to the pack, then activates it in admin.
     await packsModuleService.createPacks(packsToCreate);
-    logger.info(`Seeded ${packsToCreate.length} gacha pack(s).`);
+    logger.info(
+      `Seeded ${packsToCreate.length} DRAFT gacha pack(s) — assign cards, then activate.`,
+    );
   }
   logger.info('Finished seeding gacha packs.');
 
@@ -1041,112 +640,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
     );
     logger.info(`Seeded ${vipLevelsToCreate.length} VIP levels.`);
   }
-
-  // Gacha cards + odds (Phase 5a) — the prize pool + weighted table behind the
-  // /claw/[slug] Top Hits and Pull Odds panels. Guarded by handle (cards) and
-  // pack_id (odds) so re-runs are no-ops. The pool is the same localized graded
-  // card art seeded as products in Phase 2; here it's the canonical gacha `Card`
-  // record (the card->product link for inventory/checkout lands in Phase 5b).
-  logger.info('Seeding gacha cards + odds...');
-
-  // CARD_HANDLES is declared at module scope (shared with the Phase 2 card
-  // products check above); reuse it rather than redeclaring.
-  const existingGachaCards = await packsModuleService.listCards(
-    { handle: CARD_HANDLES },
-    { select: ['handle'], take: CARD_HANDLES.length },
-  );
-  const existingGachaCardHandles = new Set(
-    existingGachaCards.map((c) => c.handle),
-  );
-  const gachaCardsToCreate = CARD_PRODUCTS.filter(
-    (c) => !existingGachaCardHandles.has(c.handle),
-  ).map((c) => ({
-    handle: c.handle,
-    name: c.title,
-    set: c.set,
-    grader: c.grader,
-    grade: c.grade,
-    // No rarity here — it is a per-pack property, seeded on the PackOdds rows.
-    market_value: c.fmv, // MYR decimal — stored as-is, never cents.
-    image: c.image,
-  }));
-
-  if (gachaCardsToCreate.length === 0) {
-    logger.info('Gacha cards already exist, skipping.');
-  } else {
-    await packsModuleService.createCards(gachaCardsToCreate);
-    logger.info(`Seeded ${gachaCardsToCreate.length} gacha card(s).`);
-    // createCards bypasses the create-card workflow step, so seeded graded
-    // cards have no baked slab composite (they'd render as bare photos).
-    // Bake them now, best-effort — card images are storefront-relative
-    // (/cdn/cards/...), so this only succeeds while the storefront
-    // (STOREFRONT_URL, default http://localhost:4000) is serving. A bake
-    // failure must never fail the seed.
-    try {
-      const { ok, failed } = await rebakeAllGradedCards(container);
-      logger.info(`Baked slab composites: ${ok} ok, ${failed} failed.`);
-      if (failed > 0) {
-        logger.warn(
-          'Some slab bakes failed (storefront probably not serving card images). ' +
-            'Once it is up, backfill with: corepack yarn medusa exec ./src/scripts/bake-slab-images.ts',
-        );
-      }
-    } catch (e) {
-      logger.warn(
-        `Slab bake skipped (${e instanceof Error ? e.message : String(e)}). ` +
-          'Backfill with: corepack yarn medusa exec ./src/scripts/bake-slab-images.ts',
-      );
-    }
-  }
-
-  // Relative pull weight per rarity — RARITY_WEIGHT is imported from
-  // @acme/odds-math (the same table the live odds engine uses), so seeded stock
-  // weights can't drift from the odds tiers. Pull chance = weight / Σ(weights in
-  // pack), so rarer tiers carry less weight. Each pack draws ONLY from cards of its
-  // own category; the catalog is Pokémon-only, so every pack draws the Pokémon
-  // pool. Within a category the rarity weights are identical, so the aggregated
-  // per-rarity odds match across that category's packs.
-
-  const existingOdds = await packsModuleService.listPackOdds(
-    { pack_id: PACK_SLUGS },
-    // +1 headroom over the full odds-table size: if a framework page cap ever
-    // truncated this read, a pack would look odds-less and get re-inserted,
-    // doubling its weights and skewing the aggregated pull %.
-    { select: ['pack_id'], take: PACK_SLUGS.length * CARD_HANDLES.length + 1 },
-  );
-  const packsWithOdds = new Set(existingOdds.map((o) => o.pack_id));
-  const oddsToCreate = PACK_SEED.filter(
-    (p) => !packsWithOdds.has(p.slug),
-  ).flatMap((pack) => {
-    // Per-category pool: a pack draws only cards whose category matches it
-    // (the original 16 Pokemon cards carry no category → default "pokemon").
-    const pool = CARD_PRODUCTS.filter(
-      (card) => (card.category ?? 'pokemon') === pack.category,
-    );
-    if (pool.length === 0) {
-      // An empty pool makes roll-pack throw (Σweight<=0) and disables the
-      // pack's open button — fail loud at seed time instead of silently.
-      throw new Error(
-        `No gacha cards for category "${pack.category}" (pack ${pack.slug}); every active pack needs at least one card.`,
-      );
-    }
-    return pool.map((card) => ({
-      pack_id: pack.slug,
-      card_id: card.handle,
-      // The card's tier IN THIS PACK (PackOdds.rarity). The seed gives a card
-      // the same tier in every pack it joins; the admin editor can diverge them.
-      rarity: card.rarity,
-      weight: RARITY_WEIGHT[card.rarity] ?? 100,
-    }));
-  });
-
-  if (oddsToCreate.length === 0) {
-    logger.info('Gacha pack odds already exist, skipping.');
-  } else {
-    await packsModuleService.createPackOdds(oddsToCreate);
-    logger.info(`Seeded ${oddsToCreate.length} pack-odds row(s).`);
-  }
-  logger.info('Finished seeding gacha cards + odds.');
 
   // Demo gacha activity (Phase 7) — a roster of demo collectors + a deterministic,
   // rarity-realistic spread of Pull rows so the PUBLIC leaderboard, the live
@@ -1207,66 +700,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
     });
   }
 
-  const demoIds = orderedDemo.map((c) => c.id);
-  const existingDemoPulls = demoIds.length
-    ? await packsModuleService.listPulls(
-        { customer_id: demoIds },
-        { select: ['id'], take: 1 },
-      )
-    : [];
-
-  if (existingDemoPulls.length > 0) {
-    logger.info('Demo gacha pulls already exist, skipping.');
-  } else if (orderedDemo.length > 0) {
-    // Rarity-realistic deterministic bag (commons frequent, legendaries rare),
-    // reusing the same RARITY_WEIGHT the odds table uses.
-    const BAG_SCALE = 25;
-    // Per-category rarity-weighted bags so a demo pull's card matches its pack's
-    // category (a pack can only yield cards of its own category — Phase 8).
-    const cardBagByCategory: Record<string, string[]> = {};
-    for (const c of CARD_PRODUCTS) {
-      const cat = c.category ?? 'pokemon';
-      const n = Math.max(
-        1,
-        Math.round((RARITY_WEIGHT[c.rarity] ?? 100) / BAG_SCALE),
-      );
-      (cardBagByCategory[cat] ??= []).push(...Array<string>(n).fill(c.handle));
-    }
-    const WEEK_MIN = 7 * 24 * 60;
-    const now = Date.now();
-    const pullsToCreate: {
-      customer_id: string;
-      pack_id: string;
-      card_id: string;
-      order_id: null;
-      rolled_at: Date;
-    }[] = [];
-    let counter = 0;
-    orderedDemo.forEach((cust, idx) => {
-      // Descending activity: rank 1 (idx 0) is the most active collector.
-      const count = Math.max(2, 22 - idx * 3);
-      for (let k = 0; k < count; k++) {
-        const pack = PACK_SEED[(idx * 5 + k) % PACK_SEED.length];
-        const bag = cardBagByCategory[pack.category] ?? [];
-        if (bag.length === 0) continue; // never, every category has cards
-        const card_id = bag[(counter * 7 + 3) % bag.length];
-        // Spread within the last ~6 days so the weekly window includes them.
-        const minutesAgo = ((counter * 53) % (WEEK_MIN - 1440)) + 30;
-        pullsToCreate.push({
-          customer_id: cust.id,
-          pack_id: pack.slug,
-          card_id,
-          order_id: null,
-          rolled_at: new Date(now - minutesAgo * 60 * 1000),
-        });
-        counter++;
-      }
-    });
-    await packsModuleService.createPulls(pullsToCreate);
-    logger.info(
-      `Seeded ${pullsToCreate.length} demo pull(s) across ${orderedDemo.length} collector(s).`,
-    );
-  }
   logger.info('Finished seeding demo gacha activity.');
 
   // ---------------------------------------------------------------------------

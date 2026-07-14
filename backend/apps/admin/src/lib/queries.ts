@@ -499,7 +499,7 @@ export const useUploadImage = () =>
   useMutation({
     mutationFn: (vars: {
       file: File;
-      kind: 'pack' | 'card' | 'sprite' | 'frame' | 'avatar-frame' | 'delivery';
+      kind: 'pack' | 'display' | 'card' | 'sprite' | 'frame' | 'avatar-frame' | 'delivery';
     }) => uploadImage(vars.file, vars.kind),
   });
 

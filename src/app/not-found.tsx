@@ -13,22 +13,22 @@ import { pillVariants } from '@/components/ui/pill';
 // "OPEN ONE OF THESE INSTEAD". Normal site chrome stays (live keeps it too).
 const pixel = Press_Start_2P({ weight: '400', subsets: ['latin'] });
 
-// Catalog is Pokémon-only — suggest three real Pokémon packs.
+// Suggest three real Polycards packs (2026-07 catalog).
 const SUGGESTIONS = [
   {
-    label: 'Pokemon Elite',
-    href: '/slots/pokemon-elite',
-    image: '/images/claw/elite-pack-icon.webp',
+    label: 'Bronze Pack',
+    href: '/slots/bronze-pack',
+    image: '/images/polycards/bronze-pack.webp',
   },
   {
-    label: 'Pokemon Legend',
-    href: '/slots/pokemon-legend',
-    image: '/images/claw/legend-pack-icon.webp',
+    label: 'Gold Pack',
+    href: '/slots/gold-pack',
+    image: '/images/polycards/gold-pack.webp',
   },
   {
-    label: 'Pokemon Platinum',
-    href: '/slots/pokemon-platinum',
-    image: '/images/claw/platinum-pack-icon.webp',
+    label: 'Diamond Pack',
+    href: '/slots/diamond-pack',
+    image: '/images/polycards/diamond-pack.webp',
   },
 ];
 

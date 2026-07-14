@@ -17,11 +17,11 @@ export const metadata: Metadata = {
 // happens on /vip (single claim surface) — this page just lists + links there.
 
 const HERO_SLABS = [
-  '/images/claw/legend-pack-icon.webp',
-  '/images/claw/mythic-pack-icon.webp',
-  '/images/claw/elite-pack-icon.webp',
-  '/images/claw/black-pack-icon.webp',
-  '/images/claw/diamond-pack-icon.webp',
+  '/images/polycards/silver-pack.webp',
+  '/images/polycards/gold-pack.webp',
+  '/images/polycards/bronze-pack.webp',
+  '/images/polycards/platinum-pack.webp',
+  '/images/polycards/diamond-pack.webp',
 ];
 
 export default async function VouchersPage() {

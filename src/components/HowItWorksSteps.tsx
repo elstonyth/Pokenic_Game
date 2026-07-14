@@ -38,7 +38,7 @@ const STEPS: Step[] = [
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/images/claw/platinum-pack-icon.webp"
+          src="/images/polycards/platinum-pack.webp"
           alt=""
           aria-hidden
           className="absolute z-[1] h-[62%] w-auto object-contain opacity-40 drop-shadow-[0_12px_32px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-out group-hover:-translate-x-[8%]"
@@ -46,13 +46,13 @@ const STEPS: Step[] = [
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/images/claw/elite-pack-icon.webp"
+          src="/images/polycards/bronze-pack.webp"
           alt="Trading card pack"
           className="relative z-[3] h-[78%] w-auto object-contain drop-shadow-[0_20px_60px_rgba(0,0,0,0.4)] transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/images/claw/rookie-pack-icon.webp"
+          src="/images/polycards/bronze-pack.webp"
           alt=""
           aria-hidden
           className="absolute z-[1] h-[62%] w-auto object-contain opacity-40 drop-shadow-[0_12px_32px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-out group-hover:translate-x-[8%]"

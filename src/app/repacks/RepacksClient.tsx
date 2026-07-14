@@ -40,7 +40,7 @@ type CommunityPack = {
   name: string;
   /** Maps to a /claw category id (drives chip filtering + the card badge icon). */
   categoryId: string;
-  /** Pack art under public/images/claw/ (verified to exist via the /claw catalog). */
+  /** Pack art under public/images/polycards/. */
   image: string;
   price: number;
   /** Index into MOCK_USERS for the "created by" attribution. */
@@ -56,7 +56,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'mini-5050',
     name: 'Mini 50/50 Pack',
     categoryId: 'pokemon',
-    image: '/images/claw/rookie-pack-icon.webp',
+    image: '/images/polycards/bronze-pack.webp',
     price: 50,
     creator: 0,
     boost: true,
@@ -65,7 +65,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: '5050',
     name: '50/50 Pack',
     categoryId: 'pokemon',
-    image: '/images/claw/elite-pack-icon.webp',
+    image: '/images/polycards/bronze-pack.webp',
     price: 100,
     creator: 5,
   },
@@ -73,7 +73,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'super-mini-fire',
     name: 'Super Mini Fire Pack',
     categoryId: 'pokemon',
-    image: '/images/claw/mythic-pack-icon.webp',
+    image: '/images/polycards/gold-pack.webp',
     price: 25,
     creator: 11,
     boost: true,
@@ -82,7 +82,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'phantom-pika',
     name: 'Phantom Pika Pack',
     categoryId: 'pokemon',
-    image: '/images/claw/legend-pack-icon.webp',
+    image: '/images/polycards/silver-pack.webp',
     price: 250,
     creator: 3,
     boost: true,
@@ -91,7 +91,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'daily-ripper',
     name: 'Daily Ripper',
     categoryId: 'pokemon',
-    image: '/images/claw/trainer-pack-icon.webp',
+    image: '/images/polycards/bronze-pack.webp',
     price: 15,
     creator: 7,
   },
@@ -99,7 +99,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'grail-hunter',
     name: 'Grail Hunter',
     categoryId: 'pokemon',
-    image: '/images/claw/black-pack-icon.webp',
+    image: '/images/polycards/platinum-pack.webp',
     price: 250,
     creator: 13,
     boost: true,
@@ -108,7 +108,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'quick-draw-mini',
     name: 'Quick Draw Mini',
     categoryId: 'pokemon',
-    image: '/images/claw/elite-pack-icon.webp',
+    image: '/images/polycards/bronze-pack.webp',
     price: 40,
     creator: 2,
   },
@@ -116,7 +116,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'black-ice-whale',
     name: 'Black Ice Whale',
     categoryId: 'pokemon',
-    image: '/images/claw/black-pack-icon.webp',
+    image: '/images/polycards/platinum-pack.webp',
     price: 1000,
     creator: 16,
     boost: true,
@@ -125,7 +125,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'diamond-rookie',
     name: 'Diamond Rookie',
     categoryId: 'pokemon',
-    image: '/images/claw/diamond-pack-icon.webp',
+    image: '/images/polycards/diamond-pack.webp',
     price: 20,
     creator: 9,
   },
@@ -133,7 +133,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'hidden-grail',
     name: 'Hidden Grail',
     categoryId: 'pokemon',
-    image: '/images/claw/platinum-pack-icon.webp',
+    image: '/images/polycards/platinum-pack.webp',
     price: 500,
     creator: 4,
     boost: true,
@@ -142,7 +142,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'pull-perfect',
     name: 'Pull Perfect',
     categoryId: 'pokemon',
-    image: '/images/claw/elite-pack-icon.webp',
+    image: '/images/polycards/bronze-pack.webp',
     price: 100,
     creator: 15,
   },
@@ -150,7 +150,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'daily-pull',
     name: 'Daily Pull',
     categoryId: 'pokemon',
-    image: '/images/claw/rookie-pack-icon.webp',
+    image: '/images/polycards/bronze-pack.webp',
     price: 10,
     creator: 8,
   },
@@ -158,7 +158,7 @@ const COMMUNITY_PACKS: CommunityPack[] = [
     id: 'rookie-starter',
     name: 'Rookie Starter',
     categoryId: 'pokemon',
-    image: '/images/claw/rookie-pack-icon.webp',
+    image: '/images/polycards/bronze-pack.webp',
     price: 25,
     creator: 17,
   },
@@ -166,11 +166,11 @@ const COMMUNITY_PACKS: CommunityPack[] = [
 
 // Blurred pack-art slabs behind the hero (atmosphere — verified to exist).
 const HERO_SLABS = [
-  '/images/claw/legend-pack-icon.webp',
-  '/images/claw/mythic-pack-icon.webp',
-  '/images/claw/black-pack-icon.webp',
-  '/images/claw/diamond-pack-icon.webp',
-  '/images/claw/platinum-pack-icon.webp',
+  '/images/polycards/silver-pack.webp',
+  '/images/polycards/gold-pack.webp',
+  '/images/polycards/platinum-pack.webp',
+  '/images/polycards/diamond-pack.webp',
+  '/images/polycards/platinum-pack.webp',
 ];
 
 // ---------------------------------------------------------------------------
@@ -318,7 +318,7 @@ export default function RepacksClient() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/claw/legend-pack-icon.webp"
+              src="/images/polycards/silver-pack.webp"
               alt=""
               aria-hidden="true"
               className="h-44 w-auto rotate-3 object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.65)] lg:h-56"

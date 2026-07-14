@@ -24,6 +24,10 @@ export const Pack = model.define("pack", {
   // model.number() mapped to integer and truncated any cents.
   price: model.bigNumber(),
   image: model.text(),
+  // Optional pack-page HERO art (the wide "factory" scene) — shown ONLY in the
+  // /slots/<slug> stage. Null = no hero: the stage falls back to `image` (the
+  // pack/product shot used everywhere else: tiles, catalog, selector).
+  display_image: model.text().nullable(),
   boost: model.boolean().default(false),
   // buyback_percent — the INSTANT sell-back rate (% of current FMV), applied
   // when the customer sells on the spot at the reveal (within the instant

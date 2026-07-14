@@ -27,6 +27,9 @@ export interface AdminPack {
   rank: number;
   price: number;
   image: string;
+  /** Pack-page hero scene (wide landscape) — /slots/<slug> stage only; null =
+   *  the stage falls back to `image`. Tiles/selector always use `image`. */
+  display_image: string | null;
   /** Instant ("sell on the spot") rate — flat rate (90) to 100, % of FMV.
    *  Later sells from the vault always pay the flat rate. */
   buyback_percent: number;
@@ -43,6 +46,8 @@ export interface AdminPackWrite {
   category: string;
   price: number;
   image: string;
+  /** Hero scene; null clears it (stage falls back to `image`). */
+  display_image: string | null;
   buyback_percent: number;
   boost: boolean;
   rank: number;

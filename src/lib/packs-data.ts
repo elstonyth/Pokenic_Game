@@ -15,13 +15,17 @@ export type Pack = {
   id: string;
   name: string;
   price: string;
-  /** Path under /public — verified to exist in public/images/claw/. */
+  /** Pack shot — /public path (public/images/polycards/) or an uploaded URL. */
   image: string;
+  /** Pack-page HERO scene (wide landscape "factory" render, may be animated).
+   *  Only the /slots/<slug> stage uses it; tiles/selector always use `image`.
+   *  Absent → the stage falls back to the pack image. */
+  displayImage?: string;
   /** Shows the green buyback-boost badge on the card. */
   boost?: boolean;
   /** INSTANT ("sell on the spot") buyback % — also the boost-badge number
-   *  (default 90 = the flat rate; premium Black/Diamond = 92). Later sells
-   *  from the vault always pay FLAT_BUYBACK_PERCENT. */
+   *  (default 90 = the flat rate). Later sells from the vault always pay
+   *  FLAT_BUYBACK_PERCENT. */
   buybackPercent?: number;
   /** false → render a greyed "Out of Stock" / "Sold out" tile. Default in-stock. */
   inStock?: boolean;
@@ -43,7 +47,10 @@ export const CAT_ICON = {
   pokemon: '/pack-index-icons/pokemon.webp',
 } as const;
 
-// Real categories, packs, prices, and artwork extracted from the live /claw DOM.
+// The Polycards tier ladder (2026-07 catalog cutover — the old claw-derived
+// 8-pack catalog was retired). These static entries are NEVER rendered as the
+// catalog (the backend is the source of truth); they only back `findPack`
+// label/icon fallbacks until that feed resolves labels from the backend too.
 export const CATEGORIES: PackCategory[] = [
   {
     id: 'pokemon',
@@ -52,60 +59,39 @@ export const CATEGORIES: PackCategory[] = [
     icon: CAT_ICON.pokemon,
     packs: [
       {
-        id: 'pokemon-black',
-        name: 'Black Pack',
-        price: 'RM 2,500',
-        image: '/images/claw/black-pack-icon.webp',
-        boost: true,
-        buybackPercent: 92,
+        id: 'bronze-pack',
+        name: 'Bronze Pack',
+        price: 'RM 50',
+        image: '/images/polycards/bronze-pack.webp',
+        displayImage: '/images/polycards/bronze-factory.webp',
       },
       {
-        id: 'pokemon-diamond',
+        id: 'silver-pack',
+        name: 'Silver Pack',
+        price: 'RM 250',
+        image: '/images/polycards/silver-pack.webp',
+        displayImage: '/images/polycards/silver-factory.webp',
+      },
+      {
+        id: 'gold-pack',
+        name: 'Gold Pack',
+        price: 'RM 1,000',
+        image: '/images/polycards/gold-pack.webp',
+        displayImage: '/images/polycards/gold-factory.webp',
+      },
+      {
+        id: 'platinum-pack',
+        name: 'Platinum Pack',
+        price: 'RM 2,500',
+        image: '/images/polycards/platinum-pack.webp',
+        displayImage: '/images/polycards/platinum-factory.webp',
+      },
+      {
+        id: 'diamond-pack',
         name: 'Diamond Pack',
         price: 'RM 5,000',
-        image: '/images/claw/diamond-pack-icon.webp',
-        boost: true,
-        buybackPercent: 92,
-      },
-      {
-        id: 'pokemon-mythic',
-        name: 'Mythic Pack',
-        price: 'RM 1,000',
-        image: '/images/claw/mythic-pack-icon.webp',
-        boost: true,
-      },
-      {
-        id: 'pokemon-legend',
-        name: 'Legend Pack',
-        price: 'RM 250',
-        image: '/images/claw/legend-pack-icon.webp',
-        boost: true,
-      },
-      {
-        id: 'pokemon-elite',
-        name: 'Elite Pack',
-        price: 'RM 50',
-        image: '/images/claw/elite-pack-icon.webp',
-      },
-      {
-        id: 'pokemon-platinum',
-        name: 'Platinum Pack',
-        price: 'RM 500',
-        image: '/images/claw/platinum-pack-icon.webp',
-        boost: true,
-      },
-      {
-        id: 'pokemon-rookie',
-        name: 'Rookie Pack',
-        price: 'RM 25',
-        image: '/images/claw/rookie-pack-icon.webp',
-      },
-      {
-        id: 'pokemon-trainer',
-        name: 'Trainer Pack',
-        price: 'RM 10',
-        image: '/images/claw/trainer-pack-icon.webp',
-        inStock: false,
+        image: '/images/polycards/diamond-pack.webp',
+        displayImage: '/images/polycards/diamond-factory.webp',
       },
     ],
   },
@@ -132,57 +118,6 @@ export function findPack(slug: string): ResolvedPack | null {
 
 export function findCategory(slug: string): PackCategory | null {
   return CATEGORIES.find((c) => c.packs.some((p) => p.id === slug)) ?? null;
-}
-
-// ---------------------------------------------------------------------------
-// Claw-machine hero render — the iridescent 3D machine shown on the detail page
-// (the live site's centerpiece). Derived from each pack's icon basename:
-//   {base}-icon.webp  ->  {base}-machine.avif / .webp   (in public/images/claw/)
-// 13 packs also ship a high-res .avif; the rest are webp-only.
-// ---------------------------------------------------------------------------
-// Machines that ship a REBRANDED ANIMATED avif ({base}-anim.avif) — the live claw render is an
-// animated AVIF (claw slides L-R inside the file); these are rebranded frame-by-frame. The rest
-// fall back to the static rebranded webp.
-const CLAW_HAS_ANIM = new Set([
-  'mythic-pack',
-  'legend-pack',
-  'elite-pack',
-  'platinum-pack',
-  'rookie-pack',
-  'trainer-pack',
-  // premium pokemon tiers: full banner+placard+url rebrand on the busy red-neon / crystal-refraction
-  // backgrounds (scripts/rebrand-premium-banner.mjs blur-patch + make_patch per-base BAND).
-  'black-pack',
-  'diamond-pack',
-]);
-
-// Packs that ship NO rebranded claw-machine render yet. Empty now that the premium tiers are baked;
-// kept as a guard so a future un-rebranded pack can fall back to its brand-consistent icon instead
-// of an un-rebranded machine.
-const CLAW_NO_MACHINE = new Set<string>([]);
-
-// Bump CLAW_REV whenever the machine pixels change (rebrand passes) so browsers fetch the new
-// image instead of a cached older one (filenames stay the same across edits).
-const CLAW_REV = '17';
-
-export function clawMachine(pack: Pack): { webp: string; anim?: string } {
-  // Machine renders are hand-rebranded static assets keyed to the baked pack
-  // icon basenames (/images/claw/{base}-icon.webp). A backend-created pack ships
-  // its own uploaded art (CDN URL or other path) and has no {base}-machine
-  // asset, so fall back to the pack image as the hero instead of a broken path.
-  const isBaked =
-    pack.image.startsWith('/images/claw/') && pack.image.endsWith('-icon.webp');
-  if (!isBaked) return { webp: pack.image };
-  const base = pack.image
-    .replace('/images/claw/', '')
-    .replace('-icon.webp', '');
-  if (CLAW_NO_MACHINE.has(base)) return { webp: pack.image };
-  return {
-    webp: `/images/claw/${base}-machine.webp?v=${CLAW_REV}`,
-    anim: CLAW_HAS_ANIM.has(base)
-      ? `/images/claw/${base}-anim.avif?v=${CLAW_REV}`
-      : undefined,
-  };
 }
 
 /** Numeric price, e.g. "RM 1,000" -> 1000. */

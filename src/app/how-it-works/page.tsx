@@ -239,7 +239,7 @@ export default function HowItWorksPage() {
               {/* left pack — behind, faded */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/claw/platinum-pack-icon.webp"
+                src="/images/polycards/platinum-pack.webp"
                 alt=""
                 aria-hidden="true"
                 className="absolute bottom-[8%] left-[32%] z-0 h-[72%] w-auto -translate-x-1/2 object-contain opacity-50 drop-shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
@@ -247,7 +247,7 @@ export default function HowItWorksPage() {
               {/* right pack — behind, faded */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/claw/diamond-pack-icon.webp"
+                src="/images/polycards/diamond-pack.webp"
                 alt=""
                 aria-hidden="true"
                 className="absolute bottom-[8%] left-[68%] z-0 h-[72%] w-auto -translate-x-1/2 object-contain opacity-50 drop-shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
@@ -255,7 +255,7 @@ export default function HowItWorksPage() {
               {/* center pack — front */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/claw/trainer-pack-icon.webp"
+                src="/images/polycards/bronze-pack.webp"
                 alt="PixelSlot trading card pack"
                 className="absolute bottom-0 left-1/2 z-[2] h-[92%] w-auto -translate-x-1/2 object-contain drop-shadow-[0_30px_80px_rgba(0,0,0,0.6)]"
               />
@@ -301,7 +301,7 @@ export default function HowItWorksPage() {
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
           <HeroVideo
             src="/videos/pack-opening-demo.mp4"
-            poster="/images/claw/elite-pack-icon.webp"
+            poster="/images/polycards/bronze-pack.webp"
             label="Pack opening demo"
             className="h-full w-full object-cover"
           />

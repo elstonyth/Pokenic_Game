@@ -25,7 +25,6 @@ import {
   type ResolvedPack,
   type PackCard,
   FLAT_BUYBACK_PERCENT,
-  clawMachine,
   priceNumber,
 } from '@/lib/packs-data';
 import { Pill } from '@/components/ui/pill';
@@ -83,12 +82,6 @@ export default function PackDetailClient({
   // so anyone's pull shows up here without a reload.
   const recent = useLiveRecentPulls(recentPulls);
 
-  const claw = clawMachine(active);
-  // Baked packs get a full-bleed claw-machine render (light studio bg is part
-  // of the art); backend-created packs fall back to their uploaded pack photo,
-  // which must NOT sit in the light stage (white-bg photo pillarboxed in a
-  // light box reads as a broken cutout on the dark shell).
-  const hasMachineRender = claw.webp !== active.image;
   const priceNum = priceNumber(active.price);
 
   // Top Hits come from the backend prize pool (highest market_value) — the
@@ -156,13 +149,14 @@ export default function PackDetailClient({
           card pool; on lg the configurator becomes the sticky right column. */}
       <div className="grid items-start gap-6 lg:grid-cols-[1.55fr_1fr]">
         {/* ---- Stage ---- */}
-        {hasMachineRender ? (
-          /* Baked claw-machine render — full-bleed scene, the light studio bg
-             is part of the art, so the light gradient stage blends with it.
-             ANIMATED AVIF (the claw slides left↔right INSIDE the file) in a
-             FIXED Image (unoptimized, to keep the animation); packs without an
-             animated source fall back to the static rebranded webp. */
-          <div className="relative flex aspect-[36/25] items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-200 to-zinc-400">
+        {active.displayImage ? (
+          /* Admin-uploaded hero scene (display_image) — a wide render that
+             carries its OWN background (e.g. the factory diorama), so it sits
+             on the dark shell full-bleed, object-cover (uploads are gated to
+             ~6:5–16:9 landscape; a 16:9 crops ~10% per side in this 36:25
+             box). unoptimized: the source may be an ANIMATED webp/gif and
+             next/image optimization would flatten it to one frame. */
+          <div className="relative aspect-[36/25] overflow-hidden rounded-2xl border border-white/10 bg-neutral-900">
             {active.boost && (
               <span className="absolute left-4 top-4 z-20 rounded-md bg-buyback px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
                 +{active.buybackPercent ?? FLAT_BUYBACK_PERCENT}% Buyback Boost
@@ -170,13 +164,14 @@ export default function PackDetailClient({
             )}
             <Image
               key={active.id}
-              src={claw.anim ?? claw.webp}
-              alt={`${active.name} claw machine`}
+              data-testid="pack-hero-image"
+              src={active.displayImage}
+              alt={active.name}
               fill
               priority
               unoptimized
               sizes="(max-width: 1024px) 100vw, 60vw"
-              className="z-10 object-contain"
+              className="z-10 object-cover"
             />
           </div>
         ) : (
@@ -192,7 +187,8 @@ export default function PackDetailClient({
             )}
             <Image
               key={active.id}
-              src={claw.webp}
+              data-testid="pack-hero-image"
+              src={active.image}
               alt={active.name}
               width={205}
               height={360}

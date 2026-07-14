@@ -22,7 +22,7 @@ async function errorMessage(res: Response): Promise<string> {
 // profile (pack ≈ square, card ≈ 5:7).
 export async function uploadImage(
   file: File,
-  kind: 'pack' | 'card' | 'sprite' | 'frame' | 'avatar-frame' | 'delivery',
+  kind: 'pack' | 'display' | 'card' | 'sprite' | 'frame' | 'avatar-frame' | 'delivery',
 ): Promise<string> {
   const body = new FormData();
   body.append('files', file);

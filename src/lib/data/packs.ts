@@ -40,6 +40,7 @@ interface BackendPack {
   category: string;
   price: number;
   image: string;
+  display_image?: string | null;
   boost: boolean;
   rank: number;
   buyback_percent?: number;
@@ -55,6 +56,7 @@ const toPack = (p: BackendPack): Pack => ({
   name: p.title,
   price: formatPrice(p.price),
   image: p.image,
+  displayImage: p.display_image || undefined,
   boost: p.boost || undefined,
   buybackPercent:
     typeof p.buyback_percent === 'number' ? p.buyback_percent : undefined,
@@ -316,7 +318,7 @@ export interface RecentPull {
 }
 
 // Fallback pack label when a pull's pack_id isn't in the static catalog.
-const FALLBACK_PACK_ICON = '/images/claw/rookie-pack-icon.webp';
+const FALLBACK_PACK_ICON = '/images/polycards/bronze-pack.webp';
 
 /**
  * The most recent pulls across all packs, for the /claw/[slug] "Recent Pulls"

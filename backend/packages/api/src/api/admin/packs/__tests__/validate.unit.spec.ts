@@ -71,3 +71,45 @@ describe('coercePackBody — published_odds', () => {
     ).toThrow(/published_odds.tiers/);
   });
 });
+
+describe('coercePackBody — display_image (optional hero)', () => {
+  it('omitted → undefined (keep stored value — deploy-skew safety)', () => {
+    expect(coercePackBody(base, 'test-pack').display_image).toBeUndefined();
+  });
+
+  it('null / empty → null (explicit clear)', () => {
+    expect(
+      coercePackBody({ ...base, display_image: null }, 'test-pack')
+        .display_image,
+    ).toBeNull();
+    expect(
+      coercePackBody({ ...base, display_image: '  ' }, 'test-pack')
+        .display_image,
+    ).toBeNull();
+  });
+
+  it('accepts http(s) URLs and /storefront paths, trimmed', () => {
+    expect(
+      coercePackBody(
+        { ...base, display_image: ' https://cdn.x/hero.webp ' },
+        'test-pack',
+      ).display_image,
+    ).toBe('https://cdn.x/hero.webp');
+    expect(
+      coercePackBody({ ...base, display_image: '/images/hero.webp' }, 'test-pack')
+        .display_image,
+    ).toBe('/images/hero.webp');
+  });
+
+  it('rejects non-strings, odd schemes, and protocol-relative URLs', () => {
+    expect(() =>
+      coercePackBody({ ...base, display_image: 42 }, 'test-pack'),
+    ).toThrow(/display_image/);
+    expect(() =>
+      coercePackBody({ ...base, display_image: 'data:image/png;x' }, 'test-pack'),
+    ).toThrow(/display_image/);
+    expect(() =>
+      coercePackBody({ ...base, display_image: '//evil.example/x.gif' }, 'test-pack'),
+    ).toThrow(/display_image/);
+  });
+});

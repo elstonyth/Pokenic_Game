@@ -9,12 +9,13 @@ export const metadata: Metadata = {
     'Join thousands of collectors pulling rare cards daily. Create your account and claim a free pack.',
 };
 
+// All five distinct Polycards tiers — also keeps key={src} unique in the fan.
 const PACKS = [
-  '/images/claw/mythic-pack-icon.webp',
-  '/images/claw/legend-pack-icon.webp',
-  '/images/claw/elite-pack-icon.webp',
-  '/images/claw/platinum-pack-icon.webp',
-  '/images/claw/rookie-pack-icon.webp',
+  '/images/polycards/silver-pack.webp',
+  '/images/polycards/platinum-pack.webp',
+  '/images/polycards/diamond-pack.webp',
+  '/images/polycards/gold-pack.webp',
+  '/images/polycards/bronze-pack.webp',
 ];
 
 const STEPS = [

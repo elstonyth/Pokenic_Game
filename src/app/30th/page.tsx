@@ -9,11 +9,11 @@ export const metadata: Metadata = {
 };
 
 const PRIZES = [
-  '/images/claw/mythic-pack-icon.webp',
+  '/images/polycards/gold-pack.webp',
   '/home/hero/slabs/pokemon1.webp',
-  '/images/claw/legend-pack-icon.webp',
+  '/images/polycards/silver-pack.webp',
   '/home/hero/slabs/pokemon3.webp',
-  '/images/claw/platinum-pack-icon.webp',
+  '/images/polycards/platinum-pack.webp',
 ];
 
 export default function ThirtiethPage() {

@@ -53,7 +53,7 @@ export default function StepInfoPill({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/images/claw/rookie-pack-icon.webp"
+          src="/images/polycards/bronze-pack.webp"
           alt=""
           aria-hidden
           className="h-7 w-7 shrink-0 object-contain"
@@ -138,7 +138,7 @@ export default function StepInfoPill({
                 <MiniStep label="Open a pack">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/images/claw/platinum-pack-icon.webp"
+                    src="/images/polycards/platinum-pack.webp"
                     alt=""
                     className="h-12 w-auto object-contain"
                   />

@@ -34,10 +34,19 @@ async function shoot(tag, viewport) {
   await page.waitForTimeout(600);
   const file = `docs/research/pack-tiers-${tag}.png`;
   await page.screenshot({ path: file, fullPage: true });
-  const ok = (resp?.status() ?? 0) < 400 && pageErrors.length === 0;
+  // Prove the requirement, not just page health: no rarity-tier word may
+  // appear inside the RIP A PACK shelf. Pack names ("Diamond Pack" etc.) and
+  // chase values never contain these words, so a hit means a badge leaked back.
+  const shelfText = await page
+    .locator('section[aria-labelledby="shelf-heading"]')
+    .innerText()
+    .catch(() => '');
+  const tierHit =
+    /\b(immortal|legendary|mythical|rare|uncommon|common)\b/i.test(shelfText);
+  const ok = (resp?.status() ?? 0) < 400 && pageErrors.length === 0 && !tierHit;
   if (!ok) failures++;
   console.log(
-    `${ok ? 'PASS' : 'FAIL'} [${tag}] / doc=${resp?.status()} pageErrors=${pageErrors.length} -> ${file}`,
+    `${ok ? 'PASS' : 'FAIL'} [${tag}] / doc=${resp?.status()} pageErrors=${pageErrors.length} tierBadge=${tierHit} -> ${file}`,
   );
   for (const pe of pageErrors) console.log('   ', pe.slice(0, 200));
   await ctx.close();

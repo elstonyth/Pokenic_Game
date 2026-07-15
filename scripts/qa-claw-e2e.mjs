@@ -21,9 +21,9 @@ const PK =
 const PACK = 'pokemon-rookie';
 const TOPUP = 100;
 const STAMP = Date.now();
-const EMAIL = `qa-e2e-${STAMP}@pokenic.local`;
+const EMAIL = `qa-e2e-${STAMP}@polycards.local`;
 const PASSWORD = 'QaE2e2026!';
-const ADMIN_EMAIL = 'qa-admin@pokenic.local';
+const ADMIN_EMAIL = 'qa-admin@polycards.local';
 const ADMIN_PASSWORD = 'QaAdmin2026!';
 // The statically published odds (packs-data.ts ODDS) — what the page must show
 // regardless of the admin-tuned secret weights.

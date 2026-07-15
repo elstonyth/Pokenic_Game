@@ -1,14 +1,14 @@
 // capture-shell-auth.mjs — logged-in shell QA: balance chip, top-up sheet, /me.
 // Usage: node scripts/capture-shell-auth.mjs [baseUrl] [outDir]
-// Uses the shared dev login (test@pokenic.app) against the local backend.
+// Uses the shared dev login (test@polycards.app) against the local backend.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:4000';
 const OUT = process.argv[3] ?? 'tmp/shell-qa';
-const EMAIL = process.env.PW_EMAIL ?? 'test@pokenic.app';
-const PASSWORD = process.env.PW_PASSWORD ?? 'PokenicTest123!';
+const EMAIL = process.env.PW_EMAIL ?? 'test@polycards.app';
+const PASSWORD = process.env.PW_PASSWORD ?? 'PolycardsTest123!';
 mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch();

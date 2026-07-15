@@ -153,7 +153,7 @@ if (/\.env\.(example|template)$/.test(s)) return false;
 
 Apply the same edit to **every copy of the hook that exists on this
 machine**: the tree you are working in, and the main tree at
-`C:\Users\PC\Desktop\Projects\PixelSlot\.claude\hooks\guard-secrets.js` if
+`C:\Users\PC\Desktop\Projects\Polycards\.claude\hooks\guard-secrets.js` if
 present (the file is untracked, so git will not propagate it between
 worktrees — editing only your worktree's copy leaves the operator's main
 sessions still blocked). List in your report which copies you touched.
@@ -266,7 +266,7 @@ persistent stack (local shared dev DB, staging) that used it. Do not print
 the value.
 
 **Verify**: `npx playwright test --list` → exit 0 (specs still compile).
-`grep -rn "pokenicadmin" tests/e2e/helpers/constants.ts` → no matches
+`grep -rn "polycardsadmin" tests/e2e/helpers/constants.ts` → no matches
 (pattern chosen to catch the literal's prefix without reproducing it here —
 if that grep already returns nothing before your edit, check `git log -p`
 drift and STOP if the fallback moved elsewhere).

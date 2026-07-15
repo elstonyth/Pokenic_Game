@@ -8,8 +8,8 @@ apply** — never edit the apps in the DO web UI (that silently drifts from git)
 | Backend (Medusa/Mercur) | `backend.app.yaml`    | `9011b06c-9908-4223-bf64-f96f66d702fa` | https://pokenic-backend-tltfm.ondigitalocean.app    |
 | Storefront (Next.js)    | `storefront.app.yaml` | `a3625ff4-64b3-41e8-8677-d08b65b9bbba` | https://pokenic-storefront-ijfiu.ondigitalocean.app |
 
-The apps are named `pixelslot-backend` / `pixelslot-storefront`, but their default
-hostnames stay `pokenic-*` — DO assigns those at creation and a rename does not
+The apps are named `polycards-backend` / `polycards-storefront`, but their default
+hostnames stay `polycards-*` — DO assigns those at creation and a rename does not
 change them. Both names above are correct; don't "fix" either to match the other.
 
 ## Secrets

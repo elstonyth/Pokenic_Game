@@ -88,7 +88,7 @@ try {
   await page.goto(deepLink, { waitUntil: 'domcontentloaded', timeout: 20000 });
   await page.waitForSelector('h1', { timeout: 10000 });
   const title = await page.title();
-  if (!/Pokenic/.test(title)) fail(`deep-link title suspicious: ${title}`);
+  if (!/Polycards/.test(title)) fail(`deep-link title suspicious: ${title}`);
   if ((await page.locator('[role=dialog][aria-modal="true"]').count()) > 0) {
     fail('deep link rendered the overlay instead of the page');
   }

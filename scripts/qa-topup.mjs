@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 
 const BASE = 'http://localhost:4000';
-const EMAIL = 'stocktest-1@pokenic.local';
+const EMAIL = 'stocktest-1@polycards.local';
 const PASSWORD = 'stocktest2026!';
 const TOPUP = 7.77; // odd amount so the balance delta is unambiguous
 const DECLINE = 5.13; // the demo gateway's always-decline pattern

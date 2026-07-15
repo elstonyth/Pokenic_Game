@@ -15,7 +15,7 @@ import type { HttpTypes } from '@medusajs/types';
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
 
-const AUTH_COOKIE = '_pokenic_jwt';
+const AUTH_COOKIE = '_polycards_jwt';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 /** Persist the customer JWT (call only from a server action or route handler). */

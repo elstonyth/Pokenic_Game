@@ -1,4 +1,4 @@
-# DigitalOcean App Platform spec — pixelslot-storefront (Next.js 16).
+# DigitalOcean App Platform spec — polycards-storefront (Next.js 16).
 #
 # COMMITTED IaC (single source of truth). No secrets here: the backend URL and
 # the publishable key are NEXT_PUBLIC_* (public by design) and are baked at
@@ -9,9 +9,9 @@
 #
 # Edit here first, then apply — do not edit the app in the DO UI (drift).
 # Must match the LIVE app name, or `doctl apps update --spec` renames the app.
-# The default *.ondigitalocean.app hostname below stays pokenic-* — DO assigns it
+# The default *.ondigitalocean.app hostname below stays pokenic-* (frozen at creation, unrelated to the app name) — DO assigns it
 # at creation and it survived the rename. Do not "fix" it to match this name.
-name: pixelslot-storefront
+name: polycards-storefront
 region: sgp
 
 # App Platform alerts → email on failed deploys / failed custom-domain certs.
@@ -23,7 +23,7 @@ services:
   - name: storefront
     dockerfile_path: Dockerfile
     github:
-      repo: elstonyth/PixelSlot
+      repo: elstonyth/Polycards
       branch: master
       deploy_on_push: true
     http_port: 3000
@@ -66,7 +66,7 @@ services:
       # Dockerfile ARG + backend MERCUR_STOREFRONT_URL together.
       - key: NEXT_PUBLIC_SITE_URL
         scope: RUN_AND_BUILD_TIME
-        value: https://pokenic-storefront-ijfiu.ondigitalocean.app
+        value: https://polycards.gg
       # Enforce the CSP. Without this, next.config.ts serves
       # Content-Security-Policy-Report-Only — report-only had a clean run
       # (qa:csp + Sentry), flip assessed safe. GO-LIVE checklist: must be true.

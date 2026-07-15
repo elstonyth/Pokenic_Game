@@ -67,7 +67,7 @@ export function CardDetailOverlay({
   useEffect(() => {
     if (!open) return;
     window.history.pushState(
-      { pokenicCardOverlay: true },
+      { polycardsCardOverlay: true },
       '',
       `/card/${encodeURIComponent(handleRef.current ?? '')}`,
     );
@@ -91,7 +91,7 @@ export function CardDetailOverlay({
   useEffect(() => {
     if (handle && pushedRef.current) {
       window.history.replaceState(
-        { pokenicCardOverlay: true },
+        { polycardsCardOverlay: true },
         '',
         `/card/${encodeURIComponent(handle)}`,
       );

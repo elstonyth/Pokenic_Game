@@ -1,6 +1,6 @@
-// Bake "Pokenic" into the 4 dramatic renders that carry a white "source-brand" banner.
+// Bake "Polycards" into the 4 dramatic renders that carry a white "source-brand" banner.
 // Sources are loaded as data-URLs (idempotent: always from a -src backup; no server
-// staleness, no canvas taint). Reconstruct banner per-row, draw white "Pokenic".
+// staleness, no canvas taint). Reconstruct banner per-row, draw white "Polycards".
 import { chromium } from 'playwright';
 import { writeFile, copyFile, readFile, access } from 'node:fs/promises';
 
@@ -110,13 +110,13 @@ const results = await page.evaluate(
       const maxW = (x1 - x0) * 0.94;
       const fit = () => {
         ctx.font = `700 ${fs}px Poppins, 'Segoe UI', sans-serif`;
-        return ctx.measureText('Pokenic').width;
+        return ctx.measureText('Polycards').width;
       };
       while (fit() > maxW && fs > 12) fs -= 1;
       ctx.fillStyle = 'rgb(241,243,249)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Pokenic', (x0 + x1) / 2, (y0 + y1) / 2);
+      ctx.fillText('Polycards', (x0 + x1) / 2, (y0 + y1) / 2);
       out[base] = { ok: true, fs, data: cv.toDataURL('image/webp', 0.95) };
     }
     return out;

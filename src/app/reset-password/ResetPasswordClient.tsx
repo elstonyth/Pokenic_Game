@@ -42,7 +42,7 @@ export default function ResetPasswordClient() {
   // global (SiteHeader), so it survives the route change.
   function goToLogin() {
     window.dispatchEvent(
-      new CustomEvent('pokenic:auth', { detail: { mode: 'login' } }),
+      new CustomEvent('polycards:auth', { detail: { mode: 'login' } }),
     );
     router.replace('/');
   }

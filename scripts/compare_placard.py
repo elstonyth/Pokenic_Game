@@ -1,4 +1,4 @@
-# Side-by-side ORIGINAL (source-brand) vs CURRENT (pokenic) placard at native pixels (NEAREST scale, no
+# Side-by-side ORIGINAL (source-brand) vs CURRENT (polycards) placard at native pixels (NEAREST scale, no
 # interpolation blur) so size/position/crispness can be judged truthfully. Usage:
 #   <venv>/python compare_placard.py mythic-pack 0.385 0.515 0.755 0.835
 # reads docs/research/packdetail/_orig/{base}.webp and public/images/claw/{base}-machine.webp
@@ -29,6 +29,6 @@ sheet.paste(a, (0, 20))
 sheet.paste(b, (a.width + gap, 20))
 d = ImageDraw.Draw(sheet)
 d.text((4, 4), f"ORIG (source-brand)  x{s}", fill=(120, 220, 120))
-d.text((a.width + gap + 4, 4), "NEW (pokenic)", fill=(255, 220, 80))
+d.text((a.width + gap + 4, 4), "NEW (polycards)", fill=(255, 220, 80))
 sheet.save(f"{OUT}/compare_{base}.png")
 print(f"compare_{base}.png  origsize {a.width}x{a.height} (x{s})")

@@ -10,8 +10,8 @@ export const PK =
   'pk_a23d4482ee6673a760097f3d013aab59679ceaebab54f987638cbeeb0132863c';
 
 // Seeded operator — created by create-admin.ts (deploy:migrate-user) from
-// ADMIN_EMAIL/ADMIN_PASSWORD. The old qa-admin@pokenic.local seed is dead.
-export const ADMIN_EMAIL = process.env.PW_ADMIN_EMAIL ?? 'admin@pokenic.local';
+// ADMIN_EMAIL/ADMIN_PASSWORD. The old qa-admin@polycards.local seed is dead.
+export const ADMIN_EMAIL = process.env.PW_ADMIN_EMAIL ?? 'admin@polycards.local';
 export const ADMIN_PASSWORD = process.env.PW_ADMIN_PASSWORD ?? '';
 
 // Unique-per-run id so reruns never collide on email/slug.

@@ -1,4 +1,4 @@
-// Composite "Pokenic" onto LaMa's cleaned banners, AUTO-MATCHING each machine's ORIGINAL
+// Composite "Polycards" onto LaMa's cleaned banners, AUTO-MATCHING each machine's ORIGINAL
 // source-brand wordmark so the rebrand keeps the same look/design/colour/position per machine:
 //   • COLOUR  — sampled from the original (lama-in) at the masked wordmark pixels (the core
 //               strokes, farthest from the banner background) → riftbound=gold, elite=red,
@@ -36,10 +36,10 @@ if (UNKNOWN.length) throw new Error(`Unknown base(s): ${UNKNOWN.join(', ')}`);
 const BASES = ONLY.length
   ? ALL_BASES.filter((b) => ONLY.includes(b))
   : ALL_BASES;
-// Match the source-brand wordmark style: LOWERCASE "pokenic" (originals are lowercase), in
+// Match the source-brand wordmark style: LOWERCASE "polycards" (originals are lowercase), in
 // Poppins 700 (the source-brand face), sized to the wordmark's LETTER HEIGHT (not stretched to
 // width), baseline-aligned, FLAT (no glow) — except machines whose original wordmark glows.
-const WORD = 'pokenic';
+const WORD = 'polycards';
 const FSF = 0.78; // font-size as a fraction of the measured wordmark bbox height (dilate-3 inflated)
 const BASEF = 0.74; // baseline as a fraction down the bbox (so caps rise, 'p' descends, like source-brand)
 // Per-base overrides: {color:[r,g,b], glow:bool, blur, fsf, basef, cxabs(0..1 absolute centre)}

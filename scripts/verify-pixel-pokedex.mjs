@@ -6,8 +6,8 @@ import { chromium } from 'playwright';
 const ADMIN = process.env.ADMIN_BASE || 'http://localhost:7000/dashboard';
 const API = 'http://localhost:9000';
 const CREDS = {
-  email: process.env.PW_ADMIN_EMAIL || 'admin@pokenic.local',
-  password: process.env.PW_ADMIN_PASSWORD || 'pokenicadmin2026',
+  email: process.env.PW_ADMIN_EMAIL || 'admin@polycards.local',
+  password: process.env.PW_ADMIN_PASSWORD || 'polycardsadmin2026',
 };
 const r = { checks: {} };
 const ok = (k, c, d) =>

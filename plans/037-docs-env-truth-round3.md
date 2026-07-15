@@ -31,8 +31,8 @@ The repo's agent-facing docs contain contradictions and stale brand/mechanic
 references that compound every session (all `/impeccable`, design, and
 onboarding agents read them):
 
-- **`DESIGN.md` is git-tracked and ships**, stamped `name: Pokenic` (the repo
-  rebranded to PixelSlot), while **`CLAUDE.md:96` tells every agent
+- **`DESIGN.md` is git-tracked and ships**, stamped `name: Polycards` (the repo
+  rebranded to Polycards), while **`CLAUDE.md:96` tells every agent
   "`DESIGN.md` … is not yet written"** — a two-way contradiction. Code already
   depends on DESIGN.md (`src/components/ui/pill.tsx:6` cites "DESIGN.md §5").
 - **`CLAUDE.md:49`** still claims UI primitives are "built on `@base-ui/react`"
@@ -52,8 +52,8 @@ plans 020/028 were closing, and these are the residual instances.
 ## Current state
 
 **`DESIGN.md`** (git-tracked — `git ls-files DESIGN.md` returns it): front-
-matter `name: Pokenic` (line 2); body has `# Design System: Pokenic` and
-"Pokenic's own dark neutral base". The visual system it documents (app shell,
+matter `name: Polycards` (line 2); body has `# Design System: Polycards` and
+"Polycards's own dark neutral base". The visual system it documents (app shell,
 pill, px-fluid) is real and shipped — only the _brand name_ is stale.
 
 **`CLAUDE.md`** (repo-root, gitignored per the audit but the primary agent
@@ -97,7 +97,7 @@ read-back of each edited file.
 
 **In scope**:
 
-- `DESIGN.md` — brand rename Pokenic → PixelSlot (front-matter `name`,
+- `DESIGN.md` — brand rename Polycards → Polycards (front-matter `name`,
   headings, prose). Do NOT change tokens/values/component specs.
 - `CLAUDE.md` — three edits: line ~17 (drop the `docs/HANDOFF.md` pointer,
   since its constraints are already inlined below it), line ~49 (`@base-ui/react`
@@ -130,11 +130,11 @@ read-back of each edited file.
 
 ### Step 1: Rebrand DESIGN.md
 
-Replace "Pokenic" with "PixelSlot" in the front-matter `name`, the
+Replace "Polycards" with "Polycards" in the front-matter `name`, the
 `# Design System:` heading, and prose brand references. Leave every color
 token, typography value, spacing value, and component spec byte-identical.
 
-**Verify**: `grep -in "pokenic" DESIGN.md` → 0 matches;
+**Verify**: `grep -in "polycards" DESIGN.md` → 0 matches;
 `git diff DESIGN.md` shows only brand-string lines changed.
 
 ### Step 2: Fix the three CLAUDE.md drifts
@@ -165,7 +165,7 @@ will block). No real values were added.
 
 ## Done criteria
 
-- [ ] `grep -in "pokenic" DESIGN.md` → 0
+- [ ] `grep -in "polycards" DESIGN.md` → 0
 - [ ] `grep -n "base-ui\|not yet written" CLAUDE.md` → 0
 - [ ] `.env.template` (read via Read tool) shows the new vars, the checklist
       `ALLOW_MOCK_TOPUP` note, and a single `PRICECHARTING_API_TOKEN`
@@ -185,7 +185,7 @@ will block). No real values were added.
 
 ## Maintenance notes
 
-- `PRODUCT.md` (untracked) still says "Pokenic (pokenic.com)" and references
+- `PRODUCT.md` (untracked) still says "Polycards (polycards.com)" and references
   the retired claw mechanic — flagged as a follow-up for the operator to fix
   locally (it's the strategic brief every design session reads).
 - `docs/HANDOFF.md` (untracked, mojibake, wrong-repo) is now de-referenced

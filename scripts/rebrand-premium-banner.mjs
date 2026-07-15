@@ -4,9 +4,9 @@
 // refraction) where the stroke-inpaint used elsewhere leaves a readable silhouette, so every brand
 // zone is BLUR-PATCHED (downscale→upscale kills legible text but keeps the local glow/gradient) and
 // the new text is drawn on top. Zones:
-//   banner   "source-brand" -> "Pokenic"      (blur + neon redraw; frozen by make_patch BAND)
-//   placard  "source-brand" -> "pokenic"      (line 1 only; "claw." + serial text left untouched)
-//   url      "source-brand url" -> "pokenic.com"
+//   banner   "source-brand" -> "Polycards"      (blur + neon redraw; frozen by make_patch BAND)
+//   placard  "source-brand" -> "polycards"      (line 1 only; "claw." + serial text left untouched)
+//   url      "source-brand url" -> "polycards.com"
 //   refl     diamond's mirrored url reflection -> blurred away (no redraw)
 // Writes <base>-machine.webp (the still) AND the bottom-mask docs/research/.../bottom-mask/<base>.png
 // (placard+url+refl boxes) that make_patch.py freezes onto every animation frame. Needs :4000 for the
@@ -28,7 +28,7 @@ const JOBS = [
         erase: [29, 70, 15.0, 21.8],
         mask: false,
         draw: {
-          text: 'Pokenic',
+          text: 'Polycards',
           align: 'center',
           x: 48.5,
           y: 18.6,
@@ -42,7 +42,7 @@ const JOBS = [
         erase: [39.4, 47.8, 75.6, 78.0],
         mask: true,
         draw: {
-          text: 'pokenic',
+          text: 'polycards',
           align: 'left',
           x: 39.9,
           baseline: 77.5,
@@ -55,7 +55,7 @@ const JOBS = [
         erase: [37.4, 51.8, 86.2, 89.4],
         mask: true,
         draw: {
-          text: 'pokenic.com',
+          text: 'polycards.com',
           align: 'center',
           x: 44.6,
           baseline: 88.6,
@@ -74,7 +74,7 @@ const JOBS = [
         erase: [29, 70, 14.5, 21.6],
         mask: false,
         draw: {
-          text: 'Pokenic',
+          text: 'Polycards',
           align: 'center',
           x: 48.3,
           y: 18.4,
@@ -88,7 +88,7 @@ const JOBS = [
         erase: [39.6, 47.8, 74.3, 76.9],
         mask: true,
         draw: {
-          text: 'pokenic',
+          text: 'polycards',
           align: 'left',
           x: 40.0,
           baseline: 76.4,
@@ -101,7 +101,7 @@ const JOBS = [
         erase: [37.4, 52.0, 85.4, 88.4],
         mask: true,
         draw: {
-          text: 'pokenic.com',
+          text: 'polycards.com',
           align: 'center',
           x: 44.7,
           baseline: 87.4,

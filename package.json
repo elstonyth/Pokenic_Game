@@ -1,21 +1,21 @@
 {
-  "name": "pixelslot-game",
+  "name": "polycards-game",
   "version": "0.3.1",
   "private": true,
-  "description": "PixelSlot — a web-based game built with Next.js, React, and Tailwind CSS.",
+  "description": "Polycards — a web-based game built with Next.js, React, and Tailwind CSS.",
   "author": "elstonyth",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/elstonyth/PixelSlot.git"
+    "url": "https://github.com/elstonyth/Polycards.git"
   },
-  "homepage": "https://github.com/elstonyth/PixelSlot#readme",
+  "homepage": "https://github.com/elstonyth/Polycards#readme",
   "bugs": {
-    "url": "https://github.com/elstonyth/PixelSlot/issues"
+    "url": "https://github.com/elstonyth/Polycards/issues"
   },
   "keywords": [
     "game",
-    "pixelslot",
+    "polycards",
     "nextjs",
     "react",
     "typescript",

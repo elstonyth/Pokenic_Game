@@ -14,7 +14,7 @@ const BASE = process.env.QA_BASE ?? 'http://localhost:4000';
 const BACKEND = process.env.QA_BACKEND ?? 'http://localhost:9000';
 const EMAIL = process.env.QA_EMAIL ?? null;
 const PASSWORD = process.env.QA_PASSWORD ?? null;
-const AUTH_COOKIE = '_pokenic_jwt';
+const AUTH_COOKIE = '_polycards_jwt';
 
 const TOKEN_PAGES = ['/wallet', '/vip', '/referrals', '/notifications'];
 const PUBLIC_PAGES = ['/invite/test'];

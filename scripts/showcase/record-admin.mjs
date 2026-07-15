@@ -10,7 +10,7 @@ import {
 } from './lib.mjs';
 
 const ADMIN = 'http://localhost:7000';
-const EMAIL = 'qa-admin@pokenic.local';
+const EMAIL = 'qa-admin@polycards.local';
 const PASSWORD = 'QaAdmin2026!';
 const SEARCH = 'stocktest';
 

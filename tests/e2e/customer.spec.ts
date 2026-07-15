@@ -15,7 +15,7 @@ const PACK = 'pokemon-rookie';
 test.describe('customer workflow', () => {
   const id = stamp();
   const username = `pw-cust-${id}`;
-  const email = `pw-cust-${id}@pokenic.local`;
+  const email = `pw-cust-${id}@polycards.local`;
   const password = 'PwCust2026!';
 
   test('signup → top up → open → keep → vault → sell-back', async ({
@@ -26,7 +26,7 @@ test.describe('customer workflow', () => {
     // persistent action bar and intercepts the "Sell 1" pill click below.
     await page.addInitScript(() => {
       try {
-        window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+        window.localStorage.setItem('polycards.cookie-consent', 'accepted');
       } catch {
         // Cross-origin iframes deny localStorage — only the top frame matters.
       }

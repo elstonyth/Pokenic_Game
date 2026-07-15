@@ -2,7 +2,7 @@
 'use client';
 
 // The prize as a REAL graded slab (spec decisions #6-7): back = plastic case
-// seen from behind with a rainbow-holo Pokenic monogram; front = the actual
+// seen from behind with a rainbow-holo Polycards monogram; front = the actual
 // slab photo (card.image). Flip = "The Whip": lift → fast rotateY with a glare
 // sweep → settle; top rarities get a pre-flip hover + shimmer after.
 // Entrance (spec #16): SHAPE-SYNCED MORPH — the card animates from the landed

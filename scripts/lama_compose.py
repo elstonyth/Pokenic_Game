@@ -1,4 +1,4 @@
-# Step 3 of the LaMa re-brand: composite a centred "Pokenic" onto each LaMa-cleaned
+# Step 3 of the LaMa re-brand: composite a centred "Polycards" onto each LaMa-cleaned
 # banner and write the final {base}-machine.webp. Also restore the tier-branded
 # one-piece machines to their unmodified originals (no source-brand to remove).
 import os
@@ -26,10 +26,10 @@ for base, cfg in JOBS.items():
     img = Image.open(src).convert("RGB")
     W, H = img.size
     draw = ImageDraw.Draw(img)
-    font = fit_font("Pokenic", cfg["twf"] * W)
-    draw.text((cfg["centre"][0] * W, cfg["centre"][1] * H), "Pokenic", font=font, fill=cfg["color"], anchor="mm")
+    font = fit_font("Polycards", cfg["twf"] * W)
+    draw.text((cfg["centre"][0] * W, cfg["centre"][1] * H), "Polycards", font=font, fill=cfg["color"], anchor="mm")
     img.save(f"{DIR}/{base}-machine.webp", quality=92, method=6)
-    print(f"{base}: composed Pokenic (font {font.size})")
+    print(f"{base}: composed Polycards (font {font.size})")
 
 for b in RESTORE:
     Image.open(f"{DIR}/{b}-machine.avif").convert("RGB").save(f"{DIR}/{b}-machine.webp", quality=92, method=6)

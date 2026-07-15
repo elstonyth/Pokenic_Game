@@ -1,4 +1,4 @@
-// Render the 11 rebranded machine banners larger to check "Pokenic" alignment
+// Render the 11 rebranded machine banners larger to check "Polycards" alignment
 // (horizontal centring on the banner + vertical position). Cyan line = image centre 50%.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';

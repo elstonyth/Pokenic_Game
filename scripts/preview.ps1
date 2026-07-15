@@ -1,4 +1,4 @@
-# preview.ps1 — start the full PixelSlot dev stack (storefront + backend + admin)
+# preview.ps1 — start the full Polycards dev stack (storefront + backend + admin)
 # Used by Claude when the user says "run preview" / "launch dev".
 # Dev mode (no build wait) = fastest. For prod visual verify:
 #   npm run build; pwsh scripts/serve-standalone.ps1 -Port 4000

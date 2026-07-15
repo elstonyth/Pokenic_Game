@@ -1,5 +1,5 @@
 // BODY-TEXT pass — replaces the baked "source-brand" placard ("source-brand / claw.") + "source-brand url" on
-// the machine BASE with "pokenic / claw." + "pokenic.com". For each it: detects the text via a robust
+// the machine BASE with "polycards / claw." + "polycards.com". For each it: detects the text via a robust
 // anchor (top-left of the dense ink block), stroke-level harmonic-erases the old ink (preserving card
 // texture), then BAKES the new text crisply (canvas Poppins, native res) at the detected position/size.
 // rebrand_anim.py freezes this static zone onto every animated frame, so each machine stays a single
@@ -301,7 +301,7 @@ const results = await page.evaluate(
         const ex0 = Math.max(0, anchorX - pad),
           ex1 = Math.min(W - 1, blockRight + pad);
         const ey0 = Math.max(0, anchorY - pad);
-        // The placard is TWO lines (pokenic + claw.). The contiguous block detection can stop after
+        // The placard is TWO lines (polycards + claw.). The contiguous block detection can stop after
         // line 1, leaving the original "claw." un-erased under the redrawn one (the doubled "claw."
         // bug). Extend the erase down past BOTH baselines (anchorY + ascender + line-step), but stop
         // before the rule line / Mew below. The url is one line, so keep its detected block.
@@ -317,7 +317,7 @@ const results = await page.evaluate(
           DIL = 2;
         if (!detected) {
           // white-on-white url (no detectable strokes to mask): erase the WHOLE band rect, else the
-          // original faint "source-brand url" survives under the redrawn "pokenic.com".
+          // original faint "source-brand url" survives under the redrawn "polycards.com".
           M.fill(1);
         } else {
           for (let gy = ey0; gy <= ey1; gy++)
@@ -370,9 +370,9 @@ const results = await page.evaluate(
         ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
         if (key === 'placard') {
-          ctx.fillText('pokenic', anchorX, base1);
+          ctx.fillText('polycards', anchorX, base1);
           ctx.fillText('claw.', anchorX, base1 + STEP * fs);
-        } else ctx.fillText('pokenic.com', anchorX, base1);
+        } else ctx.fillText('polycards.com', anchorX, base1);
         id = ctx.getImageData(0, 0, W, H); // re-sync so the next element + frozen frames include this text
 
         // Coords still emitted for reference (a DOM overlay could use them), but the text is baked above.

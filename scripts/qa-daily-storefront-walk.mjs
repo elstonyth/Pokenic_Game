@@ -1,6 +1,6 @@
 // Task 15 storefront walk against the :4000 production standalone build.
 // Logs in by minting a customer JWT at :9000 and setting the storefront's
-// httpOnly `_pokenic_jwt` cookie directly (the app reads it server-side).
+// httpOnly `_polycards_jwt` cookie directly (the app reads it server-side).
 // Screenshots land in docs/research/.
 //
 //   node scripts/qa-daily-storefront-walk.mjs
@@ -15,8 +15,8 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const FRONT = 'http://localhost:4000';
 const API = 'http://localhost:9000';
 const CUST = {
-  email: process.env.QA_CUSTOMER_EMAIL ?? 'test@pokenic.app',
-  password: process.env.QA_CUSTOMER_PASSWORD ?? 'PokenicTest123!',
+  email: process.env.QA_CUSTOMER_EMAIL ?? 'test@polycards.app',
+  password: process.env.QA_CUSTOMER_PASSWORD ?? 'PolycardsTest123!',
 };
 
 mkdirSync('docs/research', { recursive: true });
@@ -104,7 +104,7 @@ try {
   // --- login: set the httpOnly JWT cookie the server actions read ---
   await context.addCookies([
     {
-      name: '_pokenic_jwt',
+      name: '_polycards_jwt',
       value: cust.token,
       url: FRONT,
       httpOnly: true,

@@ -27,7 +27,7 @@ await loginBtn.waitFor({ state: 'visible', timeout: 60000 });
 await loginBtn.click();
 const email = page.locator('input[name="email"]');
 await email.waitFor({ state: 'visible', timeout: 20000 });
-await email.fill(kv.CUST_EMAIL || 'test@pokenic.app');
+await email.fill(kv.CUST_EMAIL || 'test@polycards.app');
 await page.fill('input[name="password"]', kv.CUST_PW);
 await page.keyboard.press('Enter');
 await loginBtn.waitFor({ state: 'detached', timeout: 20000 });

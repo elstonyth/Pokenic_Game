@@ -43,9 +43,9 @@ const psqlValue = (sql) =>
 const custEmail = psqlValue(
   `SELECT email FROM customer WHERE id = '${CUST_ID}';`,
 );
-if (!/^wdtest-.*@pokenic\.test$/.test(custEmail)) {
+if (!/^wdtest-.*@polycards\.test$/.test(custEmail)) {
   console.error(
-    `refusing: customer ${CUST_ID} (email '${custEmail}') is not a wdtest-*@pokenic.test account`,
+    `refusing: customer ${CUST_ID} (email '${custEmail}') is not a wdtest-*@polycards.test account`,
   );
   process.exit(1);
 }

@@ -15,8 +15,8 @@ const tokRes = await fetch(`${API}/auth/user/emailpass`, {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({
-    email: 'admin@pokenic.local',
-    password: 'pokenicadmin2026',
+    email: 'admin@polycards.local',
+    password: 'polycardsadmin2026',
   }),
 });
 const { token } = await tokRes.json();

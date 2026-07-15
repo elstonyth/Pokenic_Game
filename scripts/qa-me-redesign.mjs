@@ -8,8 +8,8 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const FRONT = process.env.PW_BASE ?? 'http://localhost:4100';
 const API = 'http://localhost:9000';
 const CUST = {
-  email: process.env.QA_CUSTOMER_EMAIL ?? 'test@pokenic.app',
-  password: process.env.QA_CUSTOMER_PASSWORD ?? 'PokenicTest123!',
+  email: process.env.QA_CUSTOMER_EMAIL ?? 'test@polycards.app',
+  password: process.env.QA_CUSTOMER_PASSWORD ?? 'PolycardsTest123!',
 };
 mkdirSync('docs/research', { recursive: true });
 
@@ -30,7 +30,7 @@ async function shoot(tag, viewport, routes) {
   const ctx = await browser.newContext({ viewport });
   await ctx.addCookies([
     {
-      name: '_pokenic_jwt',
+      name: '_polycards_jwt',
       value: cust.token,
       url: FRONT,
       httpOnly: true,

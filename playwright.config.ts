@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// E2E suite for the Pokenic gacha stack. Drives THREE live surfaces:
+// E2E suite for the Polycards gacha stack. Drives THREE live surfaces:
 //   storefront (prod standalone, :4000) · admin dashboard (vite, :7000) · backend (:9000)
 // Services are expected to already be running (see tests/e2e/README.md). There is
 // no webServer block on purpose — the storefront must be the production

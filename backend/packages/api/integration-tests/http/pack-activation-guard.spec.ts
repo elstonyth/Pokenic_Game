@@ -13,7 +13,7 @@ jest.setTimeout(240 * 1000);
 // authored packs. These specs pin the lifecycle: draft-first creation,
 // activation only with a valid pool, and no emptying an active pool.
 
-const ADMIN_EMAIL = 'pack-guard-admin@pokenic.test';
+const ADMIN_EMAIL = 'pack-guard-admin@polycards.test';
 const PASSWORD = 'supersecret-test-pw';
 const CARD_HANDLE = 'guard-test-card';
 const CARD_HANDLE_2 = 'guard-test-card-2';

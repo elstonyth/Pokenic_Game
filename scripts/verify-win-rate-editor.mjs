@@ -32,8 +32,8 @@ async function adminToken() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'admin@pokenic.local',
-      password: 'pokenicadmin2026',
+      email: 'admin@polycards.local',
+      password: 'polycardsadmin2026',
     }),
   });
   return (await res.json()).token;

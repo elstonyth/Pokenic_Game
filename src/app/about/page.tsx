@@ -346,7 +346,7 @@ export default function AboutPage() {
             For Collectors
           </Link>
           <a
-            href="mailto:hello@pokenic.com"
+            href="mailto:hello@polycards.com"
             className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-8 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-white/10"
           >
             For Brands
@@ -355,10 +355,10 @@ export default function AboutPage() {
         <p className="mt-5 text-[13px] text-white/50">
           Reach out to{' '}
           <a
-            href="mailto:hello@pokenic.com"
+            href="mailto:hello@polycards.com"
             className="text-white/70 underline-offset-2 hover:underline"
           >
-            hello@pokenic.com
+            hello@polycards.com
           </a>
         </p>
       </Reveal>

@@ -15,7 +15,7 @@ const ADMIN = {
 };
 const CUST = {
   url: 'http://localhost:3000', // next dev (prod standalone build currently broken)
-  email: process.env.CUSTOMER_EMAIL || 'test@pokenic.app',
+  email: process.env.CUSTOMER_EMAIL || 'test@polycards.app',
   pw: process.env.CUSTOMER_PASSWORD,
 };
 

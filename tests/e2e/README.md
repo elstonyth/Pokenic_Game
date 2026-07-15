@@ -1,4 +1,4 @@
-# Pokenic E2E (Playwright)
+# Polycards E2E (Playwright)
 
 End-to-end coverage of the **admin management** and **customer** workflows across
 all three live surfaces: storefront `:4000`, admin dashboard `:7000`, backend `:9000`.
@@ -48,7 +48,7 @@ npm run build
 pwsh scripts/serve-standalone.ps1 -Port 4000           # :4000
 ```
 
-Seeded admin: email `admin@pokenic.local`, created by `create-admin.ts` via
+Seeded admin: email `admin@polycards.local`, created by `create-admin.ts` via
 `deploy:migrate-user`. The admin **password is required** — export it as
 `PW_ADMIN_PASSWORD` to match your stack's seeded admin; the suite ships no
 fallback and fails fast without it (`helpers/constants.ts`). Set `PW_ADMIN_EMAIL`

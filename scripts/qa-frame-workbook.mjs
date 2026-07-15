@@ -23,7 +23,7 @@ const kv = (file) =>
 const logins = kv(path.join(process.cwd(), 'scripts', '.dev-logins'));
 const env = kv(path.join(process.cwd(), '.env.local'));
 const CUST = {
-  email: logins.CUST_EMAIL || 'test@pokenic.app',
+  email: logins.CUST_EMAIL || 'test@polycards.app',
   password: logins.CUST_PW,
 };
 const PK = env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY;

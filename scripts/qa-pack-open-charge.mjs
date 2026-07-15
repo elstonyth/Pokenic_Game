@@ -8,7 +8,7 @@ const BASE = 'http://localhost:4000';
 const BACKEND = 'http://localhost:9000';
 const PK =
   'pk_a23d4482ee6673a760097f3d013aab59679ceaebab54f987638cbeeb0132863c';
-const EMAIL = 'stocktest-1@pokenic.local';
+const EMAIL = 'stocktest-1@polycards.local';
 const PASSWORD = 'stocktest2026!';
 const PACK = 'pokemon-rookie'; // $25 — affordable inside the $100 top-up
 const TOPUP = 100;

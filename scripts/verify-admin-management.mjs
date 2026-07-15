@@ -8,7 +8,7 @@
 const BACKEND = 'http://localhost:9000';
 const PK =
   'pk_a23d4482ee6673a760097f3d013aab59679ceaebab54f987638cbeeb0132863c';
-const ADMIN_EMAIL = 'qa-admin@pokenic.local';
+const ADMIN_EMAIL = 'qa-admin@polycards.local';
 const ADMIN_PASSWORD = 'QaAdmin2026!';
 const STAMP = Date.now();
 const PACK_SLUG = `qa-mgmt-pack-${STAMP}`;

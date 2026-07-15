@@ -9,8 +9,8 @@ if (!PHOTO)
     'usage: node scripts/qa-storefront-appearance.mjs <photo.png>',
   );
 const BASE = process.env.BASE ?? 'http://localhost:4000';
-const EMAIL = process.env.PW_REWARD_EMAIL ?? 'test@pokenic.app';
-const PASSWORD = process.env.PW_REWARD_PASSWORD ?? 'PokenicTest123!';
+const EMAIL = process.env.PW_REWARD_EMAIL ?? 'test@polycards.app';
+const PASSWORD = process.env.PW_REWARD_PASSWORD ?? 'PolycardsTest123!';
 const OUT = 'docs-local-qa';
 
 const browser = await chromium.launch();

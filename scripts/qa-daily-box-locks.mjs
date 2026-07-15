@@ -107,7 +107,7 @@ const tally = new Map(); // amount_myr -> wins
 let leaked = false;
 try {
   for (let i = 0; i < N; i++) {
-    const email = `qa-boxlock-${stamp}-${i}@qa.pokenic.dev`;
+    const email = `qa-boxlock-${stamp}-${i}@qa.polycards.dev`;
     const reg = await call(`${BASE}/auth/customer/emailpass/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

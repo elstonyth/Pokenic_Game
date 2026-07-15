@@ -1,4 +1,4 @@
-# db-dump.ps1 — snapshot a Pokenic Postgres DB to backups/ (gitignored).
+# db-dump.ps1 — snapshot a Polycards Postgres DB to backups/ (gitignored).
 #
 # Local (default): dumps the pokenic-postgres Docker container's dev DB — the
 # only export path for the pokenic_pgdata volume (a `docker volume rm` loses

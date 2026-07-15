@@ -1,4 +1,4 @@
-// Visual harness to dial in the "Pokenic" overlay that covers the baked-in
+// Visual harness to dial in the "Polycards" overlay that covers the baked-in
 // "source-brand" wordmark. Renders 3 differently-colored machines with the overlay
 // at the given %; screenshot, tweak COORDS, repeat. Then port values to the component.
 import { chromium } from 'playwright';
@@ -22,7 +22,7 @@ const cell = (b) => `
     <div style="position:relative;display:inline-block;background:#777">
       <img src="../../../public/images/claw/${b}-machine.avif" style="display:block;width:${DISPLAY}px"/>
       <div style="position:absolute;left:${L}%;top:${T}%;width:${W}%;height:${H}%;background:${CREAM};border-radius:3px;display:flex;align-items:center;justify-content:center;overflow:hidden">
-        <span style="color:${PURPLE};font-family:'Arial Rounded MT Bold','Segoe UI',sans-serif;font-weight:800;font-size:${((FONT_PCT / 100) * DISPLAY).toFixed(1)}px;letter-spacing:-0.3px;line-height:1">Pokenic</span>
+        <span style="color:${PURPLE};font-family:'Arial Rounded MT Bold','Segoe UI',sans-serif;font-weight:800;font-size:${((FONT_PCT / 100) * DISPLAY).toFixed(1)}px;letter-spacing:-0.3px;line-height:1">Polycards</span>
       </div>
     </div>
   </div>`;

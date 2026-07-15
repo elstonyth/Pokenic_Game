@@ -1,4 +1,4 @@
-# DigitalOcean App Platform spec — pixelslot-backend (Mercur/Medusa).
+# DigitalOcean App Platform spec — polycards-backend (Mercur/Medusa).
 #
 # COMMITTED IaC (single source of truth). The 4 secret env values are redacted
 # (placeholder tokens); the real values live in gitignored deploy/.env.deploy
@@ -20,9 +20,9 @@
 #                         SKIPS (no throw), so re-running is safe and self-healing.
 #                         ADMIN_EMAIL/ADMIN_PASSWORD below feed it.
 # Must match the LIVE app name, or `doctl apps update --spec` renames the app.
-# The default *.ondigitalocean.app hostname below stays pokenic-* — DO assigns it
+# The default *.ondigitalocean.app hostname below stays pokenic-* (frozen at creation, unrelated to the app name) — DO assigns it
 # at creation and it survived the rename. Do not "fix" it to match this name.
-name: pixelslot-backend
+name: polycards-backend
 region: sgp
 
 # App Platform alerts → email on failed deploys / failed custom-domain certs.
@@ -49,7 +49,7 @@ envs:
   # reliably pass build-time env.
   - key: MERCUR_STOREFRONT_URL
     scope: RUN_AND_BUILD_TIME
-    value: https://pokenic-storefront-ijfiu.ondigitalocean.app
+    value: https://polycards.gg
   # Explicit PUBLIC endpoints (not the ${cluster.DATABASE_URL} binding): on an
   # attached production cluster the binding resolves to the PRIVATE host, which
   # the app (not in the DB's VPC) can't reach -> KnexTimeoutError. The public
@@ -81,20 +81,25 @@ envs:
     scope: RUN_TIME
     type: SECRET
     value: __SECRET__ADMIN_PASSWORD__
-  # CORS: admin/vendor/auth dashboards live on this app's own origin.
-  # STORE_CORS is the storefront origin.
+  # CORS. NOTE: ${APP_URL} is NOT a valid App Platform bindable — it was stored
+  # literally; the DO console flags it on edit. ADMIN_CORS/VENDOR_CORS are left
+  # as-is (admin/vendor dashboards are same-origin on this app, so browser CORS
+  # never triggers). AUTH_CORS + STORE_CORS use explicit origins: the backend's
+  # own URL (admin auth) and the polycards.gg storefront origins (customer auth +
+  # store calls). Old ondigitalocean storefront origin kept through the domain
+  # transition. Comma-separated, no trailing slashes.
   - key: ADMIN_CORS
     scope: RUN_TIME
     value: ${APP_URL}
   - key: AUTH_CORS
     scope: RUN_TIME
-    value: ${APP_URL}
+    value: https://pokenic-backend-tltfm.ondigitalocean.app,https://polycards.gg,https://www.polycards.gg
   - key: VENDOR_CORS
     scope: RUN_TIME
     value: ${APP_URL}
   - key: STORE_CORS
     scope: RUN_TIME
-    value: https://pokenic-storefront-ijfiu.ondigitalocean.app
+    value: https://pokenic-storefront-ijfiu.ondigitalocean.app,https://polycards.gg,https://www.polycards.gg
   # Object storage (DO Spaces, sgp1) — durable media. Without these the backend
   # falls back to the LOCAL file provider (medusa-config.ts s3Configured gate),
   # which writes to the container's EPHEMERAL disk and loses every upload on
@@ -138,7 +143,7 @@ services:
     dockerfile_path: backend/Dockerfile
     source_dir: backend
     github:
-      repo: elstonyth/PixelSlot
+      repo: elstonyth/Polycards
       branch: master
       deploy_on_push: true
     http_port: 9000
@@ -169,7 +174,7 @@ workers:
     dockerfile_path: backend/Dockerfile
     source_dir: backend
     github:
-      repo: elstonyth/PixelSlot
+      repo: elstonyth/Polycards
       branch: master
       deploy_on_push: true
     instance_size_slug: basic-xxs
@@ -186,7 +191,7 @@ jobs:
     dockerfile_path: backend/Dockerfile
     source_dir: backend
     github:
-      repo: elstonyth/PixelSlot
+      repo: elstonyth/Polycards
       branch: master
     instance_size_slug: basic-xxs
     run_command: corepack yarn deploy:migrate-user

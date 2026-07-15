@@ -1,5 +1,5 @@
 ---
-name: PixelSlot
+name: Polycards
 description: Dark-premium mobile-first app for ripping graded-card packs — the card is the only thing that glows.
 colors:
   ink-black: '#0a0a0a'
@@ -99,13 +99,13 @@ components:
     padding: '12px 14px'
 ---
 
-# Design System: PixelSlot
+# Design System: Polycards
 
 ## 1. Overview
 
 **Creative North Star: "The Midnight Rip"**
 
-A collector in bed at 11pm, phone the only light in the room, deciding whether to rip one more pack. Everything in this system serves that scene: near-black chrome that disappears, card art and tier color that glows out of it, money values that read instantly, and a thumb-reach bottom tab bar because this is an app you hold, not a website you visit. The structural language is borrowed from the best Malaysian graded-card storefronts (90scard's pill CTAs, trust rows, and medal-ranked standings; luka.game's pack-tier hub and daily-login calendar) but rendered on PixelSlot's own dark neutral base — never their light chrome, never their fire.
+A collector in bed at 11pm, phone the only light in the room, deciding whether to rip one more pack. Everything in this system serves that scene: near-black chrome that disappears, card art and tier color that glows out of it, money values that read instantly, and a thumb-reach bottom tab bar because this is an app you hold, not a website you visit. The structural language is borrowed from the best Malaysian graded-card storefronts (90scard's pill CTAs, trust rows, and medal-ranked standings; luka.game's pack-tier hub and daily-login calendar) but rendered on Polycards's own dark neutral base — never their light chrome, never their fire.
 
 The system explicitly rejects (from PRODUCT.md): cheap gacha/casino neon and coin-shower spam; corporate SaaS blue-gray sameness; web3/NFT purple-gradient clutter; generic Shopify-default e-commerce. Hype is earned through real stakes (rarity, RM value, live pulls) and reveal pacing — never manufactured with confetti or countdown pressure.
 

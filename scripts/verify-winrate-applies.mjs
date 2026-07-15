@@ -11,7 +11,7 @@ const STORE = 'http://localhost:4000';
 const PK =
   'pk_a23d4482ee6673a760097f3d013aab59679ceaebab54f987638cbeeb0132863c';
 const PACK = 'pokemon-rookie';
-const ADMIN_EMAIL = 'qa-admin@pokenic.local';
+const ADMIN_EMAIL = 'qa-admin@polycards.local';
 const ADMIN_PASSWORD = 'QaAdmin2026!';
 const OPENS = 5;
 
@@ -105,7 +105,7 @@ try {
   else fail('storefront odds display changed after the admin edit');
 
   // ── funded customer opens 5 packs ─────────────────────────────────────────
-  const email = `winrate-${Date.now()}@pokenic.local`;
+  const email = `winrate-${Date.now()}@polycards.local`;
   const password = 'Winrate2026!';
   const reg = await api('/auth/customer/emailpass/register', {
     method: 'POST',

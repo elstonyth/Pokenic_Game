@@ -59,7 +59,7 @@ export default function ContactPage() {
         </Reveal>
         <Reveal delay={160} className="relative mt-6">
           <a
-            href="mailto:hello@pokenic.com"
+            href="mailto:hello@polycards.com"
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/90 px-7 py-3 text-sm font-semibold text-neutral-950 shadow-lg transition-colors duration-300 hover:bg-white"
           >
             <MessageCircle className="h-4 w-4" aria-hidden />

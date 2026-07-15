@@ -59,7 +59,7 @@ ok(
 ok('leaderboard_not_mock', !lbHtml.includes('FightingProdigy3098'));
 ok(
   'leaderboard_no_email',
-  !/@pokenic\.local|@[\w.-]+\.(com|local)\b/i.test(
+  !/@polycards\.local|@[\w.-]+\.(com|local)\b/i.test(
     lbHtml.replace(/elstonyth@outlook\.com/g, ''),
   ),
 );

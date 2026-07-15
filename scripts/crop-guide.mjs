@@ -1,5 +1,5 @@
 // Render a machine banner crop with a RED vertical guide at a candidate centre fraction, to
-// eyeball whether that line is the plate's true visual centre and where "pokenic" sits vs it.
+// eyeball whether that line is the plate's true visual centre and where "polycards" sits vs it.
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 

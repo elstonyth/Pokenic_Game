@@ -2,7 +2,7 @@
 // pristine source-brand source the user supplied — the in-repo rebrand used the
 // wrong font (bold, capital P) and bloomed. This: erases the glowing
 // "source-brand" wordmark off the illuminated panel by smearing a clean panel
-// column across the glow region, then bakes "pokenic" matching the original
+// column across the glow region, then bakes "polycards" matching the original
 // neon style (Poppins 600 lowercase, cream core + red outer glow), centered on
 // the original wordmark's midpoint.
 //
@@ -106,7 +106,7 @@ for (const job of JOBS) {
         ctx.restore();
       }
 
-      // 2) bake "pokenic": fit font so the rendered width ≈ original wordmark
+      // 2) bake "polycards": fit font so the rendered width ≈ original wordmark
       //    width, baseline aligned to the original (descender-aware).
       const targetW = job.text.rx - job.text.lx;
       const cxMid = (job.text.lx + job.text.rx) / 2;
@@ -116,14 +116,14 @@ for (const job of JOBS) {
       let fs = 86;
       const fit = () => {
         ctx.font = `600 ${fs}px Poppins, sans-serif`;
-        return ctx.measureText('pokenic').width;
+        return ctx.measureText('polycards').width;
       };
       for (let i = 0; i < 12; i++) {
         const w = fit();
         if (Math.abs(w - targetW) < 4) break;
         fs = Math.max(20, Math.round(fs * (targetW / w)));
       }
-      const drawX = cxMid - ctx.measureText('pokenic').width / 2;
+      const drawX = cxMid - ctx.measureText('polycards').width / 2;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       // red neon glow: several blurred passes
@@ -131,13 +131,13 @@ for (const job of JOBS) {
       ctx.fillStyle = `rgb(${job.glow[0]}, ${job.glow[1]}, ${job.glow[2]})`;
       for (const blur of [22, 14, 8]) {
         ctx.shadowBlur = blur;
-        ctx.fillText('pokenic', drawX, baseY);
+        ctx.fillText('polycards', drawX, baseY);
       }
       // cream core on top, slight white glow
       ctx.shadowColor = 'rgba(255,210,190,0.9)';
       ctx.shadowBlur = 4;
       ctx.fillStyle = `rgb(${job.core[0]}, ${job.core[1]}, ${job.core[2]})`;
-      ctx.fillText('pokenic', drawX, baseY);
+      ctx.fillText('polycards', drawX, baseY);
       ctx.shadowBlur = 0;
 
       return {

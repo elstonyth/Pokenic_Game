@@ -58,7 +58,7 @@ export async function resolvePcImageUrl(
   try {
     const resp = await fetch(`${OFFERS_URL}?product=${id}`, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { 'user-agent': 'Mozilla/5.0 (compatible; Pokenic/1.0)' },
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; Polycards/1.0)' },
     });
     if (!resp.ok) return null;
     html = await resp.text();

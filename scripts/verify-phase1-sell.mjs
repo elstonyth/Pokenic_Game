@@ -7,8 +7,8 @@ import { chromium } from 'playwright';
 const BASE = 'http://localhost:4000';
 const BACKEND = 'http://localhost:9000';
 // Shared DEV login (seeded by seed.ts; not a secret). Override via env elsewhere.
-const EMAIL = process.env.PW_EMAIL || 'test@pokenic.app';
-const PASSWORD = process.env.PW_PASSWORD || 'PokenicTest123!';
+const EMAIL = process.env.PW_EMAIL || 'test@polycards.app';
+const PASSWORD = process.env.PW_PASSWORD || 'PolycardsTest123!';
 const PACK = 'pokemon-rookie';
 
 let failed = false;

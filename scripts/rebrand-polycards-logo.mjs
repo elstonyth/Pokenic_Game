@@ -1,16 +1,16 @@
-// Renders the PixelSlot header wordmark in the SAME treatment as the original
+// Renders the Polycards header wordmark in the SAME treatment as the original
 // POKÉNIC logo (yellow fill + thick blue outline + drop shadow + slight tilt),
 // via Playwright so Google Fonts load. Reuses the render pattern from the other
 // rebrand-*.mjs scripts (font @import + screenshot).
 //
 // Modes:
-//   node scripts/rebrand-pixelslot-logo.mjs candidates   -> dark-bg comparison sheet of font options (for picking)
-//   node scripts/rebrand-pixelslot-logo.mjs final <font>  -> transparent PixelSlot logo PNG (default font: "Luckiest Guy")
-//   node scripts/rebrand-pixelslot-logo.mjs icon <font>   -> circular badge base + resized favicon/app/seo icons
-//   node scripts/rebrand-pixelslot-logo.mjs og <font>     -> 1200x630 OG/Twitter share banner
+//   node scripts/rebrand-polycards-logo.mjs candidates   -> dark-bg comparison sheet of font options (for picking)
+//   node scripts/rebrand-polycards-logo.mjs final <font>  -> transparent Polycards logo PNG (default font: "Luckiest Guy")
+//   node scripts/rebrand-polycards-logo.mjs icon <font>   -> circular badge base + resized favicon/app/seo icons
+//   node scripts/rebrand-polycards-logo.mjs og <font>     -> 1200x630 OG/Twitter share banner
 //
-// Output: docs/research/pixelslot-logo-candidates.png | public/branding/pixelslot-logo.png
-//         public/branding/pixelslot-icon.png + public/seo/icon-{192,512}.png + src/app/{icon,apple-icon}.png
+// Output: docs/research/polycards-logo-candidates.png | public/branding/polycards-logo.png
+//         public/branding/polycards-icon.png + public/seo/icon-{192,512}.png + src/app/{icon,apple-icon}.png
 //         public/seo/og.png
 import { chromium } from 'playwright';
 import sharp from 'sharp';
@@ -66,7 +66,7 @@ try {
       (f) => `
       <div class="row">
         <div class="label">${f}</div>
-        <div class="word" style="${wordCss(f, 96)}">PixelSlot</div>
+        <div class="word" style="${wordCss(f, 96)}">Polycards</div>
       </div>`,
     ).join('');
     await page.setContent(`<!doctype html><html><head><style>
@@ -80,7 +80,7 @@ try {
   </style></head><body>${rows}</body></html>`);
     // give the webfonts a beat to load
     await page.evaluate(() => document.fonts.ready);
-    const out = resolve(ROOT, 'docs/research/pixelslot-logo-candidates.png');
+    const out = resolve(ROOT, 'docs/research/polycards-logo-candidates.png');
     const el = await page.$('body');
     await el.screenshot({ path: out });
     console.log('wrote', out);
@@ -101,12 +101,12 @@ try {
       font-size:${Math.round(S * 0.048)}px; letter-spacing:.05em; margin-top:${Math.round(S * 0.015)}px; }
   </style></head><body>
     <div id="badge"><div class="inner">
-      <div class="word">PixelSlot</div>
-      <div class="tag">PIXELSLOT.OFFICIAL</div>
+      <div class="word">Polycards</div>
+      <div class="tag">POLYCARDS.OFFICIAL</div>
     </div></div>
   </body></html>`);
     await page.evaluate(() => document.fonts.ready);
-    const base = resolve(ROOT, 'public/branding/pixelslot-icon.png');
+    const base = resolve(ROOT, 'public/branding/polycards-icon.png');
     await (
       await page.$('#badge')
     ).screenshot({ path: base, omitBackground: true });
@@ -138,7 +138,7 @@ try {
       font-size:33px; letter-spacing:.02em; }
   </style></head><body>
     <div class="glow"></div>
-    <div class="word">PixelSlot</div>
+    <div class="word">Polycards</div>
     <div class="tag">Rip packs · Pull graded cards · Sell back up to 90%</div>
   </body></html>`);
     await page.evaluate(() => document.fonts.ready);
@@ -156,9 +156,9 @@ try {
     html,body { background:transparent; }
     #stage { display:inline-block; padding:${Math.round(size * 0.5)}px ${Math.round(size * 0.55)}px; }
     .word { ${wordCss(chosenFont, size)} }
-  </style></head><body><div id="stage"><span class="word">PixelSlot</span></div></body></html>`);
+  </style></head><body><div id="stage"><span class="word">Polycards</span></div></body></html>`);
     await page.evaluate(() => document.fonts.ready);
-    const out = resolve(ROOT, 'public/branding/pixelslot-logo.png');
+    const out = resolve(ROOT, 'public/branding/polycards-logo.png');
     const el = await page.$('#stage');
     await el.screenshot({ path: out, omitBackground: true });
     console.log('wrote', out, 'font:', chosenFont);

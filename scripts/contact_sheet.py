@@ -1,6 +1,6 @@
 # Contact sheet: crop the SAME region from many machine stills and stack them labeled, so all
 # placards/urls can be checked in a single Read (framing-drift check before rebrand; "does it say
-# pokenic" check after). Usage:
+# polycards" check after). Usage:
 #   <venv>/python contact_sheet.py out=pk_placards 0.36 0.52 0.745 0.835  mythic-pack legend-pack elite-pack ...
 # args: out=NAME x0 x1 y0 y1  base1 base2 ...   -> docs/research/packdetail/cs_{NAME}.png
 import sys

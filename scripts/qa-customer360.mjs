@@ -15,19 +15,19 @@
 //     P4.2 backend correctness: Task 8/9 integration tests.
 //
 // Usage:
-//   QA_EMAIL=admin@pokenic.local QA_PASSWORD=... C360_CUSTOMER_ID=cus_123 \
+//   QA_EMAIL=admin@polycards.local QA_PASSWORD=... C360_CUSTOMER_ID=cus_123 \
 //     node scripts/qa-customer360.mjs
 //
 // Env vars (all optional — defaults shown):
 //   ADMIN_BASE         http://localhost:7000/dashboard
-//   QA_EMAIL           admin@pokenic.local
+//   QA_EMAIL           admin@polycards.local
 //   QA_PASSWORD        (no default — script exits with a clear error if absent)
 //   C360_CUSTOMER_ID   (no default — script exits with a clear error if absent)
 
 import { chromium } from 'playwright';
 
 const ADMIN = process.env.ADMIN_BASE || 'http://localhost:7000/dashboard';
-const EMAIL = process.env.QA_EMAIL || 'admin@pokenic.local';
+const EMAIL = process.env.QA_EMAIL || 'admin@polycards.local';
 const PASSWORD = process.env.QA_PASSWORD;
 const CUSTOMER_ID = process.env.C360_CUSTOMER_ID;
 

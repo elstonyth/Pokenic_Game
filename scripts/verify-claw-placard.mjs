@@ -1,5 +1,5 @@
 // Capture the LIVE pack-detail claw machines (prod server :4000) FULL-HEIGHT, so the lower placard
-// ("pokenic claw.") + url are visible — this is the zone the user flagged. Screenshots the actual
+// ("polycards claw.") + url are visible — this is the zone the user flagged. Screenshots the actual
 // rendered <img> (the animated AVIF when present). Reads back with the Read tool.
 import { chromium } from 'playwright';
 

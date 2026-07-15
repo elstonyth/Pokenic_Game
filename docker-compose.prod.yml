@@ -12,7 +12,7 @@
 # Ports: backend -> host 9000, storefront -> host 4010 (3000/4000 taken locally).
 # pg/redis stay internal (no host port) to avoid clashing with the existing
 # pokenic-postgres / pokenic-redis dev containers.
-name: pokenic-prod-parity
+name: polycards-prod-parity
 
 # Shared backend env — mirrors .do/backend.app.yaml (LOCAL test values; the
 # JWT/COOKIE secrets are throwaway and deliberately not "supersecret", which
@@ -55,7 +55,7 @@ services:
   # The backend image is built ONCE here and reused by migrate + worker (image:
   # only) — the same build-once / reuse pattern T2 applies on DO via DOCR.
   backend:
-    image: pokenic-backend-parity:latest
+    image: polycards-backend-parity:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -84,7 +84,7 @@ services:
   # PRE_DEPLOY equivalent: migrate + seed + print the publishable key (idempotent).
   # Prod runs plain `db:migrate`; locally we seed too so the stack has products.
   migrate:
-    image: pokenic-backend-parity:latest
+    image: polycards-backend-parity:latest
     command: ['corepack', 'yarn', 'deploy:init']
     environment:
       <<: *backend-env
@@ -97,7 +97,7 @@ services:
     restart: 'no'
 
   worker:
-    image: pokenic-backend-parity:latest
+    image: polycards-backend-parity:latest
     command: ['corepack', 'yarn', 'start']
     environment:
       <<: *backend-env

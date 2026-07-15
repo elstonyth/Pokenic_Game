@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 
 const BASE = 'http://localhost:4000';
-const EMAIL = 'pull-test-8654@pokenic.local';
+const EMAIL = 'pull-test-8654@polycards.local';
 const PW = 'pulltest2026';
 
 const browser = await chromium.launch();

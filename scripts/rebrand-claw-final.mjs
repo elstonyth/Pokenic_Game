@@ -1,7 +1,7 @@
 // DEFINITIVE claw re-brand. Removes "source-brand" by STROKE-LEVEL inpaint (recolours
 // ONLY the wordmark's own pixels + glow to the nearest banner pixel on each side) —
 // so the white sign / dark banner is left untouched: no band-fill, no edge streaks,
-// no box. Then draws a centred "Pokenic". Bands/centres come from detect-lines.mjs.
+// no box. Then draws a centred "Polycards". Bands/centres come from detect-lines.mjs.
 // Sources loaded as data-URLs (clean originals; idempotent; no taint).
 import { chromium } from 'playwright';
 import { writeFile, readFile } from 'node:fs/promises';
@@ -23,7 +23,7 @@ const PRODUCT_BASES = [
 ];
 // kind: purple (dark text on white sign) | white (bright text on dark banner)
 // band = search rectangle (generous, only text/glow pixels get changed)
-// cx/cy = where to centre "Pokenic" (the wordmark centre), %.
+// cx/cy = where to centre "Polycards" (the wordmark centre), %.
 const PRODUCT_CFG = {
   src: 'avif',
   kind: 'purple',
@@ -171,13 +171,13 @@ const results = await page.evaluate(
       const maxW = (x1 - x0) * 0.62;
       const fit = () => {
         ctx.font = `700 ${fs}px Poppins, 'Segoe UI', sans-serif`;
-        return ctx.measureText('Pokenic').width;
+        return ctx.measureText('Polycards').width;
       };
       while (fit() > maxW && fs > 12) fs -= 1;
       ctx.fillStyle = j.color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Pokenic', (j.cx / 100) * W, (j.cy / 100) * H);
+      ctx.fillText('Polycards', (j.cx / 100) * W, (j.cy / 100) * H);
       out[j.base] = { ok: true, fs, data: cv.toDataURL('image/webp', 0.95) };
     }
     return out;

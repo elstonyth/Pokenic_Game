@@ -35,7 +35,7 @@ const spamUntil429 = async (cap, fn) => {
 };
 
 // ── setup: one throwaway customer (2 auth hits) ─────────────────────────────
-const email = `ratelimit-${Date.now()}@pokenic.local`;
+const email = `ratelimit-${Date.now()}@polycards.local`;
 const password = 'Ratelimit2026!';
 const reg = await (
   await hit('/auth/customer/emailpass/register', {

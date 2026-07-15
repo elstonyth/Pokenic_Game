@@ -1,5 +1,5 @@
 // Verify the DOM text overlay on the claw machine: per slug, screenshot the whole machine AND a
-// zoomed crop of the placard zone, so we can confirm "pokenic claw."/"pokenic.com" is crisp, correctly
+// zoomed crop of the placard zone, so we can confirm "polycards claw."/"polycards.com" is crisp, correctly
 // sized, correctly positioned, and NOT overlapping the Mew / "?" / other baked art. Headless is fine
 // (DOM text renders; the placard zone of the AVIF is static). Prod server must be on :4000.
 //   node scripts/verify-overlay.mjs

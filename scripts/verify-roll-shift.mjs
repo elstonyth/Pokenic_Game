@@ -33,8 +33,8 @@ const adminTok = (
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'admin@pokenic.local',
-        password: 'pokenicadmin2026',
+        email: 'admin@polycards.local',
+        password: 'polycardsadmin2026',
       }),
     })
   ).json()
@@ -63,7 +63,7 @@ await fetch(`${API}/admin/packs/${SLUG}/odds`, {
 
 // --- customer: register + login a throwaway buyer ---
 const SH = { 'Content-Type': 'application/json', 'x-publishable-api-key': PK };
-const email = `roll-sim-${Date.now()}@pokenic.local`;
+const email = `roll-sim-${Date.now()}@polycards.local`;
 const password = 'rollsim2026';
 const regTok = (
   await (

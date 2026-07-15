@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 
 // Admin vite serves under base '/dashboard/' (see apps/admin/vite.config.ts).
 const ADMIN = process.env.ADMIN_BASE || 'http://localhost:7000/dashboard';
-const EMAIL = 'qa-admin@pokenic.local';
+const EMAIL = 'qa-admin@polycards.local';
 const PASSWORD = 'QaAdmin2026!';
 const PACK = 'pokemon-rookie';
 
@@ -87,11 +87,11 @@ try {
   // ── Pulls ledger ──────────────────────────────────────────────────────────
   await page.goto(`${ADMIN}/pulls`, { waitUntil: 'domcontentloaded' });
   await page
-    .getByText(/qa-e2e-\d+@pokenic\.local/)
+    .getByText(/qa-e2e-\d+@polycards\.local/)
     .first()
     .waitFor({ timeout: 15000 })
     .catch(() => {});
-  const e2ePull = await page.getByText(/qa-e2e-\d+@pokenic\.local/).count();
+  const e2ePull = await page.getByText(/qa-e2e-\d+@polycards\.local/).count();
   if (e2ePull > 0)
     ok("pulls ledger shows the E2E customer's pull (with email)");
   else fail('pulls ledger missing the E2E pull');
@@ -112,7 +112,7 @@ try {
     .catch(() => {});
   await page.fill('#support-q', 'qa-e2e-');
   await page.getByRole('button', { name: /^search$/i }).click();
-  const firstResult = page.getByText(/qa-e2e-\d+@pokenic\.local/).first();
+  const firstResult = page.getByText(/qa-e2e-\d+@polycards\.local/).first();
   await firstResult.waitFor({ timeout: 15000 });
   ok('support view: customer search returns E2E customers');
   await firstResult.click();

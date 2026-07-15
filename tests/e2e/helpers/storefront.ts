@@ -32,7 +32,7 @@ async function submitSignup(
   await gotoPack(page, slug);
   // The redesigned /slots page has no page-level "Sign up" button — auth opens as
   // a modal (login mode) from the "Log in"/"Log in to open" trigger; switch to the
-  // signup sub-view via the modal's "Sign up" toggle ("New to Pokenic? Sign up").
+  // signup sub-view via the modal's "Sign up" toggle ("New to Polycards? Sign up").
   await page
     .getByRole('button', { name: /^log in$|log in to open/i })
     .first()

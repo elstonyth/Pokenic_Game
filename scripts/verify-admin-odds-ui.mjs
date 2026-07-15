@@ -34,11 +34,11 @@ await page.waitForSelector('input[type="email"], input[name="email"]', {
 });
 await page.fill(
   'input[type="email"], input[name="email"]',
-  'admin@pokenic.local',
+  'admin@polycards.local',
 );
 await page.fill(
   'input[type="password"], input[name="password"]',
-  'pokenicadmin2026',
+  'polycardsadmin2026',
 );
 await page.click('button[type="submit"]');
 // login redirects away from /login once auth succeeds
@@ -134,8 +134,8 @@ const token = (
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'admin@pokenic.local',
-        password: 'pokenicadmin2026',
+        email: 'admin@polycards.local',
+        password: 'polycardsadmin2026',
       }),
     })
   ).json()

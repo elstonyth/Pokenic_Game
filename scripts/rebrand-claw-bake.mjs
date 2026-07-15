@@ -1,7 +1,7 @@
-// Bake the Pokenic re-brand INTO the claw-machine renders (no runtime overlay box).
+// Bake the Polycards re-brand INTO the claw-machine renders (no runtime overlay box).
 // For the uniform 1440x1000 product shots: remove "source-brand" by reconstructing the
 // banner from its own neighbouring pixels (per-row edge interpolation → seamless, no
-// box, exact colour/shading), then draw "Pokenic" in the original's sampled purple.
+// box, exact colour/shading), then draw "Polycards" in the original's sampled purple.
 // Loads source images SAME-ORIGIN (no canvas taint); writes edited webp to disk.
 import { chromium } from 'playwright';
 import { writeFile } from 'node:fs/promises';
@@ -126,17 +126,17 @@ const results = await page.evaluate(async (PRODUCT) => {
     }
     ctx.putImageData(id, 0, 0);
 
-    // draw "Pokenic" centred in the bbox, in the sampled purple, auto-fit width
+    // draw "Polycards" centred in the bbox, in the sampled purple, auto-fit width
     let fs = 60;
     const fit = () => {
       ctx.font = `700 ${fs}px Poppins, 'Segoe UI', sans-serif`;
-      return ctx.measureText('Pokenic').width;
+      return ctx.measureText('Polycards').width;
     };
     while (fit() > 360 && fs > 20) fs -= 2;
     ctx.fillStyle = purple;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Pokenic', (x0 + x1) / 2, (y0 + y1) / 2 + 1);
+    ctx.fillText('Polycards', (x0 + x1) / 2, (y0 + y1) / 2 + 1);
 
     out[base] = {
       ok: true,

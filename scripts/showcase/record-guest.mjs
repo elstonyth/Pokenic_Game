@@ -16,7 +16,7 @@ const { page } = s;
 
 try {
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
-  await caption(page, 'Pokenic — rip real, graded trading-card packs');
+  await caption(page, 'Polycards — rip real, graded trading-card packs');
   await sleep(page, 1500);
   await page.mouse.move(960, 540, { steps: 10 });
   await page.evaluate(() => window.scrollTo({ top: 520, behavior: 'smooth' }));

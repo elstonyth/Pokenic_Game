@@ -6,7 +6,7 @@ import { REF_COOKIE } from '@/lib/referral-cookie';
 
 /**
  * Belt-and-suspenders referral attribution. A guest who opened an /invite/<handle>
- * link had the sponsor stashed in the `pokenic_ref` cookie (see InviteClient). If
+ * link had the sponsor stashed in the `polycards_ref` cookie (see InviteClient). If
  * they signed up somewhere OTHER than the invite page (so its auto-apply never
  * ran), attribute them once here — on their first authenticated account landing —
  * then clear the cookie. This layout is auth-gated, so the visitor is a real

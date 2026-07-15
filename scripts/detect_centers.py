@@ -1,6 +1,6 @@
-# Measure, per machine: the banner PLATE's horizontal centre vs where "pokenic" actually sits.
+# Measure, per machine: the banner PLATE's horizontal centre vs where "polycards" actually sits.
 # Plate centre = expand from image-centre along a row ABOVE the wordmark (clear plate, no text/logo)
-# while colour stays ~= the plate. pokenic centre = bbox of text pixels (far from plate colour) in band.
+# while colour stays ~= the plate. polycards centre = bbox of text pixels (far from plate colour) in band.
 import pillow_avif  # noqa
 import numpy as np
 from PIL import Image
@@ -34,4 +34,4 @@ for base, cfg in JOBS.items():
     text_c = (xb0 + (xs.min() + xs.max()) / 2) / W if len(xs) else -1
     off = (text_c - plate_c) * 100 if text_c >= 0 else 0
     flag = "  <-- OFF" if abs(off) > 1.6 else ""
-    print(f"{base:26s} plate[{l/W:.2f}-{r/W:.2f}] c={plate_c:.3f}  pokenic_c={text_c:.3f}  off={off:+.1f}%{flag}")
+    print(f"{base:26s} plate[{l/W:.2f}-{r/W:.2f}] c={plate_c:.3f}  polycards_c={text_c:.3f}  off={off:+.1f}%{flag}")

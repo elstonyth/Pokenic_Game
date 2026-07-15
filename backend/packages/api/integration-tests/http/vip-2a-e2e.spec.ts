@@ -139,8 +139,8 @@ medusaIntegrationTestRunner({
         const storeHeaders = await mintStoreHeaders();
 
         // Two real Medusa customers: sponsor and recruit.
-        const sponsor = await registerAndLogin("e2e-sponsor@pokenic.test", storeHeaders);
-        const recruit = await registerAndLogin("e2e-recruit@pokenic.test", storeHeaders);
+        const sponsor = await registerAndLogin("e2e-sponsor@polycards.test", storeHeaders);
+        const recruit = await registerAndLogin("e2e-recruit@polycards.test", storeHeaders);
 
         // Recruit registers sponsor via POST /store/referral (Task 11 route).
         const refRes = await unwrapResponse(

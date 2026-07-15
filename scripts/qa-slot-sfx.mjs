@@ -75,7 +75,7 @@ try {
   await muteBtn.waitFor({ timeout: 5000 });
   await muteBtn.click();
   const afterMute = await page.evaluate(() =>
-    localStorage.getItem('pokenic.slot.muted'),
+    localStorage.getItem('polycards.slot.muted'),
   );
   if (afterMute === '1') ok('mute toggle persisted muted=1');
   else fail(`after mute click, localStorage = ${afterMute}`);
@@ -83,7 +83,7 @@ try {
   const unmuteBtn = page.getByRole('button', { name: /^unmute$/i });
   await unmuteBtn.click();
   const afterUnmute = await page.evaluate(() =>
-    localStorage.getItem('pokenic.slot.muted'),
+    localStorage.getItem('polycards.slot.muted'),
   );
   if (afterUnmute === '0') ok('mute toggle persisted muted=0');
   else fail(`after unmute click, localStorage = ${afterUnmute}`);

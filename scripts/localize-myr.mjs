@@ -1,5 +1,5 @@
 // Localize the Medusa store from the default EUR/USD/Europe/Medusa-Store seed to
-// MYR / Malaysia / Pokenic. Idempotent — re-running converges. Numeric price
+// MYR / Malaysia / Polycards. Idempotent — re-running converges. Numeric price
 // VALUES are preserved (8.45 stays 8.45), only the currency code is relabelled,
 // so the storefront (which already renders "RM") looks identical while the admin
 // now shows MYR. The custom credit economy (Card.market_value / Pack / ledger in
@@ -154,15 +154,15 @@ async function main() {
     }
   }
 
-  // 5) Store → MYR only + rename to Pokenic. Safe now: no region/price uses eur/usd.
+  // 5) Store → MYR only + rename to Polycards. Safe now: no region/price uses eur/usd.
   await api(`/admin/stores/${store.id}`, {
     method: 'POST',
     body: JSON.stringify({
-      name: 'Pokenic',
+      name: 'Polycards',
       supported_currencies: [{ currency_code: 'myr', is_default: true }],
     }),
   });
-  console.log('✓ store renamed "Pokenic", currencies = [myr]');
+  console.log('✓ store renamed "Polycards", currencies = [myr]');
 
   // 6) Malaysia tax region + remove the stock EU/US tax regions.
   const { tax_regions } = await api('/admin/tax-regions?limit=100');

@@ -1,5 +1,5 @@
 // Task E v2 Phase 1 — pack ICON rebrand. Machines were rebranded in the earlier
-// waves (audit crops confirm "pokenic claw."), but every pokemon pack ICON still
+// waves (audit crops confirm "polycards claw."), but every pokemon pack ICON still
 // carries "the source-brand url" + the source-brand P logomark sticker. This pass,
 // per icon zone: detect the ink strokes inside a band, erase them with the
 // nearest-real-pixel row fill (no blur, preserves wrap texture/holo), and bake
@@ -27,7 +27,7 @@ const URL_OP = (ink = GRAY) => ({
   band: [0.06, 0.75, 0.84, 0.905],
   dir: 'dark',
   ink,
-  text: 'www.pokenic.com',
+  text: 'www.polycards.com',
   weight: 400,
   fsScale: 1.04,
   center: false,
@@ -81,7 +81,7 @@ const ICONS = {
         band: [0.22, 0.8, 0.07, 0.12],
         dir: 'dark',
         ink: [24, 24, 26],
-        text: 'POKENIC PRESENTS',
+        text: 'POLYCARDS PRESENTS',
         weight: 700,
         fsScale: 1.25,
         center: true,
@@ -93,7 +93,7 @@ const ICONS = {
         band: [0.06, 0.27, 0.835, 0.872],
         dir: 'light',
         ink: [250, 250, 250],
-        text: 'by pokenic',
+        text: 'by polycards',
         weight: 700,
         fsScale: 1.0,
         center: true,
@@ -104,7 +104,7 @@ const ICONS = {
         band: [0.74, 0.98, 0.852, 0.888],
         dir: 'dark',
         ink: [28, 28, 30],
-        text: 'pokenic.io',
+        text: 'polycards.io',
         weight: 600,
         fsScale: 1.05,
         center: false,

@@ -9,8 +9,8 @@ import { mkdirSync } from 'node:fs';
 
 const BASE = 'http://localhost:4000';
 const BACKEND = 'http://localhost:9000';
-const EMAIL = process.env.PW_EMAIL || 'test@pokenic.app';
-const PASSWORD = process.env.PW_PASSWORD || 'PokenicTest123!';
+const EMAIL = process.env.PW_EMAIL || 'test@polycards.app';
+const PASSWORD = process.env.PW_PASSWORD || 'PolycardsTest123!';
 const PACK = 'pokemon-rookie';
 const OUT = 'docs/research/phase3';
 mkdirSync(OUT, { recursive: true });

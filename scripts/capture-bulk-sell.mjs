@@ -55,7 +55,7 @@ async function api(path, { method = 'GET', body, token, headers: extra } = {}) {
 }
 
 // ── Seed: fresh customer with 3 vaulted cards ─────────────────────────────────
-const email = `pw-bulksell-${Date.now()}@pokenic.local`;
+const email = `pw-bulksell-${Date.now()}@polycards.local`;
 const password = 'PwE2e2026!';
 const reg = await api('/auth/customer/emailpass/register', {
   method: 'POST',

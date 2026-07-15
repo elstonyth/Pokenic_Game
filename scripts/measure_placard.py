@@ -1,6 +1,6 @@
 # Measure the TRUE placard position for the base-group claw machines.
 # Left panel  = ORIGINAL (git 8543b8d, still has "source-brand claw." baked) — ground truth.
-# Right panel = CURRENT working-tree still (our "pokenic claw." placement).
+# Right panel = CURRENT working-tree still (our "polycards claw." placement).
 # Both cropped to the placard region with a fractional (0..1) coordinate grid so the exact
 # top-left + width of the text can be read off and turned into a precise pin.
 import subprocess, io, sys
@@ -43,7 +43,7 @@ for base in bases:
     combo.paste(a, (0, 0)); combo.paste(b, (a.width + 12, 0))
     d = ImageDraw.Draw(combo)
     d.text((4, combo.height-14), "ORIGINAL (source-brand claw.)", fill=(255, 230, 120))
-    d.text((a.width+16, combo.height-14), "CURRENT (pokenic claw.)", fill=(120, 255, 160))
+    d.text((a.width+16, combo.height-14), "CURRENT (polycards claw.)", fill=(120, 255, 160))
     combo.save(f"docs/research/packdetail/measure_{base}.png")
     print(f"{base}: {orig.size}  region={region}")
 print("done")

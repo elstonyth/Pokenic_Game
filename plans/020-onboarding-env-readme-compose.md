@@ -40,7 +40,7 @@ Three onboarding lies, each cheap to fix:
    against a non-existent database (`KnexTimeoutError`).
 3. `docker-compose.yml` still ships the clone template's identity
    (`ai-website-cloner` image/container names) in a repo whose product is
-   PixelSlot/Pokenic — mislabeled artifacts for anyone using compose.
+   Polycards/Polycards — mislabeled artifacts for anyone using compose.
 
 ## Current state
 
@@ -64,7 +64,7 @@ Three onboarding lies, each cheap to fix:
   ```
   The comment names the containers but no creation command exists anywhere in
   README. First-time creation currently lives only in `scripts/sim/provision.mjs`
-  and the `launching-pokenic-stack` Claude skill.
+  and the `launching-polycards-stack` Claude skill.
 - `docker-compose.yml:7-8,39-40` (verified):
   ```yaml
   image: ai-website-cloner:latest
@@ -164,10 +164,10 @@ a `docker run` line.
 ### Step 3: Rename the compose identity
 
 In `docker-compose.yml`, replace the four template names:
-`ai-website-cloner:latest` → `pixelslot-storefront:latest`,
-`container_name: ai-website-cloner` → `pixelslot-storefront`,
-`ai-website-cloner:dev` → `pixelslot-storefront:dev`,
-`ai-website-cloner-dev` → `pixelslot-storefront-dev`.
+`ai-website-cloner:latest` → `polycards-storefront:latest`,
+`container_name: ai-website-cloner` → `polycards-storefront`,
+`ai-website-cloner:dev` → `polycards-storefront:dev`,
+`ai-website-cloner-dev` → `polycards-storefront-dev`.
 Do not change service keys (`app`, `dev`) — README commands
 (`docker compose up app --build`) depend on them.
 

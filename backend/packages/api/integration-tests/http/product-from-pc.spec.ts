@@ -74,7 +74,7 @@ async function ensureCatalogPrereqs(container: MedusaContainer) {
       {
         name: 'House',
         handle: 'house',
-        email: 'house@pokenic.local',
+        email: 'house@polycards.local',
         currency_code: 'myr',
         status: SellerStatus.OPEN,
         metadata: { house: true },

@@ -9,7 +9,7 @@ const BASE = 'http://localhost:4000';
 const OUT = 'docs/research/phase3';
 mkdirSync(OUT, { recursive: true });
 
-const email = `acct_${Date.now()}@pokenic.local`;
+const email = `acct_${Date.now()}@polycards.local`;
 const username = 'Misty';
 const updatedName = 'MistyWaterflower';
 const password = 'Sup3rSecret!';

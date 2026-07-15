@@ -78,10 +78,10 @@ jobs:
       # Ephemeral CI-only credential — the DB lives and dies with this job. A
       # PW_ADMIN_PASSWORD repo secret overrides it when wired; the fallback
       # keeps the nightly green either way (audit C2: no-fallback = red run).
-      PW_ADMIN_EMAIL: admin@pokenic.local
-      PW_ADMIN_PASSWORD: ${{ secrets.PW_ADMIN_PASSWORD || 'pokenic-ci-e2e-2026' }}
-      ADMIN_EMAIL: admin@pokenic.local
-      ADMIN_PASSWORD: ${{ secrets.PW_ADMIN_PASSWORD || 'pokenic-ci-e2e-2026' }}
+      PW_ADMIN_EMAIL: admin@polycards.local
+      PW_ADMIN_PASSWORD: ${{ secrets.PW_ADMIN_PASSWORD || 'polycards-ci-e2e-2026' }}
+      ADMIN_EMAIL: admin@polycards.local
+      ADMIN_PASSWORD: ${{ secrets.PW_ADMIN_PASSWORD || 'polycards-ci-e2e-2026' }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7

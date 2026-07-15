@@ -23,7 +23,7 @@ test('customer bulk-sells multiple vaulted cards via the UI', async ({
   // intercepts their clicks; suppressing it also keeps the screenshots clean.
   await page.addInitScript(() => {
     try {
-      window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+      window.localStorage.setItem('polycards.cookie-consent', 'accepted');
     } catch {
       // Cross-origin iframes deny localStorage — only the top frame matters.
     }

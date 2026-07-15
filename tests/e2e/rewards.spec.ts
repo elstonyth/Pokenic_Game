@@ -4,7 +4,7 @@
 // PRECONDITIONS (the "reward gate" phase):
 //   1. backend running with REWARDS_REDEMPTION_ENABLED=true
 //   2. medusa exec ./src/scripts/seed-reward-economy-demo.ts  (tier-c daily box)
-// The shared dev customer (test@pokenic.app) already holds 'granted' VIP
+// The shared dev customer (test@polycards.app) already holds 'granted' VIP
 // vouchers from its level-25 progression. If redemption is dark (default
 // dormant backend), the test SKIPS rather than fails.
 import { test, expect } from '@playwright/test';
@@ -12,8 +12,8 @@ import { BASE } from './helpers/constants';
 import * as sf from './helpers/storefront';
 
 const PACK = process.env.PW_REWARD_PACK ?? 'pokemon-rookie';
-const EMAIL = process.env.PW_REWARD_EMAIL ?? 'test@pokenic.app';
-const PASSWORD = process.env.PW_REWARD_PASSWORD ?? 'PokenicTest123!';
+const EMAIL = process.env.PW_REWARD_EMAIL ?? 'test@polycards.app';
+const PASSWORD = process.env.PW_REWARD_PASSWORD ?? 'PolycardsTest123!';
 
 test.describe('customer rewards — voucher on /vip + daily box on /daily', () => {
   test('claim a voucher grant on /vip', async ({ page }) => {

@@ -11,7 +11,7 @@ const FOCUSABLE =
 
 /**
  * Global auth modal — mounted once (in SiteHeader, always present). Opens in response
- * to the `pokenic:auth` window event dispatched by openAuth() (see AuthButton). Matches
+ * to the `polycards:auth` window event dispatched by openAuth() (see AuthButton). Matches
  * the live site's modal login/signup; the clone has no /login or /signup pages.
  *
  * Accessibility: as an `aria-modal` dialog it moves focus into the panel on open, traps
@@ -32,8 +32,8 @@ export default function AuthModal() {
       setMode(detail?.mode ?? 'login');
       setOpen(true);
     };
-    window.addEventListener('pokenic:auth', onOpen);
-    return () => window.removeEventListener('pokenic:auth', onOpen);
+    window.addEventListener('polycards:auth', onOpen);
+    return () => window.removeEventListener('polycards:auth', onOpen);
   }, []);
 
   // Open automatically when redirected here with ?auth=login|signup (e.g. the
@@ -44,7 +44,7 @@ export default function AuthModal() {
     const requested = params.get('auth');
     if (requested !== 'login' && requested !== 'signup') return;
     window.dispatchEvent(
-      new CustomEvent('pokenic:auth', { detail: { mode: requested } }),
+      new CustomEvent('polycards:auth', { detail: { mode: requested } }),
     );
     const url = new URL(window.location.href);
     url.searchParams.delete('auth');

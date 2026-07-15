@@ -1,9 +1,9 @@
 // Rebrand the BOTTOM brand zones of the One Piece (elite/legend/starter) + Yu-Gi-Oh claw machines from
-// source-brand -> pokenic. Unlike the pokemon machines these have NO top "source-brand" banner (the top is the
+// source-brand -> polycards. Unlike the pokemon machines these have NO top "source-brand" banner (the top is the
 // tier name / "PR-OH"), so we only touch bottom-pedestal zones:
-//   url      "source-brand url" -> "Pokenic.com"   (bold, on a box face — flat)
-//   placard  "source-brand"      -> "pokenic"        (yugioh only; line 1 of the "source-brand / claw." placard)
-//   badge    "by source-brand"   -> "by pokenic"     (small text on the "RIP & REVEAL" pill; mild skew)
+//   url      "source-brand url" -> "Polycards.com"   (bold, on a box face — flat)
+//   placard  "source-brand"      -> "polycards"        (yugioh only; line 1 of the "source-brand / claw." placard)
+//   badge    "by source-brand"   -> "by polycards"     (small text on the "RIP & REVEAL" pill; mild skew)
 // Each zone is BLUR-PATCHED (downscale->upscale kills legible text but keeps the local box tone) then the
 // new text is redrawn. Writes <base>-machine.webp (the rebranded still, regenerated from the AVIF frame0 at
 // native res so it matches the pixels the bake composites onto) AND the bottom-mask
@@ -25,7 +25,7 @@ const JOBS = [
         kind: 'url',
         erase: [556, 860, 714, 904],
         draw: {
-          text: 'Pokenic.com',
+          text: 'Polycards.com',
           align: 'center',
           x: 635,
           baseline: 895,
@@ -37,7 +37,7 @@ const JOBS = [
         kind: 'badge',
         erase: [704, 812, 830, 854],
         draw: {
-          text: 'by pokenic',
+          text: 'by polycards',
           align: 'center',
           x: 767,
           baseline: 838,
@@ -56,7 +56,7 @@ const JOBS = [
         kind: 'url',
         erase: [452, 864, 694, 908],
         draw: {
-          text: 'Pokenic.com',
+          text: 'Polycards.com',
           align: 'center',
           x: 573,
           baseline: 898,
@@ -68,7 +68,7 @@ const JOBS = [
         kind: 'badge',
         erase: [686, 848, 858, 884],
         draw: {
-          text: 'by pokenic',
+          text: 'by polycards',
           align: 'center',
           x: 772,
           baseline: 873,
@@ -87,7 +87,7 @@ const JOBS = [
         kind: 'url',
         erase: [470, 872, 706, 916],
         draw: {
-          text: 'Pokenic.com',
+          text: 'Polycards.com',
           align: 'center',
           x: 588,
           baseline: 906,
@@ -99,7 +99,7 @@ const JOBS = [
         kind: 'badge',
         erase: [700, 832, 826, 860],
         draw: {
-          text: 'by pokenic',
+          text: 'by polycards',
           align: 'center',
           x: 763,
           baseline: 852,
@@ -120,7 +120,7 @@ const JOBS = [
         erase: [548, 718, 700, 744],
         solid: true,
         draw: {
-          text: 'pokenic',
+          text: 'polycards',
           align: 'left',
           x: 552,
           baseline: 738,
@@ -132,7 +132,7 @@ const JOBS = [
         kind: 'url',
         erase: [506, 838, 676, 868],
         draw: {
-          text: 'Pokenic.com',
+          text: 'Polycards.com',
           align: 'center',
           x: 590,
           baseline: 862,
@@ -144,7 +144,7 @@ const JOBS = [
         kind: 'badge',
         erase: [740, 804, 876, 828],
         draw: {
-          text: 'by pokenic',
+          text: 'by polycards',
           align: 'center',
           x: 808,
           baseline: 821,

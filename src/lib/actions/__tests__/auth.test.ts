@@ -48,7 +48,7 @@ beforeEach(() => {
 describe('signup — password presence (#3)', () => {
   it('returns a friendly error when the password is missing (no throw)', async () => {
     const r = await signup({
-      email: 'new@pokenic.app',
+      email: 'new@polycards.app',
       password: undefined as unknown as string,
     });
     expect(r).toEqual({ ok: false, error: 'Please enter your password.' });
@@ -56,12 +56,12 @@ describe('signup — password presence (#3)', () => {
   });
 
   it('returns a friendly error for an empty password', async () => {
-    const r = await signup({ email: 'new@pokenic.app', password: '' });
+    const r = await signup({ email: 'new@polycards.app', password: '' });
     expect(r).toEqual({ ok: false, error: 'Please enter your password.' });
   });
 
   it('keeps the length message for a short (but present) password', async () => {
-    const r = await signup({ email: 'new@pokenic.app', password: 'abc' });
+    const r = await signup({ email: 'new@polycards.app', password: 'abc' });
     expect(r).toEqual({
       ok: false,
       error: 'Password must be at least 8 characters.',
@@ -88,7 +88,7 @@ describe('login — handle lookup is non-fatal (#9)', () => {
     mocks.customerRetrieve.mockResolvedValueOnce({
       customer: {
         id: 'c1',
-        email: 'a@pokenic.app',
+        email: 'a@polycards.app',
         first_name: 'A',
         last_name: null,
       },
@@ -96,15 +96,15 @@ describe('login — handle lookup is non-fatal (#9)', () => {
     mocks.fetchProfileHandle.mockResolvedValueOnce(null);
 
     const r = await login({
-      email: 'a@pokenic.app',
-      password: 'PokenicTest123!',
+      email: 'a@polycards.app',
+      password: 'PolycardsTest123!',
     });
 
     expect(r).toEqual({
       ok: true,
       customer: {
         id: 'c1',
-        email: 'a@pokenic.app',
+        email: 'a@polycards.app',
         first_name: 'A',
         last_name: null,
         handle: null,

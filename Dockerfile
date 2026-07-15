@@ -61,7 +61,7 @@ ARG NEXT_PUBLIC_MEDIA_HOST=pokenic-media.sgp1.cdn.digitaloceanspaces.com
 # metadataBase/sitemap) resolve to the real host, not the localhost dev default.
 # Set to the live DO host; on a custom-domain move update this ARG + the .do
 # spec + the backend's MERCUR_STOREFRONT_URL together.
-ARG NEXT_PUBLIC_SITE_URL=https://pokenic-storefront-ijfiu.ondigitalocean.app
+ARG NEXT_PUBLIC_SITE_URL=https://polycards.gg
 ENV NEXT_PUBLIC_MEDUSA_BACKEND_URL=$NEXT_PUBLIC_MEDUSA_BACKEND_URL
 ENV NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=$NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_MEDIA_HOST=$NEXT_PUBLIC_MEDIA_HOST

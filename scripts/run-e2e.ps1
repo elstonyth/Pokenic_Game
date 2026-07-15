@@ -42,7 +42,7 @@ if ($Smoke) {
     } else {
         Write-Host "[run-e2e] no $EnvFile — using localhost defaults" -ForegroundColor Yellow
     }
-    if ($env:PW_BACKEND -match 'ondigitalocean|pokenic-backend') {
+    if ($env:PW_BACKEND -match 'ondigitalocean|polycards-backend') {
         throw "Refusing to run the MUTATING suite against what looks like prod ($env:PW_BACKEND). Use -Smoke for prod."
     }
     $pwArgs = @('playwright', 'test')

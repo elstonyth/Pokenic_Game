@@ -28,7 +28,7 @@
  *        export REWARDS_REDEMPTION_ENABLED=true
  *        # or set it in your .env and restart medusa develop
  *
- *   4. Log in as the test customer (test@pokenic.app / PokenicTest123!) on
+ *   4. Log in as the test customer (test@polycards.app / PolycardsTest123!) on
  *      the storefront and exercise the reward routes:
  *
  *      GET  /store/daily                → daily-box + voucher state
@@ -120,7 +120,7 @@ export default async function seedRewardEconomyDemo({
 
   const customerModule = container.resolve(Modules.CUSTOMER);
 
-  const TEST_EMAIL = process.env.TEST_CUSTOMER_EMAIL ?? 'test@pokenic.app';
+  const TEST_EMAIL = process.env.TEST_CUSTOMER_EMAIL ?? 'test@polycards.app';
 
   const [testCustomer] = await customerModule.listCustomers(
     { email: TEST_EMAIL },

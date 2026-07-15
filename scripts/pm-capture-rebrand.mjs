@@ -1,4 +1,4 @@
-// Verify the Pokenic claw-machine rebrand on an avif machine (mythic), a webp-only
+// Verify the Polycards claw-machine rebrand on an avif machine (mythic), a webp-only
 // machine (nba-black = black-pack-jjnfuk), and mobile.
 import { chromium } from 'playwright';
 const OUT = 'docs/research/packdetail';

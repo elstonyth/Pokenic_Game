@@ -1,4 +1,4 @@
-# 006 — PixelSlot infra migration (PLAN ONLY, NOT EXECUTED)
+# 006 — Polycards infra migration (PLAN ONLY, NOT EXECUTED)
 
 Status: **draft, nothing here has been run.** Every stage needs explicit sign-off.
 The cosmetic rebrand is done and is **merged to `master`** (#122–#124); `master` is
@@ -6,16 +6,16 @@ level with `origin/master`. This file covers only the parts that touch live
 infrastructure.
 
 > **No credentials in this file.** `doctl databases list` / the DO MCP
-> `db-cluster-list` return **plaintext** passwords for `doadmin`, `pokenicapp`,
+> `db-cluster-list` return **plaintext** passwords for `doadmin`, `polycardsapp`,
 > and Valkey. Do not paste that output into commits, issues, or chat logs.
 
 ## Already done (verified against the live API, 2026-07-10)
 
 | Thing                                                  | State                                                  |
 | ------------------------------------------------------ | ------------------------------------------------------ |
-| GitHub repo                                            | renamed → `elstonyth/PixelSlot`                        |
-| DO app names                                           | already `pixelslot-backend`, `pixelslot-storefront`    |
-| `github.repo` on all 3 backend components + storefront | `elstonyth/PixelSlot`, `deploy_on_push: true`          |
+| GitHub repo                                            | renamed → `elstonyth/Polycards`                        |
+| DO app names                                           | already `polycards-backend`, `polycards-storefront`    |
+| `github.repo` on all 3 backend components + storefront | `elstonyth/Polycards`, `deploy_on_push: true`          |
 | `.do/*.app.yaml` repo slug + app name                  | fixed, matches live, `doctl apps spec validate` passes |
 
 Deploys are **not** broken. This was checked, not assumed.
@@ -25,7 +25,7 @@ Deploys are **not** broken. This was checked, not assumed.
 This is the single most important fact in this document, and it is not intuitive.
 
 **App Platform: the hostname does NOT follow the name.**
-The apps were renamed to `pixelslot-*`, yet still serve on
+The apps were renamed to `polycards-*`, yet still serve on
 `pokenic-backend-tltfm.ondigitalocean.app` and `pokenic-storefront-ijfiu.ondigitalocean.app`.
 DO assigns `<name-at-creation>-<random>` once and never revisits it. Renaming an
 app is therefore **safe and already done**. Do not "fix" these hostnames to match.
@@ -45,12 +45,12 @@ deliberately omitted: this repo is public. Get them from `doctl databases list`.
 
 | Identifier               | File                                               | Breaks if renamed                                                                  |
 | ------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `_pokenic_jwt`           | `src/lib/data/customer.ts`                         | logs out **every** signed-in user                                                  |
-| `pokenic_ref`            | `src/lib/referral-cookie.ts`                       | drops every in-flight referral's stashed sponsor                                   |
-| `pokenic.cookie-consent` | `src/lib/consent.ts`                               | re-prompts consent for everyone                                                    |
-| `pokenic.slot.muted`     | `src/lib/use-sound.ts`                             | resets mute preference                                                             |
-| `pokenic:auth`           | `AuthButton` / `AuthModal` / `ResetPasswordClient` | in-page event; safe only if all 4 sites change atomically. Zero user-visible gain. |
-| `pokenicCardOverlay`     | `CardDetailOverlay.tsx`                            | `history.pushState` key; a rename mid-session can break `back()`                   |
+| `_polycards_jwt`           | `src/lib/data/customer.ts`                         | logs out **every** signed-in user                                                  |
+| `polycards_ref`            | `src/lib/referral-cookie.ts`                       | drops every in-flight referral's stashed sponsor                                   |
+| `polycards.cookie-consent` | `src/lib/consent.ts`                               | re-prompts consent for everyone                                                    |
+| `polycards.slot.muted`     | `src/lib/use-sound.ts`                             | resets mute preference                                                             |
+| `polycards:auth`           | `AuthButton` / `AuthModal` / `ResetPasswordClient` | in-page event; safe only if all 4 sites change atomically. Zero user-visible gain. |
+| `polycardsCardOverlay`     | `CardDetailOverlay.tsx`                            | `history.pushState` key; a rename mid-session can break `back()`                   |
 
 These are storage keys, not brand. Leaving them is the correct call.
 
@@ -58,11 +58,11 @@ These are storage keys, not brand. Leaving them is the correct call.
 
 Each stage is independently revertable and gated. Do not batch them.
 
-### Stage 1 — Spaces bucket `pokenic-media` → `pixelslot-media`
+### Stage 1 — Spaces bucket `pokenic-media` → `polycards-media`
 
 **Hardest stage. A bucket cannot be renamed.** Highest blast radius: every card image.
 
-1. Create bucket `pixelslot-media` (sgp1), enable CDN.
+1. Create bucket `polycards-media` (sgp1), enable CDN.
 2. Copy all objects (`s3cmd sync` / `rclone`). Do **not** delete the source.
 3. Audit parity with `scripts/audit-media.mjs` before any cutover.
 4. **DB rewrite:** Medusa's S3 provider stores _absolute_ URLs, so image rows contain
@@ -80,23 +80,23 @@ Rollback: revert env + rebuild; old bucket never left serving.
 
 ### Stage 2 — Domains and mailboxes
 
-Blocked on actually owning the PixelSlot domain.
+Blocked on actually owning the Polycards domain.
 
-- `hello@pokenic.com` — `src/app/about/page.tsx` (×3), `src/app/contact/page.tsx`
+- `hello@polycards.com` — `src/app/about/page.tsx` (×3), `src/app/contact/page.tsx`
 - `admin@pokenic.app` — `ADMIN_EMAIL`, backend spec. Feeds the idempotent `create-admin`
   PRE_DEPLOY job; changing it **creates a second admin**, it does not rename the first.
-- `docs.pokenic.com/user-agreements/privacy-policy` — `src/components/CookieConsent.tsx`,
+- `docs.polycards.com/user-agreements/privacy-policy` — `src/components/CookieConsent.tsx`,
   a live external URL. Must resolve before it is swapped.
 - `STORE_CORS`, `MERCUR_STOREFRONT_URL`, `MERCUR_BACKEND_URL` reference the
-  `pokenic-*.ondigitalocean.app` hostnames. Those hostnames are permanent (see above) —
+  `polycards-*.ondigitalocean.app` hostnames. Those hostnames are permanent (see above) —
   only touch these when moving to a custom domain.
 
-**Sibling coupling:** `../Pokenic-Redeem-Page` depends on `pokenic.com` and
-`pokenicredeem.com`. A domain move breaks it. Migrate together or not at all.
+**Sibling coupling:** `../Polycards-Redeem-Page` depends on `polycards.com` and
+`polycardsredeem.com`. A domain move breaks it. Migrate together or not at all.
 
 ### Stage 3 — Managed databases (optional, lowest value)
 
-Cluster `pokenic-pg` (PG 16, `production: true`), inner DB `pokenic`, app user `pokenicapp`;
+Cluster `pokenic-pg` (PG 16, `production: true`), inner DB `polycards`, app user `polycardsapp`;
 cluster `pokenic-valkey` (Valkey 8, `production: true`).
 
 Gated on the hostname question above. **Recommendation: skip this entirely.** Cluster names
@@ -110,19 +110,19 @@ If it proceeds: rename cluster → confirm whether host changed → update `clus
 ### Stage 4 — Art assets (not a string change)
 
 The claw-machine AVIF/webp have the brand baked into the pixels, frame by frame: the banner
-wordmark, the placard reading `pokenic claw.`, and the base URL `pokenic.com`. See the comment
+wordmark, the placard reading `polycards claw.`, and the base URL `polycards.com`. See the comment
 at `src/app/slots/[slug]/PackDetailClient.tsx:157`. `SlabCard.tsx:5` documents a rainbow-holo
-Pokenic monogram on the card back.
+Polycards monogram on the card back.
 
-No find-and-replace reaches these. They need re-rendering. `scripts/rebrand-pixelslot-logo.mjs`
+No find-and-replace reaches these. They need re-rendering. `scripts/rebrand-polycards-logo.mjs`
 (now on `master`) handles the logo/icon set only, not the claw frames.
 
 ## Explicitly out of scope
 
 - `.do` app hostnames — permanent by design, not broken.
 - The six runtime storage keys above.
-- Test fixture emails (`a@pokenic.app` in `src/lib/actions/__tests__/auth.test.ts`) — harmless.
-- The three `@pokenic` testimonial quotes in `how-it-works/page.tsx` — attributed real quotes;
+- Test fixture emails (`a@polycards.app` in `src/lib/actions/__tests__/auth.test.ts`) — harmless.
+- The three `@polycards` testimonial quotes in `how-it-works/page.tsx` — attributed real quotes;
   rewriting them is a product/legal call, not a rename.
 
 ## Recommended order

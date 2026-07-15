@@ -9,8 +9,8 @@ import { chromium } from 'playwright';
 import { mkdirSync, renameSync } from 'node:fs';
 
 const BASE = 'http://localhost:4000';
-const EMAIL = process.env.QA_SLOT_EMAIL || 'test@pokenic.app';
-const PASSWORD = process.env.QA_SLOT_PASSWORD || 'PokenicTest123!';
+const EMAIL = process.env.QA_SLOT_EMAIL || 'test@polycards.app';
+const PASSWORD = process.env.QA_SLOT_PASSWORD || 'PolycardsTest123!';
 const PACK = 'pokemon-rookie';
 const SIZE = { width: 1280, height: 800 };
 const OUT = 'docs/demo';

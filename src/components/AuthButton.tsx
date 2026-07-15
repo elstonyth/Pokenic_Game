@@ -9,7 +9,7 @@ import { type ReactNode } from 'react';
  * login/signup rather than dedicated /login and /signup pages.
  */
 export function openAuth(mode: 'login' | 'signup') {
-  window.dispatchEvent(new CustomEvent('pokenic:auth', { detail: { mode } }));
+  window.dispatchEvent(new CustomEvent('polycards:auth', { detail: { mode } }));
 }
 
 export default function AuthButton({

@@ -11,7 +11,7 @@ import {
 } from './lib.mjs';
 
 const BASE = 'http://localhost:4000';
-const EMAIL = 'stocktest-1@pokenic.local';
+const EMAIL = 'stocktest-1@polycards.local';
 const PASSWORD = 'stocktest2026!';
 const PACK = 'pokemon-black';
 

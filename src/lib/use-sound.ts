@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { playSfx, type SfxName } from '@/lib/slot-sfx';
 
-const MUTED_KEY = 'pokenic.slot.muted';
+const MUTED_KEY = 'polycards.slot.muted';
 
 const FILES = {
   spin: '/sounds/slot-spin.mp3',

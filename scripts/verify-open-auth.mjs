@@ -11,7 +11,7 @@ import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
 const BASE = 'http://localhost:4000';
-const EMAIL = 'pull-test-8654@pokenic.local';
+const EMAIL = 'pull-test-8654@polycards.local';
 const PW = 'pulltest2026';
 const OUT = 'docs/research/phase5';
 mkdirSync(OUT, { recursive: true });

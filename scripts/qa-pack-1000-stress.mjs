@@ -181,8 +181,8 @@ try {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'test@pokenic.app',
-      password: 'PokenicTest123!',
+      email: 'test@polycards.app',
+      password: 'PolycardsTest123!',
     }),
   }).then((r) => r.json());
   const CH = {

@@ -1,6 +1,6 @@
 # Animated rebrand: for each base with an animated source, freeze the STATIC rebranded zones from
 # the composed -machine.webp onto EVERY frame, preserving each frame's duration, and re-encode an
-# animated avif {base}-anim.avif. Frozen zones = (1) the top banner band (rebranded "pokenic"
+# animated avif {base}-anim.avif. Frozen zones = (1) the top banner band (rebranded "polycards"
 # wordmark — proven static) + (2) the bottom edit-mask (where the baked "source-brand" placard/url were
 # BLANKED by rebrand_bottom.mjs — also static). The brand placard/url TEXT is NOT in the asset; the
 # component overlays it as crisp DOM text. Freezing only these provably-static masked pixels is

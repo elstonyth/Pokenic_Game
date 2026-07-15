@@ -2072,4 +2072,4 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 Dependencies: Task 4 before 5/6/7; Task 9 before 10; Task 1 before 11 (shared `switchTab`); everything else independent. Tasks 5–7 all touch `queries.ts`/`query-keys.ts` — execute sequentially, never in parallel.
 
-Full-suite gate before PR: run each new spec per-file (never the whole jest suite — OOM), plus the Stop-hook typecheck. Manual smoke pass with the full stack (`launching-pokenic-stack` skill; admin login `admin@pokenic.local` / see team credentials).
+Full-suite gate before PR: run each new spec per-file (never the whole jest suite — OOM), plus the Stop-hook typecheck. Manual smoke pass with the full stack (`launching-polycards-stack` skill; admin login `admin@polycards.local` / see team credentials).

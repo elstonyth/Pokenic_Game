@@ -23,7 +23,7 @@ test('customer requests delivery of a vaulted card via the UI', async ({
   // intercepts their clicks; suppressing it also keeps the screenshots clean.
   await page.addInitScript(() => {
     try {
-      window.localStorage.setItem('pokenic.cookie-consent', 'accepted');
+      window.localStorage.setItem('polycards.cookie-consent', 'accepted');
     } catch {
       // Cross-origin iframes deny localStorage — only the top frame matters.
     }

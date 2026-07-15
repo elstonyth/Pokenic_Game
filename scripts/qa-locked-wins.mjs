@@ -109,8 +109,8 @@ const cust = await fetch(`${BASE}/auth/customer/emailpass`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    email: 'test@pokenic.app',
-    password: 'PokenicTest123!',
+    email: 'test@polycards.app',
+    password: 'PolycardsTest123!',
   }),
 }).then((r) => r.json());
 if (!cust.token) throw new Error('customer auth failed');

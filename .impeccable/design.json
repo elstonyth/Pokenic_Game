@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-07-05T20:47:00+08:00",
-  "title": "Design System: Pokenic",
+  "title": "Design System: Polycards",
   "extensions": {
     "colorMeta": {
       "ink-black": {
@@ -160,7 +160,7 @@
   ],
   "narrative": {
     "northStar": "The Midnight Rip",
-    "overview": "A collector in bed at 11pm, phone the only light in the room, deciding whether to rip one more pack. Near-black chrome that disappears, card art and tier color that glows out of it, money values that read instantly, and a thumb-reach bottom tab bar. Structure borrowed from 90scard and luka.game, rendered on Pokenic's own dark neutral base.",
+    "overview": "A collector in bed at 11pm, phone the only light in the room, deciding whether to rip one more pack. Near-black chrome that disappears, card art and tier color that glows out of it, money values that read instantly, and a thumb-reach bottom tab bar. Structure borrowed from 90scard and luka.game, rendered on Polycards's own dark neutral base.",
     "keyCharacteristics": [
       "Dark tonal layering (ink → charcoal → graphite), zero decorative shadows",
       "The card is the hero: chrome is monochrome; only cards, tiers, rarity, and money carry color",

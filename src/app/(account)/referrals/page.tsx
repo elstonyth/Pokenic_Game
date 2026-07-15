@@ -27,7 +27,7 @@ export default async function ReferralsPage() {
   }
 
   // Canonical origin (NEXT_PUBLIC_SITE_URL) — already absolute, no dead
-  // `pokenic.com` fallback. See src/lib/site.ts.
+  // `polycards.com` fallback. See src/lib/site.ts.
   const inviteUrl = handle ? `${SITE_URL}/invite/${handle}` : null;
 
   return (

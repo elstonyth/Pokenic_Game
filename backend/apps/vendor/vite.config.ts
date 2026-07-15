@@ -19,7 +19,7 @@ const BACKEND_URL = process.env.MERCUR_BACKEND_URL || 'http://localhost:9000';
 // independent of that loader. Must run AFTER mercurDashboardPlugin so this
 // `define` wins the config merge. See docs/pokenic-do-deploy-handoff.md.
 const forceBasename = (basename: string) => ({
-  name: 'pokenic:force-dashboard-basename',
+  name: 'polycards:force-dashboard-basename',
   config: () => ({ define: { __BASE__: JSON.stringify(basename) } }),
 });
 

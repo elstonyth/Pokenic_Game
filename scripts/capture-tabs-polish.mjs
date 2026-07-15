@@ -7,8 +7,8 @@ import path from 'node:path';
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:4000';
 const OUT = process.argv[3] ?? 'docs/research/polish-tabs';
-const EMAIL = process.env.PW_EMAIL ?? 'test@pokenic.app';
-const PASSWORD = process.env.PW_PASSWORD ?? 'PokenicTest123!';
+const EMAIL = process.env.PW_EMAIL ?? 'test@polycards.app';
+const PASSWORD = process.env.PW_PASSWORD ?? 'PolycardsTest123!';
 mkdirSync(OUT, { recursive: true });
 
 const ROUTES = [

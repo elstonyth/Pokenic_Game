@@ -66,7 +66,7 @@ export interface CustomerCreds {
 // Register → create customer (Bearer register token) → login, mirroring
 // src/lib/actions/auth.ts. Optionally top the customer up so they can open packs.
 export async function createCustomer(fundUsd = 0): Promise<CustomerCreds> {
-  const email = `pw-e2e-${stamp()}@pokenic.local`;
+  const email = `pw-e2e-${stamp()}@polycards.local`;
   const password = 'PwE2e2026!';
   const reg = await api<{ token: string }>(
     '/auth/customer/emailpass/register',

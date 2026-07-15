@@ -6,8 +6,8 @@ import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.BASE ?? 'http://localhost:4000';
-const EMAIL = process.env.PW_REWARD_EMAIL ?? 'test@pokenic.app';
-const PASSWORD = process.env.PW_REWARD_PASSWORD ?? 'PokenicTest123!';
+const EMAIL = process.env.PW_REWARD_EMAIL ?? 'test@polycards.app';
+const PASSWORD = process.env.PW_REWARD_PASSWORD ?? 'PolycardsTest123!';
 const OUT = 'docs/research';
 mkdirSync(OUT, { recursive: true });
 

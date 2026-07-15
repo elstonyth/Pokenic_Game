@@ -1,6 +1,6 @@
 # Definitive claw re-brand: precise per-letter mask + cv2.inpaint to erase "source-brand"
 # (rebuilds the banner seamlessly — no box/streak/residual, leaves pack/sport name and
-# logos intact), then composites a centred "Pokenic" (Poppins-Bold). Sources are the
+# logos intact), then composites a centred "Polycards" (Poppins-Bold). Sources are the
 # CLEAN originals (avif for product shots, -src.webp backups for dramatic). Idempotent.
 import os
 import numpy as np
@@ -64,8 +64,8 @@ def process(base, cfg):
     cleaned = cv2.cvtColor(cv2.inpaint(bgr, mask, 6, cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB)
     img = Image.fromarray(cleaned)
     draw = ImageDraw.Draw(img)
-    font = fit_font("Pokenic", twf * W)
-    draw.text((centre[0] * W, centre[1] * H), "Pokenic", font=font, fill=color, anchor="mm")
+    font = fit_font("Polycards", twf * W)
+    draw.text((centre[0] * W, centre[1] * H), "Polycards", font=font, fill=color, anchor="mm")
     img.save(f"{DIR}/{base}-machine.webp", quality=92, method=6)
     return f"{base}: {W}x{H} mask_px={int((mask>0).sum())} font={font.size}"
 

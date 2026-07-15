@@ -13,7 +13,7 @@ OUT = "docs/research/packdetail/_patch"
 BAND = 0.27   # top fraction = static banner zone
 # Per-base banner band caps so the frozen top zone never reaches the claw's HIGHEST frame (measured by
 # unioning all consecutive inter-frame diffs, not just frame0-vs-mid): black claw peaks at y0.269,
-# diamond at y0.226. The rebranded "Pokenic" text ends ~y0.218, so these cap above the text but below
+# diamond at y0.226. The rebranded "Polycards" text ends ~y0.218, so these cap above the text but below
 # the claw. (default 0.27 would clip black's claw tip by 1px → a one-frame freeze hitch.)
 BAND_OVERRIDE = {"black-pack": 0.255, "diamond-pack": 0.225,
                  # One Piece / Yu-Gi-Oh have NO top "source-brand" banner (top = tier name / "PR-OH"); only the

@@ -4,4 +4,4 @@
  * the first authenticated account landing (ReferralCookieClaim), then cleared.
  * Shared const so the writer and reader can't drift on the name. ~30-day, path=/.
  */
-export const REF_COOKIE = 'pokenic_ref';
+export const REF_COOKIE = 'polycards_ref';

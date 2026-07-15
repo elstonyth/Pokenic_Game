@@ -1,4 +1,4 @@
-// Zoom the LIVE placard zone (lower-left of the machine) at high DSF so "pokenic claw." is legible —
+// Zoom the LIVE placard zone (lower-left of the machine) at high DSF so "polycards claw." is legible —
 // this is the exact region the user flagged. Confirms the fix on the real served animated AVIF.
 import { chromium } from 'playwright';
 

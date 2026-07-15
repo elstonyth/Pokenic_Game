@@ -69,9 +69,9 @@ medusaIntegrationTestRunner({
       it('binds the recruit to the authenticated actor, not the body', async () => {
         // The route verifies sponsor_id points to a REAL customer (F7
         // hardening), so the sponsor must exist before it can be linked.
-        const sponsor = await registerAndLogin('sponsor-route@pokenic.test');
+        const sponsor = await registerAndLogin('sponsor-route@polycards.test');
         const { token, actorId } = await registerAndLogin(
-          'recruit-route@pokenic.test',
+          'recruit-route@polycards.test',
         );
 
         // Send a spoofed customer_id in the body alongside the real sponsor_id.
@@ -117,7 +117,7 @@ medusaIntegrationTestRunner({
 
       it('rejects missing sponsor_id with 400', async () => {
         const { token } = await registerAndLogin(
-          'recruit-route-nosp@pokenic.test',
+          'recruit-route-nosp@polycards.test',
         );
         const res = await unwrapResponse(
           api.post(
@@ -131,7 +131,7 @@ medusaIntegrationTestRunner({
 
       it('rejects empty sponsor_id with 400', async () => {
         const { token } = await registerAndLogin(
-          'recruit-route-emptysp@pokenic.test',
+          'recruit-route-emptysp@polycards.test',
         );
         const res = await unwrapResponse(
           api.post(

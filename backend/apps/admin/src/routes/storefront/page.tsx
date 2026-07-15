@@ -45,11 +45,11 @@ At the top is an integrated label plate with a clean WHITE background, like a re
 ${PROMPT_CORE}`,
   },
   {
-    id: 'pokenic-gold',
-    label: 'Pokenic black & gold',
+    id: 'polycards-gold',
+    label: 'Polycards black & gold',
     prompt: `A photorealistic front-facing graded trading card slab case in premium clear acrylic with crisp beveled edges and subtle glossy rim highlights — expensive, museum-grade feel.
 
-At the top is an integrated label plate: deep matte black with "POKENIC" in bold condensed uppercase metallic gold foil, below it a smaller line "AUTHENTICATED · GRADED GEM" in fine silver lettering, a thin holographic security strip along one edge, and a small embossed serial "NO. 0001982" in the corner. The plastic highlights read cold white-silver, not warm.
+At the top is an integrated label plate: deep matte black with "POLYCARDS" in bold condensed uppercase metallic gold foil, below it a smaller line "AUTHENTICATED · GRADED GEM" in fine silver lettering, a thin holographic security strip along one edge, and a small embossed serial "NO. 0001982" in the corner. The plastic highlights read cold white-silver, not warm.
 
 ${PROMPT_CORE}`,
   },

@@ -12,7 +12,7 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const FRONT = 'http://localhost:4000';
 const API = 'http://localhost:9000';
 const CUST = {
-  email: process.env.QA_CUSTOMER_EMAIL ?? 'test@pokenic.app',
+  email: process.env.QA_CUSTOMER_EMAIL ?? 'test@polycards.app',
   password: process.env.QA_CUSTOMER_PASSWORD,
 };
 mkdirSync('docs/research/sweep', { recursive: true });
@@ -214,7 +214,7 @@ try {
   });
   await authCtx.addCookies([
     {
-      name: '_pokenic_jwt',
+      name: '_polycards_jwt',
       value: cust.token,
       url: FRONT,
       httpOnly: true,

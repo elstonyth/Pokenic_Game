@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 
 const BASE = 'http://localhost:4000';
 const PACK = 'pokemon-rookie';
-const EMAIL = 'stocktest-1@pokenic.local';
+const EMAIL = 'stocktest-1@polycards.local';
 const PASSWORD = 'stocktest2026!';
 
 const fail = (m) => {

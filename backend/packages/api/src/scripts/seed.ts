@@ -70,7 +70,7 @@ const updateStoreCurrencies = createWorkflow(
 const HOUSE_SELLER = {
   name: 'House',
   handle: 'house',
-  email: 'house@pokenic.local',
+  email: 'house@polycards.local',
 } as const;
 
 // Medusa's default demo apparel — purged by the seed for a clean catalog.
@@ -173,7 +173,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
     input: {
       selector: { id: store.id },
       update: {
-        name: 'Pokenic',
+        name: 'Polycards',
         default_sales_channel_id: defaultSalesChannel[0].id,
       },
     },
@@ -650,14 +650,14 @@ export default async function seedDemoData({ container }: ExecArgs) {
   const customerModuleService = container.resolve(Modules.CUSTOMER);
 
   const DEMO_COLLECTORS = [
-    { first_name: 'Kenji', email: 'demo-collector-1@pokenic.local' },
-    { first_name: 'Mira', email: 'demo-collector-2@pokenic.local' },
-    { first_name: 'Diego', email: 'demo-collector-3@pokenic.local' },
-    { first_name: 'Anaya', email: 'demo-collector-4@pokenic.local' },
-    { first_name: 'Leo', email: 'demo-collector-5@pokenic.local' },
-    { first_name: 'Sora', email: 'demo-collector-6@pokenic.local' },
-    { first_name: 'Bianca', email: 'demo-collector-7@pokenic.local' },
-    { first_name: 'Ravi', email: 'demo-collector-8@pokenic.local' },
+    { first_name: 'Kenji', email: 'demo-collector-1@polycards.local' },
+    { first_name: 'Mira', email: 'demo-collector-2@polycards.local' },
+    { first_name: 'Diego', email: 'demo-collector-3@polycards.local' },
+    { first_name: 'Anaya', email: 'demo-collector-4@polycards.local' },
+    { first_name: 'Leo', email: 'demo-collector-5@polycards.local' },
+    { first_name: 'Sora', email: 'demo-collector-6@polycards.local' },
+    { first_name: 'Bianca', email: 'demo-collector-7@polycards.local' },
+    { first_name: 'Ravi', email: 'demo-collector-8@polycards.local' },
   ];
   const demoEmails = DEMO_COLLECTORS.map((c) => c.email);
   const existingDemoCustomers = await customerModuleService.listCustomers(
@@ -711,8 +711,8 @@ export default async function seedDemoData({ container }: ExecArgs) {
   // already exists. Env-overridable; defaults to the shared dev login.
   // ---------------------------------------------------------------------------
   logger.info('Seeding test customer login...');
-  const TEST_EMAIL = process.env.TEST_CUSTOMER_EMAIL || 'test@pokenic.app';
-  const TEST_PASSWORD = process.env.TEST_CUSTOMER_PASSWORD || 'PokenicTest123!';
+  const TEST_EMAIL = process.env.TEST_CUSTOMER_EMAIL || 'test@polycards.app';
+  const TEST_PASSWORD = process.env.TEST_CUSTOMER_PASSWORD || 'PolycardsTest123!';
   const authModuleService = container.resolve(Modules.AUTH);
 
   const [existingTestCustomer] = await customerModuleService.listCustomers({

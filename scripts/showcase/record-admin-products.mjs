@@ -16,7 +16,7 @@ import {
 
 const ADMIN = 'http://localhost:7000';
 const BE = 'http://localhost:9000';
-const EMAIL = 'qa-admin@pokenic.local';
+const EMAIL = 'qa-admin@polycards.local';
 const PASSWORD = 'QaAdmin2026!';
 
 const PRODUCT_TITLE = 'Showcase Charizard VMAX 2025';

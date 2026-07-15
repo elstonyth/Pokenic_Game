@@ -6,7 +6,7 @@ import { composeSlab, fetchBytes, isAllowedImageUrl } from '../bake-slab';
 // break legit baking); internal / metadata / loopback targets are rejected.
 describe('isAllowedImageUrl', () => {
   it.each([
-    ['CDN https URL', 'https://cdn.pixelslot.example/slab-abc.webp'],
+    ['CDN https URL', 'https://cdn.polycards.example/slab-abc.webp'],
     ['public http URL', 'http://images.example.com/card.jpg'],
     ['storefront-relative path', '/images/test-card.webp'],
     ['relative cdn path', '/cdn/test-pack.webp'],

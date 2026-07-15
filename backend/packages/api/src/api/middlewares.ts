@@ -113,8 +113,45 @@ const mediaUploadMiddleware = (
   });
 };
 
+// SECURITY (audit 2026-07-15): this is a single-house-seller deploy with no
+// peer-to-peer vendor onboarding. The bundled @mercurjs/core plugin still mounts
+// the public vendor self-registration surface, and Mercur's `seller_registration:
+// false` flag is UI-visibility only — it does NOT gate the API. `POST
+// /vendor/sellers` is guarded by authenticate('member', …, { allowUnregistered:
+// true }), so anyone could POST /auth/member/emailpass/register then POST
+// /vendor/sellers to create a real seller+store+membership in prod. This
+// middleware hard-404s the two registration entrypoints so the surface is
+// genuinely closed (app middleware applies to plugin routes here, same as the
+// /auth/*/emailpass rate-limit entries below). The house seller is seeded
+// server-side (not via this HTTP route) and logs in via POST /auth/member/
+// emailpass (authenticate, NOT /register), so neither is affected. Re-open
+// deliberately — behind admin invite/approval — if P2P onboarding is ever built.
+const blockUnusedVendorSelfRegistration = (
+  _req: MedusaRequest,
+  _res: MedusaResponse,
+  _next: MedusaNextFunction,
+): void => {
+  throw new MedusaError(MedusaError.Types.NOT_FOUND, 'Not found');
+};
+
 export default defineMiddlewares({
   routes: [
+    {
+      // See blockUnusedVendorSelfRegistration above — refuse anonymous seller
+      // self-registration (the money-irrelevant but prod-DB-polluting surface).
+      matcher: '/vendor/sellers',
+      method: 'POST',
+      middlewares: [blockUnusedVendorSelfRegistration],
+    },
+    {
+      // Defense-in-depth: refuse new `member`-actor self-registration too, so no
+      // anonymous member auth identity can be minted. Member LOGIN (POST
+      // /auth/member/emailpass, no /register) is deliberately NOT matched — the
+      // seeded house seller needs it for the /seller vendor dashboard.
+      matcher: '/auth/member/emailpass/register',
+      method: 'POST',
+      middlewares: [blockUnusedVendorSelfRegistration],
+    },
     {
       // Validated admin image upload (POST /admin/media). /admin/* is already
       // auth-protected; multer parses the multipart body into req.files.

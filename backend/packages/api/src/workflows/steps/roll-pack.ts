@@ -1,9 +1,21 @@
+import { randomBytes } from 'node:crypto';
 import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk';
 import { MedusaError } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../modules/packs';
 import type PacksModuleService from '../../modules/packs/service';
 import { pickWonRow } from '../../modules/packs/pick';
 import { pageAll } from '../../api/utils/page-all';
+
+// Cryptographically-secure uniform float in [0, 1). This is a money-determining
+// draw (it decides which card — and therefore its FMV/buyback value — the
+// customer wins), so it must use a CSPRNG, matching the reward-box draw
+// (crypto.randomInt) and pack-open ids (crypto.randomUUID). 48 bits of entropy
+// gives negligible bias over the basis-point weight pool (Σweight = 10000) and
+// preserves pickWonRow's fractional-weight handling + last-row fallback exactly
+// as the previous `Math.random()` did — same distribution shape, secure source.
+function secureUnitFloat(): number {
+  return randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
+}
 
 type RollPackInput = {
   pack_id: string; // = Pack.slug
@@ -94,15 +106,19 @@ export async function fetchPackData(
 }
 
 // drawFromData — performs ONE independent weighted draw from pre-fetched pack data.
-// This is the per-roll logic: a new Math.random() per call ensures draw independence.
+// This is the per-roll logic: a fresh CSPRNG draw per call ensures draw independence.
 // listCards is intentionally kept HERE (not hoisted) because it fetches the
 // specific card that WAS won — it varies per roll and must stay per-draw.
+// `roll` defaults to a fresh CSPRNG value in [0, totalWeight); it is injectable
+// ONLY so tests can force a specific winner deterministically — production always
+// uses the secure default (there is no caller-supplied roll on any real path).
 export async function drawFromData(
   packs: PacksModuleService,
   odds: PackData['odds'],
   totalWeight: number,
+  roll: number = secureUnitFloat() * totalWeight,
 ): Promise<RolledCard> {
-  const won = pickWonRow(odds, Math.random() * totalWeight);
+  const won = pickWonRow(odds, roll);
   const [card] = await packs.listCards({ handle: won.card_id }, { take: 1 });
   if (!card)
     throw new MedusaError(
@@ -140,8 +156,8 @@ export async function rollOne(
 
 // roll-pack — read-only step: validate the pack is active, then pick a winner
 // over its weighted PackOdds table. No mutation, so no compensation. The weighted
-// draw runs at execution time, so Math.random here is correct (the composition
-// body, which runs at load time, must never contain this logic).
+// draw runs at execution time (inside the step body, never the composition body
+// which runs at load time), so the CSPRNG draw here is correct.
 export const rollPackStep = createStep(
   'roll-pack',
   async (input: RollPackInput, { container }) => {

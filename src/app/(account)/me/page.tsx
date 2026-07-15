@@ -102,11 +102,8 @@ export default async function MePage() {
             mix-blend-screen so it melts into the card background. */}
         {vipResult.ok && (
           <div className="rounded-2xl border border-white/10 bg-neutral-900 px-4 py-3">
-            <Link
-              href="/vip"
-              className="flex items-center gap-3 hover:opacity-90"
-            >
-              <div className="min-w-0 flex-1">
+            <Link href="/vip" className="group flex items-center gap-3">
+              <div className="min-w-0 flex-1 transition-opacity group-hover:opacity-90">
                 <span className="font-heading text-chase text-xl">
                   LV {vipResult.vip.level}
                 </span>

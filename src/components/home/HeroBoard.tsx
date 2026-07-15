@@ -27,7 +27,12 @@ export default function HeroBoard({
       aria-labelledby="hero-heading"
       // Phone height subtracts header (64) + fixed TabBar (64) so the CTA
       // clears the bar even on short phones; desktop has no TabBar.
-      className="px-fluid flex min-h-[calc(100svh-128px)] w-full flex-col items-center justify-center gap-5 py-8 text-center lg:grid lg:min-h-[calc(100svh-64px)] lg:grid-cols-[1fr_auto] lg:content-center lg:items-center lg:gap-x-12 lg:py-16 lg:text-left"
+      // Desktop: text + shop sit as a CENTERED cluster (both columns
+      // content-sized, `justify-center` soaks up wide-screen slack) so the
+      // shop never drifts to the far-right edge with a dead gap in the middle
+      // — the old `1fr auto` did exactly that. Columns shrink (minmax floor 0)
+      // before they overflow narrower desktops.
+      className="px-fluid flex min-h-[calc(100svh-128px)] w-full flex-col items-center justify-center gap-5 py-8 text-center lg:grid lg:min-h-[calc(100svh-64px)] lg:grid-cols-[minmax(0,34rem)_minmax(0,46rem)] lg:content-center lg:items-center lg:justify-center lg:gap-x-16 lg:py-16 lg:text-left"
     >
       <p
         id="hero-heading"
@@ -40,7 +45,7 @@ export default function HeroBoard({
           in, the cashier serves) framed in a grounded panel: the clip carries
           its own dark background, so a rounded bordered box reads as an intended
           window into the shop rather than a floating cutout. */}
-      <div className="w-full max-w-[min(92vw,30rem)] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:w-[38rem] lg:max-w-none">
+      <div className="w-full max-w-[min(92vw,30rem)] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:w-full lg:max-w-none">
         <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.85)]">
           <AmbientVideo
             mp4="/images/polycards/shop-night.mp4"

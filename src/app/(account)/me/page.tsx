@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Bell,
@@ -98,106 +99,112 @@ export default async function MePage() {
           frames={avatarFrames}
         />
 
-        {/* Level card (Show's Lv bar) */}
+        {/* Level card (Show's Lv bar): compact, VIP emblem on the right.
+            The emblem is rendered on pure black and composited with
+            mix-blend-screen so it melts into the card background. */}
         {vipResult.ok && (
-          <div className="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-            <Link href="/vip" className="block hover:opacity-90">
-              <div className="flex items-baseline justify-between">
-                <span className="font-heading text-chase text-2xl">
+          <div className="rounded-2xl border border-white/10 bg-neutral-900 px-4 py-3">
+            <Link
+              href="/vip"
+              className="flex items-center gap-3 hover:opacity-90"
+            >
+              <div className="min-w-0 flex-1">
+                <span className="font-heading text-chase text-xl">
                   LV {vipResult.vip.level}
                 </span>
-                <span className="flex items-center gap-0.5 text-[12px] font-semibold uppercase tracking-wide text-neutral-400">
-                  VIP
-                  <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                </span>
-              </div>
-              {vipResult.vip.next ? (
-                <>
-                  <div
-                    className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-800"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={vipResult.vip.next.threshold}
-                    aria-valuenow={
-                      vipResult.vip.next.threshold -
-                      vipResult.vip.next.remaining
-                    }
-                    aria-label={`Progress to VIP level ${vipResult.vip.next.level}`}
-                  >
+                {vipResult.vip.next ? (
+                  <>
                     <div
-                      className="bg-chase h-full rounded-full"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            2,
-                            ((vipResult.vip.next.threshold -
-                              vipResult.vip.next.remaining) /
-                              vipResult.vip.next.threshold) *
-                              100,
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="mt-1.5 flex justify-between text-[11px] font-semibold text-neutral-500">
-                    <span>
-                      {rm0(
+                      className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-800"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={vipResult.vip.next.threshold}
+                      aria-valuenow={
                         vipResult.vip.next.threshold -
-                          vipResult.vip.next.remaining,
-                      )}
-                    </span>
-                    <span>{rm0(vipResult.vip.next.threshold)}</span>
-                  </div>
-                  <p className="mt-1 text-[13px] text-neutral-400">
-                    {rm0(vipResult.vip.next.remaining)} more to LV{' '}
-                    {vipResult.vip.next.level}
-                    {vipResult.vip.next.reward.voucherAmount > 0 &&
-                      ` — unlocks a ${rm0(vipResult.vip.next.reward.voucherAmount)} voucher`}
+                        vipResult.vip.next.remaining
+                      }
+                      aria-label={`Progress to VIP level ${vipResult.vip.next.level}`}
+                    >
+                      <div
+                        className="bg-chase h-full rounded-full"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(
+                              2,
+                              ((vipResult.vip.next.threshold -
+                                vipResult.vip.next.remaining) /
+                                vipResult.vip.next.threshold) *
+                                100,
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-1 flex justify-between text-[10px] font-semibold text-neutral-500">
+                      <span>
+                        {rm0(
+                          vipResult.vip.next.threshold -
+                            vipResult.vip.next.remaining,
+                        )}
+                      </span>
+                      <span>{rm0(vipResult.vip.next.threshold)}</span>
+                    </div>
+                    <p className="text-[12px] text-neutral-400">
+                      {rm0(vipResult.vip.next.remaining)} more to LV{' '}
+                      {vipResult.vip.next.level}
+                      {vipResult.vip.next.reward.voucherAmount > 0 &&
+                        ` — unlocks a ${rm0(vipResult.vip.next.reward.voucherAmount)} voucher`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-[12px] text-neutral-400">
+                    Max level reached — you&rsquo;re at the top of the ladder.
                   </p>
-                </>
-              ) : (
-                <p className="mt-2 text-[13px] text-neutral-400">
-                  Max level reached — you&rsquo;re at the top of the ladder.
-                </p>
-              )}
+                )}
+              </div>
+              <Image
+                src="/images/app/vip-emblem.webp"
+                alt=""
+                aria-hidden
+                width={283}
+                height={320}
+                className="h-16 w-auto shrink-0 mix-blend-screen"
+              />
             </Link>
             {dailyResult.ok && (
-              <div className="mt-3 space-y-1 border-t border-white/5 pt-3">
-                <p className="text-[13px] text-neutral-400">
-                  <Link href="/daily" className="hover:text-white">
-                    Today&rsquo;s box:{' '}
-                    <span className="font-semibold text-white">
-                      {dailyResult.state.box &&
-                      dailyResult.state.box.drawsToday >=
-                        dailyResult.state.box.drawsPerDay
-                        ? 'opened — resets tomorrow'
-                        : dailyResult.state.box
-                          ? 'ready to open'
-                          : '—'}
-                    </span>
-                  </Link>
-                </p>
-                <p className="text-[13px] text-neutral-400">
-                  <Link href="/vip" className="hover:text-white">
-                    {
-                      dailyResult.state.vouchers.claimable.filter(
-                        (g) => g.kind === 'voucher',
-                      ).length
-                    }{' '}
-                    voucher(s) to claim
-                  </Link>{' '}
-                  ·{' '}
-                  <Link href="/vouchers" className="hover:text-white">
-                    {
-                      dailyResult.state.vouchers.claimed.filter(
-                        (g) => g.kind === 'voucher',
-                      ).length
-                    }{' '}
-                    claimed
-                  </Link>
-                </p>
-              </div>
+              <p className="mt-2 border-t border-white/5 pt-2 text-[12px] text-neutral-400">
+                <Link href="/daily" className="hover:text-white">
+                  Today&rsquo;s box:{' '}
+                  <span className="font-semibold text-white">
+                    {dailyResult.state.box &&
+                    dailyResult.state.box.drawsToday >=
+                      dailyResult.state.box.drawsPerDay
+                      ? 'opened'
+                      : dailyResult.state.box
+                        ? 'ready'
+                        : '—'}
+                  </span>
+                </Link>{' '}
+                ·{' '}
+                <Link href="/vip" className="hover:text-white">
+                  {
+                    dailyResult.state.vouchers.claimable.filter(
+                      (g) => g.kind === 'voucher',
+                    ).length
+                  }{' '}
+                  to claim
+                </Link>{' '}
+                ·{' '}
+                <Link href="/vouchers" className="hover:text-white">
+                  {
+                    dailyResult.state.vouchers.claimed.filter(
+                      (g) => g.kind === 'voucher',
+                    ).length
+                  }{' '}
+                  claimed
+                </Link>
+              </p>
             )}
           </div>
         )}

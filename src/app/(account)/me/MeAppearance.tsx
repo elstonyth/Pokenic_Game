@@ -98,13 +98,18 @@ export function MeHeader({
     setError(null);
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadAvatar(form);
-    setBusy(false);
-    if (!res.ok) {
-      setError(res.error);
-      return;
+    try {
+      const res = await uploadAvatar(form);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError('Upload failed. Please try again.');
+    } finally {
+      setBusy(false);
     }
-    router.refresh();
   }
 
   async function copyHandle() {
@@ -209,28 +214,34 @@ export function FramesCard({
   const [error, setError] = useState<string | null>(null);
   const { equipped, setEquipped } = useEquippedFrame();
 
-  // Self-heal a failed VIP read: the store-read burst window is 10s, so a
-  // refresh just past it usually succeeds — no manual reload needed. The
-  // interval unmounts with the component (navigation stops it).
+  // Self-heal a failed VIP read once: the store-read burst window is 10s, so
+  // a refresh just past it usually succeeds. Bounded to a single retry so a
+  // persistent outage isn't amplified by every open /me re-reading the whole
+  // page forever — the manual "Try again now" button covers the rest.
   const levelUnknown = highestLevel === null;
   useEffect(() => {
     if (!levelUnknown) return;
-    const id = window.setInterval(() => router.refresh(), 12_000);
-    return () => window.clearInterval(id);
+    const id = window.setTimeout(() => router.refresh(), 12_000);
+    return () => window.clearTimeout(id);
   }, [levelUnknown, router]);
 
   async function handleFrame(level: number | null) {
     if (busy) return;
     setBusy(level === null ? 'unequip' : level);
     setError(null);
-    const res = await setAvatarFrame(level);
-    setBusy(null);
-    if (!res.ok) {
-      setError(res.error);
-      return;
+    try {
+      const res = await setAvatarFrame(level);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      // No router.refresh(): the POST persisted it; render from shared state.
+      setEquipped(level);
+    } catch {
+      setError('Couldn’t update the frame. Please try again.');
+    } finally {
+      setBusy(null);
     }
-    // No router.refresh(): the POST persisted it; render from shared state.
-    setEquipped(level);
   }
 
   return (

@@ -43,29 +43,34 @@ export function AddressesClient({
     if (busy) return;
     setBusy(true);
     setError(null);
-    const res = await addAddress(form);
-    setBusy(false);
-    if (!res.ok) {
-      setError(res.error);
-      return;
+    try {
+      const res = await addAddress(form);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      // Optimistic append (same pattern as RequestDeliveryModal).
+      setAddresses((p) => [
+        ...p,
+        {
+          id: res.addressId,
+          name: `${form.firstName} ${form.lastName}`.trim(),
+          line1: form.address1,
+          line2: form.address2 ?? null,
+          city: form.city,
+          province: form.province ?? null,
+          postalCode: form.postalCode,
+          countryCode: form.countryCode,
+          phone: form.phone ?? null,
+        },
+      ]);
+      setForm(EMPTY_FORM);
+      setAdding(false);
+    } catch {
+      setError('Couldn’t save the address. Please try again.');
+    } finally {
+      setBusy(false);
     }
-    // Optimistic append (same pattern as RequestDeliveryModal).
-    setAddresses((p) => [
-      ...p,
-      {
-        id: res.addressId,
-        name: `${form.firstName} ${form.lastName}`.trim(),
-        line1: form.address1,
-        line2: form.address2 ?? null,
-        city: form.city,
-        province: form.province ?? null,
-        postalCode: form.postalCode,
-        countryCode: form.countryCode,
-        phone: form.phone ?? null,
-      },
-    ]);
-    setForm(EMPTY_FORM);
-    setAdding(false);
   }
 
   function field(
@@ -146,7 +151,13 @@ export function AddressesClient({
       )}
 
       {adding ? (
-        <section className="rounded-2xl border border-white/10 bg-neutral-900 p-5">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+          className="rounded-2xl border border-white/10 bg-neutral-900 p-5"
+        >
           <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-400">
             New address
           </p>
@@ -178,7 +189,7 @@ export function AddressesClient({
             </p>
           )}
           <div className="mt-4 flex items-center gap-3">
-            <Pill disabled={busy} onClick={() => void save()} className="px-5">
+            <Pill type="submit" disabled={busy} className="px-5">
               {busy ? 'Saving…' : 'Save address'}
             </Pill>
             {addresses.length > 0 && (
@@ -191,7 +202,7 @@ export function AddressesClient({
               </button>
             )}
           </div>
-        </section>
+        </form>
       ) : (
         <Pill
           variant="secondary"

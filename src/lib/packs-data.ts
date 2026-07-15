@@ -125,6 +125,35 @@ export function priceNumber(price: string): number {
   return parseFloat(price.replace(/^RM\s*/, '').replace(/,/g, '')) || 0;
 }
 
+// Tiers that ship an animated factory hero loop
+// (public/images/polycards/{tier}-factory.{mp4,webm} + -poster.webp).
+const FACTORY_VIDEO_TIERS = new Set([
+  'bronze',
+  'silver',
+  'gold',
+  'platinum',
+  'diamond',
+]);
+
+/** Animated factory-hero sources for a pack, or null when its display image is
+ *  not one of the baked Polycards factory scenes (arbitrary uploaded heroes
+ *  keep rendering as a still). Poster is the clip's own first frame. */
+export function factoryVideo(
+  displayImage: string | undefined,
+): { mp4: string; webm: string; poster: string } | null {
+  if (!displayImage) return null;
+  const tier = /^\/images\/polycards\/([a-z]+)-factory\.webp$/.exec(
+    displayImage,
+  )?.[1];
+  if (!tier || !FACTORY_VIDEO_TIERS.has(tier)) return null;
+  const base = `/images/polycards/${tier}-factory`;
+  return {
+    mp4: `${base}.mp4`,
+    webm: `${base}.webm`,
+    poster: `${base}-poster.webp`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Card display types + the statically-published odds (real pool data comes
 // from the backend — the storefront renders no mock cards).

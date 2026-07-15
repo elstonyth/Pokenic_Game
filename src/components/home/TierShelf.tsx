@@ -2,15 +2,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import Reveal from '@/components/Reveal';
-import { groupPacksByTier } from '@/lib/home-shelf';
-import { TIER_COLOR, type Tier } from '@/lib/price-tier';
-import type { Pack, PackCard } from '@/lib/packs-data';
+import { priceNumber, type Pack, type PackCard } from '@/lib/packs-data';
 
 /**
- * Board 02 — RIP A PACK, as a tier LADDER: one full-width row per pack,
- * highest tier first, so a one-pack-per-tier catalog reads as a price ladder
- * instead of five near-empty racks. The top row leads full-width on desktop;
- * the rest sit two-up. Every row → /slots (routing rule); sold out is inert.
+ * Board 02 — RIP A PACK: one full-width row per pack, most expensive first, so
+ * the catalog reads as a price ladder. Packs carry no rarity/tier label — just
+ * art, name, top chase, and price. The top row leads full-width on desktop; the
+ * rest sit two-up. Every row → /slots (routing rule); sold out is inert.
  */
 export default function TierShelf({
   packs,
@@ -19,9 +17,9 @@ export default function TierShelf({
   packs: Pack[];
   chaseByPack: Map<string, PackCard | null>;
 }) {
-  // Ladder order: tier high→low, catalog order within a tier.
-  const rows = groupPacksByTier(packs).flatMap((rack) =>
-    rack.packs.map((pack) => ({ pack, tier: rack.tier })),
+  // Ladder order: price high→low (unparseable prices sink to the bottom).
+  const rows = [...packs].sort(
+    (a, b) => priceNumber(b.price) - priceNumber(a.price),
   );
 
   return (
@@ -45,17 +43,16 @@ export default function TierShelf({
         </p>
       ) : (
         <div className="mt-4 flex flex-col gap-3 lg:grid lg:grid-cols-2">
-          {rows.map((row, i) => (
+          {rows.map((pack, i) => (
             <Reveal
-              key={row.pack.id}
+              key={pack.id}
               delay={i * 70}
-              // The top tier leads full-width on desktop — the ladder's crown.
+              // The top rung leads full-width on desktop — the ladder's crown.
               className={i === 0 ? 'lg:col-span-2' : undefined}
             >
               <LadderRow
-                pack={row.pack}
-                tier={row.tier}
-                chase={chaseByPack.get(row.pack.id) ?? null}
+                pack={pack}
+                chase={chaseByPack.get(pack.id) ?? null}
                 lead={i === 0}
               />
             </Reveal>
@@ -66,31 +63,27 @@ export default function TierShelf({
   );
 }
 
-/** One ladder rung: art · tier chip + name + chase · price. */
+/** One ladder rung: art · name + chase · price. */
 function LadderRow({
   pack,
-  tier,
   chase,
   lead,
 }: {
   pack: Pack;
-  tier: Tier;
   chase: PackCard | null;
   lead: boolean;
 }) {
   const soldOut = pack.inStock === false;
-  const rgb = TIER_COLOR[tier];
 
   const body = (
     <>
-      {/* Pack art on its own tier-tinted pedestal. Sold out dims art/name/
-          price individually — never the status label, which must stay legible
+      {/* Pack art on a neutral pedestal. Sold out dims art/name/price
+          individually — never the status label, which must stay legible
           (DESIGN.md contrast floor) since it's what explains the inert row. */}
       <div
-        className={`flex shrink-0 items-center justify-center rounded-xl ${
+        className={`flex shrink-0 items-center justify-center rounded-xl bg-white/[0.04] ${
           lead ? 'h-24 w-24 lg:h-32 lg:w-32' : 'h-24 w-24'
         } ${soldOut ? 'opacity-50' : ''}`}
-        style={{ backgroundColor: `rgba(${rgb}, 0.08)` }}
       >
         <Image
           src={pack.image}
@@ -105,19 +98,10 @@ function LadderRow({
         />
       </div>
 
-      {/* Name + tier + chase */}
+      {/* Name + chase */}
       <div className="min-w-0 flex-1">
-        <span
-          className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]"
-          style={{
-            color: `rgb(${rgb})`,
-            backgroundColor: `rgba(${rgb}, 0.12)`,
-          }}
-        >
-          {tier}
-        </span>
         <p
-          className={`mt-1.5 truncate font-semibold text-white ${
+          className={`truncate font-semibold text-white ${
             lead ? 'text-[15px] lg:text-lg' : 'text-[15px]'
           } ${soldOut ? 'opacity-50' : ''}`}
         >
@@ -158,21 +142,15 @@ function LadderRow({
   // h-full: grid cells stretch equal-height; the row must fill its cell so
   // 2-up card bottoms stay aligned if one card ever gains an extra line.
   const rowClass =
-    'flex h-full w-full items-center gap-4 rounded-2xl border bg-neutral-900 p-3';
-  const rowStyle = { borderColor: `rgba(${rgb}, 0.4)` };
+    'flex h-full w-full items-center gap-4 rounded-2xl border border-white/10 bg-neutral-900 p-3';
 
   if (soldOut) {
-    return (
-      <div className={rowClass} style={rowStyle}>
-        {body}
-      </div>
-    );
+    return <div className={rowClass}>{body}</div>;
   }
   return (
     <Link
       href="/slots"
       className={`${rowClass} transition-[transform,border-color] hover:border-white/30 active:scale-[0.99] motion-reduce:transition-colors motion-reduce:active:scale-100`}
-      style={rowStyle}
     >
       {body}
     </Link>

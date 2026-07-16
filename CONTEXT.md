@@ -38,14 +38,22 @@ server-side act (`POST /store/packs/[slug]/open`).
 _Avoid_: buy, purchase, spin, draw
 
 **Pull**:
-The record of one Open — the rolled result. The append-only source of truth for
+The record of one prize acquisition — a pack Open (`source='pack'`) or a product
+win from a Reward Draw (`source='reward'`). The append-only source of truth for
 the live-pulls feed, the leaderboard, and the Vault.
-_Avoid_: spin, draw, roll, result
+_Avoid_: spin, roll, result
 
 **Vault**:
 A customer's held Pulls — the cards they keep. Not a table: a vault item is a
 Pull whose status is `vaulted`.
 _Avoid_: inventory, collection, wallet
+
+**Delivery Order**:
+A customer's request to physically ship one or more vaulted Pulls, with its own
+`requested → packing → shipped → delivered → canceled` status. A shipment being
+_delivered_ is a different fact from a Pull being _delivered_ — do not conflate
+the two lifecycles.
+_Avoid_: order (a DeliveryOrder is not a Medusa checkout order)
 
 ## Two six-name axes — do not conflate
 
@@ -58,9 +66,9 @@ tier badge. The same Card can be a different Rarity in a different Pack.
 _Avoid_: tier (Tier is the price axis below)
 
 **Tier**:
-A card's glow bucket derived from its USD market value — `common · uncommon ·
-rare · mythical · legendary · immortal` (lowercase). By price, and explicitly
-independent of the card's Rarity.
+A card's glow bucket derived from its market value — `common · uncommon · rare ·
+mythical · legendary · immortal` (lowercase). Bucketed in MYR bands (`< RM 25` …
+`≥ RM 10,000`), and explicitly independent of the card's Rarity.
 _Avoid_: rarity (Rarity is the odds axis above); level (Level is VIP)
 
 ## Money
@@ -107,7 +115,8 @@ _Avoid_: sell (ambiguous between this and Buyback — say which)
 
 **Cashout**:
 Converting site credit out to real money (ledger reason `cashout`).
-_Avoid_: withdraw, payout (in domain prose — the route is `rewards/withdraw`)
+_Avoid_: withdraw (that word is the physical reward-shipment flow — see Delivery
+Order and `rewards/withdraw`), payout
 
 ## Rewards, VIP, and referrals
 
@@ -120,9 +129,10 @@ _Avoid_: rank, tier (Tier is the price axis)
 The daily free-prize pool attached to a VIP tier.
 
 **Reward Draw**:
-A customer's daily free draw from their Reward Box. A separate flow from Open /
-Pull — free, daily-capped, VIP-gated.
-_Avoid_: pull, spin, open (those are the paid pack flow)
+A customer's daily free draw from their Reward Box — free, daily-capped,
+VIP-gated. Distinct from a pack Open, though a product prize is delivered as a
+`source='reward'` Pull.
+_Avoid_: spin, open (those are the paid pack flow)
 
 **Voucher**:
 A MYR credit grant awarded at a VIP milestone.
@@ -160,8 +170,8 @@ and shows a card. No Open, no Pull, no credit, no stock.
 _Avoid_: using "spin" for a real Open or Pull
 
 **Reel** / **HReel** / **VaultReel**:
-Pure slot-strip geometry primitives that animate the reveal. UI math, no domain
-meaning.
+Pure slot-strip geometry and physics primitives that animate the reveal. UI math,
+no domain meaning.
 
 **Slab**:
 The baked graded-card composite image (frame + photo, one webp) shown for a

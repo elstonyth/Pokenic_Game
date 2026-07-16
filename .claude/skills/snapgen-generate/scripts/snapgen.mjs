@@ -4,7 +4,7 @@
 //
 //   node snapgen.mjs account
 //   node snapgen.mjs image "prompt" --model nano-banana-2 [--aspect_ratio 3:2] [--resolution 2K] [--style Photorealistic] [--files a.png,b.png] [--file_urls u1,u2]
-//   node snapgen.mjs gpt-image "prompt" [--mode low|medium|high] [--resolution 1K|2K|4K] [--aspect_ratio 1:1] [--files ref.png]
+//   node snapgen.mjs gpt-image "prompt" [--mode low|medium|high] [--resolution 1K|2K|4K|8K|10K|12K] [--aspect_ratio 1:1] [--files ref.png]
 //   node snapgen.mjs grok-image "prompt" [--mode SPEED|QUALITY] [--orientation landscape|portrait|square] [--num_result 1-8] [--files ref.png] [--ref_history <uuid>]
 //   node snapgen.mjs meta-image "prompt" [--orientation landscape|portrait|square] [--num_result 1-4] [--files ref.png] [--ref_history <uuid>]
 //   node snapgen.mjs video <veo|sora|grok|seedance|kling|meta> "prompt" --model <model> [--duration 8] [--resolution 720p] [--aspect_ratio 16:9] [--mode standard] [--ref_images a.png,https://…] ...
@@ -118,7 +118,13 @@ const ENUMS = {
     duration: ['6', '10', '15'],
   },
   'video:kling': {
-    mode: ['standard', 'professional', 'professional_audio', 'relax', 'default'],
+    mode: [
+      'standard',
+      'professional',
+      'professional_audio',
+      'relax',
+      'default',
+    ],
   },
   'video:meta': { orientation: ['landscape', 'portrait', 'square'] },
   storyboard: {
@@ -127,8 +133,9 @@ const ENUMS = {
   },
 };
 {
-  const scope =
-    cmd === 'video' || cmd === 'extend' ? `video:${rest[0]}` : cmd;
+  // Guard applies to generate commands only — extend endpoints have their own
+  // param sets (e.g. extend kling/seedance mode defaults to "fast").
+  const scope = cmd === 'video' ? `video:${rest[0]}` : cmd;
   for (const [k, allowed] of Object.entries(ENUMS[scope] ?? {})) {
     const v = fields[k];
     if (v !== undefined && !allowed.includes(String(v)))

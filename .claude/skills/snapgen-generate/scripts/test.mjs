@@ -153,6 +153,21 @@ const run = (args, env = {}) =>
     '--dry-run',
   ]);
   assert.ok(!kling.out.includes('warn:'), 'kling relax mode must not warn');
+  // extend has its own param sets (mode default "fast") — guard must not apply
+  const ext = await run([
+    'extend',
+    'kling',
+    'x',
+    '--ref_history',
+    'u1',
+    '--mode',
+    'fast',
+    '--dry-run',
+  ]);
+  assert.ok(
+    !ext.out.includes('warn:'),
+    'extend kling --mode fast must not warn',
+  );
 }
 
 // --- 3. live flow against mock: submit → poll(processing→completed) → URL ---

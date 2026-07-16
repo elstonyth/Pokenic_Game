@@ -14,6 +14,10 @@
 //   node snapgen.mjs status <uuid> | wait <uuid> | history [--filter_by image]
 // Any extra --key value passes through as a form/query field.
 // Flags: --dry-run (print request, send nothing)  --no-wait  --no-download  --out <dir>
+//        --transparent (image cmds only: inject flat-magenta background, then
+//        chroma-key the download to a real-alpha, subject-trimmed *-alpha.png;
+//        needs sharp resolvable from cwd or SHARP_PATH — no API supports
+//        native transparency, this is the reliable substitute)
 import { openAsBlob } from 'node:fs';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -54,7 +58,7 @@ const VIDEO_PATHS = {
 const argv = process.argv.slice(2);
 const pos = [];
 const opts = {};
-const BOOLS = new Set(['dry-run', 'no-wait', 'no-download']);
+const BOOLS = new Set(['dry-run', 'no-wait', 'no-download', 'transparent']);
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a.startsWith('--')) {
@@ -77,9 +81,25 @@ const {
   'dry-run': dryRun,
   'no-wait': noWait,
   'no-download': noDownload,
+  transparent,
   out: outDir = '.',
   ...fields
 } = opts;
+
+// --transparent: no SnapGen endpoint renders alpha (PNG is just the container),
+// so generate on flat magenta and key it after download (see keyMagenta).
+// Also valid on `wait <uuid>` to key a job submitted earlier with --no-wait.
+if (transparent) {
+  const IMG = ['image', 'gpt-image', 'grok-image', 'meta-image'];
+  if (![...IMG, 'wait'].includes(cmd))
+    die('--transparent only applies to image commands (or wait)');
+  if (noDownload) die('--transparent needs the download — drop --no-download');
+  if (IMG.includes(cmd)) {
+    if (!/magenta|#ff00ff/i.test(rest.join(' ')))
+      rest.push('with the entire background flat solid magenta #FF00FF');
+    if (cmd === 'image' && !fields.output_format) fields.output_format = 'png';
+  }
+}
 
 // Known closed enums (verified against the docs openapi.json, 2026-07).
 // Warn-only typo guard before spending — the server stays authoritative.
@@ -220,6 +240,95 @@ const resultUrls = (h) =>
     ...(h.generate_result ? [h.generate_result] : []),
   ].filter(Boolean);
 
+// Chroma-key a downloaded render: magenta (min(R,B)-G keyness, per this
+// repo's scripts/process-slab-frame.mjs) → alpha ramp + despill + 5×5 speckle
+// cleanup, then trim to the subject's bounding box. Writes <file>-alpha.png.
+// sharp is loaded lazily so the adapter keeps zero hard deps.
+async function keyMagenta(file) {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(join(process.cwd(), 'x.js'));
+  let sharp;
+  for (const p of [process.env.SHARP_PATH, 'sharp'].filter(Boolean)) {
+    try {
+      sharp = req(p);
+      break;
+    } catch {} // ponytail: try the next resolution candidate
+  }
+  if (!sharp)
+    return console.error(
+      'warn: sharp not resolvable from cwd (set SHARP_PATH=<dir>) — kept the opaque original, no -alpha.png',
+    );
+  try {
+    await keyWithSharp(sharp, file);
+  } catch (e) {
+    console.error(`warn: keying failed (${e.message}) — kept the original`);
+  }
+}
+
+async function keyWithSharp(sharp, file) {
+  const { data, info } = await sharp(file)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width: W, height: H } = info;
+  const K0 = 0.15,
+    K1 = 0.5,
+    N = W * H;
+  const alpha = new Float32Array(N);
+  for (let n = 0; n < N; n++) {
+    const i = n * 4;
+    const k = Math.max(0, Math.min(data[i], data[i + 2]) - data[i + 1]) / 255;
+    alpha[n] = k >= K1 ? 0 : k <= K0 ? 1 : (K1 - k) / (K1 - K0);
+    if (k > 0) {
+      // despill: subtract magenta excess so semi-transparent edges go neutral
+      const e = Math.min(data[i], data[i + 2]) - data[i + 1];
+      data[i] -= e;
+      data[i + 2] -= e;
+    }
+  }
+  const cleaned = new Float32Array(alpha);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const n = y * W + x;
+      if (alpha[n] === 0 || alpha[n] >= 0.85) continue;
+      let sum = 0,
+        cnt = 0;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          const xx = x + dx,
+            yy = y + dy;
+          if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
+          sum += alpha[yy * W + xx];
+          cnt++;
+        }
+      if (sum / cnt < 0.25) cleaned[n] = 0;
+    }
+  for (let n = 0; n < N; n++)
+    data[n * 4 + 3] = Math.round(cleaned[n] * data[n * 4 + 3]);
+  let sl = W,
+    sr = -1,
+    st = H,
+    sb = -1;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (data[(y * W + x) * 4 + 3] >= 25) {
+        if (x < sl) sl = x;
+        if (x > sr) sr = x;
+        if (y < st) st = y;
+        if (y > sb) sb = y;
+      }
+  if (sr < 0)
+    return console.error(
+      'warn: keying left no opaque pixels (was the render all magenta?) — kept the original only',
+    );
+  const out = file.replace(/\.[a-z0-9]+$/i, '') + '-alpha.png';
+  await sharp(data, { raw: { width: W, height: H, channels: 4 } })
+    .extract({ left: sl, top: st, width: sr - sl + 1, height: sb - st + 1 })
+    .png()
+    .toFile(out);
+  console.log(`keyed ${out}`);
+}
+
 async function waitDone(uuid) {
   const t0 = Date.now();
   for (;;) {
@@ -263,6 +372,7 @@ async function finish(job) {
       const file = join(outDir, `snapgen-${job.uuid.slice(0, 8)}-${i}${ext}`);
       await writeFile(file, Buffer.from(await r.arrayBuffer()));
       console.log(`saved ${file}`);
+      if (transparent) await keyMagenta(file);
     }
   }
 }

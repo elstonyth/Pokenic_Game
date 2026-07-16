@@ -8,10 +8,16 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
 import assert from 'node:assert';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CLI = join(here, 'snapgen.mjs');
+// Hermetic cwd: the CLI auto-loads SNAPGEN_API_KEY from a .env in its cwd, so
+// running tests from the repo root would pick up the REAL key and submit a
+// REAL paid job (happened 2026-07-16 — test 1 spent credits on "a cat").
+// Every child runs from an empty temp dir unless a test overrides cwd.
+const hermeticDir = await mkdtemp(join(tmpdir(), 'snapgen-hermetic-'));
 // MUST be async: the mock server lives in THIS process — a sync child call
 // (execFileSync) blocks the event loop, the server never answers, the child
 // hangs until undici's headers timeout. Learned the hard way.
@@ -21,6 +27,7 @@ const run = (args, env = {}) =>
       'node',
       [CLI, ...args],
       {
+        cwd: hermeticDir,
         env: { ...process.env, SNAPGEN_API_KEY: '', ...env },
         encoding: 'utf8',
         timeout: 20_000,
@@ -192,7 +199,9 @@ const handle = (req, res, body) => {
       ? 'fail0001'
       : body.includes('DLTEST')
         ? 'dl000001'
-        : 'mock-uuid-1';
+        : body.includes('ALPHATEST')
+          ? 'alpha001'
+          : 'mock-uuid-1';
     res.end(
       JSON.stringify({
         uuid,
@@ -225,6 +234,18 @@ const handle = (req, res, body) => {
   } else if (req.url === '/mock-img.png') {
     res.setHeader('content-type', 'image/png');
     res.end(Buffer.from('PNGBYTES'));
+  } else if (req.url === '/uapi/v1/history/alpha001') {
+    res.end(
+      JSON.stringify({
+        uuid: 'alpha001',
+        status: 2,
+        used_credit: 3,
+        generated_image: [{ file_download_url: base + '/mock-alpha.png' }],
+      }),
+    );
+  } else if (req.url === '/mock-alpha.png') {
+    res.setHeader('content-type', 'image/png');
+    res.end(alphaPng);
   } else if (req.url === '/uapi/v1/history/mock-uuid-1') {
     polls++;
     res.end(
@@ -262,6 +283,37 @@ const handle = (req, res, body) => {
 };
 await new Promise((ok) => srv.listen(0, ok));
 const base = `http://127.0.0.1:${srv.address().port}`;
+
+// sharp for the --transparent keying test, resolved the same way the CLI does.
+// 4x4 fixture: left half flat magenta (keys out), right half red (stays).
+let sharpT = null;
+let sharpDir = '';
+try {
+  const req = createRequire(join(here, 'x.js'));
+  sharpDir = dirname(req.resolve('sharp/package.json'));
+  sharpT = req('sharp');
+} catch {}
+let alphaPng = null;
+if (sharpT) {
+  const raw = Buffer.alloc(4 * 4 * 4);
+  for (let y = 0; y < 4; y++)
+    for (let x = 0; x < 4; x++) {
+      const i = (y * 4 + x) * 4;
+      if (x < 2) {
+        raw[i] = 255;
+        raw[i + 1] = 0;
+        raw[i + 2] = 255;
+      } else {
+        raw[i] = 200;
+        raw[i + 1] = 30;
+        raw[i + 2] = 40;
+      }
+      raw[i + 3] = 255;
+    }
+  alphaPng = await sharpT(raw, { raw: { width: 4, height: 4, channels: 4 } })
+    .png()
+    .toBuffer();
+}
 const env = {
   SNAPGEN_API_KEY: 'test-key-123',
   SNAPGEN_BASE: base,
@@ -428,6 +480,66 @@ const env = {
     'downloaded bytes must match',
   );
   await rm(dir, { recursive: true, force: true });
+}
+
+// --- 8. --transparent: magenta clause injected, keyed to real alpha, trimmed ---
+{
+  const r0 = await run(['image', 'a gold logo', '--transparent', '--dry-run']);
+  assert.match(r0.out, /FF00FF/i, 'transparent must inject the magenta clause');
+  assert.match(
+    r0.out,
+    /"output_format": "png"/,
+    'transparent must force png on nano',
+  );
+  const rv = await run(['video', 'kling', 'x', '--transparent', '--dry-run']);
+  assert.notStrictEqual(rv.code, 0, '--transparent on video must be rejected');
+  const rnd = await run([
+    'image',
+    'x',
+    '--transparent',
+    '--no-download',
+    '--dry-run',
+  ]);
+  assert.notStrictEqual(
+    rnd.code,
+    0,
+    '--transparent with --no-download must be rejected (keying needs the file)',
+  );
+  if (sharpT) {
+    // wait + transparent: rejoin path keys too; undecodable bytes degrade to a
+    // warn, never a crash (dl000001's mock payload is not a real PNG)
+    const dir = await mkdtemp(join(tmpdir(), 'snapgen-waitkey-'));
+    const rw = await run(['wait', 'dl000001', '--transparent', '--out', dir], {
+      ...env,
+      SHARP_PATH: sharpDir,
+    });
+    assert.strictEqual(rw.code, 0, 'wait --transparent failed: ' + rw.out);
+    assert.match(rw.out, /warn: keying failed/, 'bad bytes must warn, not die');
+    assert.match(rw.out, /saved /, 'original must still be saved');
+    await rm(dir, { recursive: true, force: true });
+  }
+  if (sharpT) {
+    const dir = await mkdtemp(join(tmpdir(), 'snapgen-alpha-'));
+    const r = await run(['image', 'ALPHATEST', '--transparent', '--out', dir], {
+      ...env,
+      SHARP_PATH: sharpDir, // hermetic cwd can't resolve sharp by walking up
+    });
+    assert.strictEqual(r.code, 0, 'transparent flow failed: ' + r.out);
+    assert.match(r.out, /keyed .*-alpha\.png/, 'must report the keyed file');
+    const { data, info } = await sharpT(
+      join(dir, 'snapgen-alpha001-0-alpha.png'),
+    )
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    assert.strictEqual(
+      info.width,
+      2,
+      'magenta half must be trimmed away, got width ' + info.width,
+    );
+    for (let n = 0; n < info.width * info.height; n++)
+      assert.strictEqual(data[n * 4 + 3], 255, 'subject must stay opaque');
+    await rm(dir, { recursive: true, force: true });
+  } else console.log('(sharp not resolvable — skipped live keying test)');
 }
 
 srv.close();

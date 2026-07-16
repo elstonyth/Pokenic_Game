@@ -27,6 +27,8 @@ For a set of variants, change only the delta phrase per run and generate **one a
 
 ## 2. Chroma-key overlay pipeline (frame that sits OVER other art)
 
+**Shortcut for generic transparent assets:** `snapgen.mjs image "…" --transparent` does this whole loop in one command — injects the magenta background, forces png, keys the download to a subject-trimmed `<file>-alpha.png` (run from repo root so `sharp` resolves, or set `SHARP_PATH`). Use the manual pipeline below when you need the slab-specific geometry (window insets) that `process-slab-frame.mjs` computes.
+
 For a frame/protector/sleeve that overlays a card or slab, generate it with a **flat magenta** window + background, then key the magenta transparent with the existing repo script.
 
 ```bash

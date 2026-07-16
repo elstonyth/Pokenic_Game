@@ -19,8 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
-  pull-requests: write # post the review summary as a PR comment
+  contents: read # only reads the dependency graph; findings surface in the run summary
 
 jobs:
   dependency-review:
@@ -36,7 +35,10 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
-          comment-summary-in-pr: on-failure
+          # No comment-summary-in-pr: it needs a write token, which public-repo
+          # fork PRs don't get (read-only GITHUB_TOKEN) — so it 403s there while
+          # pull_request_target (the alternative) is a privilege-escalation
+          # footgun we won't adopt. Findings land in the Actions run summary.
           # License policy is intentionally left open for now — a deny/allow list
           # tends to false-positive on transitive deps. Turn it on later with e.g.
           # deny-licenses: GPL-3.0, AGPL-3.0

@@ -101,6 +101,23 @@ const isPrivateHost = (hostname: string): boolean => {
   return isPrivateIpv4(host);
 };
 
+// The origin of OUR OWN local file provider, trusted even though it's a loopback
+// address. When S3 (public CDN) is NOT configured — dev/test — Medusa's built-in
+// file provider serves uploads at the backend origin (default http://localhost:9000),
+// so a card/frame image URL is a loopback URL the SSRF guard below would otherwise
+// block, leaving graded cards unbaked. Gate this on S3_FILE_URL being unset — the
+// SAME condition that decides files live on the local provider — so prod (S3 set,
+// files on the public CDN) keeps loopback fully blocked with no NODE_ENV reliance.
+const localFileOrigin = (): string | null => {
+  if (process.env.S3_FILE_URL) return null; // prod: files are on the public CDN
+  try {
+    return new URL(process.env.MEDUSA_BACKEND_URL ?? 'http://localhost:9000')
+      .origin;
+  } catch {
+    return null;
+  }
+};
+
 // SSRF guard for the URLs this module fetches server-side (admin-supplied
 // slab_frame_url + a card's image). Card/frame images are OUR stored copies
 // (CDN host or a storefront-relative path) or, at worst, an admin-pasted PUBLIC
@@ -124,6 +141,10 @@ export function isAllowedImageUrl(url: string): boolean {
     return false;
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  // Our own local file provider (dev/test only) — the one loopback origin we
+  // must reach to bake our own stored card/frame images.
+  const localOrigin = localFileOrigin();
+  if (localOrigin && parsed.origin === localOrigin) return true;
   return !isPrivateHost(parsed.hostname);
 }
 

@@ -5,11 +5,29 @@ import { composeSlab, fetchBytes, isAllowedImageUrl } from '../bake-slab';
 // hosts and storefront-relative paths are allowed (a strict CDN allowlist would
 // break legit baking); internal / metadata / loopback targets are rejected.
 describe('isAllowedImageUrl', () => {
+  // These lists assume no S3 (dev/test): our local file provider origin
+  // (localhost:9000) is trusted, every OTHER loopback/internal host is not.
+  const originalS3 = process.env.S3_FILE_URL;
+  const originalBackend = process.env.MEDUSA_BACKEND_URL;
+  beforeAll(() => {
+    delete process.env.S3_FILE_URL;
+    delete process.env.MEDUSA_BACKEND_URL; // → defaults to http://localhost:9000
+  });
+  afterAll(() => {
+    if (originalS3 === undefined) delete process.env.S3_FILE_URL;
+    else process.env.S3_FILE_URL = originalS3;
+    if (originalBackend === undefined) delete process.env.MEDUSA_BACKEND_URL;
+    else process.env.MEDUSA_BACKEND_URL = originalBackend;
+  });
+
   it.each([
     ['CDN https URL', 'https://cdn.polycards.example/slab-abc.webp'],
     ['public http URL', 'http://images.example.com/card.jpg'],
     ['storefront-relative path', '/images/test-card.webp'],
     ['relative cdn path', '/cdn/test-pack.webp'],
+    // Our own local file provider — the one loopback origin we must reach to
+    // bake our stored card/frame images (dev/test, S3 unset).
+    ['local file provider origin', 'http://localhost:9000/static/x.png'],
   ])('allows %s', (_label, url) => {
     expect(isAllowedImageUrl(url)).toBe(true);
   });
@@ -24,7 +42,10 @@ describe('isAllowedImageUrl', () => {
     ['RFC-1918 172.16/12', 'http://172.16.0.1/x.png'],
     ['RFC-1918 192.168/16', 'http://192.168.1.1/x.png'],
     ['0.0.0.0', 'http://0.0.0.0/x.png'],
-    ['localhost', 'http://localhost:9000/static/x.png'],
+    // localhost on a NON-file-provider port stays blocked (origin mismatch) —
+    // only the exact local file origin is trusted, not loopback in general.
+    ['localhost, other port', 'http://localhost:8080/x.png'],
+    ['localhost, port 80', 'http://localhost/x.png'],
     ['IPv6 loopback', 'http://[::1]/x.png'],
     ['IPv4-mapped IPv6 loopback', 'http://[::ffff:127.0.0.1]/x.png'],
     ['IPv4-mapped IPv6 metadata', 'http://[::ffff:169.254.169.254]/x.png'],
@@ -40,6 +61,15 @@ describe('isAllowedImageUrl', () => {
     ['empty', ''],
   ])('rejects %s', (_label, url) => {
     expect(isAllowedImageUrl(url)).toBe(false);
+  });
+
+  it('blocks the local file origin once S3 (prod CDN) is configured', () => {
+    process.env.S3_FILE_URL = 'https://cdn.polycards.example';
+    try {
+      expect(isAllowedImageUrl('http://localhost:9000/static/x.png')).toBe(false);
+    } finally {
+      delete process.env.S3_FILE_URL;
+    }
   });
 });
 

@@ -130,7 +130,7 @@ describe('fetchBytes', () => {
 });
 
 // composeSlab geometry contract: output = frame-sized webp; the card photo
-// covers the window rect (insets 28.33% / 10.47% / 6.66%); frame layers on top.
+// covers the window rect (insets 26.26% / 9.56-9.44% / 7.41%); frame layers on top.
 describe('composeSlab', () => {
   const makeFrame = (w: number, h: number) =>
     sharp({
@@ -168,7 +168,7 @@ describe('composeSlab', () => {
       .toBuffer({ resolveWithObject: true });
     const px = (x: number, y: number) => (y * info.width + x) * info.channels;
     // window centre → the red photo shows through the transparent frame
-    const cy = Math.round(669 * 0.2833 + (669 * (1 - 0.2833 - 0.0666)) / 2);
+    const cy = Math.round(669 * 0.2626 + (669 * (1 - 0.2626 - 0.0741)) / 2);
     const c = px(200, cy);
     expect(data[c]).toBeGreaterThan(200); // R
     expect(data[c + 1]).toBeLessThan(50); // G
@@ -179,7 +179,7 @@ describe('composeSlab', () => {
 
   it('caps output at 1600px wide', async () => {
     const out = await composeSlab(
-      await makeFrame(3200, 5352),
+      await makeFrame(3200, 5400),
       await makePhoto(),
     );
     const meta = await sharp(out).metadata();
@@ -221,4 +221,77 @@ describe('composeSlab', () => {
     expect(meta.width).toBe(400);
     expect(meta.height).toBe(669);
   });
+
+  // A narrow-tall scan passes the input guards (≤20MB, ≤32MP) but width-fitting
+  // it balloons cardH into the resize allocation below, overflowing the frame
+  // canvas — reject it before that allocation instead of letting the worker OOM.
+  it('rejects a degenerate narrow-tall card scan', async () => {
+    const tallPhoto = sharp({
+      create: { width: 40, height: 4000, channels: 3, background: { r: 0, g: 128, b: 0 } },
+    })
+      .png()
+      .toBuffer();
+    await expect(
+      composeSlab(await makeFrame(400, 669), await tallPhoto),
+    ).rejects.toThrow(/too tall/);
+  });
+
+  it('renders the label text layer when label fields are passed', async () => {
+    const { LABEL_BOX } = await import('../label.js');
+    const out = await composeSlab(await makeFrame(400, 669), await makePhoto(), {
+      set: 'Pokemon Surging Sparks',
+      name: 'Pikachu ex #238',
+      grade: '10',
+      year: '2024',
+      note: 'SPECIAL ILLUSTRATION RARE',
+    });
+    const { data, info } = await sharp(out)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    // ink somewhere inside the label box band (the frame is transparent here,
+    // so any non-zero alpha in the band is label text)
+    const y0 = Math.round(669 * LABEL_BOX.top);
+    const y1 = Math.round(669 * (LABEL_BOX.top + LABEL_BOX.height));
+    let ink = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < info.width; x++) {
+        if (data[(y * info.width + x) * info.channels + 3] > 0) ink++;
+      }
+    }
+    expect(ink).toBeGreaterThan(100);
+  });
+});
+
+// §9 PSA-only bake: the PSA-branded frame must never assert a PSA grade for
+// another grader's slab. The gate lives INSIDE bakeSlabImage (one guard for
+// every caller) and fires before any container/network use.
+describe('bakeSlabImage PSA gate', () => {
+  const fields = {
+    handle: 'x',
+    image: 'https://cdn.example.com/x.webp',
+    grade: '10',
+    name: 'Pikachu ex #238',
+    set: 'Pokemon Surging Sparks',
+  };
+
+  it.each([['CGC'], ['BGS'], ['SGC'], [''], ['  ']])(
+    'returns null for grader %p without touching the container',
+    async (grader) => {
+      const { bakeSlabImage } = await import('../bake-slab.js');
+      const container = new Proxy(
+        {},
+        {
+          get() {
+            throw new Error('container must not be touched for a non-PSA card');
+          },
+        },
+      );
+      await expect(
+        bakeSlabImage(
+          container as unknown as Parameters<typeof bakeSlabImage>[0],
+          { ...fields, grader },
+        ),
+      ).resolves.toBeNull();
+    },
+  );
 });

@@ -46,3 +46,19 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
 
 export const fmtPct = (n: number): string =>
   `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
+
+// Client mirror of backend/packages/api/src/modules/packs/pricecharting-grades.ts
+// gradeToGrader — the admin app and the Medusa backend are separate builds with
+// no shared package, so this ~5-line pure function is duplicated rather than
+// wired through a new workspace package. Keep in sync if the backend changes.
+// Used by both the from-PriceCharting page and the register-card modal to
+// derive an operator-facing grader/grade suggestion from a PC tier label.
+export function gradeToGrader(label: string): { grader: string; grade: string } {
+  for (const g of ['PSA', 'BGS', 'CGC', 'SGC']) {
+    if (label.startsWith(g + ' ')) {
+      return { grader: g, grade: label.slice(g.length + 1) };
+    }
+  }
+  if (label.startsWith('Grade ')) return { grader: '', grade: label.slice(6) };
+  return { grader: '', grade: label };
+}

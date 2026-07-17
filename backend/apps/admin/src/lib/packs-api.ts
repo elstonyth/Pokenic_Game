@@ -90,6 +90,10 @@ export interface AdminCard {
   market_multiplier: number;
   /** Last time the daily PriceCharting sync updated this card's market_value. */
   pc_synced_at: string | null;
+  /** Slab-label text (dynamic-label spec §8) — printed on the baked PSA slab
+   *  composite; null = blank (renders nothing). */
+  label_year: string | null;
+  label_note: string | null;
   /** USD -> MYR breakdown for the current market_value; always present (GET
    *  routes always resolve an fxRate before building the DTO). */
   priceBreakdown: {
@@ -114,6 +118,10 @@ export interface AdminCardRegister {
   pixel_pokemon_id?: string | null;
   /** Display margin over FMV (1.2 = +20%) — the gacha-card home of "markup". */
   market_multiplier?: number;
+  /** Slab-label text (§8). Omit = leave unset; null/blank = clear; string =
+   *  value (max 64 chars, backend-trimmed). */
+  label_year?: string | null;
+  label_note?: string | null;
 }
 
 // Edit payload. `handle` travels as the `$handle` path param, not the body.
@@ -135,6 +143,10 @@ export interface AdminCardUpdate {
   pc_product_id?: string | null;
   pc_grade?: string | null;
   market_multiplier?: number;
+  /** Slab-label text (§8). Omit = leave unset; null/blank = clear; string =
+   *  value (max 64 chars, backend-trimmed). */
+  label_year?: string | null;
+  label_note?: string | null;
 }
 
 export interface OddsRow {

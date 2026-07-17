@@ -1,30 +1,36 @@
 // Cut SnapGen frame-variant art into the EXACT SlabImage GlassFrame geometry
-// (src/components/SlabImage.tsx is the source of truth: 1462×2348 frame box,
-// 73px band, outer/hole radii 127/47 following the clear-plastic outline,
+// (src/components/SlabImage.tsx is the source of truth: 1600×2590 frame box,
+// 80px band, outer/hole radii 147/55 following the plastic-case outline,
 // hole inset 79) and composite each
 // around the real slab asset. Outputs per-variant band PNGs (transparent
 // hole — usable directly as a frame texture) + one combined preview sheet.
 import sharp from 'sharp';
 
 // ==== geometry, 1:1 with src/components/SlabImage.tsx ====
-const SLAB_W = 1462;
-const SLAB_H = 2446;
+const SLAB_W = 1600;
+const SLAB_H = 2700;
 const SLAB_ASPECT = SLAB_W / SLAB_H;
 const BAND_PCT = 5;
 const VB_W = SLAB_W;
 const VB_H = Math.round(
   (VB_W / SLAB_ASPECT) * (1 - 2 * (BAND_PCT / 100) * (1 - SLAB_ASPECT)),
 );
-const BAND_U = Math.round((BAND_PCT / 100) * VB_W); // 73
-// Measured 2026-07-17 (alpha scan of slabframe-user-1600): the slab's CLEAR
-// plastic outline runs nearly to the image corner with a SMALL radius (~49px
-// in frame units, edge at inset ~81 incl. letterbox); the big r~260 silver
-// arc is a printed rail INSIDE the clear plastic. The band must stop at the
-// PLASTIC outline (tuck ~2-4px under its thin clear edge) — a large-radius
-// hole dives under the clear corner and shows through it.
-const OUTER_R = 127; // ≈ plastic corner (49) + band (73) — uniform at corners
-const HOLE_INSET = 79; // plastic edge ~81 − 2px tuck
-const HOLE_R = 47;
+const BAND_U = Math.round((BAND_PCT / 100) * VB_W); // 80
+// Re-measured 2026-07-17 (Task 2R, operator case swap to slabframe-user-1600
+// — the textured case picked in the tier-frame session, PR #196; alpha scan
+// of public/images/slab-frame.webp via scripts/measure-slab-margins.mjs +
+// a diagonal alpha=128 corner-radius fit): unlike the old glassy frame-v2
+// asset, this case's straight edges reach almost all the way to the asset's
+// own canvas edge (inset ~1.25px mean, essentially 0 — only the corners are
+// rounded off). Corner radius ~63.7px (asset units). Converted to frame/VB
+// units via the same 0.9 runtime downscale the slab gets inside the band's
+// hole (BAND_PCT=5% inset each side): hole inset ≈ BAND_U + 1.25×0.9 ≈ 81,
+// hole r ≈ 63.7×0.9 ≈ 57. The band must stop at the plastic outline (tuck
+// under its AA edge) — a large-radius hole dives under the case's rounded
+// corner and shows through it.
+const OUTER_R = 147; // ≈ hole r (55) + band (80) + edge gap (12) — uniform corners
+const HOLE_INSET = 79; // plastic edge ≈81 (measured) − tuck
+const HOLE_R = 55; // plastic corner r ≈57 (measured) − tuck
 const FRAME_Y = Math.round((SLAB_H - VB_H) / 2); // vertical inset in the slab box
 
 const rr = (x, y, w, h, r) => {
@@ -60,21 +66,21 @@ const VARIANTS = args.filter(
 // canvas (a gpt-image aspect) → attach as a geometry reference so the model
 // paints style into the true band instead of inventing its own thickness.
 if (args.includes('--guide')) {
-  const GW = 1600; // 2:3 canvas
-  const GH = 2400;
-  const gx = Math.round((GW - 1462) / 2);
-  const gy = Math.round((GH - 2348) / 2);
+  const GW = 2000; // 2:3 canvas (the 1600×2590 frame box outgrew 1600×2400)
+  const GH = 3000;
+  const gx = Math.round((GW - VB_W) / 2);
+  const gy = Math.round((GH - VB_H) / 2);
   await sharp(
     Buffer.from(
       `<svg xmlns='http://www.w3.org/2000/svg' width='${GW}' height='${GH}'>` +
         `<rect width='${GW}' height='${GH}' fill='black'/>` +
         `<g transform='translate(${gx},${gy})'><path fill='white' fill-rule='evenodd' ` +
-        `d='${rr(0, 0, 1462, 2348, 127)} ${rr(79, 79, 1462 - 158, 2348 - 158, 47)}'/></g></svg>`,
+        `d='${rr(0, 0, VB_W, VB_H, OUTER_R)} ${rr(HOLE_INSET, HOLE_INSET, VB_W - 2 * HOLE_INSET, VB_H - 2 * HOLE_INSET, HOLE_R)}'/></g></svg>`,
     ),
   )
     .png()
     .toFile('docs/research/frame-guide.png');
-  console.log('done: docs/research/frame-guide.png (1600x2400, 2:3)');
+  console.log(`done: docs/research/frame-guide.png (${GW}x${GH}, 2:3)`);
   process.exit(0);
 }
 if (!VARIANTS.length)
@@ -86,9 +92,9 @@ if (!VARIANTS.length)
   );
 
 const mask = await sharp(MASK_SVG).png().toBuffer();
-// contain (not fill) = what the CSS does; the asset is 0.5926 vs the 0.5977
-// box, so ~6px/side letterbox appears — the band overlap now covers it.
-const slab = await sharp('docs/research/slabframe-user-1600.png')
+// contain (not fill) = what the CSS does; the frame-v2 asset shares the box
+// aspect exactly, so no letterbox.
+const slab = await sharp('public/images/slab-frame.webp')
   .resize(Math.round(SLAB_W * 0.9), Math.round(SLAB_H * 0.9), {
     fit: 'contain',
     background: { r: 0, g: 0, b: 0, alpha: 0 },
@@ -98,17 +104,43 @@ const slab = await sharp('docs/research/slabframe-user-1600.png')
 
 const previews = [];
 for (const name of VARIANTS) {
-  // --from-guide: the ring sits at a KNOWN rect on the 2:3 guide canvas
-  // (1462×2348 centered on 1600×2400) — extract it exactly, no guessing.
-  // Otherwise cover-crop the art to the frame box (no squeezing).
+  // --from-guide: the master is a black canvas with the painted ring on it —
+  // find the ring's outer bbox by brightness scan and extract exactly that.
+  // Self-calibrating: works for masters painted against the old 1600×2400
+  // guide AND the current 2000×3000 one (the guide layout changed with the
+  // frame-v2 geometry, but existing masters are still cut correctly).
   let src = sharp(`docs/research/${name}.png`);
   if (FROM_GUIDE) {
-    const m = await src.metadata();
+    const { data, info } = await src
+      .clone()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const mw = info.width,
+      mh = info.height,
+      mch = info.channels;
+    const lit = (x, y) => {
+      const i = (y * mw + x) * mch;
+      return Math.max(data[i], data[i + 1], data[i + 2]) > 24;
+    };
+    let bx0 = mw,
+      by0 = mh,
+      bx1 = -1,
+      by1 = -1;
+    for (let y = 0; y < mh; y++)
+      for (let x = 0; x < mw; x++) {
+        if (lit(x, y)) {
+          if (x < bx0) bx0 = x;
+          if (x > bx1) bx1 = x;
+          if (y < by0) by0 = y;
+          if (y > by1) by1 = y;
+        }
+      }
+    if (bx1 < 0) throw new Error(`no painted ring found in ${name}.png`);
     src = src.extract({
-      left: Math.round((m.width * 69) / 1600),
-      top: Math.round((m.height * 26) / 2400),
-      width: Math.round((m.width * 1462) / 1600),
-      height: Math.round((m.height * 2348) / 2400),
+      left: bx0,
+      top: by0,
+      width: bx1 - bx0 + 1,
+      height: by1 - by0 + 1,
     });
   }
   const band = await src

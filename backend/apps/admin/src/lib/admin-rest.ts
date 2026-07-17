@@ -395,6 +395,19 @@ export async function getPriceChartingProduct(id: string): Promise<PcProduct> {
   return data.product;
 }
 
+// §7a label prefill: year (set release) + note (rarity) from pokemontcg.io,
+// proxied server-side. Always resolves — a lookup miss/outage returns nulls,
+// never throws (see api/admin/tcg/tcg-meta.ts).
+export interface TcgCardMeta {
+  year: string | null;
+  note: string | null;
+}
+
+export const getTcgCardMeta = (set: string, number: string) =>
+  getJson<TcgCardMeta>(
+    `/admin/tcg/card-meta?set=${encodeURIComponent(set)}&number=${encodeURIComponent(number)}`,
+  );
+
 // Mint a standalone marketplace Product from a PriceCharting lookup (no card
 // created here — see docs/research for the product-first flow).
 export async function createProductFromPriceCharting(body: {
@@ -413,6 +426,9 @@ export async function createProductFromPriceCharting(body: {
    *  Required — the backend rejects creation without it (no name-derivation
    *  fallback for from-PC products). */
   pixel_pokemon_id: string;
+  /** Slab-label text (§8), staged onto product.metadata; null = blank. */
+  label_year?: string | null;
+  label_note?: string | null;
 }): Promise<{ id: string; handle: string }> {
   const data = await postJson<{ product: { id: string; handle: string } }>(
     '/admin/products/from-pricecharting',

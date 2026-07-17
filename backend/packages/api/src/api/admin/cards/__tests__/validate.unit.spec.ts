@@ -110,3 +110,39 @@ describe('coerceUpdateCardBody — market_multiplier bounds', () => {
     ).toThrow(/'market_multiplier' must be greater than 0/);
   });
 });
+
+// Dynamic-label spec §8: label_year / label_note are operator-editable text
+// prefilled from pokemontcg.io. Same tri-state contract as optPcId.
+describe('label fields', () => {
+  const base = {
+    product_id: 'prod_1',
+    market_value: 10,
+  };
+
+  it('passes trimmed label_year / label_note through', () => {
+    const out = coerceRegisterCardBody({
+      ...base,
+      label_year: ' 2024 ',
+      label_note: 'SPECIAL ILLUSTRATION RARE',
+    });
+    expect(out.label_year).toBe('2024');
+    expect(out.label_note).toBe('SPECIAL ILLUSTRATION RARE');
+  });
+
+  it('maps blank/null to null and absent to undefined', () => {
+    expect(
+      coerceRegisterCardBody({ ...base, label_year: '' }).label_year,
+    ).toBeNull();
+    expect(
+      coerceRegisterCardBody({ ...base, label_year: null }).label_year,
+    ).toBeNull();
+    expect(coerceRegisterCardBody(base).label_year).toBeUndefined();
+  });
+
+  it('rejects non-strings and over-long values', () => {
+    expect(() => coerceRegisterCardBody({ ...base, label_note: 42 })).toThrow();
+    expect(() =>
+      coerceRegisterCardBody({ ...base, label_note: 'x'.repeat(65) }),
+    ).toThrow();
+  });
+});

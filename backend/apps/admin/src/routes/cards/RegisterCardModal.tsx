@@ -24,8 +24,9 @@ import {
   useRegisterCard,
 } from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
-import { rm, usdToMyr, myrToUsd } from '../../lib/format';
+import { rm, usdToMyr, myrToUsd, gradeToGrader } from '../../lib/format';
 import CardPokemonFields from './CardPokemonFields';
+import { GraderGradeSelect } from '../../components/GraderGradeSelect';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 
 // Register an EXISTING inventory product as a gacha card (inventory-first: the
@@ -46,6 +47,12 @@ type Fields = {
   // Picker value (a PixelPokemon library id). null = none picked → the backend
   // inherits any id staged on the product (from-pricecharting).
   pixel_pokemon_id: string | null;
+  // Slab-label text (§8). Blank here even when the product carries staged
+  // metadata — the backend inherits it on register, so an untouched field
+  // still lands correctly (this modal only ever sends a trimmed value or
+  // null, never undefined, so leaving these blank is safe).
+  label_year: string;
+  label_note: string;
 };
 
 // Margin defaults to 20% here (the gacha card is where margin lives — product
@@ -57,6 +64,8 @@ const EMPTY_FIELDS: Fields = {
   market_value: '',
   margin_pct: '20',
   pixel_pokemon_id: null,
+  label_year: '',
+  label_note: '',
 };
 
 const RegisterCardModal = ({ open, onClose }: Props) => {
@@ -180,21 +189,32 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
     }
   };
 
-  // Fill FMV from the picked grade; the grade label doubles as a sensible
-  // default for the (still editable) grade field when it is empty. The tier is
-  // USD, the field is MYR, so convert. Guarded on fxEff: if the rate hasn't
-  // loaded we leave the field untouched (the chips are disabled in that window)
-  // — never plant a raw USD number that save's myrToUsd would divide again.
-  const applyPrice = (grade: string, usd: number) =>
-    setFields((f) => ({
-      ...f,
-      market_value:
-        fxEff !== null ? String(usdToMyr(usd, fxEff)) : f.market_value,
-      grade: f.grade.trim() ? f.grade : grade,
-    }));
+  // Fill FMV from the picked grade tier. The tier is USD, the field is MYR, so
+  // convert. Guarded on fxEff: if the rate hasn't loaded we leave the field
+  // untouched (the chips are disabled in that window) — never plant a raw USD
+  // number that save's myrToUsd would divide again.
+  //
+  // Grader/grade prefill mirrors the from-PC page's pickTier (§3a): a tier
+  // only implies a grader claim when it names one ("PSA 10"); a generic
+  // "Grade N" tier is a price comp, not a PSA claim. Only prefill when the
+  // operator hasn't already picked a grader — never clobber their choice.
+  const applyPrice = (tierGrade: string, usd: number) =>
+    setFields((f) => {
+      const derived = f.grader === '' ? gradeToGrader(tierGrade) : null;
+      return {
+        ...f,
+        market_value:
+          fxEff !== null ? String(usdToMyr(usd, fxEff)) : f.market_value,
+        grader: derived ? derived.grader : f.grader,
+        grade: derived && derived.grader ? derived.grade : f.grade,
+      };
+    });
 
   const canSave =
     !!productId &&
+    // A grade is unrepresentable without a grader (§3a) — "grader chosen" and
+    // "grade chosen" must move together.
+    (fields.grader === '' || fields.grade !== '') &&
     fields.market_value.trim() !== '' &&
     Number(fields.market_value) >= 0 &&
     // FMV is entered in RM but stored in USD — need the live rate to convert.
@@ -222,6 +242,8 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
         // on the product; touched → send the exact value (a picked id links, an
         // explicit null clears — never silently re-inherits the staged link).
         pixel_pokemon_id: pokemonTouched ? fields.pixel_pokemon_id : undefined,
+        label_year: fields.label_year.trim() || null,
+        label_note: fields.label_note.trim() || null,
       });
       toast.success(t('cards.toast.created'));
       onClose();
@@ -455,26 +477,37 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
                   onChange={(e) => patch({ set: e.target.value })}
                 />
               </div>
-              <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus" htmlFor="register-grader">
-                  {t('cards.form.grader')}
-                </Label>
-                <Input
-                  id="register-grader"
-                  value={fields.grader}
-                  onChange={(e) => patch({ grader: e.target.value })}
+              <div className="col-span-2">
+                <GraderGradeSelect
+                  grader={fields.grader}
+                  grade={fields.grade}
+                  onChange={(v) => patch(v)}
+                  idPrefix="register"
                 />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small" weight="plus" htmlFor="register-grade">
-                  {t('cards.form.grade')}
+                <Label size="small" weight="plus" htmlFor="register-label-year">
+                  {t('cards.form.labelYear')}
                 </Label>
                 <Input
-                  id="register-grade"
-                  value={fields.grade}
-                  onChange={(e) => patch({ grade: e.target.value })}
+                  id="register-label-year"
+                  value={fields.label_year}
+                  onChange={(e) => patch({ label_year: e.target.value })}
                 />
               </div>
+              <div className="flex flex-col gap-y-2">
+                <Label size="small" weight="plus" htmlFor="register-label-note">
+                  {t('cards.form.labelNote')}
+                </Label>
+                <Input
+                  id="register-label-note"
+                  value={fields.label_note}
+                  onChange={(e) => patch({ label_note: e.target.value })}
+                />
+              </div>
+              <Text className="text-ui-fg-subtle col-span-2 text-xs">
+                {t('cards.form.labelHint')}
+              </Text>
               <div className="flex flex-col gap-y-2">
                 <Label size="small" weight="plus" htmlFor="register-markup">
                   {t('cards.form.markup')}

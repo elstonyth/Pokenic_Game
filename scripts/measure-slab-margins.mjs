@@ -2,7 +2,7 @@
 // the exact ring geometry needed for a flush left/right fit.
 import sharp from 'sharp';
 
-const ASSET = 'docs/research/slabframe-user-1600.png';
+const ASSET = process.argv[2] ?? 'docs/research/slabframe-user-1600.png';
 const img = sharp(ASSET).ensureAlpha();
 const { width: W, height: H } = await img.metadata();
 const raw = await img.raw().toBuffer(); // RGBA

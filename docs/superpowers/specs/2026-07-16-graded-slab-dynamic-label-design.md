@@ -107,6 +107,17 @@ Processing to ship it:
    source file is essentially the same size, so bundling stays viable and no new asset-hosting
    path is needed.
 
+> **Regenerability addendum (2026-07-17).** The processing steps above describe the plan as
+> written; the shipped frame's actual lineage differs (see the provenance header in
+> `scripts/process-slabframe-v2.mjs`): the parent raw render is `slabframe-snapgen-v4.png`
+> (not v2), and the approved master's alpha mask is synthetic editor geometry (feathered
+> superellipse-cornered silhouette + hard label/window rects), not a colour key. A committed
+> regeneration path exists: `node scripts/process-slabframe-v2.mjs --rebuild-from-master`
+> rebuilds the shippable webp from the raw v4 master alone (auto-engaged if the approved
+> master `slabframe-final-1600.png` is lost), gated at ≤0.05% binary alpha-mask diff against
+> the committed webp (0.0083% at calibration). Both masters remain local-only/gitignored —
+> the raw v4 render is the file to back up.
+
 ## 5. Geometry constants (measured from the shipped frame — never eyeballed)
 
 Measured by flood-filling the interior transparent region (a naive bbox spans the whole

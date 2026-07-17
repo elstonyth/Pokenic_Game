@@ -17,8 +17,8 @@ const TIERS = [
 ];
 
 // data URLs — file:// subresources are blocked on setContent's about:blank.
-const SLAB = `data:image/png;base64,${(
-  await readFile('docs/research/slabframe-user-1600.png')
+const SLAB = `data:image/webp;base64,${(
+  await readFile('public/images/slab-frame.webp')
 ).toString('base64')}`;
 const FRAME_SRC = {};
 for (const t of TIERS) {
@@ -28,15 +28,15 @@ for (const t of TIERS) {
 }
 
 // ==== geometry, 1:1 with src/components/SlabImage.tsx ====
-const SLAB_ASPECT = 1462 / 2446;
+const SLAB_ASPECT = 1600 / 2867;
 const BAND = 5; // ring thickness, % of width (uniform on all sides)
-const VB_W = 1462;
+const VB_W = 1600;
 const VB_H = Math.round(
   (VB_W / SLAB_ASPECT) * (1 - 2 * (BAND / 100) * (1 - SLAB_ASPECT)),
 );
-const OUTER_R = 127; // ≈ plastic corner (49) + band (73) — uniform at corners
-const HOLE_INSET = 79; // clear-plastic outline ≈81 − tuck
-const HOLE_R = 47;
+const OUTER_R = 140; // ≈ hole r (48) + band (80) + edge gap — uniform corners
+const HOLE_INSET = 92; // clear-plastic outline ≈95 (mean) − tuck
+const HOLE_R = 48;
 
 const rr = (x, y, w, h, r) => {
   const x1 = x + w;

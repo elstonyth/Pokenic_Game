@@ -33,20 +33,22 @@ const FRAME_BAND = 5;
  * frame's outer edge is pulled inward vertically by BAND·(1−aspect) (of
  * height) instead; the slab itself never moves.
  *
- * Measured geometry (2026-07-17 alpha scan; also encoded in
+ * Measured geometry (2026-07-17 alpha scan of the frame-v2 asset via
+ * scripts/measure-slab-margins.mjs; also encoded in
  * scripts/compose-frame-variant.mjs which cut the webp assets): the slab's
- * CLEAR plastic outline has a SMALL corner radius (~49px in frame units,
- * edge ≈ inset 75-81) — the visible r~260 silver arc is a printed rail
- * INSIDE the clear plastic. Band hole: inset 79, r47 (tucks a few px under
- * the plastic edge); outer corner r127 keeps the band uniform at corners.
+ * CLEAR plastic outline edge sits at inset ~90-100 in frame units (asset
+ * insets 17/22/16/11 px at 1600w, well 5%, mean ≈ 95) with a ~50px corner
+ * radius. Band hole: inset 92, r48 (tucks under the plastic's AA edge);
+ * outer corner r140 (= hole r + band + edge gap) keeps the band uniform at
+ * corners.
  */
-const FRAME_VB_W = 1462; // mask viewBox units = slab asset px
+const FRAME_VB_W = 1600; // mask viewBox units = slab asset px
 const FRAME_VB_H = Math.round(
   (FRAME_VB_W / SLAB_ASPECT) * (1 - 2 * (FRAME_BAND / 100) * (1 - SLAB_ASPECT)),
 );
-const OUTER_R = 127;
-const HOLE_INSET = 79;
-const HOLE_R = 47;
+const OUTER_R = 140;
+const HOLE_INSET = 92;
+const HOLE_R = 48;
 
 /** Rounded-rect SVG path (circular corners). */
 function rrPath(x: number, y: number, w: number, h: number, r: number) {

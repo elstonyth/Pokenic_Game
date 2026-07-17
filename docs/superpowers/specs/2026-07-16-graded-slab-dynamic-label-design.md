@@ -107,24 +107,66 @@ Processing to ship it:
    source file is essentially the same size, so bundling stays viable and no new asset-hosting
    path is needed.
 
+> **Regenerability addendum (2026-07-17, superseded same day — Task 2R).** The paragraph above
+> described the Task 2 lineage (`slabframe-final-1600.png`, synthetic editor alpha mask,
+> `--rebuild-from-master` fallback). The operator overrode that pick later the same day in the
+> tier-frame session (PR #196): `slabframe-final-1600.png` rendered flat/featureless gray over
+> the dark storefront, so the shipped case is now `docs/research/slabframe-user-1600.png` — a
+> textured/frosted realistic PSA case (molded rails, blue-tinted guilloche label, blank
+> sticker) that keeps its texture on-page, and the one the tier bands (§14) were actually
+> measured against.
+>
+> **`--rebuild-from-master` is retired.** `slabframe-final-1600.png` is no longer shipped, so
+> there is nothing left to rebuild toward — see the provenance header in
+> `scripts/process-slabframe-v2.mjs`. `slabframe-user-1600.png` ships as-is (no chroma-key or
+> synthetic alpha-mask step: it already has a transparent window + outside-background and an
+> opaque textured case); `process-slabframe-v2.mjs` just re-encodes it to webp and prints the
+> measured geometry. It is the **source-of-truth encode** — local-only/gitignored — and if it
+> is ever lost there is no synthetic reconstruction path: re-obtain it from the 2026-07-17
+> tier-frame session assets.
+>
+> **Tier frame is STATIC (operator decision, 2026-07-17).** This case swap is the final pick;
+> no further case-art iterations are planned. The tier-band assets (§14) ship as-is against
+> this geometry.
+
 ## 5. Geometry constants (measured from the shipped frame — never eyeballed)
 
 Measured by flood-filling the interior transparent region (a naive bbox spans the whole
 image because the outside is transparent too).
 
-| Constant | Old | New |
-|---|---|---|
-| `SLAB_ASPECT` | 1462/2446 = 0.5977 | **3072/5504 = 0.5581** |
-| `SLAB_WINDOW.top` | 0.2833 | **0.2743** |
-| `SLAB_WINDOW.left` | 0.1047 | **0.1061** |
-| `SLAB_WINDOW.right` | 0.1047 | **0.1058** |
-| `SLAB_WINDOW.bottom` | 0.0666 | **0.0776** |
+> **Superseded 2026-07-17 (Task 2R, operator case swap — see §4).** The table below was
+> measured against `slabframe-final-1600.png` (Task 2). The operator replaced that pick
+> the same day with `slabframe-user-1600.png` (PR #196); the numbers below are stale. The
+> SHIPPED geometry, re-measured against `slabframe-user-1600.png` (1600×2700,
+> `SLAB_ASPECT` = 0.5926), is:
+>
+> | Constant | Task 2 (superseded) | **Shipped (Task 2R, 2026-07-17)** |
+> |---|---|---|
+> | `SLAB_ASPECT` | 3072/5504 = 0.5581 | **1600/2700 = 0.5926** |
+> | `SLAB_WINDOW.top` | 0.2743 | **0.2626** |
+> | `SLAB_WINDOW.left` | 0.1061 | **0.0956** |
+> | `SLAB_WINDOW.right` | 0.1058 | **0.0944** |
+> | `SLAB_WINDOW.bottom` | 0.0776 | **0.0741** |
+> | `LABEL_BOX.top` | — | **0.0593** |
+> | `LABEL_BOX.left` | — | **0.1** |
+> | `LABEL_BOX.right` | — | **0.095** |
+> | `LABEL_BOX.height` | — | **0.117** |
+>
+> Window aspect (winW/winH) is **~0.724** — sitting just *above* a real card's ~0.713–0.716,
+> not below it as the Task 2 numbers implied. Width-fitting a real card into the window
+> therefore slightly OVERFLOWS the nominal window height (by a few px, absorbed by the bottom
+> recess margin) rather than always fitting inside it as this section originally claimed.
+> `composeSlab` (`backend/packages/api/src/api/admin/media/bake-slab.ts`) bounds the fitted
+> card against the FRAME canvas height, not the window height, for exactly this reason (added
+> as part of the same fix wave that synced this table, 2026-07-17).
 
-Window = 2421×3567 @ x326,y1510, aspect **0.679**. A real card is 0.716, so `fit: 'cover'`
-crops ~5% horizontally — acceptable.
+Constants below describe the Task 2 measurement methodology (flood-fill approach); the
+figures themselves are superseded per the table above.
+
+Window = 2421×3567 @ x326,y1510, aspect **0.679** (Task 2, superseded).
 
 Label box = 2681×833 @ x195,y240 → frac: top **0.0436**, left **0.0635**, right **0.0638**,
-height **0.1513**.
+height **0.1513** (Task 2, superseded — see `LABEL_BOX` above for the shipped values).
 
 > **`SLAB_ASPECT` must move in lockstep with the frame.** The storefront renders every slab at
 > `SLAB_ASPECT`; if it disagrees with the asset, the frame is stretched. This is the root cause

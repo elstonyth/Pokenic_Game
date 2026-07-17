@@ -124,8 +124,7 @@
       "label": "Grade tier",
       "loadError": "Could not load prices for this product.",
       "empty": "No prices available for this product.",
-      "fxHint": "Prices shown in RM at the live FX rate — no markup applied. Margin is set when the card is registered for gacha.",
-      "derivedHint": "Grader: {{grader}} · Grade: {{grade}}"
+      "fxHint": "Prices shown in RM at the live FX rate — no markup applied. Margin is set when the card is registered for gacha."
     },
     "stock": {
       "label": "Stock quantity",
@@ -202,6 +201,10 @@
       "set": "Set",
       "grader": "Grader",
       "grade": "Grade",
+      "graderNone": "None (raw)",
+      "labelYear": "Label year",
+      "labelNote": "Label note",
+      "labelHint": "Printed on the slab label. Blank renders nothing.",
       "marketValue": "Fair-market value (RM)",
       "price": "Sale price (RM)",
       "pricePlaceholder": "Defaults to FMV",

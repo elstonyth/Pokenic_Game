@@ -43,6 +43,10 @@ export type CreateProductFromPcInput = {
   // a PixelPokemon library id; the create-card step inherits + mirrors it when
   // the product is later registered as a gacha card.
   pixel_pokemon_id?: string | null;
+  // Graded-slab label extras, staged on product.metadata like pixel_pokemon_id;
+  // the create-card step inherits them into Card.label_year / label_note.
+  label_year?: string | null;
+  label_note?: string | null;
 };
 
 const slug = (s: string) =>
@@ -103,6 +107,8 @@ export const createProductFromPcInvoke = async (
         ...(input.pixel_pokemon_id
           ? { pixel_pokemon_id: input.pixel_pokemon_id }
           : {}),
+        ...(input.label_year ? { label_year: input.label_year } : {}),
+        ...(input.label_note ? { label_note: input.label_note } : {}),
       },
     },
     {

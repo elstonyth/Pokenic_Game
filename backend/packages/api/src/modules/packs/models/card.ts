@@ -64,6 +64,12 @@ export const Card = model.define('card', {
   market_multiplier: model.bigNumber().default(DEFAULT_MARKET_MULTIPLIER),
   // Last time this card's price was synced from PriceCharting; null = never.
   pc_synced_at: model.dateTime().nullable(),
+  // Graded-slab label extras (dynamic-label spec §8) — operator-editable,
+  // prefilled from pokemontcg.io on the admin side. label_year is the printed
+  // release year ("2024"); label_note is the variety line ("DOUBLE RARE").
+  // Changing either re-bakes the composite (update-card re-bakes every save).
+  label_year: model.text().nullable(),
+  label_note: model.text().nullable(),
 });
 
 export default Card;

@@ -351,6 +351,16 @@ export default function SlotMachineClient({
       return;
     }
 
+    // Paint the debit now, not at settle: openBatch already charged (the saga
+    // commits the charge before recording pulls), so the bet is spent before a
+    // single reel turns — deferring this made a paid spin look free mid-flight.
+    // The cards/offers below are spoilers; the balance never is.
+    // Guard: the await can span an account switch — never paint the spun
+    // account's balance onto whoever is signed in now.
+    if (res.balance != null && customer.id === customerIdRef.current) {
+      applyBalance(res.balance);
+    }
+
     // Build (but don't yet apply) the post-spin state — spoiler guard.
     // One entry per roll. The customer is ALREADY charged here, so if any
     // cosmetic mapping below throws we must still surface the result (see the
@@ -459,6 +469,9 @@ export default function SlotMachineClient({
       return;
     }
 
+    // Usually a no-op — handleSpin applied this same value at charge time. It
+    // only lands when identity left and came back across the spin (A→B→A): the
+    // charge-time guard skipped B, and the guard above just confirmed A is back.
     if (held.balance != null) {
       applyBalance(held.balance);
     }

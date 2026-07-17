@@ -45,6 +45,10 @@ export type UpdateCardInput = {
   pc_product_id?: string | null;
   pc_grade?: string | null;
   market_multiplier?: number;
+  // Graded-slab label extras (§8) — same round-trip convention as pc_grade:
+  // the edit form loads current values from GET, so omitted → null is safe.
+  label_year?: string | null;
+  label_note?: string | null;
 };
 
 type CardSnapshot = {
@@ -67,6 +71,8 @@ type CardSnapshot = {
   market_multiplier: number;
   slab_image: string | null;
   slab_image_key: string | null;
+  label_year: string | null;
+  label_note: string | null;
 };
 
 type ProductSnapshot = {
@@ -129,21 +135,26 @@ export const updateCardInvoke = async (
     ),
     slab_image: card.slab_image ?? null,
     slab_image_key: card.slab_image_key ?? null,
+    label_year: card.label_year ?? null,
+    label_note: card.label_note ?? null,
   };
 
   const salePrice = input.price ?? input.market_value;
 
-  // Slab bake (spec §C): graded → re-bake on EVERY save (no dirty-check —
-  // one composite per admin save is cheap and can never go stale when the
-  // photo changes); grader emptied → clear. Best-effort: a failed bake
-  // saves with nulls (bare photo).
-  const baked =
-    input.grader.trim() !== ''
-      ? await bakeSlabImage(container, {
-          handle: input.handle,
-          image: input.image,
-        })
-      : null;
+  // Slab bake (spec §C): re-bake on EVERY save (no dirty-check — one
+  // composite per admin save is cheap and can never go stale when the photo
+  // or label fields change); non-PSA grader or grader emptied → null →
+  // cleared. Best-effort: a failed bake saves with nulls (bare photo).
+  const baked = await bakeSlabImage(container, {
+    handle: input.handle,
+    image: input.image,
+    grader: input.grader,
+    grade: input.grade,
+    name: input.name,
+    set: input.set,
+    label_year: input.label_year ?? null,
+    label_note: input.label_note ?? null,
+  });
   const nextSlabImage = baked?.url ?? null;
   const nextSlabKey = baked?.key ?? null;
 
@@ -176,6 +187,8 @@ export const updateCardInvoke = async (
       pc_product_id: input.pc_product_id ?? null,
       pc_grade: input.pc_grade ?? null,
       market_multiplier: input.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER,
+      label_year: input.label_year ?? null,
+      label_note: input.label_note ?? null,
     },
   ]);
 
@@ -321,6 +334,8 @@ export const updateCardStep = createStep(
         pc_product_id: data.card.pc_product_id,
         pc_grade: data.card.pc_grade,
         market_multiplier: data.card.market_multiplier,
+        label_year: data.card.label_year,
+        label_note: data.card.label_note,
       },
     ]);
     if (data.product) {

@@ -39,6 +39,10 @@ export type RegisterCardInput = {
   pc_product_id?: string | null;
   pc_grade?: string | null;
   market_multiplier?: number;
+  // Graded-slab label extras (§8). undefined = inherit the value staged on the
+  // product's metadata by /from-pricecharting (like pc_product_id above).
+  label_year?: string | null;
+  label_note?: string | null;
 };
 
 type CompensateData =
@@ -108,15 +112,6 @@ export const registerCardInvoke = async (
     throw alreadyRegistered();
   }
 
-  // Graded card (non-empty grader) → bake the slab composite BEFORE the
-  // insert so the slab fields ride the single createCards write and the
-  // product-metadata mirror below. Best-effort: a failed bake registers the
-  // card with a bare photo (nulls) — it never fails the save.
-  const baked =
-    input.grader.trim() !== ''
-      ? await bakeSlabImage(container, { handle: product.handle, image })
-      : null;
-
   // Inherit the PriceCharting link from the product's own metadata (set by
   // /admin/products/from-pricecharting) unless the caller explicitly overrides
   // it. A plain (non-PC) product leaves these null/default — untracked.
@@ -132,6 +127,28 @@ export const registerCardInvoke = async (
     (Number.isFinite(Number(meta.market_multiplier))
       ? Number(meta.market_multiplier)
       : DEFAULT_MARKET_MULTIPLIER);
+  const stagedLabel = (k: 'label_year' | 'label_note'): string | null =>
+    typeof meta[k] === 'string' && (meta[k] as string).trim() !== ''
+      ? (meta[k] as string)
+      : null;
+  const labelYear = input.label_year ?? stagedLabel('label_year');
+  const labelNote = input.label_note ?? stagedLabel('label_note');
+
+  // Graded PSA card → bake the slab composite BEFORE the insert so the slab
+  // fields ride the single createCards write and the product-metadata mirror
+  // below. Non-PSA graders skip inside bakeSlabImage (§9). Best-effort: a
+  // failed bake registers the card with a bare photo (nulls).
+  const baked = await bakeSlabImage(container, {
+    handle: product.handle,
+    image,
+    grader: input.grader,
+    grade: input.grade,
+    name: product.title,
+    set: input.set,
+    label_year: labelYear,
+    label_note: labelNote,
+  });
+
   // Pixel-Pokémon assignment staged at product creation (from-pricecharting)
   // is inherited the same way — an explicit pick in the register dialog wins.
   // The register dialog sends a PixelPokemon library id: undefined = not picked
@@ -198,6 +215,8 @@ export const registerCardInvoke = async (
           pc_product_id: pcProductId,
           pc_grade: pcGrade,
           market_multiplier: mult,
+          label_year: labelYear,
+          label_note: labelNote,
         },
       ]),
     probeDuplicate: async () => {

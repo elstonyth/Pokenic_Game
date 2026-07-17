@@ -16,6 +16,7 @@ import type { RouteConfig } from '@mercurjs/dashboard-sdk';
 import {
   searchPriceCharting,
   getPriceChartingProduct,
+  getTcgCardMeta,
   type PcMatch,
   type PcProduct,
 } from '../../../lib/admin-rest';
@@ -26,11 +27,12 @@ import {
 } from '../../../lib/queries';
 import { resolveImageUrl } from '../../../lib/image-url';
 import { validateImageFile } from '../../../lib/image-validation';
-import { rm, usdToMyr } from '../../../lib/format';
+import { rm, usdToMyr, gradeToGrader } from '../../../lib/format';
 import CardPokemonFields, {
   type CardPokemonValue,
 } from '../../cards/CardPokemonFields';
 import { GachaPipelineHint } from '../../../components/GachaPipelineHint';
+import { GraderGradeSelect } from '../../../components/GraderGradeSelect';
 import { LoadingSkeleton } from '../../../components/LoadingSkeleton';
 
 export const config: RouteConfig = {
@@ -38,20 +40,6 @@ export const config: RouteConfig = {
   nested: '/products',
   rank: 1,
 };
-
-// Client mirror of backend/packages/api/src/modules/packs/pricecharting-grades.ts
-// gradeToGrader — the admin app and the Medusa backend are separate builds with
-// no shared package, so this ~5-line pure function is duplicated rather than
-// wired through a new workspace package. Keep in sync if the backend changes.
-function gradeToGrader(label: string): { grader: string; grade: string } {
-  for (const g of ['PSA', 'BGS', 'CGC', 'SGC']) {
-    if (label.startsWith(g + ' ')) {
-      return { grader: g, grade: label.slice(g.length + 1) };
-    }
-  }
-  if (label.startsWith('Grade ')) return { grader: '', grade: label.slice(6) };
-  return { grader: '', grade: label };
-}
 
 // NOTE: usdToMyr is display-only preview math; the value submitted to the backend
 // is always the raw USD grade price. NO markup is applied anywhere on this page —
@@ -96,6 +84,9 @@ const AddFromPriceChartingPage = () => {
   const [marketValue, setMarketValue] = useState<number | null>(null); // raw USD
   const [grader, setGrader] = useState('');
   const [grade, setGrade] = useState('');
+  // Slab-label text (§8) — operator-typed, printed on the baked PSA composite.
+  const [labelYear, setLabelYear] = useState('');
+  const [labelNote, setLabelNote] = useState('');
 
   // Step 3 — stock. Default 0: units are counted when the physical slabs are
   // actually in hand, not implied by creating the listing.
@@ -131,6 +122,8 @@ const AddFromPriceChartingPage = () => {
     setPcGrade(null);
     setMarketValue(null);
     setImage('');
+    setLabelYear('');
+    setLabelNote('');
     // Reset the staged Pokémon too — a pick from a PREVIOUS product must not
     // leak onto the newly searched/selected one.
     setPokemon({ pixel_pokemon_id: null });
@@ -151,6 +144,8 @@ const AddFromPriceChartingPage = () => {
     setPcGrade(null);
     setMarketValue(null);
     setImage('');
+    setLabelYear('');
+    setLabelNote('');
     // Reset the staged Pokémon too — a pick from a PREVIOUS product must not
     // leak onto the newly searched/selected one.
     setPokemon({ pixel_pokemon_id: null });
@@ -158,6 +153,17 @@ const AddFromPriceChartingPage = () => {
       const product = await getPriceChartingProduct(m.id);
       setPcProduct(product);
       if (product.image) setImage(product.image);
+      // §7a prefill: year (set release) + note (rarity) from pokemontcg.io.
+      // Fill-only — the fields stay editable and a lookup failure just leaves
+      // them blank for the operator. The card number rides product-name
+      // ("Pikachu ex #238" — PC has no separate field).
+      const num = product.name.match(/#\s*([A-Za-z0-9/-]+)\s*$/)?.[1] ?? '';
+      void getTcgCardMeta(product.set, num)
+        .then((meta) => {
+          setLabelYear((v) => v || meta.year || '');
+          setLabelNote((v) => v || meta.note || '');
+        })
+        .catch(() => {});
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -168,9 +174,12 @@ const AddFromPriceChartingPage = () => {
   const pickTier = (tierGrade: string, usd: number) => {
     setPcGrade(tierGrade);
     setMarketValue(usd);
+    // Prefill ONLY when the tier names a grader ("PSA 10" → PSA/10). Generic
+    // "Grade 7/8/9/9.5" tiers are price comps, not PSA claims — the operator
+    // states the physical slab's grader + grade themselves (§3a).
     const derived = gradeToGrader(tierGrade);
     setGrader(derived.grader);
-    setGrade(derived.grade);
+    setGrade(derived.grader ? derived.grade : '');
   };
 
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -210,6 +219,9 @@ const AddFromPriceChartingPage = () => {
     pcGrade !== null &&
     marketValue !== null &&
     image.trim() !== '' &&
+    // A grade is unrepresentable without a grader (§3a) — "grader chosen" and
+    // "grade chosen" must move together.
+    (grader === '' || grade !== '') &&
     // Required — the backend rejects a from-PC product without a pixel link
     // (name-derivation fails on suffixed PC names like "Blastoise ex #200").
     pokemon.pixel_pokemon_id !== null &&
@@ -243,6 +255,8 @@ const AddFromPriceChartingPage = () => {
         // Staged on the product's metadata; the create-card step inherits +
         // mirrors it when the product is later registered as a gacha card.
         pixel_pokemon_id: pokemon.pixel_pokemon_id,
+        label_year: labelYear.trim() || null,
+        label_note: labelNote.trim() || null,
       });
       setCreated(product);
       toast.success(t('pcAdd.toast.created', { name: pcProduct.name }));
@@ -355,13 +369,45 @@ const AddFromPriceChartingPage = () => {
               </>
             )}
             {pcGrade !== null && (
-              <Text className="text-ui-fg-subtle text-xs">
-                {t('pcAdd.grade.derivedHint', {
-                  grader: grader || '—',
-                  grade,
-                })}
-              </Text>
+              <GraderGradeSelect
+                grader={grader}
+                grade={grade}
+                onChange={(v) => {
+                  setGrader(v.grader);
+                  setGrade(v.grade);
+                }}
+                idPrefix="pc"
+              />
             )}
+          </div>
+        )}
+
+        {/* Step 2b — slab label text (§8) */}
+        {pcGrade !== null && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-y-2">
+              <Label size="small" weight="plus" htmlFor="pc-label-year">
+                {t('cards.form.labelYear')}
+              </Label>
+              <Input
+                id="pc-label-year"
+                value={labelYear}
+                onChange={(e) => setLabelYear(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-y-2">
+              <Label size="small" weight="plus" htmlFor="pc-label-note">
+                {t('cards.form.labelNote')}
+              </Label>
+              <Input
+                id="pc-label-note"
+                value={labelNote}
+                onChange={(e) => setLabelNote(e.target.value)}
+              />
+            </div>
+            <Text className="text-ui-fg-subtle col-span-2 text-xs">
+              {t('cards.form.labelHint')}
+            </Text>
           </div>
         )}
 

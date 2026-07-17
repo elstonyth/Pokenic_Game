@@ -12,6 +12,7 @@ import type PacksModuleService from '../../../../../modules/packs/service';
 import { toMoney } from '../../../../../modules/packs/money';
 import {
   FLAT_PERCENT,
+  UNQUOTED_BUYBACK,
   buybackAmount,
   instantDeadlineMs,
 } from '../../../../../modules/packs/buyback-rate';
@@ -62,11 +63,11 @@ export async function POST(
   // customer and written the pull rows, and nothing here can roll that back.
   // So a failure below must NOT fail the request: the player paid and the cards
   // ARE in their vault, and throwing would show them a generic error instead of
-  // their reveal — reading as a lost charge. Degrade to a null buyback instead
-  // and log loudly (a silent catch would hide a systemic quoting outage behind
-  // "everyone's buybacks are null"). The storefront already tolerates it:
-  // pack-batch-map.ts maps a missing offer to buyback: null, and a missing
-  // marketPriceMyr renders as '—'.
+  // their reveal — reading as a lost charge. Degrade instead, and log loudly (a
+  // silent catch would hide a systemic quoting outage behind "every buyback is
+  // degraded"). Cards drop marketPriceMyr, which the storefront renders as '—'
+  // rather than showing raw USD behind "RM"; each quote degrades to
+  // UNQUOTED_BUYBACK (firm: false — see its comment for why NOT null).
   let rolls;
   try {
     // Belt-and-braces invariant: also post-commit, so it degrades rather than
@@ -145,12 +146,12 @@ export async function POST(
       .resolve(ContainerRegistrationKeys.LOGGER)
       .error(
         `[open-batch] post-commit enrichment failed for '${slug}' (customer ${customerId}) — serving ${result.rolls.length} PAID roll(s) with a degraded buyback`,
-        err as Error,
+        err instanceof Error ? err : new Error(String(err)),
       );
     rolls = result.rolls.map((card, i) => ({
       pull: result.pulls[i] ?? null,
       card,
-      buyback: null,
+      buyback: UNQUOTED_BUYBACK,
     }));
   }
 

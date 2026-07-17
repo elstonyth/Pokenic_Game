@@ -9,6 +9,7 @@ import type PacksModuleService from '../../../../../modules/packs/service';
 import { toMoney } from '../../../../../modules/packs/money';
 import {
   FLAT_PERCENT,
+  UNQUOTED_BUYBACK,
   buybackAmount,
   instantDeadlineMs,
 } from '../../../../../modules/packs/buyback-rate';
@@ -49,11 +50,11 @@ export async function POST(
   // customer and written the pull row, and nothing here can roll that back. So
   // a failure below must NOT fail the request: the player paid and the card IS
   // in their vault, and throwing would show them a generic error instead of
-  // their reveal — reading as a lost charge. Degrade to a null buyback instead
-  // and log loudly (a silent catch would hide a systemic quoting outage behind
-  // "everyone's buybacks are null"). The storefront already tolerates it:
-  // openPack maps a missing offer to buyback: null, and a missing
-  // marketPriceMyr renders as '—'.
+  // their reveal — reading as a lost charge. Degrade instead, and log loudly (a
+  // silent catch would hide a systemic quoting outage behind "every buyback is
+  // degraded"). The card drops marketPriceMyr, which the storefront renders as
+  // '—' rather than showing raw USD behind "RM"; the quote degrades to
+  // UNQUOTED_BUYBACK (firm: false — see its comment for why NOT null).
   let card;
   let buyback;
   try {
@@ -111,10 +112,10 @@ export async function POST(
       .resolve(ContainerRegistrationKeys.LOGGER)
       .error(
         `[open] post-commit enrichment failed for '${slug}' (customer ${customerId}) — serving the PAID pull with a degraded buyback`,
-        err as Error,
+        err instanceof Error ? err : new Error(String(err)),
       );
     card = result.card;
-    buyback = null;
+    buyback = UNQUOTED_BUYBACK;
   }
 
   // result.card is already a plain, JSON-safe object (normalized in roll-pack);

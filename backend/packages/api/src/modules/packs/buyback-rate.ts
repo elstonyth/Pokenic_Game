@@ -22,6 +22,28 @@ export type BuybackRate = {
 // rate must beat, and the fallback when the source pack was deleted.
 export const FLAT_PERCENT = 90;
 
+// The quote the open/open-batch routes return when post-commit enrichment fails
+// and the pull could not be priced at all.
+//
+// Deliberately NOT `null`/omitted: the storefront's offer builder treats a
+// MISSING buyback as firm (`roll.buyback?.firm ?? true` in SlotMachineClient —
+// an allowance for older backends that predate the field), and with no
+// marketPriceMyr to derive from it would fabricate "Sell for RM 0.00 (90%)" and
+// present it as a firm, countdown-pressured CTA. That is the exact P1-1 class
+// `firm` was added to prevent, fired during the very outage this path exists for.
+//
+// `firm: false` is both the honest signal (we could not quote) and one the
+// reveal ALREADY handles correctly: Keep-only, "sell when rates return", no
+// countdown. amount 0 is never rendered on that branch, and selling stays
+// authoritative server-side regardless of what was shown.
+export const UNQUOTED_BUYBACK = {
+  percent: FLAT_PERCENT,
+  amount: 0,
+  vault_percent: FLAT_PERCENT,
+  vault_amount: 0,
+  firm: false,
+};
+
 // Strict 30s instant window, anchored to revealed_at (see header).
 const DEFAULT_WINDOW_MS = 30 * 1000;
 // Hard ceiling from rolled_at: even a delayed reveal ping cannot push the

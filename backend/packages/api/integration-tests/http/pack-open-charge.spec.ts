@@ -288,6 +288,14 @@ medusaIntegrationTestRunner({
       // quoteBuyback is spied because it is called ONLY in post-commit route
       // enrichment (the workflow never calls it), so a throw there provably
       // exercises the charged-then-failed path and nothing earlier.
+      //
+      // It is also the ONLY sound seam here. The enrichment's other DB reads are
+      // not enrichment-exclusive: listCards is called PRE-commit by the roll-pack
+      // step, so spying it fails the workflow before the charge (verified: 500,
+      // no Pull, no debit — which is correct, nobody paid). The FX read cannot
+      // throw at all; resolveFxRateInfo swallows and degrades to firm:false
+      // itself. Since every thrower funnels into the same catch, quoteBuyback
+      // covers the path.
       const throwOnQuote = () =>
         jest
           .spyOn(
@@ -296,7 +304,7 @@ medusaIntegrationTestRunner({
           )
           .mockRejectedValue(new Error("quote path exploded"));
 
-      it("serves the PAID pull with a null buyback when the quote throws", async () => {
+      it("serves the PAID pull with a non-firm buyback when the quote throws", async () => {
         const token = await registerCustomer("poc-customer-c@test.dev");
         expect((await topUp(PACK_PRICE, authed(token))).status).toBe(200);
 
@@ -314,8 +322,14 @@ medusaIntegrationTestRunner({
           expect(opened.data.price).toBe(PACK_PRICE);
           expect(opened.data.balance).toBe(0);
           expect(await pullCount()).toBe(1);
-          // Only the quote degrades; the storefront maps this to buyback: null.
-          expect(opened.data.buyback).toBeNull();
+          // Only the quote degrades — and it degrades to an explicitly NON-FIRM
+          // offer, never null/absent. A missing buyback is treated as FIRM by the
+          // storefront's offer builder (`roll.buyback?.firm ?? true`, an older-
+          // backend allowance), which with no marketPriceMyr would fabricate a
+          // firm "Sell for RM 0.00 (90%)" CTA with a live countdown. firm:false
+          // is what makes the reveal render Keep-only + "sell when rates return".
+          expect(opened.data.buyback).toMatchObject({ firm: false });
+          expect(opened.data.card.marketPriceMyr).toBeUndefined();
           expect(quoteSpy).toHaveBeenCalled();
           pullId = opened.data.pull.id;
         } finally {
@@ -335,7 +349,7 @@ medusaIntegrationTestRunner({
         expect(buyback.data.amount).toBe(INSTANT_AMOUNT);
       });
 
-      it("serves PAID batch rolls with null buybacks when the quote throws", async () => {
+      it("serves PAID batch rolls with non-firm buybacks when the quote throws", async () => {
         const token = await registerCustomer("poc-customer-d@test.dev");
         const COUNT = 2;
         expect((await topUp(PACK_PRICE * COUNT, authed(token))).status).toBe(
@@ -352,7 +366,9 @@ medusaIntegrationTestRunner({
           for (const roll of opened.data.rolls) {
             expect(roll.card.handle).toBe(CARD_HANDLE);
             expect(roll.pull.id).toEqual(expect.any(String));
-            expect(roll.buyback).toBeNull();
+            // Non-firm, never null — see the single-open case for why.
+            expect(roll.buyback).toMatchObject({ firm: false });
+            expect(roll.card.marketPriceMyr).toBeUndefined();
           }
           // ...and the batch debit is reported, not hidden behind an error.
           expect(opened.data.total_charged).toBe(PACK_PRICE * COUNT);

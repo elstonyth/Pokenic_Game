@@ -1,7 +1,6 @@
 'use client';
 
 import { SlabImage } from '@/components/SlabImage';
-import { rarityRgb } from '@/lib/rarity';
 import type { PackCard } from '@/lib/packs-data';
 
 /**
@@ -18,7 +17,6 @@ export function CardTile({
   onOpen: (card: PackCard) => void;
   sizes?: string;
 }) {
-  const rgb = rarityRgb(card.rarity);
   return (
     <button
       type="button"
@@ -26,13 +24,10 @@ export function CardTile({
       aria-label={`View details for ${card.name}`}
       className="group flex w-full flex-col gap-1.5 text-left"
     >
-      <span
-        className="relative block w-full overflow-hidden rounded-xl border bg-neutral-900 p-1.5"
-        style={{
-          borderColor: `rgba(${rgb},0.55)`,
-          boxShadow: `0 0 16px -8px rgba(${rgb},0.6)`,
-        }}
-      >
+      {/* No wrapper frame: the SlabImage already carries the tier band + halo
+          (rarity color). A second rarity-colored border/glow here read as a
+          doubled frame around the slab (operator, 2026-07-17). */}
+      <span className="relative block w-full">
         <SlabImage
           src={card.image}
           slabSrc={card.slabImage}

@@ -25,6 +25,9 @@ type Body = {
   // Spec 2 §5 (id-only): the pixel-Pokémon is staged by a PixelPokemon library
   // id, not a raw dex/sprite (read via optPixelPokemonId below).
   pixel_pokemon_id?: unknown;
+  // Graded-slab label extras (§8), staged onto product.metadata.
+  label_year?: unknown;
+  label_note?: unknown;
 };
 
 const requireString = (value: unknown, field: string): string => {
@@ -102,6 +105,27 @@ const requireUrl = (value: unknown, field: string): string => {
   return s;
 };
 
+// Graded-slab label extras (§8) — same tri-state trim/cap contract as
+// validate.ts's optLabelField, duplicated here because this route validates
+// its own Body shape rather than going through coerceRegisterCardBody.
+const optLabel = (value: unknown, field: string): string | null => {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      `'${field}' must be a string.`,
+    );
+  }
+  const t = value.trim();
+  if (t.length > 64) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      `'${field}' is too long (max 64 chars).`,
+    );
+  }
+  return t === '' ? null : t;
+};
+
 // POST /admin/products/from-pricecharting — mint a standalone marketplace
 // Product from a PriceCharting lookup, carrying the PC link on
 // product.metadata. NO card is created here.
@@ -170,6 +194,9 @@ export async function POST(
     throw e;
   }
 
+  const label_year = optLabel(body.label_year, 'label_year');
+  const label_note = optLabel(body.label_note, 'label_note');
+
   const { result } = await createProductFromPriceChartingWorkflow(
     req.scope,
   ).run({
@@ -186,6 +213,8 @@ export async function POST(
       for_sale,
       stock,
       pixel_pokemon_id,
+      label_year,
+      label_note,
     },
   });
 

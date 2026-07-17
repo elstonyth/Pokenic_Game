@@ -134,6 +134,24 @@ const optMultiplier = (b: Record<string, unknown>): number | undefined => {
   return n as number;
 };
 
+// Graded-slab label extras (dynamic-label spec §8). Same tri-state contract
+// as optPcId: undefined = not provided, null/blank = clear, string = value.
+const MAX_LABEL_FIELD = 64;
+const optLabelField = (
+  b: Record<string, unknown>,
+  key: string,
+): string | null | undefined => {
+  const v = b[key];
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') bad(`'${key}' must be a string.`);
+  const t = (v as string).trim();
+  if (t.length > MAX_LABEL_FIELD) {
+    bad(`'${key}' is too long (max ${MAX_LABEL_FIELD} chars).`);
+  }
+  return t === '' ? null : t;
+};
+
 const asObject = (raw: unknown): Record<string, unknown> => {
   if (!raw || typeof raw !== 'object') {
     bad('Body must be an object.');
@@ -161,6 +179,8 @@ export function coerceRegisterCardBody(raw: unknown): RegisterCardInput {
     pc_product_id,
     pc_grade,
     market_multiplier: optMultiplier(b),
+    label_year: optLabelField(b, 'label_year'),
+    label_note: optLabelField(b, 'label_note'),
   };
 }
 
@@ -200,5 +220,7 @@ export function coerceUpdateCardBody(
     pc_product_id,
     pc_grade,
     market_multiplier: optMultiplier(b),
+    label_year: optLabelField(b, 'label_year'),
+    label_note: optLabelField(b, 'label_note'),
   };
 }

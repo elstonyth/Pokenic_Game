@@ -18,6 +18,8 @@ export type AdminCardLike = CardLike & {
   pc_grade: string | null;
   market_multiplier: unknown;
   pc_synced_at: Date | string | null;
+  label_year: string | null;
+  label_note: string | null;
 };
 
 // `fxRate` is optional so existing callers/tests that only need the base DTO
@@ -50,6 +52,8 @@ export function toAdminCardDto(card: AdminCardLike, fxRate?: number) {
       card.market_multiplier ?? DEFAULT_MARKET_MULTIPLIER,
     ),
     pc_synced_at: card.pc_synced_at ?? null,
+    label_year: card.label_year ?? null,
+    label_note: card.label_note ?? null,
   };
   if (fxRate === undefined) return base;
 

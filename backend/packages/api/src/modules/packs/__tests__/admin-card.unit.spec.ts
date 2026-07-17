@@ -18,6 +18,8 @@ const card = {
   pc_grade: null as string | null,
   market_multiplier: '1.2',
   pc_synced_at: null as string | Date | null,
+  label_year: null as string | null,
+  label_note: null as string | null,
 };
 
 describe('toAdminCardDto', () => {
@@ -40,6 +42,8 @@ describe('toAdminCardDto', () => {
       pc_grade: null,
       market_multiplier: 1.2,
       pc_synced_at: null,
+      label_year: null,
+      label_note: null,
     });
   });
 

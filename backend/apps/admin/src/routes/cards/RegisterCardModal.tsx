@@ -212,6 +212,9 @@ const RegisterCardModal = ({ open, onClose }: Props) => {
 
   const canSave =
     !!productId &&
+    // A grade is unrepresentable without a grader (§3a) — "grader chosen" and
+    // "grade chosen" must move together.
+    (fields.grader === '' || fields.grade !== '') &&
     fields.market_value.trim() !== '' &&
     Number(fields.market_value) >= 0 &&
     // FMV is entered in RM but stored in USD — need the live rate to convert.

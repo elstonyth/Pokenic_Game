@@ -155,6 +155,9 @@ const GachaCardsPage = () => {
   const canSave =
     !!form &&
     form.name.trim() !== '' &&
+    // A grade is unrepresentable without a grader (§3a) — "grader chosen" and
+    // "grade chosen" must move together.
+    (form.grader === '' || form.grade !== '') &&
     form.image.trim() !== '' &&
     form.market_value.trim() !== '' &&
     Number(form.market_value) >= 0 &&

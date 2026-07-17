@@ -10,7 +10,6 @@ import sharp from 'sharp';
 import { PACKS_MODULE } from '../../../modules/packs';
 import type PacksModuleService from '../../../modules/packs/service';
 import { IMAGE_RULES } from './validate';
-import { DEFAULT_SLAB_FRAME_B64 } from './slab-frame-default';
 import { renderLabelSvg, type SlabLabelFields } from './label';
 import { ensureLabelFont } from './label-font';
 
@@ -200,6 +199,21 @@ export const fetchBytes = async (url: string): Promise<Buffer | null> => {
   return null; // redirect chain longer than MAX_REDIRECTS — fail closed
 };
 
+// Lazy + cached: the default frame is a ~937KB base64 module. A top-level
+// import retained the decoded string in EVERY jest module registry that pulls
+// in bake-slab (the whole create/update-card workflow chain), tipping CI's
+// integration-http shard heap over its limit across ~30 suites. Loading it
+// only when a bake actually needs the default frame — and caching the
+// decoded Buffer so repeat bakes don't re-decode — keeps app boot off it.
+let defaultFrameBytes: Buffer | null = null;
+const loadDefaultFrameBytes = async (): Promise<Buffer> => {
+  if (!defaultFrameBytes) {
+    const { DEFAULT_SLAB_FRAME_B64 } = await import('./slab-frame-default.js');
+    defaultFrameBytes = Buffer.from(DEFAULT_SLAB_FRAME_B64, 'base64');
+  }
+  return defaultFrameBytes;
+};
+
 // The frame to bake with: the admin-configured URL when it is an absolute
 // http(s) URL, else the bundled default (relative paths are storefront-only
 // and unfetchable from here — spec §B.1).
@@ -219,7 +233,7 @@ export const resolveFrameBytes = async (
       `bake-slab: frame '${slab_frame_url}' is a relative path — using bundled default`,
     );
   }
-  return Buffer.from(DEFAULT_SLAB_FRAME_B64, 'base64');
+  return loadDefaultFrameBytes();
 };
 
 // Card-scan crop system (operator-specified, rebuilt 2026-07-16, verified on
@@ -455,7 +469,7 @@ export async function composeSlab(
     { input: frame, left: 0, top: 0 },
   ];
   if (label) {
-    ensureLabelFont(); // must precede the first text render in this process
+    await ensureLabelFont(); // must precede the first text render in this process
     layers.push({ input: renderLabelSvg(label, fw, fh), left: 0, top: 0 });
   }
   return sharp({

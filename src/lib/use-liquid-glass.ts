@@ -39,10 +39,19 @@ export function useLiquidGlass(
   opts: LiquidGlassOptions = GLASS_SUBTLE,
 ) {
   const optsRef = useRef(opts);
-  optsRef.current = opts;
+  // Ref writes during render are disallowed in React 19 — sync in an effect
+  // (same convention as use-modal-a11y). Declared before the glass effect so
+  // it runs first within each commit.
+  useEffect(() => {
+    optsRef.current = opts;
+  });
 
   useEffect(() => {
     if (!enabled) return;
+    // OS "reduce transparency": globals.css bumps the .glass-* tints to
+    // near-opaque, so skip the backdrop filter entirely.
+    if (window.matchMedia('(prefers-reduced-transparency: reduce)').matches)
+      return;
     const el = ref.current;
     if (!el) return;
     const handle = liquidGlass(el, optsRef.current);

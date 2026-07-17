@@ -111,7 +111,7 @@ export default function AuthModal() {
         aria-hidden="true"
         tabIndex={-1}
         onClick={() => setOpen(false)}
-        className="glass-stage absolute inset-0 cursor-default bg-black/40 backdrop-blur-sm"
+        className="glass-stage absolute inset-0 cursor-default bg-black/40"
       />
       <div
         ref={panelRef}

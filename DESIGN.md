@@ -103,7 +103,7 @@ components:
   # (blur/saturate + shadow recipes live in .impeccable/design.json —
   # backdrop-filter isn't part of this schema's component props.)
   glass-panel: # compact overlays: modals, sheets, toast (refraction-capable)
-    backgroundColor: '#0a0a0a73' # ink-black / 45%
+    backgroundColor: '#0a0a0a8c' # ink-black / 55%
   glass-chrome: # wide chrome: header, tab bar, banners, sticky bars (frosted only)
     backgroundColor: '#0a0a0ab3' # ink-black / 70%
   glass-scrim: # full-screen overlay backdrops

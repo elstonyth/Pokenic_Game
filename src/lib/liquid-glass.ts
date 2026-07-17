@@ -221,12 +221,17 @@ export function liquidGlass(
   if (!isSupported()) {
     const frosted = `blur(${o.fallbackBlur}px) saturate(${o.saturate})`;
     el.style.backdropFilter = frosted;
+    // Safari ≤17 only implements the prefixed property — without this line
+    // the frosted fallback silently no-ops there and a 45%-tint panel shows
+    // the raw page through un-blurred.
+    el.style.setProperty('-webkit-backdrop-filter', frosted);
     el.classList.add('lg-fallback');
     return {
       supported: false,
       refresh: () => {},
       destroy: () => {
         el.style.backdropFilter = '';
+        el.style.removeProperty('-webkit-backdrop-filter');
         el.classList.remove('lg-fallback');
       },
     };

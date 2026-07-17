@@ -1,6 +1,5 @@
 'use client';
 
-import { useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogIn, Plus } from 'lucide-react';
@@ -11,7 +10,6 @@ import { openAuth } from '@/components/AuthButton';
 import { useAuth } from '@/components/auth/AuthProvider';
 import NotificationBell from '@/components/NotificationBell';
 import { Pill } from '@/components/ui/pill';
-import { useLiquidGlass, GLASS_ACCENT } from '@/lib/use-liquid-glass';
 import { useTopUp } from './TopUpProvider';
 import { TABS, isTabActive } from './tabs';
 
@@ -26,11 +24,6 @@ export default function AppHeader() {
   const pathname = usePathname();
   const { customer, isLoading } = useAuth();
   const { balance, openTopUp } = useTopUp();
-
-  // Liquid-glass rim on the balance chip — the header's one always-visible
-  // accent (frosted fallback on Safari/Firefox).
-  const chipRef = useRef<HTMLButtonElement>(null);
-  useLiquidGlass(chipRef, customer != null, GLASS_ACCENT);
 
   return (
     <header
@@ -86,8 +79,11 @@ export default function AppHeader() {
           {customer ? (
             <>
               <NotificationBell />
+              {/* Translucent tint only — no refraction: the chip sits inside
+                  the header's own backdrop-filter (a backdrop root), so a
+                  nested filter refracts an already-blurred tint invisibly
+                  while costing a live filter on every scroll. */}
               <button
-                ref={chipRef}
                 type="button"
                 onClick={openTopUp}
                 aria-label={

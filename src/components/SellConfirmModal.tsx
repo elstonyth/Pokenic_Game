@@ -100,7 +100,7 @@ export default function SellConfirmModal({
         aria-hidden="true"
         tabIndex={-1}
         onClick={() => !busy && onCancel()}
-        className="glass-stage absolute inset-0 cursor-default bg-black/40 backdrop-blur-sm"
+        className="glass-stage absolute inset-0 cursor-default bg-black/40"
       />
       <div
         ref={panelRef}

@@ -38,9 +38,10 @@ export function SuccessToast({
   }, [message]);
 
   // Liquid-glass rim while visible (the sr-only idle element has no box to
-  // map); frosted fallback on Safari/Firefox.
+  // map); frosted fallback on Safari/Firefox. Truthiness gate matches the
+  // className gate below so '' can't refract a sr-only box.
   const toastRef = useRef<HTMLDivElement>(null);
-  useLiquidGlass(toastRef, message !== null, GLASS_ACCENT);
+  useLiquidGlass(toastRef, !!message, GLASS_ACCENT);
 
   return (
     <div

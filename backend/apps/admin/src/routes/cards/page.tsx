@@ -30,6 +30,7 @@ import { rm, timeAgo, myrToUsd } from '../../lib/format';
 import RegisterCardModal from './RegisterCardModal';
 import CardPokemonFields from './CardPokemonFields';
 import { GachaPipelineHint } from '../../components/GachaPipelineHint';
+import { GraderGradeSelect } from '../../components/GraderGradeSelect';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 
 export const config: RouteConfig = {
@@ -49,6 +50,9 @@ type FormState = {
   set: string;
   grader: string;
   grade: string;
+  // Slab-label text (§8) — printed on the baked PSA composite; blank clears it.
+  label_year: string;
+  label_note: string;
   market_value: string;
   image: string;
   // Baked graded-slab composite (read-only here) — the thumbnail prefers it so
@@ -82,6 +86,8 @@ const formFromCard = (c: AdminCard): FormState => ({
   set: c.set,
   grader: c.grader,
   grade: c.grade,
+  label_year: c.label_year ?? '',
+  label_note: c.label_note ?? '',
   // FMV shown/edited in MYR (priceBreakdown.marketMyr = market_value × live FX,
   // no markup); converted back to USD on save.
   market_value: String(c.priceBreakdown.marketMyr),
@@ -173,6 +179,8 @@ const GachaCardsPage = () => {
       set: form.set.trim(),
       grader: form.grader.trim(),
       grade: form.grade.trim(),
+      label_year: form.label_year.trim() || null,
+      label_note: form.label_note.trim() || null,
       // Edited in MYR; the backend tracks FMV in USD — convert back at the
       // card's live rate so the stored value stays PriceCharting-native.
       market_value: myrToUsd(Number(form.market_value), form.fx_rate),
@@ -226,6 +234,12 @@ const GachaCardsPage = () => {
         image: card.image,
         price: card.price ?? undefined,
         for_sale: card.for_sale,
+        // updateCardInvoke has no tri-state for label_year/label_note (same
+        // round-trip convention as pc_grade — omitted defaults to null, i.e.
+        // CLEARED); send the loaded values explicitly so unlinking PC can't
+        // silently wipe the slab label.
+        label_year: card.label_year,
+        label_note: card.label_note,
         // pixel_pokemon_id omitted (undefined) → the pokemon link + its mirror
         // stay untouched; unlink only clears the PriceCharting link.
         pc_product_id: null,
@@ -586,26 +600,37 @@ const GachaCardsPage = () => {
                       onChange={(e) => patch({ set: e.target.value })}
                     />
                   </div>
-                  <div className="flex flex-col gap-y-2">
-                    <Label size="small" weight="plus" htmlFor="card-grader">
-                      {t('cards.form.grader')}
-                    </Label>
-                    <Input
-                      id="card-grader"
-                      value={form.grader}
-                      onChange={(e) => patch({ grader: e.target.value })}
+                  <div className="col-span-2">
+                    <GraderGradeSelect
+                      grader={form.grader}
+                      grade={form.grade}
+                      onChange={(v) => patch(v)}
+                      idPrefix="edit"
                     />
                   </div>
                   <div className="flex flex-col gap-y-2">
-                    <Label size="small" weight="plus" htmlFor="card-grade">
-                      {t('cards.form.grade')}
+                    <Label size="small" weight="plus" htmlFor="card-label-year">
+                      {t('cards.form.labelYear')}
                     </Label>
                     <Input
-                      id="card-grade"
-                      value={form.grade}
-                      onChange={(e) => patch({ grade: e.target.value })}
+                      id="card-label-year"
+                      value={form.label_year}
+                      onChange={(e) => patch({ label_year: e.target.value })}
                     />
                   </div>
+                  <div className="flex flex-col gap-y-2">
+                    <Label size="small" weight="plus" htmlFor="card-label-note">
+                      {t('cards.form.labelNote')}
+                    </Label>
+                    <Input
+                      id="card-label-note"
+                      value={form.label_note}
+                      onChange={(e) => patch({ label_note: e.target.value })}
+                    />
+                  </div>
+                  <Text className="text-ui-fg-subtle col-span-2 text-xs">
+                    {t('cards.form.labelHint')}
+                  </Text>
                   <div className="flex flex-col gap-y-2">
                     <Label size="small" weight="plus" htmlFor="card-fmv">
                       {t('cards.form.marketValue')}

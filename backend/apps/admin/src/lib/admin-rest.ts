@@ -413,6 +413,9 @@ export async function createProductFromPriceCharting(body: {
    *  Required — the backend rejects creation without it (no name-derivation
    *  fallback for from-PC products). */
   pixel_pokemon_id: string;
+  /** Slab-label text (§8), staged onto product.metadata; null = blank. */
+  label_year?: string | null;
+  label_note?: string | null;
 }): Promise<{ id: string; handle: string }> {
   const data = await postJson<{ product: { id: string; handle: string } }>(
     '/admin/products/from-pricecharting',

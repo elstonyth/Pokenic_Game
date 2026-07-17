@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rm, timeAgo, fmtPct, usdToMyr } from './format';
+import { rm, timeAgo, fmtPct, usdToMyr, gradeToGrader } from './format';
 
 describe('rm', () => {
   it('formats a number with two decimals and an RM prefix', () => {
@@ -80,6 +80,25 @@ describe('usdToMyr — parity with backend displayMarketPrice(usd, fx, 1)', () =
     ['usd < 0 (matches displayMarketPrice raw < 0 guard)', -5, 4.7],
   ])('collapses to 0 on bad input (%s)', (_label, usd, fx) => {
     expect(usdToMyr(usd, fx)).toBe(0);
+  });
+});
+
+describe('gradeToGrader', () => {
+  it.each([
+    ['PSA 10', { grader: 'PSA', grade: '10' }],
+    ['BGS 9.5', { grader: 'BGS', grade: '9.5' }],
+    ['CGC 8', { grader: 'CGC', grade: '8' }],
+    ['SGC 7', { grader: 'SGC', grade: '7' }],
+  ])('splits a graded PC tier label %s', (label, expected) => {
+    expect(gradeToGrader(label)).toEqual(expected);
+  });
+
+  it('parses a generic "Grade N" tier as ungraded (§3a — price comp, not a PSA claim)', () => {
+    expect(gradeToGrader('Grade 9')).toEqual({ grader: '', grade: '9' });
+  });
+
+  it('falls back to the raw label as the grade when nothing matches', () => {
+    expect(gradeToGrader('Loose')).toEqual({ grader: '', grade: 'Loose' });
   });
 });
 

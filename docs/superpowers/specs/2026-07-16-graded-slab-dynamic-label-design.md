@@ -129,6 +129,8 @@ height **0.1513**.
 > **`SLAB_ASPECT` must move in lockstep with the frame.** The storefront renders every slab at
 > `SLAB_ASPECT`; if it disagrees with the asset, the frame is stretched. This is the root cause
 > of the "size is wrong" report against the 0.5927 frame rendered into a 0.5977 box.
+> The runtime TIER frame's geometry derives from this same asset and moves in the same
+> lockstep — see §14.
 
 Constants stay hardcoded, matching the existing PR #81 contract ("admin-uploaded frames must
 keep this geometry").
@@ -387,3 +389,66 @@ Unit (alongside `bake-slab.unit.spec.ts`):
   already ships a PSA-branded frame, so this is not new, but the dynamic label asserts more.
   Operator's call; flagged once here.
 - Window aspect 0.679 vs card 0.716 → ~5% horizontal crop. Accepted.
+
+## 14. Tier slab frame — runtime layer (as-built 2026-07-17, shipped separately)
+
+The OTHER frame around a slab: a tier-colored glass band OUTSIDE the case, driven by the
+card's gacha tier. Locked in with the operator 2026-07-17 and shipping as its own PR
+**before** this plan executes; it is specified here because it derives its geometry from
+the same case asset this spec replaces (§4/§5).
+
+### Workflow contract (operator-stated)
+
+1. **Card creation (PriceCharting import):** operator picks grading → the bake composites
+   photo + case frame + **label wording** (§6) into the stored `slab_image`. The label is a
+   CARD property, fixed at grading time, baked into pixels.
+2. **Inventory:** the card renders as the bare baked slab. NO tier frame — tier does not
+   exist on a card outside a pack.
+3. **Pack assignment:** the operator sets the tier in the pack odds editor
+   (`pack_odds.rarity`, per-(pack,card)). The storefront applies the tier-colored frame at
+   RENDER time wherever the card appears in pack context (pool grid `CardTile`, card detail,
+   spin reveal `SlabCard`).
+
+**The tier frame is never baked.** Tier is per-pack (the same card can be Immortal in one
+pack, Rare in another) and operator-editable at any moment; baking it would fork one
+`slab_image` per (pack,card) and stale on every odds edit. Label = baked card property;
+tier frame = runtime pack property. This split is the load-bearing decision.
+
+### As-built implementation (`src/components/SlabImage.tsx`)
+
+`rarity` prop → three layers around the baked slab: CSS breathing halo (tier color) →
+`public/images/slab-frames/<tier>.webp` (the band art, transparent window, ~25 KB each) →
+traveling light sweep (conic gradient, masked to the band). Colors come from
+`RARITY_RGB` (`src/lib/rarity.ts`); unknown tiers fall back to `common.webp`;
+`prefers-reduced-motion` stops both animations. Six tiers: immortal orange, legendary pink,
+mythical purple, rare blue, uncommon sky, common gray.
+
+### Asset pipeline (regeneration recipe)
+
+ONE SnapGen master (dark smoked glass, bright top/bottom edge light fading down the sides;
+generated against the geometry guide) → six per-tier hue tints (`sharp .tint(RARITY_RGB)`,
+so lighting is pixel-identical across tiers) → band cut to measured geometry → webp.
+Scripts: `scripts/compose-frame-variant.mjs` (`--guide` emits the generation guide;
+`--from-guide` cuts bands) and `scripts/capture-slab-glass.mjs` (visual proof, mirrors
+`SlabImage` 1:1). Master kept at `docs/research/frame-variant-19-darkglass-bright.png`.
+
+### Geometry — derived from the case asset, re-derived in LOCKSTEP
+
+Tier-frame geometry is NOT independent: the band's hole must hug the case's clear-plastic
+outline (alpha-scan the asset — the visible silver arc is a printed rail INSIDE the clear
+plastic and must be ignored). Current constants (frame units, 1462×2348 frame box in the
+1462×2446 slab box): band 5% of width; hole inset 79, corner r47 (plastic edge ≈81,
+corner ≈49); outer corner r127.
+
+**§5 changes `SLAB_ASPECT` to 0.5581 and the case silhouette with it.** Therefore, when the
+new case frame ships (rollout §12.1), the tier frame MUST be re-derived in the same change:
+re-run the alpha-scan measurement against the new asset, update the constants in
+`SlabImage.tsx` + both scripts, re-emit the guide, re-cut the six bands, re-verify with the
+capture script. This is a mechanized recipe, not a redesign. `SLAB_ASPECT`, `SLAB_WINDOW`,
+and the tier-frame constants move together or not at all.
+
+### Rollout addendum
+
+- Tier frame ships first as its own focused PR (code + assets + this spec section).
+- This plan's rollout step §12.1 gains: "re-derive tier-frame geometry + re-cut bands
+  (§14) in the same PR that ships the new case frame."

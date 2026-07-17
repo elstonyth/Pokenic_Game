@@ -502,6 +502,127 @@ SLAB_WINDOW <printed values>; LABEL_BOX <printed values>; holo top <printed valu
 
 ---
 
+### Task 2b: Re-derive tier-frame geometry + re-cut the six tier bands (spec §14 lockstep)
+
+Task 2 changed the case asset and `SLAB_ASPECT` (0.5977 → 0.5581). The runtime tier frame
+(shipped in PR #196: `public/images/slab-frames/<tier>.webp` + `SlabImage` rarity layers)
+derives its geometry from that same asset, so its constants, guide, and all six band webps
+are now stale and MUST be re-derived in this same branch — spec §5/§14: "`SLAB_ASPECT`,
+`SLAB_WINDOW`, and the tier-frame constants move together or not at all."
+
+**Files:**
+
+- Modify: `scripts/measure-slab-margins.mjs` (parameterize the input path)
+- Modify: `scripts/compose-frame-variant.mjs` (geometry constants at the top: `SLAB_W`,
+  `SLAB_H`, `HOLE_INSET`, `HOLE_R`, `OUTER_R`)
+- Modify: `scripts/capture-slab-glass.mjs` (same constants + the `SLAB` preview asset path)
+- Modify: `src/components/SlabImage.tsx` (`FRAME_VB_W`/`FRAME_VB_H` set from the new asset
+  per Step 2, plus `OUTER_R`, `HOLE_INSET`, `HOLE_R`)
+- Regenerate: `docs/research/frame-guide.png` (gitignored, local tool artifact)
+- Regenerate + overwrite: `public/images/slab-frames/{immortal,legendary,mythical,rare,uncommon,common}.webp`
+
+**Interfaces:**
+
+- Consumes: `public/images/slab-frame.webp` (the NEW case asset Task 2 shipped) and
+  `docs/research/frame-variant-19-darkglass-bright.png` (the tier-frame MASTER, local-only).
+  If the master is missing, STOP and ask the operator — regenerating it costs SnapGen
+  credits and needs approval (same rule as Task 2's master).
+- Produces: six re-cut tier band webps + updated geometry constants that Task 10's
+  end-to-end verification renders against.
+
+- [ ] **Step 1: Parameterize the measurement script and run it against the NEW case asset**
+
+In `scripts/measure-slab-margins.mjs` change the hardcoded source to accept argv:
+
+```js
+const ASSET = process.argv[2] ?? 'docs/research/slabframe-user-1600.png';
+```
+
+Run: `node scripts/measure-slab-margins.mjs public/images/slab-frame.webp`
+
+Record from the output: the alpha≥128 plastic-outline edge insets (left/right/top/bottom)
+and, from the per-row corner trace (add rows probe if needed — see the 2026-07-17 session
+pattern: first opaque x for y = 0,10,20,40,60,90), the corner radius where the curve dies.
+Convert to FRAME units in Step 3.
+
+- [ ] **Step 2: Recompute the frame-box constants from the new aspect**
+
+The frame box spans the slab box minus the vertical pull-in (band × (1 − aspect)). With
+the new `SLAB_ASPECT = 0.5581` and the new asset's pixel width `AW` (1600 after Task 2's
+downscale):
+
+- `FRAME_VB_W = AW` (frame units = asset px)
+- `FRAME_VB_H = round((AW / 0.5581) × (1 − 2 × 0.05 × (1 − 0.5581)))`
+- `BAND_U = round(0.05 × AW)`
+- `HOLE_INSET` = measured plastic edge inset (Step 1, in frame units) − 2 (tuck)
+- `HOLE_R` = measured plastic corner radius − 2
+- `OUTER_R` = `HOLE_R` + `BAND_U` + measured-edge-to-hole gap (keep the band visually
+  uniform at corners; sanity: OUTER_R ≈ plastic corner + band)
+
+Update these in `scripts/compose-frame-variant.mjs`, `scripts/capture-slab-glass.mjs`
+(also point its `SLAB` data-URL read at `public/images/slab-frame.webp`), and
+`src/components/SlabImage.tsx`. The percentage-based styles (`FRAME_INSET`,
+`FRAME_RADIUS`) derive automatically.
+
+- [ ] **Step 3: Re-emit the generation guide and regenerate the master against it**
+
+```bash
+node scripts/compose-frame-variant.mjs --guide
+```
+
+The old master was painted for the old band shape, so it must be regenerated against the
+new guide (ASK THE OPERATOR FIRST — ~10 SnapGen credits):
+
+```bash
+node .claude/skills/snapgen-generate/scripts/snapgen.mjs gpt-image \
+  "Fill the white frame band of the first image with the style of the second image: deep smoked black glass frame. A BRIGHT luminous white edge light glows intensely along the top and bottom edges and around the corners — strong bloom — then dims gradually down the left and right sides, fading out at mid-height, like the second image. Keep the band's exact shape, thickness and rounded corners; solid black everywhere else." \
+  --mode medium --resolution 1K --aspect_ratio 2:3 --output_format png \
+  --files docs/research/frame-guide.png,docs/research/frame-ref-darkglass.png \
+  --out docs/research
+mv docs/research/snapgen-<uuid>-0.png docs/research/frame-variant-19-darkglass-bright.png
+```
+
+- [ ] **Step 4: Re-tint the six tiers and re-cut the bands**
+
+```bash
+node -e "
+const sharp = require('sharp');
+const TIERS = [['immortal',251,146,60],['legendary',236,72,153],['mythical',168,85,247],['rare',37,99,235],['uncommon',56,189,248],['common',163,163,163]];
+(async () => { for (const [n,r,g,b] of TIERS) await sharp('docs/research/frame-variant-19-darkglass-bright.png').tint({r,g,b}).png().toFile(\`docs/research/frame-tier-\${n}.png\`); })();
+"
+node scripts/compose-frame-variant.mjs --from-guide --sheet frame-fit-tiers \
+  frame-tier-immortal frame-tier-legendary frame-tier-mythical \
+  frame-tier-rare frame-tier-uncommon frame-tier-common
+node -e "
+const sharp = require('sharp');
+const TIERS = ['immortal','legendary','mythical','rare','uncommon','common'];
+(async () => { for (const t of TIERS) await sharp(\`docs/research/frame-tier-\${t}-band.png\`).webp({quality:82}).toFile(\`public/images/slab-frames/\${t}.webp\`); })();
+"
+```
+
+- [ ] **Step 5: Verify visually**
+
+```bash
+node scripts/capture-slab-glass.mjs
+```
+
+Read `docs/research/slab-glass-tiers.png` + `slab-glass-detail.png`: the band must sit
+flush on all four sides of the NEW slab (no gap left/right, no band showing through the
+clear corners), all six tier colors present, sweep visible in the `-t2` frame.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/measure-slab-margins.mjs scripts/compose-frame-variant.mjs \
+        scripts/capture-slab-glass.mjs src/components/SlabImage.tsx \
+        public/images/slab-frames
+git commit -m "feat(slab): re-derive tier-frame geometry for frame v2 (spec §14 lockstep)
+
+Measured off public/images/slab-frame.webp: <printed insets/radii>"
+```
+
+---
+
 ### Task 3: Pure label text logic (TDD)
 
 The four derived-not-stored functions from §8, plus the grade-scale constant. All pure, no I/O — this is the module every later task consumes.

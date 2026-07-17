@@ -36,6 +36,7 @@ export function CardTile({
         <SlabImage
           src={card.image}
           slabSrc={card.slabImage}
+          rarity={card.rarity}
           alt=""
           sizes={sizes}
           className="w-full transition-opacity duration-200 group-hover:opacity-60 group-focus-visible:opacity-60"

@@ -57,6 +57,7 @@ export function CardDetail({
           <SlabImage
             src={seed.image}
             slabSrc={detail?.slab_image ?? seed.slabImage}
+            rarity={rarity}
             alt={seed.name}
             sizes="(max-width: 768px) 62vw, 420px"
             priority

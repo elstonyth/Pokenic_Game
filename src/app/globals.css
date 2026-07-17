@@ -423,3 +423,36 @@
     opacity: 0;
   }
 }
+
+/* Tier slab frame lighting (SlabImage GlassFrame): a light sweep traveling
+   around the band + a breathing outer glow. Both stop under reduced motion
+   (the static tint/edge line still carries the tier color). */
+@keyframes slab-frame-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+@keyframes slab-frame-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.slab-frame-light {
+  animation: slab-frame-spin 5s linear infinite;
+}
+.slab-frame-glow {
+  animation: slab-frame-pulse 2.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slab-frame-light,
+  .slab-frame-glow {
+    animation: none;
+  }
+}

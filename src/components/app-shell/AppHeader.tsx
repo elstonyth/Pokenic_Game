@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogIn, Plus } from 'lucide-react';
@@ -10,6 +11,7 @@ import { openAuth } from '@/components/AuthButton';
 import { useAuth } from '@/components/auth/AuthProvider';
 import NotificationBell from '@/components/NotificationBell';
 import { Pill } from '@/components/ui/pill';
+import { useLiquidGlass, GLASS_ACCENT } from '@/lib/use-liquid-glass';
 import { useTopUp } from './TopUpProvider';
 import { TABS, isTabActive } from './tabs';
 
@@ -25,10 +27,15 @@ export default function AppHeader() {
   const { customer, isLoading } = useAuth();
   const { balance, openTopUp } = useTopUp();
 
+  // Liquid-glass rim on the balance chip — the header's one always-visible
+  // accent (frosted fallback on Safari/Firefox).
+  const chipRef = useRef<HTMLButtonElement>(null);
+  useLiquidGlass(chipRef, customer != null, GLASS_ACCENT);
+
   return (
     <header
       data-site-chrome
-      className="px-fluid sticky top-0 z-50 border-b border-white/10 bg-neutral-950 py-3"
+      className="glass-chrome px-fluid sticky top-0 z-50 border-b border-white/10 py-3"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-5">
@@ -80,6 +87,7 @@ export default function AppHeader() {
             <>
               <NotificationBell />
               <button
+                ref={chipRef}
                 type="button"
                 onClick={openTopUp}
                 aria-label={
@@ -87,7 +95,7 @@ export default function AppHeader() {
                     ? 'Top up credits'
                     : `Balance ${rm(balance)} — top up`
                 }
-                className="flex h-11 items-center gap-2 rounded-full bg-neutral-800 py-1 pl-3.5 pr-1 transition-colors hover:bg-neutral-700"
+                className="flex h-11 items-center gap-2 rounded-full border border-white/15 bg-white/10 py-1 pl-3.5 pr-1 transition-colors hover:bg-white/15"
               >
                 {/* DESIGN.md "Money Is Display": the balance is the app's most
                     repeated RM value — set it in the Nekst ledger voice, not

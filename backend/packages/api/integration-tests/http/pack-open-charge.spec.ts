@@ -186,6 +186,9 @@ medusaIntegrationTestRunner({
           ),
         );
 
+      // The top-up idempotency dedupe is scoped to {customer_id, reference}, so
+      // sharing one key across DIFFERENT customers is safe. Calling this twice for
+      // the SAME customer, though, replays the first top-up instead of adding to it.
       const topUp = (amount: number, headers: Record<string, string>) =>
         unwrapResponse(
           api.post(
@@ -299,9 +302,11 @@ medusaIntegrationTestRunner({
         expect(await pullCount()).toBe(COUNT);
 
         // Re-read the ledger: ONE pack_open row of -TOTAL for the whole batch.
-        // Filtered by reason rather than asserting a total row count, so an
-        // unrelated future credit (a VIP ladder grant, say) can't turn this into
-        // a confusing failure — the balance assertion still catches stray money.
+        // The reason filter is the robust part (a total row count would break on any
+        // unrelated future credit). The balance re-read below pins the total, but it
+        // reflects EVERY row: seed a vip_level ladder here and a rung crossed by this
+        // spend would grant credit and fail it. (opened.data.balance is computed inside
+        // settleOpen, before settleVipStep, so it stays robust either way.)
         const credits = await unwrapResponse(
           api.get("/store/credits", { headers: authed(token) }),
         );
@@ -312,9 +317,11 @@ medusaIntegrationTestRunner({
         expect(opens).toHaveLength(1);
         expect(opens[0]).toMatchObject({ amount: -TOTAL });
 
-        // Broke now: the next batch is refused and records NO pull. This is the
-        // assertion with teeth on ordering — the charge precedes the pulls in the
-        // saga, so an unaffordable spin can never leave a reward behind.
+        // Broke now: the next batch is refused and records NO pull. Teeth on the
+        // INVARIANT — never a pull without a paid debit — not on step order: a charge
+        // moved after recordPullsBatchStep would still abort and compensate the pull
+        // rows away, leaving this same end state. The saga enforces order;
+        // credit-race.spec covers concurrent double-spend.
         const blocked = await openBatch(COUNT, authed(token));
         expect(blocked.status).toBe(400);
         expect(blocked.data.message).toMatch(/not enough credits/i);

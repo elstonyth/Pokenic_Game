@@ -150,34 +150,32 @@ envs:
   - key: GOOGLE_CALLBACK_URL
     scope: RUN_TIME
     value: https://polycards.gg/auth/google/callback
-  # ── Resend (transactional email: password reset) — NOT WIRED YET ────────────
-  # Password-reset emails are code-complete (src/modules/resend) but env-gated OFF
-  # here: no Resend account/API key exists yet, so prod boots on the local/feed
-  # notification provider and resets are skipped with a warn. Deliberately absent
-  # rather than placeholder'd — do-apply.ps1 aborts on any unresolved __SECRET__
-  # token, so adding one before the key exists breaks EVERY backend deploy.
+  # ── Resend (transactional email: password reset) ─────────────────────────────
+  # API_KEY + FROM_EMAIL are BOTH required to register the provider on the `email`
+  # channel; with either unset the backend boots on the local/feed provider only and
+  # password-reset emails are skipped with a warn (medusa-config.ts and the
+  # subscriber share ONE predicate — modules/resend/options.ts — so a partial config
+  # degrades to that warn instead of throwing NOT_FOUND inside an event handler).
   #
-  # To turn it on, all four steps (partial = still off, but it fails safe). NOTE:
-  # this comment deliberately does NOT spell out the secret-placeholder token —
-  # do-apply.ps1's guard greps the whole file, so even a commented-out example of it
-  # aborts the deploy. Copy the GOOGLE_CLIENT_SECRET entry above as the template.
-  #   1. Verify a SUBDOMAIN in Resend (send.polycards.gg) so its SPF/DKIM stay
-  #      clear of the root domain's Google Workspace mail records.
-  #   2. Add RESEND_API_KEY=re_… to gitignored deploy/.env.deploy.
-  #   3. Add 'RESEND_API_KEY' to the secret list in scripts/do-apply.ps1 (~line 41).
-  #   4. Add these THREE envs to THIS app-level block — not under services.backend:
-  #        RESEND_API_KEY     RUN_TIME, type SECRET, placeholder value (step 3's
-  #                           token, same shape as GOOGLE_CLIENT_SECRET above)
-  #        RESEND_FROM_EMAIL  RUN_TIME, value: Polycards <noreply@send.polycards.gg>
-  #        RESEND_REPLY_TO    RUN_TIME, value: support@polycards.gg
+  # These sit at APP level, NOT under services.backend, and that is load-bearing:
+  # the auth.password_reset subscriber runs on the WORKER component
+  # (MEDUSA_WORKER_MODE=worker drains the event queue), not the web service. Scoping
+  # them to the service would leave the worker unconfigured and silently skip every
+  # reset email. App-level envs reach both components.
   #
-  # App level is load-bearing: the auth.password_reset subscriber runs on the
-  # WORKER component (MEDUSA_WORKER_MODE=worker drains the event queue), not the
-  # web service. Scoping these under services.backend would leave the worker
-  # unconfigured and every reset email silently skipped. App-level envs reach both.
-  # API_KEY + FROM_EMAIL are both required (medusa-config.ts and the subscriber
-  # share one predicate — modules/resend/options.ts); REPLY_TO is optional, but
-  # without it customer replies to a reset email go nowhere.
+  # FROM_EMAIL is on the send.* SUBDOMAIN so its SPF/DKIM stay clear of the root
+  # domain's Google Workspace mail records (root MX -> smtp.google.com). REPLY_TO is
+  # optional; without it, customer replies to a transactional email go nowhere.
+  - key: RESEND_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: __SECRET__RESEND_API_KEY__
+  - key: RESEND_FROM_EMAIL
+    scope: RUN_TIME
+    value: Polycards <noreply@send.polycards.gg>
+  - key: RESEND_REPLY_TO
+    scope: RUN_TIME
+    value: support@polycards.gg
   # ╔═══════════════════════════════════════════════════════════════════════╗
   # ║ GO-LIVE BLOCKER — DELETE THIS ENV BEFORE REAL LAUNCH.                  ║
   # ║ 'unsafe-demo' runs the always-approving MOCK payment gateway in prod   ║

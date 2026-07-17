@@ -1,14 +1,14 @@
 // Cut SnapGen frame-variant art into the EXACT SlabImage GlassFrame geometry
-// (src/components/SlabImage.tsx is the source of truth: 1600×2740 frame box,
-// 80px band, outer/hole radii 140/48 following the clear-plastic outline,
-// hole inset 92) and composite each
+// (src/components/SlabImage.tsx is the source of truth: 1600×2590 frame box,
+// 80px band, outer/hole radii 147/55 following the plastic-case outline,
+// hole inset 79) and composite each
 // around the real slab asset. Outputs per-variant band PNGs (transparent
 // hole — usable directly as a frame texture) + one combined preview sheet.
 import sharp from 'sharp';
 
 // ==== geometry, 1:1 with src/components/SlabImage.tsx ====
 const SLAB_W = 1600;
-const SLAB_H = 2867;
+const SLAB_H = 2700;
 const SLAB_ASPECT = SLAB_W / SLAB_H;
 const BAND_PCT = 5;
 const VB_W = SLAB_W;
@@ -16,14 +16,21 @@ const VB_H = Math.round(
   (VB_W / SLAB_ASPECT) * (1 - 2 * (BAND_PCT / 100) * (1 - SLAB_ASPECT)),
 );
 const BAND_U = Math.round((BAND_PCT / 100) * VB_W); // 80
-// Measured 2026-07-17 (alpha scan of the frame-v2 public/images/slab-frame.webp
-// via scripts/measure-slab-margins.mjs): plastic edge insets 17/22/16/11 px in
-// asset units → ~90-100 in frame units (well 5%, scale 0.9), corner radius
-// ~50. The band must stop at the PLASTIC outline (tuck under its AA edge) — a
-// large-radius hole dives under the clear corner and shows through it.
-const OUTER_R = 140; // ≈ hole r (48) + band (80) + edge gap (12) — uniform corners
-const HOLE_INSET = 92; // plastic edge ~95 (mean) − tuck
-const HOLE_R = 48;
+// Re-measured 2026-07-17 (Task 2R, operator case swap to slabframe-user-1600
+// — the textured case picked in the tier-frame session, PR #196; alpha scan
+// of public/images/slab-frame.webp via scripts/measure-slab-margins.mjs +
+// a diagonal alpha=128 corner-radius fit): unlike the old glassy frame-v2
+// asset, this case's straight edges reach almost all the way to the asset's
+// own canvas edge (inset ~1.25px mean, essentially 0 — only the corners are
+// rounded off). Corner radius ~63.7px (asset units). Converted to frame/VB
+// units via the same 0.9 runtime downscale the slab gets inside the band's
+// hole (BAND_PCT=5% inset each side): hole inset ≈ BAND_U + 1.25×0.9 ≈ 81,
+// hole r ≈ 63.7×0.9 ≈ 57. The band must stop at the plastic outline (tuck
+// under its AA edge) — a large-radius hole dives under the case's rounded
+// corner and shows through it.
+const OUTER_R = 147; // ≈ hole r (55) + band (80) + edge gap (12) — uniform corners
+const HOLE_INSET = 79; // plastic edge ≈81 (measured) − tuck
+const HOLE_R = 55; // plastic corner r ≈57 (measured) − tuck
 const FRAME_Y = Math.round((SLAB_H - VB_H) / 2); // vertical inset in the slab box
 
 const rr = (x, y, w, h, r) => {

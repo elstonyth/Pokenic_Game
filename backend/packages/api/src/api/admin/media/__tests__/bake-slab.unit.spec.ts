@@ -221,4 +221,29 @@ describe('composeSlab', () => {
     expect(meta.width).toBe(400);
     expect(meta.height).toBe(669);
   });
+
+  it('renders the label text layer when label fields are passed', async () => {
+    const { LABEL_BOX } = await import('../label.js');
+    const out = await composeSlab(await makeFrame(400, 669), await makePhoto(), {
+      set: 'Pokemon Surging Sparks',
+      name: 'Pikachu ex #238',
+      grade: '10',
+      year: '2024',
+      note: 'SPECIAL ILLUSTRATION RARE',
+    });
+    const { data, info } = await sharp(out)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    // ink somewhere inside the label box band (the frame is transparent here,
+    // so any non-zero alpha in the band is label text)
+    const y0 = Math.round(669 * LABEL_BOX.top);
+    const y1 = Math.round(669 * (LABEL_BOX.top + LABEL_BOX.height));
+    let ink = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < info.width; x++) {
+        if (data[(y * info.width + x) * info.channels + 3] > 0) ink++;
+      }
+    }
+    expect(ink).toBeGreaterThan(100);
+  });
 });

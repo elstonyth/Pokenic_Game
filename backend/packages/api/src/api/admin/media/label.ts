@@ -1,6 +1,8 @@
 // Pure graded-slab label logic (spec 2026-07-16-graded-slab-dynamic-label §6/§8).
 // No I/O here — the SVG renderer and layout join this module in a later task.
 
+import { LABEL_FONT_FAMILY } from './label-font';
+
 // PSA's canonical 11-point grade scale. Qualifier half-grades (2.5–9.5) are
 // deliberately excluded (operator decision 2026-07-16): the catalog doesn't
 // carry them and 9.5 is a PriceCharting price tier, never a PSA grade. 1.5
@@ -101,4 +103,146 @@ const SET_ABBREV: Record<string, string> = {
 export function setAbbrev(pcSetName: string): string {
   const key = pcSetName.trim().toLowerCase().replace(/\s+/g, ' ');
   return SET_ABBREV[key] ?? pcSetName.trim().toUpperCase();
+}
+
+// ---------------------------------------------------------------------------
+// Layout + SVG renderer (spec §6, geometry re-measured 2026-07-16 on 4 real
+// PSA cert label photos — docs/research/psa-labels/, incl. cert 152108321,
+// the identical Pikachu ex #238). All fractions are of the label's WHITE
+// STICKER (not the red outer border), and the cap height is bound to sticker
+// WIDTH — the generated sticker is proportionally taller than a real one, so
+// a height-bound cap oversizes the text and overruns the border.
+// ---------------------------------------------------------------------------
+
+export type SlabLabelFields = {
+  set: string; // PriceCharting console-name, e.g. "Pokemon Surging Sparks"
+  name: string; // raw card name, may embed "#238"
+  grade: string;
+  year?: string | null;
+  note?: string | null;
+};
+
+// White-sticker box as fractions of the FRAME — printed by
+// scripts/process-slabframe-v2.mjs for the shipped frame (Task 2). Uses the
+// SHIPPED frame's measured values (controller override, 2026-07-17): the
+// brief's inline numbers were measured against a pre-Task-2 asset. HOLO/logo
+// top = 0.770 of sticker — baseline 3 at 0.723 stays above it (§13 holds).
+export const LABEL_BOX = {
+  top: 0.0617,
+  left: 0.0975,
+  right: 0.1037,
+  height: 0.12,
+} as const;
+
+const BASELINES = [0.298, 0.509, 0.723] as const; // of sticker height (4-cert mean)
+const CAP_OF_WIDTH = 0.033; // cap height / sticker WIDTH (4-cert mean, 0.030–0.037)
+const LEFT_MARGIN = 0.032; // of sticker width
+const RIGHT_EDGE = 0.968; // of sticker width — real labels end 0.963–0.974, never ~1
+const ARIMO_CAP_PER_EM = 0.716; // Arimo/Arial capHeight ÷ unitsPerEm
+const COL_GAP_FRAC = 0.02; // min gap between columns, of label-box width
+const MIN_SHRINK = 0.7; // shrink-to-fit floor before ellipsizing (§10)
+// ponytail: flat per-char advance estimate for uppercase Arimo — good enough
+// to keep columns apart; swap for real pango measurement if it ever misfits.
+const AVG_CHAR_PER_EM = 0.6;
+const ELLIPSIS = '…';
+
+export type LabelRun = {
+  x: number;
+  y: number;
+  fontSize: number;
+  anchor: 'start' | 'end';
+  text: string;
+};
+
+const estWidth = (text: string, fontSize: number): number =>
+  text.length * fontSize * AVG_CHAR_PER_EM;
+
+// Pure layout: three shared baselines, left column left-aligned, right column
+// right-aligned, EVERY element the same size + weight (§6 — verified against
+// the reference; an earlier draft that emphasised name/grade was measurably
+// wrong). A left line that would collide with the right column shrinks to a
+// floor, then ellipsizes — never overlaps (§10).
+export function layoutLabel(
+  f: SlabLabelFields,
+  box: { x: number; y: number; w: number; h: number },
+): LabelRun[] {
+  const { name, number } = parseCardName(f.name);
+  const year = (f.year ?? '').trim();
+  const note = (f.note ?? '').trim();
+  const grade = f.grade.trim();
+  const left = [
+    [year, setAbbrev(f.set)].filter(Boolean).join(' '),
+    formatCardName(name),
+    note,
+  ];
+  const right = [number, psaDescriptor(grade) ?? '', grade];
+
+  const baseFs = (box.w * CAP_OF_WIDTH) / ARIMO_CAP_PER_EM;
+  const leftX = Math.round(box.x + box.w * LEFT_MARGIN);
+  const rightX = Math.round(box.x + box.w * RIGHT_EDGE);
+  const runs: LabelRun[] = [];
+
+  for (let i = 0; i < 3; i++) {
+    const y = Math.round(box.y + box.h * BASELINES[i]);
+    if (right[i] !== '') {
+      runs.push({
+        x: rightX,
+        y,
+        fontSize: baseFs,
+        anchor: 'end',
+        text: right[i],
+      });
+    }
+    if (left[i] === '') continue;
+    const rightW =
+      right[i] === '' ? 0 : estWidth(right[i], baseFs) + box.w * COL_GAP_FRAC;
+    const maxW = rightX - rightW - leftX;
+    let fs = baseFs;
+    let text = left[i];
+    if (estWidth(text, fs) > maxW) {
+      const fitted = (maxW / estWidth(text, baseFs)) * baseFs;
+      fs = Math.max(baseFs * MIN_SHRINK, fitted);
+      if (fs > fitted) {
+        // clamped at the floor — ellipsize down to fit
+        while (text.length > 1 && estWidth(text + ELLIPSIS, fs) > maxW) {
+          text = text.slice(0, -1);
+        }
+        text += ELLIPSIS;
+      }
+    }
+    runs.push({ x: leftX, y, fontSize: fs, anchor: 'start', text });
+  }
+  return runs;
+}
+
+const escXml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Frame-sized SVG carrying only the label text — composited at (0,0) over
+// the frame by composeSlab. Weight 500, letter-spacing 1% of the em, near-
+// black ink, all matching the measured reference.
+export function renderLabelSvg(
+  f: SlabLabelFields,
+  frameW: number,
+  frameH: number,
+): Buffer {
+  const box = {
+    x: Math.round(frameW * LABEL_BOX.left),
+    y: Math.round(frameH * LABEL_BOX.top),
+    w: Math.round(frameW * (1 - LABEL_BOX.left - LABEL_BOX.right)),
+    h: Math.round(frameH * LABEL_BOX.height),
+  };
+  const runs = layoutLabel(f, box);
+  const texts = runs
+    .map(
+      (r) =>
+        `<text x="${r.x}" y="${r.y}" font-size="${r.fontSize.toFixed(1)}" ` +
+        `letter-spacing="${(r.fontSize * 0.01).toFixed(2)}"` +
+        `${r.anchor === 'end' ? ' text-anchor="end"' : ''}>${escXml(r.text)}</text>`,
+    )
+    .join('');
+  return Buffer.from(
+    `<svg width="${frameW}" height="${frameH}" xmlns="http://www.w3.org/2000/svg">` +
+      `<g font-family="${LABEL_FONT_FAMILY}" font-weight="500" fill="#1a1a1a">${texts}</g></svg>`,
+  );
 }

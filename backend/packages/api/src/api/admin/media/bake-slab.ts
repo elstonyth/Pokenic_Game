@@ -11,6 +11,8 @@ import { PACKS_MODULE } from '../../../modules/packs';
 import type PacksModuleService from '../../../modules/packs/service';
 import { IMAGE_RULES } from './validate';
 import { DEFAULT_SLAB_FRAME_B64 } from './slab-frame-default';
+import { renderLabelSvg, type SlabLabelFields } from './label';
+import { ensureLabelFont } from './label-font';
 
 // Server-side slab bake: composite the admin frame + card photo into ONE
 // stored webp (spec 2026-07-07-graded-slab-baked-image-design.md §B). The
@@ -26,8 +28,6 @@ export const SLAB_WINDOW = {
   right: 0.1169,
   bottom: 0.0764,
 } as const;
-const CORNER_RX = 0.048; // of window width
-const CORNER_RY = 0.034; // of window height
 const MAX_FRAME_WIDTH = 1600;
 // Frames are downscaled to fit BOTH bounds. Height matters independently: a
 // frame narrower than MAX_FRAME_WIDTH skips the width cap entirely, so without
@@ -222,11 +222,112 @@ export const resolveFrameBytes = async (
   return Buffer.from(DEFAULT_SLAB_FRAME_B64, 'base64');
 };
 
-// Pure composite: photo cover-fitted into the frame's card window (corners
-// rounded like the old storefront clip), frame layered on top, webp out.
+// Card-scan crop system (operator-specified, rebuilt 2026-07-16, verified on
+// magenta — docs/research/verify-clean-card.png):
+//   1. scan the white edge and peel the TINY edge only: per-side bright-ring
+//      peel (max 3px) + one unconditional 1px anti-alias contact ring;
+//   2. re-cut the corners to a real Pokémon die-cut (r = 4.76% of width,
+//      circular — same angle, same curve), cutting INSIDE the scan's own
+//      fringed arc so its white anti-alias line goes with it;
+//   3. the "white bright layer" is opaque white matting on the arcs/edges —
+//      alpha-binarize alone cannot catch it (those pixels are opaque); the
+//      peel + arc re-cut remove it;
+//   4. verify: the bright-peel rule (min(r,g,b) > 200 for >=60% of a ring)
+//      can never eat a card border — the catalog borders measure gray 108 /
+//      silver 181 / pale 156; hard-fail if any side loses more than 4px;
+//   5. everything outside the arc ends fully transparent.
+async function cleanScan(bytes: Buffer): Promise<Buffer> {
+  const { data, info } = await sharp(bytes, {
+    limitInputPixels: MAX_DECODE_PIXELS,
+  })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const w = info.width;
+  const h = info.height;
+  const ch = info.channels;
+  // semi-transparent halo → fully transparent (interior is fully opaque)
+  for (let p = 0; p < w * h; p++) {
+    const i = p * ch;
+    data[i + 3] = data[i + 3] >= 250 ? 255 : 0;
+  }
+  // exact content bbox — nothing shaved
+  let x0 = w;
+  let y0 = h;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * ch + 3] === 255) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) throw new Error('card scan is fully transparent');
+  const bright = (x: number, y: number): boolean => {
+    const i = (y * w + x) * ch;
+    return (
+      data[i + 3] === 255 && Math.min(data[i], data[i + 1], data[i + 2]) > 200
+    );
+  };
+  const rowBright = (y: number): boolean => {
+    let br = 0;
+    let n = 0;
+    for (let x = x0; x <= x1; x += 2) {
+      if (data[(y * w + x) * ch + 3] !== 255) continue;
+      n++;
+      if (bright(x, y)) br++;
+    }
+    return n > 0 && br / n >= 0.6;
+  };
+  const colBright = (x: number): boolean => {
+    let br = 0;
+    let n = 0;
+    for (let y = y0; y <= y1; y += 2) {
+      if (data[(y * w + x) * ch + 3] !== 255) continue;
+      n++;
+      if (bright(x, y)) br++;
+    }
+    return n > 0 && br / n >= 0.6;
+  };
+  const peel = { t: 0, b: 0, l: 0, r: 0 };
+  while (peel.t < 3 && rowBright(y0 + peel.t)) peel.t++;
+  while (peel.b < 3 && rowBright(y1 - peel.b)) peel.b++;
+  while (peel.l < 3 && colBright(x0 + peel.l)) peel.l++;
+  while (peel.r < 3 && colBright(x1 - peel.r)) peel.r++;
+  for (const [side, v] of Object.entries(peel)) {
+    if (v + 1 > 4) throw new Error(`over-trim on side '${side}': ${v + 1}px`);
+  }
+  y0 += peel.t + 1;
+  y1 -= peel.b + 1;
+  x0 += peel.l + 1;
+  x1 -= peel.r + 1;
+  const cw = x1 - x0 + 1;
+  const chh = y1 - y0 + 1;
+  // real Pokémon die-cut: 3mm of 63mm = 4.76% of width, circular
+  const r = Math.round(cw * 0.0476);
+  const mask = Buffer.from(
+    `<svg width="${cw}" height="${chh}"><rect width="${cw}" height="${chh}" rx="${r}" ry="${r}" fill="#fff"/></svg>`,
+  );
+  return sharp(data, { raw: { width: w, height: h, channels: 4 } })
+    .extract({ left: x0, top: y0, width: cw, height: chh })
+    .composite([{ input: mask, blend: 'dest-in' }])
+    .png()
+    .toBuffer();
+}
+
+// Pure composite: photo width-fitted at natural aspect into the frame's card
+// window (nothing cropped, full die-cut corner curves visible), frame layered
+// on top, then the per-card PSA label text (photo → frame → label, spec §6).
+// No label fields → today's two-layer behaviour (used by geometry tests and
+// any raw composite).
 export async function composeSlab(
   frameBytes: Buffer,
   photoBytes: Buffer,
+  label?: SlabLabelFields,
 ): Promise<Buffer> {
   const frameMeta = await sharp(frameBytes, {
     limitInputPixels: MAX_DECODE_PIXELS,
@@ -258,16 +359,79 @@ export async function composeSlab(
   const top = Math.round(fh * SLAB_WINDOW.top);
   const winW = fw - left - Math.round(fw * SLAB_WINDOW.right);
   const winH = fh - top - Math.round(fh * SLAB_WINDOW.bottom);
-  const rx = Math.round(winW * CORNER_RX);
-  const ry = Math.round(winH * CORNER_RY);
-  const mask = Buffer.from(
-    `<svg width="${winW}" height="${winH}"><rect width="${winW}" height="${winH}" rx="${rx}" ry="${ry}" fill="#fff"/></svg>`,
+
+  const cleaned = await cleanScan(photoBytes);
+  const cMeta = await sharp(cleaned).metadata();
+  const cw = cMeta.width ?? 0;
+  const chh = cMeta.height ?? 0;
+  if (!cw || !chh) throw new Error('card photo has no dimensions');
+  const inset = Math.max(2, Math.round(winW * 0.0063)); // recess gap (~8px @1600)
+  const cardW = winW - inset * 2;
+  const cardH = Math.round((chh * cardW) / cw);
+  const cardLeft = left + inset;
+  // TOP-aligned: a real holder grips the card snug under the label rail, with
+  // the spare recess space at the BOTTOM. Verified against a high-res eBay
+  // sale photo of the identical PSA-10 slab (docs/research/real-slab-ebay-1.jpg,
+  // sourced via the card's own PriceCharting sales table): gap label→card
+  // ≈ 0.07 of slab height, card top ≈ 0.25. A bottom-anchored variant (from
+  // the low-res 380px PSA cert photo — a misleading reference) was rejected.
+  const cardTop = top + inset;
+  const photo = await sharp(cleaned).resize(cardW, cardH).png().toBuffer();
+  // Glassy SHADOWED-RECESS plate across the WHOLE window, behind the card:
+  // closes the pocket above the card and makes the thin recess gap + die-cut
+  // corner cutouts read as the holder's molded interior instead of raw page
+  // background ("tiny black bars/tips" over a dark page — operator,
+  // 2026-07-16). Tone 148 renders the recess ~25% darker than the case front
+  // (pixel targets over a dark page: recess/pocket ~87, case ~115) — matching
+  // the real slab, where the pocket around the card reads as shadowed
+  // interior, visibly darker than the case (measured on cert 152108321;
+  // a case-bright plate made the cut look wrong-sized). The lip line marks
+  // the recess step just BELOW the card (the spare space sits at the bottom).
+  // EXCEPTION — the card's four die-cut corner cutouts read as SLAB PLASTIC
+  // (case tone 197), not shadow (operator, 2026-07-16): even-odd HOLES are
+  // punched in the shadow rect and filled with case-tone patches. One layer
+  // per region — stacking two 55%-alpha rects would brighten and de-glass the
+  // tips (measured 147 vs the 115 target when naively stacked).
+  // Pixel targets over a dark page: corner tips ~115, gap/pocket ~87, case ~115.
+  const lipY = inset + cardH + Math.round(fw * 0.0025);
+  const lipH = Math.max(2, Math.round(fw * 0.003));
+  const pr = Math.round(cardW * 0.0476) + 6; // die-cut radius + margin
+  const pcs: Array<[number, number]> = [
+    [inset, inset],
+    [inset + cardW - pr, inset],
+    [inset, inset + cardH - pr],
+    [inset + cardW - pr, inset + cardH - pr],
+  ];
+  const holes = pcs
+    .map(([x, y]) => `M${x} ${y}h${pr}v${pr}h-${pr}Z`)
+    .join(' ');
+  const patches = pcs
+    .map(
+      ([x, y]) =>
+        `<rect x="${x}" y="${y}" width="${pr}" height="${pr}" fill="rgb(197,197,201)" fill-opacity="0.55"/>`,
+    )
+    .join('');
+  const plate = Buffer.from(
+    `<svg width="${winW}" height="${winH}" xmlns="http://www.w3.org/2000/svg">` +
+      `<path fill-rule="evenodd" fill="rgb(148,148,153)" fill-opacity="0.55" d="M0 0h${winW}v${winH}h-${winW}Z ${holes}"/>` +
+      patches +
+      (lipY + lipH < winH
+        ? `<rect y="${lipY}" width="${winW}" height="${lipH}" fill="rgb(90,90,95)" fill-opacity="0.5"/>`
+        : '') +
+      `</svg>`,
   );
-  const photo = await sharp(photoBytes, { limitInputPixels: MAX_DECODE_PIXELS })
-    .resize(winW, winH, { fit: 'cover' })
-    .composite([{ input: mask, blend: 'dest-in' }])
-    .png()
-    .toBuffer();
+
+  // The glassy case `plate` sits behind the card across the whole window:
+  // pocket, recess gap, and corner cutouts all read as case plastic.
+  const layers: sharp.OverlayOptions[] = [
+    { input: plate, left, top },
+    { input: photo, left: cardLeft, top: cardTop },
+    { input: frame, left: 0, top: 0 },
+  ];
+  if (label) {
+    ensureLabelFont(); // must precede the first text render in this process
+    layers.push({ input: renderLabelSvg(label, fw, fh), left: 0, top: 0 });
+  }
   return sharp({
     create: {
       width: fw,
@@ -276,10 +440,7 @@ export async function composeSlab(
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   })
-    .composite([
-      { input: photo, left, top },
-      { input: frame, left: 0, top: 0 },
-    ])
+    .composite(layers)
     .webp({ quality: 90, alphaQuality: 90 })
     .toBuffer();
 }

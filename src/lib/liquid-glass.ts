@@ -55,7 +55,15 @@ function isSupported(): boolean {
   try {
     const c = document.createElement('canvas');
     c.width = c.height = 4;
-    c.getContext('2d')?.getImageData(0, 0, 1, 1);
+    const ctx = c.getContext('2d');
+    // A null 2D context (e.g. canvas blocked, too many contexts) means
+    // makeMap() can't build a displacement map — that's "unsupported", not
+    // "supported with an empty map".
+    if (!ctx) {
+      supportedCache = false;
+      return false;
+    }
+    ctx.getImageData(0, 0, 1, 1);
     supportedCache = true;
   } catch {
     supportedCache = false;
@@ -218,7 +226,13 @@ export function liquidGlass(
     ...opts,
   };
 
+  // Teardown restores whatever the caller had, rather than blanking it —
+  // a pre-existing inline backdrop-filter or lg-fallback class isn't ours
+  // to erase.
+  const prevBackdrop = el.style.backdropFilter;
+
   if (!isSupported()) {
+    const hadFallbackClass = el.classList.contains('lg-fallback');
     const frosted = `blur(${o.fallbackBlur}px) saturate(${o.saturate})`;
     el.style.backdropFilter = frosted;
     el.classList.add('lg-fallback');
@@ -226,8 +240,8 @@ export function liquidGlass(
       supported: false,
       refresh: () => {},
       destroy: () => {
-        el.style.backdropFilter = '';
-        el.classList.remove('lg-fallback');
+        el.style.backdropFilter = prevBackdrop;
+        if (!hadFallbackClass) el.classList.remove('lg-fallback');
       },
     };
   }
@@ -270,7 +284,7 @@ export function liquidGlass(
       ro.disconnect();
       clearTimeout(timer);
       parts.filter.remove();
-      el.style.backdropFilter = '';
+      el.style.backdropFilter = prevBackdrop;
     },
   };
 }

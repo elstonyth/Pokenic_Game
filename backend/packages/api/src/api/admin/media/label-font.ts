@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { ARIMO_FONT_B64 } from './arimo-font-b64';
 
 export const LABEL_FONT_FAMILY = 'Arimo';
 
@@ -12,16 +13,8 @@ let installed = false;
 // MUST run before the first <text> render in this process — fontconfig reads
 // FONTCONFIG_PATH once, lazily, at first text layout. bakeSlabImage calls
 // this before composing; the earlier mask SVGs contain no text.
-//
-// arimo-font-b64.ts is a ~662KB base64 module — imported lazily (only on the
-// first, non-installed run) so app boot never pays for it. A top-level import
-// retained the string in every jest module registry pulled in via bake-slab
-// (the whole create/update-card workflow chain), contributing to the CI
-// integration-http shard OOM. The `installed` fast-path below stays fully
-// synchronous after the first call, so repeat bakes pay no import cost.
-export async function ensureLabelFont(): Promise<void> {
+export function ensureLabelFont(): void {
   if (installed) return;
-  const { ARIMO_FONT_B64 } = await import('./arimo-font-b64.js');
   const dir = path.join(tmpdir(), 'polycards-label-font');
   const cacheDir = path.join(dir, 'cache');
   const fontPath = path.join(dir, 'Arimo-Variable.ttf');

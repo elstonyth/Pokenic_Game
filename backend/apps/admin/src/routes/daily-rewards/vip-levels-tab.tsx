@@ -95,7 +95,15 @@ export const VipLevelsTab = () => {
       return next;
     });
   const removeAt = (index: number) =>
-    setRows((prev) => prev.filter((_, i) => i !== index));
+    setRows((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      // Deleting row 1 promotes a rung whose threshold is positive into the
+      // locked level-1 input — reset it to the required 0 so the ladder stays
+      // saveable.
+      if (index === 0 && next.length > 0)
+        next[0] = { ...next[0], thresholdInput: '0' };
+      return next;
+    });
 
   async function onSave() {
     if (!canSave) return;

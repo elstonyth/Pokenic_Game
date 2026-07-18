@@ -132,13 +132,16 @@ const StagesTab = () => {
   const errors: string[] = [];
   let prev = -1;
   rows.forEach((r, i) => {
-    const t = Number(r.thresholdInput);
+    // Blank is NOT 0 (Number('') coerces to 0) and Infinity JSON-serializes to
+    // null — both must fail here, not surprise the operator server-side.
+    const t = r.thresholdInput.trim() === '' ? NaN : Number(r.thresholdInput);
     if (!Number.isFinite(t) || t < 0) errors.push(`Stage ${i + 1}: threshold must be ≥ 0.`);
     else {
       if (i > 0 && !(t > prev)) errors.push(`Stage ${i + 1}: threshold must exceed stage ${i}'s.`);
       prev = t;
     }
-    if (!(Number(r.creditsInput) >= 0)) errors.push(`Stage ${i + 1}: credits must be ≥ 0.`);
+    const c = r.creditsInput.trim() === '' ? NaN : Number(r.creditsInput);
+    if (!Number.isFinite(c) || c < 0) errors.push(`Stage ${i + 1}: credits must be ≥ 0.`);
   });
   const reasonValid = reason.trim().length > 0;
   const canSave = !save.isPending && dirty && errors.length === 0 && reasonValid;

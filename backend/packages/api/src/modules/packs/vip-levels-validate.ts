@@ -48,8 +48,13 @@ export function validateVipLevels(raw: unknown): VipLevelInput[] {
       bad(`level ${level}: voucher_amount must be >= 0.`);
 
     const pct = r.direct_referral_pct;
-    if (typeof pct !== 'number' || !Number.isFinite(pct) || pct < 0)
-      bad(`level ${level}: direct_referral_pct must be >= 0.`);
+    if (
+      typeof pct !== 'number' ||
+      !Number.isFinite(pct) ||
+      pct < 0 ||
+      pct > 100
+    )
+      bad(`level ${level}: direct_referral_pct must be between 0 and 100.`);
 
     if (typeof r.box_tier !== 'string' || r.box_tier.trim().length === 0)
       bad(`level ${level}: box_tier is required.`);

@@ -165,6 +165,36 @@ medusaIntegrationTestRunner({
         expect(grow.status).toBe(200);
         expect((await packs().listVipLevels({}, { take: 1000 }))).toHaveLength(3);
       });
+
+      it('clamps a member peaked above a shrunken ladder to the top rung (daily box keeps resolving)', async () => {
+        // Shrink to 3 rungs; give the top rung a distinct tier to observe the clamp.
+        const three = smallLadder();
+        three[2].box_tier = 'b';
+        const shrink = await unwrapResponse(
+          api.post(
+            '/admin/vip-levels',
+            { levels: three, reason: 'shrink below member peak' },
+            { headers: adminHeaders() },
+          ),
+        );
+        expect(shrink.status).toBe(200);
+
+        // Member whose monotonic peak (50) no longer has a vip_level row.
+        await packs().createVipMemberStates([
+          {
+            customer_id: 'cus_clamp_test',
+            lifetime_external_spend_sen: 0,
+            highest_level_ever: 50,
+            current_level: 3,
+          },
+        ]);
+        const tier = await (
+          packs() as unknown as {
+            resolveBoxTier(id: string, ctx: object): Promise<string>;
+          }
+        ).resolveBoxTier('cus_clamp_test', {});
+        expect(tier).toBe('b');
+      });
     });
   },
 });

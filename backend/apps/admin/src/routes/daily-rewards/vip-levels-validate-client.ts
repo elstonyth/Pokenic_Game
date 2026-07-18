@@ -12,6 +12,10 @@ export interface VipLevelRow {
   referralInput: string;
 }
 
+// A blank field is NOT a valid 0 — Number('') coerces to 0, which would let an
+// accidentally cleared money field silently save as zero.
+const num = (s: string): number => (s.trim() === '' ? NaN : Number(s));
+
 export function validateVipLevelsClient(rows: VipLevelRow[]): string[] {
   const errors: string[] = [];
   if (rows.length < 1) {
@@ -21,7 +25,7 @@ export function validateVipLevelsClient(rows: VipLevelRow[]): string[] {
   let prev = -1;
   rows.forEach((r, i) => {
     const level = i + 1;
-    const t = Number(r.thresholdInput);
+    const t = num(r.thresholdInput);
     if (!Number.isFinite(t) || t < 0) {
       errors.push(`Level ${level}: threshold must be a number ≥ 0.`);
     } else {
@@ -30,12 +34,12 @@ export function validateVipLevelsClient(rows: VipLevelRow[]): string[] {
         errors.push(`Level ${level}: threshold must exceed level ${level - 1}'s.`);
       prev = t;
     }
-    const v = Number(r.voucherInput);
+    const v = num(r.voucherInput);
     if (!Number.isFinite(v) || v < 0)
       errors.push(`Level ${level}: voucher amount must be ≥ 0.`);
-    const p = Number(r.referralInput);
-    if (!Number.isFinite(p) || p < 0)
-      errors.push(`Level ${level}: referral % must be ≥ 0.`);
+    const p = num(r.referralInput);
+    if (!Number.isFinite(p) || p < 0 || p > 100)
+      errors.push(`Level ${level}: referral % must be between 0 and 100.`);
     if (!r.boxTier || r.boxTier.trim().length === 0)
       errors.push(`Level ${level}: a box tier is required.`);
     if (r.frameUnlock && !FRAME_LEVELS.includes(level))

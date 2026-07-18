@@ -71,13 +71,30 @@ describe('validateVipLevels', () => {
     );
   });
 
-  it('rejects negative voucher_amount and direct_referral_pct', () => {
+  it('rejects negative voucher_amount and out-of-range direct_referral_pct', () => {
     expect(() => validateVipLevels(ladder([rung({ voucher_amount: -1 })]))).toThrow(
       /voucher_amount must be >= 0/,
     );
     expect(() =>
       validateVipLevels(ladder([rung({ direct_referral_pct: -1 })])),
-    ).toThrow(/direct_referral_pct must be >= 0/);
+    ).toThrow(/direct_referral_pct must be between 0 and 100/);
+    expect(() =>
+      validateVipLevels(ladder([rung({ direct_referral_pct: 101 })])),
+    ).toThrow(/direct_referral_pct must be between 0 and 100/);
+    expect(validateVipLevels(ladder([rung({ direct_referral_pct: 100 })]))).toHaveLength(1);
+  });
+
+  it('rejects frame_unlock above level 100 but accepts the ladder without it', () => {
+    const rungs = (frameAt110: boolean) =>
+      Array.from({ length: 110 }, (_, i) =>
+        rung({
+          level: i + 1,
+          spend_threshold: i * 100,
+          frame_unlock: frameAt110 && i + 1 === 110,
+        }),
+      );
+    expect(() => validateVipLevels(ladder(rungs(true)))).toThrow(/decade levels/);
+    expect(validateVipLevels(ladder(rungs(false)))).toHaveLength(110);
   });
 
   it('rejects a blank box_tier', () => {

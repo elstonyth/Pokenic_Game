@@ -50,4 +50,20 @@ describe('validateVipLevelsClient', () => {
     expect(errs.some((e) => /voucher/.test(e))).toBe(true);
     expect(errs.some((e) => /referral/.test(e))).toBe(true);
   });
+
+  test('flags a referral % above 100', () => {
+    const errs = validateVipLevelsClient([row({ referralInput: '101' })]);
+    expect(errs.some((e) => /referral % must be between 0 and 100/.test(e))).toBe(true);
+    expect(validateVipLevelsClient([row({ referralInput: '100' })])).toEqual([]);
+  });
+
+  test('flags blank inputs instead of coercing them to 0', () => {
+    const errs = validateVipLevelsClient([
+      row(),
+      row({ thresholdInput: '', voucherInput: ' ', referralInput: '' }),
+    ]);
+    expect(errs.some((e) => /Level 2: threshold must be a number/.test(e))).toBe(true);
+    expect(errs.some((e) => /Level 2: voucher amount/.test(e))).toBe(true);
+    expect(errs.some((e) => /Level 2: referral %/.test(e))).toBe(true);
+  });
 });

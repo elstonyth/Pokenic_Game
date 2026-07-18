@@ -3805,7 +3805,16 @@ class PacksModuleService extends MedusaService({
       { take: 1 },
       sharedContext,
     );
-    return vipLevel?.box_tier ?? '';
+    if (vipLevel) return vipLevel.box_tier;
+    // No exact rung: the admin shrank the ladder below this member's monotonic
+    // peak (legal since the Levels tab landed). Clamp to the top rung so the
+    // daily box keeps resolving instead of going 'unavailable' forever.
+    const [top] = await this.listVipLevels(
+      {},
+      { order: { level: 'DESC' }, take: 1 },
+      sharedContext,
+    );
+    return top?.box_tier ?? '';
   }
 
   // highest_level_ever, defaulting to the L1 floor — the level a box-won

@@ -44,7 +44,6 @@ export const qk = {
   dailyBoxes: ['admin', 'daily-rewards', 'boxes'] as const,
   dailyBox: (tier: string) =>
     ['admin', 'daily-rewards', 'boxes', tier] as const,
-  voucherLadder: ['admin', 'daily-rewards', 'vouchers'] as const,
   rewardsSettings: ['admin', 'rewards-settings'] as const,
   siteSettings: ['admin', 'site-settings'] as const,
   avatarFrames: ['admin', 'avatar-frames'] as const,

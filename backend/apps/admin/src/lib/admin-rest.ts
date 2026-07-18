@@ -22,7 +22,14 @@ async function errorMessage(res: Response): Promise<string> {
 // profile (pack ≈ square, card ≈ 5:7).
 export async function uploadImage(
   file: File,
-  kind: 'pack' | 'display' | 'card' | 'sprite' | 'frame' | 'avatar-frame' | 'delivery',
+  kind:
+    | 'pack'
+    | 'display'
+    | 'card'
+    | 'sprite'
+    | 'frame'
+    | 'avatar-frame'
+    | 'delivery',
 ): Promise<string> {
   const body = new FormData();
   body.append('files', file);
@@ -468,11 +475,7 @@ export const getFxHistory = () =>
 // ── Delivery orders ──────────────────────────────────────────────────────────
 
 export type DeliveryStatus =
-  | 'requested'
-  | 'packing'
-  | 'shipped'
-  | 'delivered'
-  | 'canceled';
+  'requested' | 'packing' | 'shipped' | 'delivered' | 'canceled';
 
 export interface AdminDeliveryItem {
   pull_id: string;
@@ -558,7 +561,7 @@ export async function updateDeliveryOrder(
   return (await res.json()) as { order_id: string; status: DeliveryStatus };
 }
 
-// ── Daily Rewards (level-range vouchers + VIP-tier boxes) ───────────────────
+// ── Daily Rewards (VIP-tier boxes) ──────────────────────────────────────────
 
 export interface DailyBoxSummary {
   tier: string;
@@ -603,17 +606,6 @@ export interface DailyBoxSaveBody {
   }[];
 }
 
-export interface VoucherRangeDTO {
-  from: number;
-  to: number;
-  amount_myr: number;
-}
-
-export interface VoucherLadderDTO {
-  levels: { level: number; amount_myr: number }[];
-  ranges: VoucherRangeDTO[];
-}
-
 // GET the VIP-tier daily boxes list (summary row per tier).
 export async function getDailyBoxes(): Promise<{ boxes: DailyBoxSummary[] }> {
   return getJson<{ boxes: DailyBoxSummary[] }>('/admin/daily-rewards/boxes');
@@ -636,19 +628,6 @@ export async function saveDailyBox(
     `/admin/daily-rewards/boxes/${encodeURIComponent(tier)}`,
     body,
   );
-}
-
-// GET the level-range voucher ladder (100 per-level amounts + authored ranges).
-export async function getVoucherLadder(): Promise<VoucherLadderDTO> {
-  return getJson<VoucherLadderDTO>('/admin/daily-rewards/vouchers');
-}
-
-// Replace-all the voucher ranges. Audited edit; `reason` is mandatory.
-export async function saveVoucherRanges(body: {
-  ranges: VoucherRangeDTO[];
-  reason: string;
-}): Promise<{ ok: true }> {
-  return postJson<{ ok: true }>('/admin/daily-rewards/vouchers', body);
 }
 
 // ── Rewards engine settings ──────────────────────────────────────────────────
@@ -711,8 +690,10 @@ export const getVipLevels = () =>
 
 // Replace-all the ladder. Audited edit; `reason` mandatory. Throws
 // Error(message) on a 400 (errorMessage surfaces the backend MedusaError).
-export const saveVipLevels = (body: { levels: VipLevelDTO[]; reason: string }) =>
-  postJson<{ levels: VipLevelDTO[] }>('/admin/vip-levels', body);
+export const saveVipLevels = (body: {
+  levels: VipLevelDTO[];
+  reason: string;
+}) => postJson<{ levels: VipLevelDTO[] }>('/admin/vip-levels', body);
 
 // ── Weekly Challenge (milestone stages + week/payout settings) ───────────────
 
@@ -729,7 +710,8 @@ export const getChallengeStages = () =>
 export const saveChallengeStages = (body: {
   stages: ChallengeStageDTO[];
   reason: string;
-}) => postJson<{ stages: ChallengeStageDTO[] }>('/admin/challenge/stages', body);
+}) =>
+  postJson<{ stages: ChallengeStageDTO[] }>('/admin/challenge/stages', body);
 
 export interface ChallengeSettingsDTO {
   cadence: string;

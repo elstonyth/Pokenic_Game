@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import {
   Container,
   Heading,
@@ -10,6 +10,7 @@ import {
   Table,
   Tabs,
   FocusModal,
+  usePrompt,
 } from '@medusajs/ui';
 import { Trophy } from '@medusajs/icons';
 import type { RouteConfig } from '@mercurjs/dashboard-sdk';
@@ -24,6 +25,10 @@ import {
 } from '../../lib/queries';
 import { resolveImageUrl } from '../../lib/image-url';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import {
+  validateChallengeStagesClient,
+  type ChallengeStageRow,
+} from './challenge-stages-validate-client';
 
 let nextId = 0;
 
@@ -89,10 +94,8 @@ const CardPicker = ({
 };
 
 // ── Milestone Stages tab ─────────────────────────────────────────────────────
-interface StageRow {
+interface StageRow extends ChallengeStageRow {
   localId: string;
-  thresholdInput: string;
-  creditsInput: string;
   cardIds: string[];
 }
 const stageFromDTO = (s: ChallengeStageDTO): StageRow => ({
@@ -102,12 +105,16 @@ const stageFromDTO = (s: ChallengeStageDTO): StageRow => ({
   cardIds: s.reward_card_ids,
 });
 const snapshotStages = (rows: StageRow[]) =>
-  JSON.stringify(rows.map((r) => [r.thresholdInput, r.creditsInput, r.cardIds]));
+  JSON.stringify(
+    rows.map((r) => [r.thresholdInput, r.creditsInput, r.cardIds]),
+  );
 
-const StagesTab = () => {
+const StagesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   const { data, isError } = useChallengeStages();
   const save = useSaveChallengeStages();
-  const [seededFrom, setSeededFrom] = useState<{ stages: ChallengeStageDTO[] } | undefined>();
+  const [seededFrom, setSeededFrom] = useState<
+    { stages: ChallengeStageDTO[] } | undefined
+  >();
   const [rows, setRows] = useState<StageRow[]>([]);
   const [savedSnapshot, setSavedSnapshot] = useState('');
   const [pickerFor, setPickerFor] = useState<string | null>(null);
@@ -123,45 +130,47 @@ const StagesTab = () => {
     setRows(initial);
     setSavedSnapshot(snapshotStages(initial));
   }
-  if (isError) return <Text className="text-ui-fg-subtle p-6">Failed to load stages.</Text>;
+  const dirty = snapshotStages(rows) !== savedSnapshot;
+  // Sync the parent's dirty ref in an effect — writing a ref during render is
+  // a React anti-pattern; switchTab only reads it in an event handler.
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirtyRef, dirty]);
+  if (isError)
+    return (
+      <Text className="text-ui-fg-subtle p-6">Failed to load stages.</Text>
+    );
   if (!data) return <LoadingSkeleton />;
 
-  const dirty = snapshotStages(rows) !== savedSnapshot;
-  // Client pre-check: contiguity is automatic (index-derived); check monotonic
-  // thresholds + non-negatives inline. Empty list is valid (challenge off).
-  const errors: string[] = [];
-  let prev = -1;
-  rows.forEach((r, i) => {
-    // Blank is NOT 0 (Number('') coerces to 0) and Infinity JSON-serializes to
-    // null — both must fail here, not surprise the operator server-side.
-    const t = r.thresholdInput.trim() === '' ? NaN : Number(r.thresholdInput);
-    if (!Number.isFinite(t) || t < 0) errors.push(`Stage ${i + 1}: threshold must be ≥ 0.`);
-    else {
-      if (i > 0 && !(t > prev)) errors.push(`Stage ${i + 1}: threshold must exceed stage ${i}'s.`);
-      prev = t;
-    }
-    const c = r.creditsInput.trim() === '' ? NaN : Number(r.creditsInput);
-    if (!Number.isFinite(c) || c < 0) errors.push(`Stage ${i + 1}: credits must be ≥ 0.`);
-  });
+  const errors = validateChallengeStagesClient(rows);
   const reasonValid = reason.trim().length > 0;
-  const canSave = !save.isPending && dirty && errors.length === 0 && reasonValid;
+  const canSave =
+    !save.isPending && dirty && errors.length === 0 && reasonValid;
 
   const setRow = (id: string, patch: Partial<StageRow>) =>
     setRows((p) => p.map((r) => (r.localId === id ? { ...r, ...patch } : r)));
   const insertAt = (index: number) =>
     setRows((p) => {
       const next = p.slice();
-      next.splice(index, 0, { localId: `st-${nextId++}`, thresholdInput: '0', creditsInput: '0', cardIds: [] });
+      next.splice(index, 0, {
+        localId: `st-${nextId++}`,
+        thresholdInput: '0',
+        creditsInput: '0',
+        cardIds: [],
+      });
       return next;
     });
-  const removeAt = (index: number) => setRows((p) => p.filter((_, i) => i !== index));
+  const removeAt = (index: number) =>
+    setRows((p) => p.filter((_, i) => i !== index));
 
   async function onSave() {
     if (!canSave) return;
+    // canSave already required a clean validateChallengeStagesClient pass, so
+    // every input parses to a finite number here.
     const stages: ChallengeStageDTO[] = rows.map((r, i) => ({
       stage_number: i + 1,
-      threshold_myr: Number(r.thresholdInput) || 0,
-      reward_credits: Number(r.creditsInput) || 0,
+      threshold_myr: Number(r.thresholdInput),
+      reward_credits: Number(r.creditsInput),
       reward_card_ids: r.cardIds,
     }));
     try {
@@ -184,7 +193,9 @@ const StagesTab = () => {
       {errors.length > 0 && (
         <div className="rounded-lg border border-ui-border-error p-3">
           {errors.map((e) => (
-            <Text key={e} className="text-ui-fg-error" size="small">{e}</Text>
+            <Text key={e} className="text-ui-fg-error" size="small">
+              {e}
+            </Text>
           ))}
         </div>
       )}
@@ -195,7 +206,7 @@ const StagesTab = () => {
             <Table.HeaderCell>Threshold (RM)</Table.HeaderCell>
             <Table.HeaderCell>Credits (RM)</Table.HeaderCell>
             <Table.HeaderCell>Featured cards</Table.HeaderCell>
-            <Table.HeaderCell>Rows</Table.HeaderCell>
+            <Table.HeaderCell>Actions</Table.HeaderCell>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -203,17 +214,39 @@ const StagesTab = () => {
             <Table.Row key={r.localId}>
               <Table.Cell>{i + 1}</Table.Cell>
               <Table.Cell>
-                <Input value={r.thresholdInput} onChange={(e) => setRow(r.localId, { thresholdInput: e.target.value })} />
+                <Input
+                  value={r.thresholdInput}
+                  onChange={(e) =>
+                    setRow(r.localId, { thresholdInput: e.target.value })
+                  }
+                />
               </Table.Cell>
               <Table.Cell>
-                <Input value={r.creditsInput} onChange={(e) => setRow(r.localId, { creditsInput: e.target.value })} />
+                <Input
+                  value={r.creditsInput}
+                  onChange={(e) =>
+                    setRow(r.localId, { creditsInput: e.target.value })
+                  }
+                />
               </Table.Cell>
               <Table.Cell>
                 <div className="flex items-center gap-x-2">
                   <Text size="small">{r.cardIds.length} card(s)</Text>
-                  <Button size="small" variant="secondary" onClick={() => setPickerFor(r.localId)}>Add</Button>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={() => setPickerFor(r.localId)}
+                  >
+                    Add
+                  </Button>
                   {r.cardIds.length > 0 && (
-                    <Button size="small" variant="transparent" onClick={() => setRow(r.localId, { cardIds: r.cardIds.slice(0, -1) })}>
+                    <Button
+                      size="small"
+                      variant="transparent"
+                      onClick={() =>
+                        setRow(r.localId, { cardIds: r.cardIds.slice(0, -1) })
+                      }
+                    >
                       Remove last
                     </Button>
                   )}
@@ -221,9 +254,27 @@ const StagesTab = () => {
               </Table.Cell>
               <Table.Cell>
                 <div className="flex gap-x-1">
-                  <Button size="small" variant="secondary" onClick={() => insertAt(i)}>+ Above</Button>
-                  <Button size="small" variant="secondary" onClick={() => insertAt(i + 1)}>+ Below</Button>
-                  <Button size="small" variant="danger" onClick={() => removeAt(i)}>Delete</Button>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={() => insertAt(i)}
+                  >
+                    + Above
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={() => insertAt(i + 1)}
+                  >
+                    + Below
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="danger"
+                    onClick={() => removeAt(i)}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </Table.Cell>
             </Table.Row>
@@ -231,10 +282,27 @@ const StagesTab = () => {
         </Table.Body>
       </Table>
       <div className="flex items-center gap-x-3">
-        <Button variant="secondary" onClick={() => setRows((p) => [...p, { localId: `st-${nextId++}`, thresholdInput: '0', creditsInput: '0', cardIds: [] }])}>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            setRows((p) => [
+              ...p,
+              {
+                localId: `st-${nextId++}`,
+                thresholdInput: '0',
+                creditsInput: '0',
+                cardIds: [],
+              },
+            ])
+          }
+        >
           Add stage
         </Button>
-        {dirty && <Text className="text-ui-fg-subtle" size="small">Unsaved changes</Text>}
+        {dirty && (
+          <Text className="text-ui-fg-subtle" size="small">
+            Unsaved changes
+          </Text>
+        )}
       </div>
       <div className="flex items-end gap-x-3">
         <div className="flex-1">
@@ -246,13 +314,26 @@ const StagesTab = () => {
             onChange={(e) => setReason(e.target.value)}
           />
         </div>
-        <Button variant="primary" onClick={onSave} isLoading={save.isPending} disabled={!canSave}>Save stages</Button>
+        <Button
+          variant="primary"
+          onClick={onSave}
+          isLoading={save.isPending}
+          disabled={!canSave}
+        >
+          Save stages
+        </Button>
       </div>
       <CardPicker
         open={pickerFor !== null}
         onClose={() => setPickerFor(null)}
         onPick={(id) => {
-          if (pickerFor) setRow(pickerFor, { cardIds: [...(rows.find((r) => r.localId === pickerFor)?.cardIds ?? []), id] });
+          if (pickerFor)
+            setRow(pickerFor, {
+              cardIds: [
+                ...(rows.find((r) => r.localId === pickerFor)?.cardIds ?? []),
+                id,
+              ],
+            });
         }}
       />
     </div>
@@ -260,12 +341,16 @@ const StagesTab = () => {
 };
 
 // ── Week & Payout tab ────────────────────────────────────────────────────────
-const zones = (Intl as typeof Intl & { supportedValuesOf(k: string): string[] }).supportedValuesOf('timeZone');
+const zones = (
+  Intl as typeof Intl & { supportedValuesOf(k: string): string[] }
+).supportedValuesOf('timeZone');
 
-const PayoutTab = () => {
+const PayoutTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   const { data, isError } = useChallengeSettings();
   const save = useSaveChallengeSettings();
-  const [seededFrom, setSeededFrom] = useState<ChallengeSettingsDTO | undefined>();
+  const [seededFrom, setSeededFrom] = useState<
+    ChallengeSettingsDTO | undefined
+  >();
   const [form, setForm] = useState<ChallengeSettingsDTO | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -276,22 +361,40 @@ const PayoutTab = () => {
     setSeededFrom(data);
     setForm(data);
   }
-  if (isError) return <Text className="text-ui-fg-subtle p-6">Failed to load settings.</Text>;
+  // `form !== null` keeps the pre-load state (form null, seededFrom undefined)
+  // from reading as dirty.
+  const dirty =
+    form !== null && JSON.stringify(form) !== JSON.stringify(seededFrom);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirtyRef, dirty]);
+  if (isError)
+    return (
+      <Text className="text-ui-fg-subtle p-6">Failed to load settings.</Text>
+    );
   if (!form) return <LoadingSkeleton />;
 
-  const dirty = JSON.stringify(form) !== JSON.stringify(seededFrom);
   // Mirror the server's checks (challenge-validate.ts) so out-of-range values
   // show inline instead of round-tripping to a generic server-error toast.
   const errors: string[] = [];
-  if (!Number.isInteger(form.reset_day) || form.reset_day < 0 || form.reset_day > 6)
+  if (
+    !Number.isInteger(form.reset_day) ||
+    form.reset_day < 0 ||
+    form.reset_day > 6
+  )
     errors.push('Reset day must be an integer between 0 and 6.');
-  if (!Number.isInteger(form.reset_hour) || form.reset_hour < 0 || form.reset_hour > 23)
+  if (
+    !Number.isInteger(form.reset_hour) ||
+    form.reset_hour < 0 ||
+    form.reset_hour > 23
+  )
     errors.push('Reset hour must be an integer between 0 and 23.');
-  if (!(form.payout_credits >= 0))
-    errors.push('Payout credits must be ≥ 0.');
+  if (!(form.payout_credits >= 0)) errors.push('Payout credits must be ≥ 0.');
   const reasonValid = reason.trim().length > 0;
-  const canSave = !save.isPending && dirty && errors.length === 0 && reasonValid;
-  const set = (patch: Partial<ChallengeSettingsDTO>) => setForm((f) => (f ? { ...f, ...patch } : f));
+  const canSave =
+    !save.isPending && dirty && errors.length === 0 && reasonValid;
+  const set = (patch: Partial<ChallengeSettingsDTO>) =>
+    setForm((f) => (f ? { ...f, ...patch } : f));
 
   async function onSave() {
     if (!form || !canSave || !seededFrom) return;
@@ -321,42 +424,96 @@ const PayoutTab = () => {
       {errors.length > 0 && (
         <div className="rounded-lg border border-ui-border-error p-3">
           {errors.map((e) => (
-            <Text key={e} className="text-ui-fg-error" size="small">{e}</Text>
+            <Text key={e} className="text-ui-fg-error" size="small">
+              {e}
+            </Text>
           ))}
         </div>
       )}
       <div>
-        <Text size="small" weight="plus">Cadence</Text>
-        <Text className="text-ui-fg-subtle" size="small">fixed_weekly (only supported value)</Text>
+        <Text size="small" weight="plus">
+          Cadence
+        </Text>
+        <Text className="text-ui-fg-subtle" size="small">
+          fixed_weekly (only supported value)
+        </Text>
       </div>
       <div>
-        <Text size="small" weight="plus">Timezone</Text>
-        <Select value={form.timezone} onValueChange={(v) => set({ timezone: v })}>
-          <Select.Trigger><Select.Value /></Select.Trigger>
+        <Text size="small" weight="plus">
+          Timezone
+        </Text>
+        <Select
+          value={form.timezone}
+          onValueChange={(v) => set({ timezone: v })}
+        >
+          <Select.Trigger>
+            <Select.Value />
+          </Select.Trigger>
           <Select.Content>
-            {zones.map((z) => (<Select.Item key={z} value={z}>{z}</Select.Item>))}
+            {zones.map((z) => (
+              <Select.Item key={z} value={z}>
+                {z}
+              </Select.Item>
+            ))}
           </Select.Content>
         </Select>
       </div>
       <div>
-        <Text size="small" weight="plus">Reset day (0 = Sunday … 6 = Saturday)</Text>
-        <Input type="number" min={0} max={6} value={String(form.reset_day)} onChange={(e) => set({ reset_day: Number(e.target.value) })} />
+        <Text size="small" weight="plus">
+          Reset day (0 = Sunday … 6 = Saturday)
+        </Text>
+        <Input
+          type="number"
+          min={0}
+          max={6}
+          value={String(form.reset_day)}
+          onChange={(e) => set({ reset_day: Number(e.target.value) })}
+        />
       </div>
       <div>
-        <Text size="small" weight="plus">Reset hour (0–23)</Text>
-        <Input type="number" min={0} max={23} value={String(form.reset_hour)} onChange={(e) => set({ reset_hour: Number(e.target.value) })} />
+        <Text size="small" weight="plus">
+          Reset hour (0–23)
+        </Text>
+        <Input
+          type="number"
+          min={0}
+          max={23}
+          value={String(form.reset_hour)}
+          onChange={(e) => set({ reset_hour: Number(e.target.value) })}
+        />
       </div>
       <div>
-        <Text size="small" weight="plus">Top-10 payout credits (RM)</Text>
-        <Input type="number" min={0} value={String(form.payout_credits)} onChange={(e) => set({ payout_credits: Number(e.target.value) })} />
+        <Text size="small" weight="plus">
+          Top-10 payout credits (RM)
+        </Text>
+        <Input
+          type="number"
+          min={0}
+          value={String(form.payout_credits)}
+          onChange={(e) => set({ payout_credits: Number(e.target.value) })}
+        />
       </div>
       <div>
-        <Text size="small" weight="plus">Top-10 featured cards</Text>
+        <Text size="small" weight="plus">
+          Top-10 featured cards
+        </Text>
         <div className="flex items-center gap-x-2">
           <Text size="small">{form.payout_card_ids.length} card(s)</Text>
-          <Button size="small" variant="secondary" onClick={() => setPickerOpen(true)}>Add</Button>
+          <Button
+            size="small"
+            variant="secondary"
+            onClick={() => setPickerOpen(true)}
+          >
+            Add
+          </Button>
           {form.payout_card_ids.length > 0 && (
-            <Button size="small" variant="transparent" onClick={() => set({ payout_card_ids: form.payout_card_ids.slice(0, -1) })}>
+            <Button
+              size="small"
+              variant="transparent"
+              onClick={() =>
+                set({ payout_card_ids: form.payout_card_ids.slice(0, -1) })
+              }
+            >
               Remove last
             </Button>
           )}
@@ -372,24 +529,60 @@ const PayoutTab = () => {
             onChange={(e) => setReason(e.target.value)}
           />
         </div>
-        <Button variant="primary" onClick={onSave} isLoading={save.isPending} disabled={!canSave}>Save week & payout</Button>
+        <Button
+          variant="primary"
+          onClick={onSave}
+          isLoading={save.isPending}
+          disabled={!canSave}
+        >
+          Save week & payout
+        </Button>
       </div>
-      <CardPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={(id) => set({ payout_card_ids: [...form.payout_card_ids, id] })} />
+      <CardPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(id) => set({ payout_card_ids: [...form.payout_card_ids, id] })}
+      />
     </div>
   );
 };
 
 const ChallengePage = () => {
   const [tab, setTab] = useState<'stages' | 'payout'>('stages');
+  // Same dirty-tab-switch guard as the VIP page: each tab syncs its dirty
+  // flag into a ref; switching away from a dirty tab asks first.
+  const stagesDirty = useRef(false);
+  const payoutDirty = useRef(false);
+  const prompt = usePrompt();
+  const switchTab = async (next: 'stages' | 'payout') => {
+    if (next === tab) return;
+    const dirty = tab === 'stages' ? stagesDirty.current : payoutDirty.current;
+    if (dirty) {
+      const confirmed = await prompt({
+        title: 'Discard changes?',
+        description:
+          tab === 'stages'
+            ? 'Discard unsaved stage changes?'
+            : 'Discard unsaved week & payout changes?',
+        confirmText: 'Discard',
+      });
+      if (!confirmed) return;
+    }
+    setTab(next);
+  };
   return (
     <Container className="p-0">
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'stages' | 'payout')}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => switchTab(v as 'stages' | 'payout')}
+        activationMode="manual"
+      >
         <div className="flex items-center justify-between px-6 py-4">
           <div>
             <Heading level="h2">Weekly Challenge</Heading>
             <Text className="text-ui-fg-subtle mt-1" size="small">
-              Milestone stages and the weekly reset + top-10 payout. Inert config
-              a future settlement engine will read.
+              Milestone stages and the weekly reset + top-10 payout. Inert
+              config a future settlement engine will read.
             </Text>
           </div>
           <Tabs.List>
@@ -397,8 +590,12 @@ const ChallengePage = () => {
             <Tabs.Trigger value="payout">Week & Payout</Tabs.Trigger>
           </Tabs.List>
         </div>
-        <Tabs.Content value="stages"><StagesTab /></Tabs.Content>
-        <Tabs.Content value="payout"><PayoutTab /></Tabs.Content>
+        <Tabs.Content value="stages">
+          <StagesTab dirtyRef={stagesDirty} />
+        </Tabs.Content>
+        <Tabs.Content value="payout">
+          <PayoutTab dirtyRef={payoutDirty} />
+        </Tabs.Content>
       </Tabs>
     </Container>
   );

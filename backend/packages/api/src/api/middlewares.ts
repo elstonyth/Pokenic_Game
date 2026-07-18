@@ -551,13 +551,6 @@ export default defineMiddlewares({
       middlewares: [adminActionRateLimit],
     },
     {
-      // Voucher-ladder write (POST /admin/daily-rewards/vouchers) — rewrites
-      // vip_level.voucher_amount, so it shares the admin money-mutation budget.
-      matcher: '/admin/daily-rewards/vouchers',
-      method: 'POST',
-      middlewares: [adminActionRateLimit],
-    },
-    {
       // Global USD->MYR FX-rate write. Sets the multiplier behind every
       // displayed price, so it shares the admin money-mutation budget. Auth is
       // the framework default /admin guard (handler is AuthenticatedMedusaRequest);

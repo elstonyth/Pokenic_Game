@@ -89,18 +89,26 @@ const rowFromPrize = (p: DailyBoxPrizeDTO): EditRow => ({
 });
 
 const DailyRewardsPage = () => {
-  const [tab, setTab] = useState<
-    'levels' | 'boxes' | 'frames' | 'settings'
-  >('levels');
+  const [tab, setTab] = useState<'levels' | 'boxes' | 'frames' | 'settings'>(
+    'levels',
+  );
   const boxesDirty = useRef(false);
+  const levelsDirty = useRef(false);
   const prompt = usePrompt();
   const switchTab = async (
     next: 'levels' | 'boxes' | 'frames' | 'settings',
   ) => {
-    if (tab === 'boxes' && next !== 'boxes' && boxesDirty.current) {
+    if (next === tab) return;
+    const dirty =
+      (tab === 'boxes' && boxesDirty.current) ||
+      (tab === 'levels' && levelsDirty.current);
+    if (dirty) {
       const confirmed = await prompt({
         title: 'Discard changes?',
-        description: 'Discard unsaved box changes?',
+        description:
+          tab === 'boxes'
+            ? 'Discard unsaved box changes?'
+            : 'Discard unsaved ladder changes?',
         confirmText: 'Discard',
       });
       if (!confirmed) return;
@@ -112,9 +120,7 @@ const DailyRewardsPage = () => {
       <Tabs
         value={tab}
         onValueChange={(v) =>
-          switchTab(
-            v as 'levels' | 'boxes' | 'frames' | 'settings',
-          )
+          switchTab(v as 'levels' | 'boxes' | 'frames' | 'settings')
         }
         activationMode="manual"
       >
@@ -134,7 +140,7 @@ const DailyRewardsPage = () => {
           </Tabs.List>
         </div>
         <Tabs.Content value="levels">
-          <VipLevelsTab />
+          <VipLevelsTab dirtyRef={levelsDirty} />
         </Tabs.Content>
         <Tabs.Content value="boxes">
           <BoxesTab dirtyRef={boxesDirty} />
@@ -724,7 +730,8 @@ const FramesTab = () => {
   const current: Record<string, string> = data?.frames ?? {};
   const effective = pending ?? current;
   const dirty =
-    pending !== undefined && JSON.stringify(pending) !== JSON.stringify(current);
+    pending !== undefined &&
+    JSON.stringify(pending) !== JSON.stringify(current);
   const canSave = dirty && !save.isPending && reason.trim().length > 0;
 
   const pickFile = (level: number) => {
@@ -788,9 +795,9 @@ const FramesTab = () => {
     <div className="flex flex-col gap-y-5 border-t px-6 py-6">
       <Text className="text-ui-fg-subtle" size="small">
         One frame per 10 VIP levels, overlaid on the customer&apos;s profile
-        photo once equipped. Upload a square transparent WebP/PNG ≥ 256×256
-        (a flat-magenta AI render is keyed automatically). Customers can equip
-        a frame only after reaching its level.
+        photo once equipped. Upload a square transparent WebP/PNG ≥ 256×256 (a
+        flat-magenta AI render is keyed automatically). Customers can equip a
+        frame only after reaching its level.
       </Text>
       <input
         ref={fileRef}

@@ -41,7 +41,6 @@ import {
   type CreatePixelPokemonBody,
   getDailyBoxes,
   getDailyBox,
-  getVoucherLadder,
   getReferralTree,
   getRewardsSettings,
   getSiteSettings,
@@ -56,7 +55,6 @@ import {
   saveRewardsSettings,
   saveSiteSettings,
   saveVipLevels,
-  saveVoucherRanges,
   setFxRate,
   suspendCommission,
   unfreezeCustomer,
@@ -84,8 +82,6 @@ import {
   type RewardsSettingsView,
   type SiteSettingsView,
   type VipLevelDTO,
-  type VoucherLadderDTO,
-  type VoucherRangeDTO,
 } from './admin-rest';
 import type { OddsInput } from '@acme/odds-math';
 import { qk } from './query-keys';
@@ -508,7 +504,14 @@ export const useUploadImage = () =>
   useMutation({
     mutationFn: (vars: {
       file: File;
-      kind: 'pack' | 'display' | 'card' | 'sprite' | 'frame' | 'avatar-frame' | 'delivery';
+      kind:
+        | 'pack'
+        | 'display'
+        | 'card'
+        | 'sprite'
+        | 'frame'
+        | 'avatar-frame'
+        | 'delivery';
     }) => uploadImage(vars.file, vars.kind),
   });
 
@@ -535,8 +538,6 @@ export type {
   DailyBoxEditorDTO,
   DailyBoxPrizeDTO,
   DailyBoxSummary,
-  VoucherLadderDTO,
-  VoucherRangeDTO,
 } from './admin-rest';
 
 export const useDailyBoxes = (): UseQueryResult<{ boxes: DailyBoxSummary[] }> =>
@@ -558,22 +559,6 @@ export const useSaveDailyBox = () => {
       qc.invalidateQueries({ queryKey: qk.dailyBoxes });
       qc.invalidateQueries({ queryKey: qk.dailyBox(vars.tier) });
       toast.success('Box saved');
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
-  });
-};
-
-export const useVoucherLadder = (): UseQueryResult<VoucherLadderDTO> =>
-  useQuery({ queryKey: qk.voucherLadder, queryFn: getVoucherLadder });
-
-export const useSaveVoucherRanges = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: { ranges: VoucherRangeDTO[]; reason: string }) =>
-      saveVoucherRanges(vars),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.voucherLadder });
-      toast.success('Voucher ranges saved');
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
@@ -654,8 +639,7 @@ export const useSaveVipLevels = () => {
 
 export const useChallengeStages = (): UseQueryResult<{
   stages: ChallengeStageDTO[];
-}> =>
-  useQuery({ queryKey: qk.challengeStages, queryFn: getChallengeStages });
+}> => useQuery({ queryKey: qk.challengeStages, queryFn: getChallengeStages });
 
 export const useSaveChallengeStages = () => {
   const qc = useQueryClient();

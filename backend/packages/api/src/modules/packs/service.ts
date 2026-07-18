@@ -78,7 +78,6 @@ import {
   type DailyBoxBody,
   type BoxPrizeInput,
 } from './daily-box';
-import { foldRanges, type VoucherRange } from './voucher-ranges';
 import type { VipLevelInput } from './vip-levels-validate';
 import type {
   ChallengeStageInput,
@@ -3760,8 +3759,8 @@ class PacksModuleService extends MedusaService({
   // getDailyState / drawDailyBox are the model-driven (reward_box +
   // reward_box_prize) daily-box path — the sole reward-box draw path since
   // Task 7 deleted the old PackOdds-based settleRewardDraw.
-  // Kept THIN: all pure pick/validate/fold logic lives in daily-box.ts /
-  // voucher-ranges.ts; this file only orchestrates DB reads/writes.
+  // Kept THIN: all pure pick/validate logic lives in daily-box.ts; this file
+  // only orchestrates DB reads/writes.
 
   // Batch-resolve product title + thumbnail by handle (product-lookup helper
   // for the 'product' prize branch — Modules.PRODUCT.listProducts).
@@ -4210,8 +4209,10 @@ class PacksModuleService extends MedusaService({
 
   // Admin listing: every reward_box row + prize/customer counts (read-only).
   // Customer counts + level ranges come from ONE grouped SQL over
-  // vip_member_state JOIN vip_level (highest_level_ever = level), grouped by
-  // box_tier — cheaper than N+1 per-tier lookups.
+  // vip_member_state JOIN vip_level (highest_level_ever = level, clamped to the
+  // ladder's max so above-max peaks count in the top rung's bucket — the same
+  // shrunken-ladder clamp resolveBoxTier applies), grouped by box_tier —
+  // cheaper than N+1 per-tier lookups.
   @InjectManager()
   async listDailyBoxesWithMeta(
     @MedusaContext() sharedContext: Context = {},
@@ -4255,7 +4256,9 @@ class PacksModuleService extends MedusaService({
               MAX(vl.level) AS level_to
          FROM vip_level vl
          LEFT JOIN vip_member_state vms
-           ON vms.highest_level_ever = vl.level AND vms.deleted_at IS NULL
+           ON vl.level = LEAST(vms.highest_level_ever,
+                (SELECT MAX(l2.level) FROM vip_level l2 WHERE l2.deleted_at IS NULL))
+          AND vms.deleted_at IS NULL
         WHERE vl.deleted_at IS NULL
         GROUP BY vl.box_tier`,
     );
@@ -4432,21 +4435,6 @@ class PacksModuleService extends MedusaService({
       enabled: input.body.enabled,
       draws_per_day: input.body.draws_per_day,
     };
-  }
-
-  // All 100 vip_level rows, ascending — the voucher ladder editor's read side.
-  @InjectManager()
-  async getVoucherLadder(
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<{ level: number; amount_myr: number }[]> {
-    const rows = await this.listVipLevels(
-      {},
-      { select: ['level', 'voucher_amount'], take: 1000 },
-      sharedContext,
-    );
-    return rows
-      .map((r) => ({ level: r.level, amount_myr: Number(r.voucher_amount) }))
-      .sort((a, b) => a.level - b.level);
   }
 
   // Audited whole-set replace of the VIP ladder. Diff-upsert keyed on `level`:
@@ -4770,57 +4758,6 @@ class PacksModuleService extends MedusaService({
     return after;
   }
 
-  // Fold admin ranges → the 100-entry ladder, update only the CHANGED
-  // vip_level rows (no-op writes for untouched levels), and write ONE audit
-  // row — same pattern as editDailyRewardSettings/replaceRewardPool.
-  @InjectTransactionManager()
-  async saveVoucherRanges(
-    ranges: VoucherRange[],
-    adminId: string,
-    reason: string,
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<void> {
-    const amounts = foldRanges(ranges);
-
-    const rows = await this.listVipLevels(
-      {},
-      { select: ['id', 'level', 'voucher_amount'], take: 1000 },
-      sharedContext,
-    );
-    const byLevel = new Map(rows.map((r) => [r.level, r]));
-
-    const before: Record<number, number> = {};
-    const after: Record<number, number> = {};
-    for (let i = 0; i < amounts.length; i++) {
-      const level = i + 1;
-      const row = byLevel.get(level);
-      if (!row) continue;
-      const priorAmount = Number(row.voucher_amount);
-      const nextAmount = amounts[i];
-      if (priorAmount === nextAmount) continue;
-      before[level] = priorAmount;
-      after[level] = nextAmount;
-      await this.updateVipLevels(
-        { selector: { id: row.id }, data: { voucher_amount: nextAmount } },
-        sharedContext,
-      );
-    }
-
-    await this.createAdminActionAudits(
-      [
-        {
-          admin_id: adminId,
-          entity_type: 'voucher_ladder',
-          entity_id: 'singleton',
-          action: 'edit_voucher_ladder',
-          before,
-          after,
-          reason,
-        },
-      ],
-      sharedContext,
-    );
-  }
 }
 
 export default PacksModuleService;

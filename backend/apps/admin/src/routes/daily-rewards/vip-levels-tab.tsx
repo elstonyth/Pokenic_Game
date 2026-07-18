@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type MutableRefObject } from 'react';
 import {
   Button,
   Input,
@@ -8,7 +8,11 @@ import {
   Table,
   Text,
 } from '@medusajs/ui';
-import { useVipLevels, useSaveVipLevels, useDailyBoxes } from '../../lib/queries';
+import {
+  useVipLevels,
+  useSaveVipLevels,
+  useDailyBoxes,
+} from '../../lib/queries';
 import type { VipLevelDTO } from '../../lib/queries';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import {
@@ -51,14 +55,18 @@ const snapshotOf = (rows: Row[]): string =>
     ]),
   );
 
-export const VipLevelsTab = () => {
+export const VipLevelsTab = ({
+  dirtyRef,
+}: {
+  dirtyRef: MutableRefObject<boolean>;
+}) => {
   const { data, isError } = useVipLevels();
   const { data: boxesData } = useDailyBoxes();
   const save = useSaveVipLevels();
 
-  const [seededFrom, setSeededFrom] = useState<{ levels: VipLevelDTO[] } | undefined>(
-    undefined,
-  );
+  const [seededFrom, setSeededFrom] = useState<
+    { levels: VipLevelDTO[] } | undefined
+  >(undefined);
   const [rows, setRows] = useState<Row[]>([]);
   const [savedSnapshot, setSavedSnapshot] = useState('');
   const [reason, setReason] = useState('');
@@ -74,15 +82,27 @@ export const VipLevelsTab = () => {
     setSavedSnapshot(snapshotOf(initial));
   }
 
-  if (isError) return <Text className="text-ui-fg-subtle p-6">Failed to load the VIP ladder.</Text>;
+  const dirty = snapshotOf(rows) !== savedSnapshot;
+  // Sync the parent's dirty ref in an effect — writing a ref during render is
+  // a React anti-pattern; switchTab only reads it in an event handler.
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirtyRef, dirty]);
+
+  if (isError)
+    return (
+      <Text className="text-ui-fg-subtle p-6">
+        Failed to load the VIP ladder.
+      </Text>
+    );
   if (!data) return <LoadingSkeleton />;
 
   const tiers = (boxesData?.boxes ?? []).map((b) => b.tier);
   const fallbackTier = tiers[0] ?? 'a';
-  const dirty = snapshotOf(rows) !== savedSnapshot;
   const errors = validateVipLevelsClient(rows);
   const reasonValid = reason.trim().length > 0;
-  const canSave = !save.isPending && dirty && errors.length === 0 && reasonValid;
+  const canSave =
+    !save.isPending && dirty && errors.length === 0 && reasonValid;
 
   const setRow = (localId: string, patch: Partial<Row>) =>
     setRows((prev) =>
@@ -107,13 +127,15 @@ export const VipLevelsTab = () => {
 
   async function onSave() {
     if (!canSave) return;
+    // canSave already required a clean validateVipLevelsClient pass, so every
+    // input parses to a finite number here.
     const levels: VipLevelDTO[] = rows.map((r, i) => ({
       level: i + 1,
-      spend_threshold: Number(r.thresholdInput) || 0,
-      voucher_amount: Number(r.voucherInput) || 0,
+      spend_threshold: Number(r.thresholdInput),
+      voucher_amount: Number(r.voucherInput),
       box_tier: r.boxTier,
       frame_unlock: r.frameUnlock,
-      direct_referral_pct: Number(r.referralInput) || 0,
+      direct_referral_pct: Number(r.referralInput),
     }));
     try {
       const res = await save.mutateAsync({ levels, reason: reason.trim() });
@@ -129,8 +151,8 @@ export const VipLevelsTab = () => {
   return (
     <div className="flex flex-col gap-y-4 px-6 py-4">
       <Text className="text-ui-fg-subtle" size="small">
-        The per-user VIP ladder. Level is the row order; thresholds must start at
-        0 and strictly increase. A frame can only unlock on a decade level.
+        The per-user VIP ladder. Level is the row order; thresholds must start
+        at 0 and strictly increase. A frame can only unlock on a decade level.
       </Text>
 
       {errors.length > 0 && (
@@ -152,7 +174,7 @@ export const VipLevelsTab = () => {
             <Table.HeaderCell>Box tier</Table.HeaderCell>
             <Table.HeaderCell>Frame</Table.HeaderCell>
             <Table.HeaderCell>Referral %</Table.HeaderCell>
-            <Table.HeaderCell>Rows</Table.HeaderCell>
+            <Table.HeaderCell>Actions</Table.HeaderCell>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -209,13 +231,25 @@ export const VipLevelsTab = () => {
               </Table.Cell>
               <Table.Cell>
                 <div className="flex gap-x-1">
-                  <Button size="small" variant="secondary" onClick={() => insertAt(i)}>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={() => insertAt(i)}
+                  >
                     + Above
                   </Button>
-                  <Button size="small" variant="secondary" onClick={() => insertAt(i + 1)}>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={() => insertAt(i + 1)}
+                  >
                     + Below
                   </Button>
-                  <Button size="small" variant="danger" onClick={() => removeAt(i)}>
+                  <Button
+                    size="small"
+                    variant="danger"
+                    onClick={() => removeAt(i)}
+                  >
                     Delete
                   </Button>
                 </div>
@@ -249,7 +283,12 @@ export const VipLevelsTab = () => {
             onChange={(e) => setReason(e.target.value)}
           />
         </div>
-        <Button variant="primary" onClick={onSave} isLoading={save.isPending} disabled={!canSave}>
+        <Button
+          variant="primary"
+          onClick={onSave}
+          isLoading={save.isPending}
+          disabled={!canSave}
+        >
           Save ladder
         </Button>
       </div>

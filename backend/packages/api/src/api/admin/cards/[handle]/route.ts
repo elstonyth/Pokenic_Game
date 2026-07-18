@@ -24,7 +24,7 @@ export async function GET(
     return;
   }
 
-  res.json({ card: toAdminCardDto(card, fxRate) });
+  res.json({ card: { ...toAdminCardDto(card, fxRate), id: card.id } });
 }
 
 // POST /admin/cards/:handle — update a card (+ re-sync its Product). `handle` is

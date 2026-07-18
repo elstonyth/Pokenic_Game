@@ -41,6 +41,8 @@ import RewardDraw from './models/reward-draw';
 import RewardBox from './models/reward-box';
 import RewardBoxPrize from './models/reward-box-prize';
 import PixelPokemon from './models/pixel-pokemon';
+import ChallengeStage from './models/challenge-stage';
+import ChallengeSettings from './models/challenge-settings';
 import { pageAll } from '../../api/utils/page-all';
 import {
   resolveBuybackRate,
@@ -77,6 +79,12 @@ import {
   type BoxPrizeInput,
 } from './daily-box';
 import { foldRanges, type VoucherRange } from './voucher-ranges';
+import type { VipLevelInput } from './vip-levels-validate';
+import type {
+  ChallengeStageInput,
+  ChallengeSettingsPatch,
+  ChallengeSettingsView,
+} from './challenge-validate';
 import { getCardStockByHandle } from './card-stock';
 import type { MedusaContainer } from '@medusajs/framework/types';
 
@@ -306,6 +314,8 @@ class PacksModuleService extends MedusaService({
   RewardBox,
   RewardBoxPrize,
   PixelPokemon,
+  ChallengeStage,
+  ChallengeSettings,
 }) {
   // Apply a pack-membership diff (add rows + delete rows + renormalize
   // survivor weights) as ONE transaction. The set-pack-members workflow step
@@ -3795,7 +3805,16 @@ class PacksModuleService extends MedusaService({
       { take: 1 },
       sharedContext,
     );
-    return vipLevel?.box_tier ?? '';
+    if (vipLevel) return vipLevel.box_tier;
+    // No exact rung: the admin shrank the ladder below this member's monotonic
+    // peak (legal since the Levels tab landed). Clamp to the top rung so the
+    // daily box keeps resolving instead of going 'unavailable' forever.
+    const [top] = await this.listVipLevels(
+      {},
+      { order: { level: 'DESC' }, take: 1 },
+      sharedContext,
+    );
+    return top?.box_tier ?? '';
   }
 
   // highest_level_ever, defaulting to the L1 floor — the level a box-won
@@ -4428,6 +4447,327 @@ class PacksModuleService extends MedusaService({
     return rows
       .map((r) => ({ level: r.level, amount_myr: Number(r.voucher_amount) }))
       .sort((a, b) => a.level - b.level);
+  }
+
+  // Audited whole-set replace of the VIP ladder. Diff-upsert keyed on `level`:
+  // update survivors in place (ids + prizes preserved), create new rungs
+  // (prizes null), HARD-delete removed rungs (a soft row keeps the unique
+  // `level` and would collide on recreate). box_tier existence is checked here
+  // (service-level DB lookup, not in the pure validator). One audit row.
+  @InjectTransactionManager()
+  async saveVipLevels(
+    input: { levels: VipLevelInput[]; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<VipLevelInput[]> {
+    const boxes = await this.listRewardBoxes(
+      {},
+      { select: ['tier'], take: 1000 },
+      sharedContext,
+    );
+    const validTiers = new Set(boxes.map((b) => b.tier));
+    for (const lvl of input.levels) {
+      if (!validTiers.has(lvl.box_tier)) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          `level ${lvl.level}: box_tier '${lvl.box_tier}' is not an existing reward box tier.`,
+        );
+      }
+    }
+
+    const existing = await this.listVipLevels(
+      {},
+      {
+        select: [
+          'id',
+          'level',
+          'spend_threshold',
+          'voucher_amount',
+          'box_tier',
+          'frame_unlock',
+          'direct_referral_pct',
+        ],
+        take: 1000,
+      },
+      sharedContext,
+    );
+    const byLevel = new Map(existing.map((r) => [r.level, r]));
+    const before = existing
+      .slice()
+      .sort((a, b) => a.level - b.level)
+      .map((r) => ({
+        level: r.level,
+        spend_threshold: Number(r.spend_threshold),
+        voucher_amount: Number(r.voucher_amount),
+        box_tier: r.box_tier,
+        frame_unlock: r.frame_unlock,
+        direct_referral_pct: r.direct_referral_pct,
+      }));
+
+    const inputLevels = new Set(input.levels.map((l) => l.level));
+    for (const lvl of input.levels) {
+      const data = {
+        spend_threshold: lvl.spend_threshold,
+        voucher_amount: lvl.voucher_amount,
+        box_tier: lvl.box_tier,
+        frame_unlock: lvl.frame_unlock,
+        direct_referral_pct: lvl.direct_referral_pct,
+      };
+      const row = byLevel.get(lvl.level);
+      if (row) {
+        await this.updateVipLevels(
+          { selector: { id: row.id }, data },
+          sharedContext,
+        );
+      } else {
+        await this.createVipLevels(
+          [{ level: lvl.level, ...data, prizes: null }],
+          sharedContext,
+        );
+      }
+    }
+
+    const removedIds = existing
+      .filter((r) => !inputLevels.has(r.level))
+      .map((r) => r.id);
+    if (removedIds.length > 0) {
+      await this.deleteVipLevels(removedIds, sharedContext);
+    }
+
+    const after = input.levels.map((l) => ({ ...l }));
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'vip_levels',
+          entity_id: 'singleton',
+          action: 'replace',
+          // before/after are `json` columns typed Record<string, unknown> |
+          // null, not arrays — wrap the ladder snapshot under a key.
+          before: { levels: before },
+          after: { levels: after },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return after;
+  }
+
+  // Audited whole-set replace of the challenge milestone stages. Diff-upsert
+  // keyed on `stage_number`, hard-delete removed rows (soft would collide on
+  // the unique key). reward_card_ids EXISTENCE is checked here (service-level).
+  @InjectTransactionManager()
+  async saveChallengeStages(
+    input: { stages: ChallengeStageInput[]; adminId: string; reason: string },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<ChallengeStageInput[]> {
+    const allCardIds = [
+      ...new Set(input.stages.flatMap((s) => s.reward_card_ids)),
+    ];
+    if (allCardIds.length > 0) {
+      const found = await this.listCards(
+        { id: allCardIds },
+        { select: ['id'], take: allCardIds.length },
+        sharedContext,
+      );
+      const foundIds = new Set(found.map((c) => c.id));
+      const missing = allCardIds.filter((id) => !foundIds.has(id));
+      if (missing.length > 0)
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          `Unknown featured card id(s): ${missing.join(', ')}.`,
+        );
+    }
+
+    const existing = await this.listChallengeStages(
+      {},
+      {
+        select: [
+          'id',
+          'stage_number',
+          'threshold_myr',
+          'reward_credits',
+          'reward_card_ids',
+        ],
+        take: 1000,
+      },
+      sharedContext,
+    );
+    const byStage = new Map(existing.map((r) => [r.stage_number, r]));
+    const before = existing
+      .slice()
+      .sort((a, b) => a.stage_number - b.stage_number)
+      .map((r) => ({
+        stage_number: r.stage_number,
+        threshold_myr: Number(r.threshold_myr),
+        reward_credits: Number(r.reward_credits),
+        reward_card_ids: (r.reward_card_ids as unknown as string[]) ?? [],
+      }));
+
+    const inputStages = new Set(input.stages.map((s) => s.stage_number));
+    for (const s of input.stages) {
+      const data = {
+        threshold_myr: s.threshold_myr,
+        reward_credits: s.reward_credits,
+        // model.json() generates a Record<string, unknown> create/update input
+        // type — a plain string[] has no string index signature, so it needs
+        // the same double-cast update-pack.ts / seed-pixel-pokemon.ts use for
+        // their json columns; the DB just stores the array.
+        reward_card_ids: s.reward_card_ids as unknown as Record<
+          string,
+          unknown
+        >,
+      };
+      const row = byStage.get(s.stage_number);
+      if (row) {
+        await this.updateChallengeStages(
+          { selector: { id: row.id }, data },
+          sharedContext,
+        );
+      } else {
+        await this.createChallengeStages(
+          [{ stage_number: s.stage_number, ...data }],
+          sharedContext,
+        );
+      }
+    }
+
+    const removedIds = existing
+      .filter((r) => !inputStages.has(r.stage_number))
+      .map((r) => r.id);
+    if (removedIds.length > 0) {
+      await this.deleteChallengeStages(removedIds, sharedContext);
+    }
+
+    const after = input.stages.map((s) => ({ ...s }));
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'challenge_stages',
+          entity_id: 'singleton',
+          action: 'replace',
+          // before/after are `json` columns typed Record<string, unknown> |
+          // null, not arrays — wrap the stage-list snapshot under a key (same
+          // discipline as saveVipLevels' { levels: ... } wrap).
+          before: { stages: before },
+          after: { stages: after },
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return after;
+  }
+
+  // Challenge singleton read — first row or the §4.1 defaults (never 404s).
+  @InjectManager()
+  async challengeSettings(
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<ChallengeSettingsView> {
+    const [row] = await this.listChallengeSettings(
+      {},
+      { take: 1 },
+      sharedContext,
+    );
+    return {
+      cadence: row?.cadence ?? 'fixed_weekly',
+      timezone: row?.timezone ?? 'Asia/Kuala_Lumpur',
+      reset_day: row ? Number(row.reset_day) : 1,
+      reset_hour: row ? Number(row.reset_hour) : 0,
+      payout_credits: row ? Number(row.payout_credits) : 0,
+      payout_card_ids: (row?.payout_card_ids as unknown as string[]) ?? [],
+    };
+  }
+
+  // Audited singleton patch (create-on-first-edit; CHECK id='global' keeps the
+  // create race-safe). payout_card_ids EXISTENCE checked here.
+  @InjectTransactionManager()
+  async editChallengeSettings(
+    input: {
+      patch: ChallengeSettingsPatch;
+      adminId: string;
+      reason: string;
+    },
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<ChallengeSettingsView> {
+    if (input.patch.payout_card_ids && input.patch.payout_card_ids.length > 0) {
+      const ids = input.patch.payout_card_ids;
+      const found = await this.listCards(
+        { id: ids },
+        { select: ['id'], take: ids.length },
+        sharedContext,
+      );
+      const foundIds = new Set(found.map((c) => c.id));
+      const missing = ids.filter((id) => !foundIds.has(id));
+      if (missing.length > 0)
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          `Unknown payout card id(s): ${missing.join(', ')}.`,
+        );
+    }
+
+    const [row] = await this.listChallengeSettings(
+      {},
+      { take: 1 },
+      sharedContext,
+    );
+    const before: ChallengeSettingsView = {
+      cadence: row?.cadence ?? 'fixed_weekly',
+      timezone: row?.timezone ?? 'Asia/Kuala_Lumpur',
+      reset_day: row ? Number(row.reset_day) : 1,
+      reset_hour: row ? Number(row.reset_hour) : 0,
+      payout_credits: row ? Number(row.payout_credits) : 0,
+      payout_card_ids: (row?.payout_card_ids as unknown as string[]) ?? [],
+    };
+    const after: ChallengeSettingsView = {
+      cadence: input.patch.cadence ?? before.cadence,
+      timezone: input.patch.timezone ?? before.timezone,
+      reset_day: input.patch.reset_day ?? before.reset_day,
+      reset_hour: input.patch.reset_hour ?? before.reset_hour,
+      payout_credits: input.patch.payout_credits ?? before.payout_credits,
+      payout_card_ids: input.patch.payout_card_ids ?? before.payout_card_ids,
+    };
+    // Same json double-cast as saveChallengeStages' reward_card_ids — the
+    // generated create/update input types payout_card_ids as
+    // Record<string, unknown> (json column), not string[].
+    const data = {
+      ...after,
+      payout_card_ids: after.payout_card_ids as unknown as Record<
+        string,
+        unknown
+      >,
+    };
+    if (row) {
+      await this.updateChallengeSettings(
+        { selector: { id: row.id }, data },
+        sharedContext,
+      );
+    } else {
+      await this.createChallengeSettings(
+        [{ id: 'global', ...data }],
+        sharedContext,
+      );
+    }
+    await this.createAdminActionAudits(
+      [
+        {
+          admin_id: input.adminId,
+          entity_type: 'challenge_settings',
+          entity_id: row?.id ?? 'global',
+          action: 'edit',
+          // Same json double-cast as the payout_card_ids write above — the
+          // `before`/`after` json columns type as Record<string, unknown> |
+          // null, and ChallengeSettingsView (a named interface with a
+          // string[] property) doesn't structurally satisfy that directly.
+          before: before as unknown as Record<string, unknown>,
+          after: after as unknown as Record<string, unknown>,
+          reason: input.reason,
+        },
+      ],
+      sharedContext,
+    );
+    return after;
   }
 
   // Fold admin ranges → the 100-entry ladder, update only the CHANGED

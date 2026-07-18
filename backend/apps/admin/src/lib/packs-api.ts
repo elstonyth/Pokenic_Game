@@ -58,6 +58,7 @@ export interface AdminPackWrite {
 // No rarity here — rarity is a per-pack property (PackOdds), edited in each
 // pack's win-rate editor, not on the card.
 export interface AdminCard {
+  id: string;
   handle: string;
   name: string;
   set: string;

@@ -20,7 +20,7 @@ import {
   toast,
   usePrompt,
 } from '@medusajs/ui';
-import { Calendar } from '@medusajs/icons';
+import { Star } from '@medusajs/icons';
 import type { RouteConfig } from '@mercurjs/dashboard-sdk';
 import { computeOdds } from '@acme/odds-math';
 import {
@@ -28,8 +28,6 @@ import {
   useDailyBoxes,
   useDailyBox,
   useSaveDailyBox,
-  useVoucherLadder,
-  useSaveVoucherRanges,
   useRewardsSettings,
   useSaveRewardsSettings,
   useAvatarFrames,
@@ -37,8 +35,6 @@ import {
   useUploadImage,
   type DailyBoxEditorDTO,
   type DailyBoxPrizeDTO,
-  type VoucherLadderDTO,
-  type VoucherRangeDTO,
 } from '../../lib/queries';
 import { getDailyBox } from '../../lib/admin-rest';
 import { fmtPct, rm } from '../../lib/format';
@@ -46,7 +42,7 @@ import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { snapshotOf } from './box-snapshot';
-import { LEVELS, foldRangesLocal } from './voucher-ranges';
+import { VipLevelsTab } from './vip-levels-tab';
 
 const TIERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'Z'] as const;
 
@@ -93,13 +89,13 @@ const rowFromPrize = (p: DailyBoxPrizeDTO): EditRow => ({
 });
 
 const DailyRewardsPage = () => {
-  const [tab, setTab] = useState<'boxes' | 'vouchers' | 'frames' | 'settings'>(
-    'boxes',
-  );
+  const [tab, setTab] = useState<
+    'levels' | 'boxes' | 'frames' | 'settings'
+  >('levels');
   const boxesDirty = useRef(false);
   const prompt = usePrompt();
   const switchTab = async (
-    next: 'boxes' | 'vouchers' | 'frames' | 'settings',
+    next: 'levels' | 'boxes' | 'frames' | 'settings',
   ) => {
     if (tab === 'boxes' && next !== 'boxes' && boxesDirty.current) {
       const confirmed = await prompt({
@@ -116,31 +112,32 @@ const DailyRewardsPage = () => {
       <Tabs
         value={tab}
         onValueChange={(v) =>
-          switchTab(v as 'boxes' | 'vouchers' | 'frames' | 'settings')
+          switchTab(
+            v as 'levels' | 'boxes' | 'frames' | 'settings',
+          )
         }
         activationMode="manual"
       >
         <div className="flex items-center justify-between px-6 py-4">
           <div>
-            <Heading level="h2">Daily Rewards</Heading>
+            <Heading level="h2">VIP</Heading>
             <Text className="text-ui-fg-subtle mt-1" size="small">
-              Configure the daily box each VIP tier opens, the one-time
-              vouchers granted by level, and the avatar frames unlocked every
-              10 levels.
+              The VIP ladder, the daily box each tier opens, the avatar frames
+              unlocked every 10 levels, and the rewards engine settings.
             </Text>
           </div>
           <Tabs.List>
+            <Tabs.Trigger value="levels">Levels</Tabs.Trigger>
             <Tabs.Trigger value="boxes">Boxes</Tabs.Trigger>
-            <Tabs.Trigger value="vouchers">Vouchers</Tabs.Trigger>
             <Tabs.Trigger value="frames">Frames</Tabs.Trigger>
             <Tabs.Trigger value="settings">Engine settings</Tabs.Trigger>
           </Tabs.List>
         </div>
+        <Tabs.Content value="levels">
+          <VipLevelsTab />
+        </Tabs.Content>
         <Tabs.Content value="boxes">
           <BoxesTab dirtyRef={boxesDirty} />
-        </Tabs.Content>
-        <Tabs.Content value="vouchers">
-          <VouchersTab />
         </Tabs.Content>
         <Tabs.Content value="frames">
           <FramesTab />
@@ -150,308 +147,6 @@ const DailyRewardsPage = () => {
         </Tabs.Content>
       </Tabs>
     </Container>
-  );
-};
-
-// One range row in the editable buffer. String inputs so the field can hold
-// transient/invalid text (e.g. empty) while typing — parsed to numbers only
-// for validation/fold/save, same pattern as EditRow's amountInput.
-interface RangeRow {
-  localId: string;
-  fromInput: string;
-  toInput: string;
-  amountInput: string;
-}
-
-let nextRangeLocalId = 0;
-const rangeRowFromDTO = (r: VoucherRangeDTO): RangeRow => ({
-  localId: `range-${nextRangeLocalId++}`,
-  fromInput: String(r.from),
-  toInput: String(r.to),
-  amountInput: String(r.amount_myr),
-});
-
-const VouchersTab = () => {
-  const { data, isError } = useVoucherLadder();
-  const saveRanges = useSaveVoucherRanges();
-  const saving = saveRanges.isPending;
-  const prompt = usePrompt();
-
-  const [seededFrom, setSeededFrom] = useState<VoucherLadderDTO | undefined>(
-    undefined,
-  );
-  const [rows, setRows] = useState<RangeRow[]>([]);
-  const [reason, setReason] = useState('');
-  if (data && data !== seededFrom) {
-    setSeededFrom(data);
-    setRows(data.ranges.map(rangeRowFromDTO));
-  }
-
-  const setRow = (localId: string, patch: Partial<RangeRow>) =>
-    setRows((prev) =>
-      prev.map((r) => (r.localId === localId ? { ...r, ...patch } : r)),
-    );
-  const removeRow = (localId: string) =>
-    setRows((prev) => prev.filter((r) => r.localId !== localId));
-  const addRow = () =>
-    setRows((prev) => {
-      const lastTo = prev.reduce(
-        (max, r) => Math.max(max, Number(r.toInput) || 0),
-        0,
-      );
-      return [
-        ...prev,
-        {
-          localId: `range-${nextRangeLocalId++}`,
-          fromInput: String(Math.min(lastTo + 1, LEVELS)),
-          toInput: String(LEVELS),
-          amountInput: '0',
-        },
-      ];
-    });
-
-  const parsedRows = rows.map((r) => ({
-    from: Number(r.fromInput),
-    to: Number(r.toInput),
-    amountInput: r.amountInput,
-  }));
-  const folded =
-    rows.length === 0
-      ? { errors: ['At least one range is required.'] }
-      : foldRangesLocal(parsedRows);
-  const foldErrors = 'errors' in folded ? folded.errors : [];
-  const levels = 'levels' in folded ? folded.levels : null;
-
-  const gapLevels: number[] = [];
-  if (levels === null) {
-    // Recompute coverage alone (ignoring overlap/bounds errors) so "Fill
-    // gaps" stays available even while other range rows are mid-edit.
-    const covered = new Array<boolean>(LEVELS).fill(false);
-    for (const r of parsedRows) {
-      if (
-        Number.isInteger(r.from) &&
-        Number.isInteger(r.to) &&
-        r.from >= 1 &&
-        r.to <= LEVELS &&
-        r.from <= r.to
-      ) {
-        for (let level = r.from; level <= r.to; level++)
-          covered[level - 1] = true;
-      }
-    }
-    covered.forEach((c, i) => {
-      if (!c) gapLevels.push(i + 1);
-    });
-  }
-
-  const fillGaps = () => {
-    if (gapLevels.length === 0) return;
-    // Fill-gaps adds one range per contiguous run of uncovered levels, e.g.
-    // gaps [7,8,9,42] -> two new ranges (7-9 and 42-42), not four singles.
-    const newRows: RangeRow[] = [];
-    let start = gapLevels[0];
-    let prev = gapLevels[0];
-    const flush = () => {
-      newRows.push({
-        localId: `range-${nextRangeLocalId++}`,
-        fromInput: String(start),
-        toInput: String(prev),
-        amountInput: '0',
-      });
-    };
-    for (let i = 1; i <= gapLevels.length; i++) {
-      const cur = gapLevels[i];
-      if (cur === prev + 1) {
-        prev = cur;
-        continue;
-      }
-      flush();
-      start = cur;
-      prev = cur;
-    }
-    setRows((prevRows) => [...prevRows, ...newRows]);
-  };
-
-  const reasonValid = reason.trim().length > 0;
-  const canSave =
-    !saving && seededFrom !== undefined && reasonValid && levels !== null;
-
-  async function save() {
-    if (!canSave || levels === null) return;
-    if (levels.every((amt) => amt === 0)) {
-      const ok = await prompt({
-        title: 'All voucher amounts are zero',
-        description:
-          'All voucher amounts are zero — customers will stop receiving level-up vouchers. Save anyway?',
-        confirmText: 'Save anyway',
-        variant: 'confirmation',
-      });
-      if (!ok) return;
-    }
-    try {
-      await saveRanges.mutateAsync({
-        ranges: rows.map((r) => ({
-          from: Number(r.fromInput),
-          to: Number(r.toInput),
-          amount_myr: Number(r.amountInput) || 0,
-        })),
-        reason: reason.trim(),
-      });
-      setReason('');
-      // useSaveVoucherRanges invalidates qk.voucherLadder → the buffer
-      // reseeds from the refetch above.
-    } catch {
-      // useSaveVoucherRanges.onError already toasts the backend message.
-    }
-  }
-
-  if (isError) {
-    return (
-      <Container className="p-6">
-        <Text className="text-ui-fg-subtle">Failed to load vouchers.</Text>
-      </Container>
-    );
-  }
-
-  return (
-    <div className="border-t">
-      {/* Range table */}
-      <Table>
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell>From level</Table.HeaderCell>
-            <Table.HeaderCell>To level</Table.HeaderCell>
-            <Table.HeaderCell>RM amount</Table.HeaderCell>
-            <Table.HeaderCell />
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {rows.map((r) => (
-            <Table.Row key={r.localId}>
-              <Table.Cell>
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={r.fromInput}
-                  onChange={(e) =>
-                    setRow(r.localId, { fromInput: e.target.value })
-                  }
-                  className="w-20 tabular-nums"
-                />
-              </Table.Cell>
-              <Table.Cell>
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={r.toInput}
-                  onChange={(e) =>
-                    setRow(r.localId, { toInput: e.target.value })
-                  }
-                  className="w-20 tabular-nums"
-                />
-              </Table.Cell>
-              <Table.Cell>
-                <div className="flex items-center gap-1">
-                  <Text size="small" className="text-ui-fg-subtle">
-                    RM
-                  </Text>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={r.amountInput}
-                    onChange={(e) =>
-                      setRow(r.localId, { amountInput: e.target.value })
-                    }
-                    className="w-28 tabular-nums"
-                  />
-                </div>
-              </Table.Cell>
-              <Table.Cell>
-                <Button
-                  size="small"
-                  variant="transparent"
-                  onClick={() => removeRow(r.localId)}
-                >
-                  Remove
-                </Button>
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </Table>
-
-      <div className="flex flex-col gap-3 px-6 py-4">
-        <div className="flex gap-2">
-          <Button size="small" variant="secondary" onClick={addRow}>
-            Add range
-          </Button>
-          {gapLevels.length > 0 && (
-            <Button size="small" variant="secondary" onClick={fillGaps}>
-              Fill gaps with RM 0
-            </Button>
-          )}
-        </div>
-
-        {foldErrors.length > 0 && (
-          <div className="flex flex-col gap-1">
-            {foldErrors.map((err) => (
-              <Text key={err} size="small" className="text-ui-fg-error">
-                {err}
-              </Text>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-end gap-3">
-          <div className="flex-1">
-            <Label htmlFor="voucher-reason">Reason (audit trail)</Label>
-            <Input
-              id="voucher-reason"
-              placeholder="e.g. Boost mid-tier voucher payouts"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
-          <Button
-            variant="primary"
-            onClick={save}
-            isLoading={saving}
-            disabled={!canSave}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-
-      {/* Read-only 100-level preview, folded client-side from the rows above. */}
-      <div className="border-t px-6 py-4">
-        <Text className="mb-3 font-medium">Preview: level → RM</Text>
-        {levels === null ? (
-          <Text size="small" className="text-ui-fg-subtle">
-            Fix the errors above to see the full 100-level preview.
-          </Text>
-        ) : (
-          <div className="grid grid-cols-5 gap-x-4 gap-y-1 sm:grid-cols-10">
-            {levels.map((amt, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between gap-2 text-sm"
-              >
-                <Text size="small" className="text-ui-fg-subtle">
-                  {i + 1}
-                </Text>
-                <Text size="small" className="tabular-nums">
-                  {rm(amt)}
-                </Text>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 };
 
@@ -1332,8 +1027,7 @@ const SettingsTab = () => {
 export default DailyRewardsPage;
 
 export const config: RouteConfig = {
-  label: 'Daily Rewards',
-  icon: Calendar,
-  nested: '/promotions',
-  rank: 1,
+  label: 'VIP',
+  icon: Star,
+  rank: 32,
 };

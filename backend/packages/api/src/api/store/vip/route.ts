@@ -4,15 +4,16 @@ import { PACKS_MODULE } from '../../../modules/packs';
 import type PacksModuleService from '../../../modules/packs/service';
 import { levelForSpend } from '../../../modules/packs/vip-ladder';
 
-// GET /store/vip — the logged-in customer's VIP level, cumulative spend, and
-// the next-rung reward teaser.
+// GET /store/vip — the logged-in customer's VIP level, cumulative spend, the
+// next-rung reward teaser, and the full reward ladder (`levels`).
 //
 // Mirrors the VIP block in admin/customers/[id]/gacha/route.ts (lines 64-97)
 // with two differences:
 //   1. actor_id comes from the bearer token, not a route param.
 //   2. The ladder select is widened to include the reward columns
-//      (voucher_amount, box_tier, frame_unlock) so the next-rung reward can be
-//      surfaced without a second query.
+//      (voucher_amount, box_tier, frame_unlock, direct_referral_pct) so both
+//      the next-rung reward and the full `levels` ladder can be surfaced
+//      without a second query.
 export async function GET(
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse,
@@ -29,7 +30,14 @@ export async function GET(
     packs.listVipLevels(
       {},
       {
-        select: ['level', 'spend_threshold', 'voucher_amount', 'box_tier', 'frame_unlock'],
+        select: [
+          'level',
+          'spend_threshold',
+          'voucher_amount',
+          'box_tier',
+          'frame_unlock',
+          'direct_referral_pct',
+        ],
         take: 1000,
       },
     ),
@@ -45,6 +53,7 @@ export async function GET(
       voucher_amount: Number(r.voucher_amount),
       box_tier: r.box_tier as string,
       frame_unlock: r.frame_unlock as boolean,
+      direct_referral_pct: Number(r.direct_referral_pct),
     }))
     .sort((a, b) => a.level - b.level);
 
@@ -72,5 +81,16 @@ export async function GET(
       }
     : null;
 
-  res.json({ level, highest_level_ever: highest, spend, next });
+  const levels = ladder.map((r) => ({
+    level: r.level,
+    threshold: r.spend_threshold,
+    reward: {
+      voucher_amount: r.voucher_amount,
+      box_tier: r.box_tier,
+      frame_unlock: Boolean(r.frame_unlock),
+      direct_referral_pct: r.direct_referral_pct,
+    },
+  }));
+
+  res.json({ level, highest_level_ever: highest, spend, next, levels });
 }

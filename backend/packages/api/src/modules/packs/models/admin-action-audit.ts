@@ -20,6 +20,8 @@ export const AdminActionAudit = model
       'fx',
       'site_settings',
       'vip_levels',
+      'challenge_stages',
+      'challenge_settings',
     ]),
     entity_id: model.text(),
     action: model.enum([
@@ -38,6 +40,7 @@ export const AdminActionAudit = model
       'edit_site_settings',
       'edit_avatar_frames',
       'replace',
+      'edit',
     ]),
     before: model.json().nullable(),
     after: model.json().nullable(),

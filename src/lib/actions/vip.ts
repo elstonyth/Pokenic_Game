@@ -17,7 +17,7 @@ import { parseOne, VipSchema } from '@/lib/data/schemas';
 // mapVipLevels is a sync helper, so it lives in ./vip-map.ts rather than here
 // — a 'use server' file may only export async functions as values (same
 // reason pack-batch-map.ts / vault-map.ts exist). Re-export the type only.
-import { mapVipLevels, type VipLevel, type RawVipLevel } from './vip-map';
+import { mapVipLevels, type VipLevel } from './vip-map';
 export type { VipLevel } from './vip-map';
 
 export type VipReward = {
@@ -98,7 +98,7 @@ export async function getVip(): Promise<VipResult> {
               },
             }
           : null,
-        levels: mapVipLevels((v.levels ?? []) as RawVipLevel[]),
+        levels: mapVipLevels(v.levels),
       },
     };
   } catch (error) {

@@ -64,6 +64,15 @@ export default async function VipPage() {
           redemptionEnabled={dailyRes.state.redemptionEnabled}
         />
       )}
+
+      {/* Rewards service down — surface a note rather than silently dropping
+          both the daily box and voucher sections above. */}
+      {!dailyRes.ok && (
+        <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+          Daily box and voucher claims are temporarily unavailable.{' '}
+          {dailyRes.error}
+        </p>
+      )}
     </>
   );
 }

@@ -21,8 +21,8 @@ export default function TaskPage() {
         WEEKLY CHALLENGE
       </h1>
       <p className="mx-auto mt-2 max-w-[40ch] text-sm leading-relaxed text-neutral-400">
-        The Weekly Pulled Value Challenge is launching soon — every pack you rip
-        will build the community pool and put you on the weekly board.
+        The Weekly Pulled Value Challenge is launching soon. Check back for
+        community rewards, milestones, and weekly rankings.
       </p>
       <Link
         href="/leaderboard"

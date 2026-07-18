@@ -81,8 +81,15 @@ function LevelCard({
           />
         </div>
         <div className="mt-1 flex justify-between text-[10px] font-semibold text-neutral-500">
-          <span>{rm0(Math.min(spend, level.threshold))}</span>
-          <span>{rm0(level.threshold)}</span>
+          {/* Non-positive thresholds (e.g. the L1 base rung) have nothing to
+              progress toward, so show lifetime spend against a dash instead of
+              a confusing 0 / 0 under a full bar. */}
+          <span>
+            {rm0(
+              level.threshold > 0 ? Math.min(spend, level.threshold) : spend,
+            )}
+          </span>
+          <span>{level.threshold > 0 ? rm0(level.threshold) : '—'}</span>
         </div>
       </div>
     </div>

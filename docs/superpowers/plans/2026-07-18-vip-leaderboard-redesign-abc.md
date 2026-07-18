@@ -4,7 +4,7 @@
 
 **Goal:** Redesign `/vip` into a swipeable 100-level ladder with a benefits list and the relocated daily box (A), remove the user-facing points balance from all profile surfaces (B), and rename the "Daily" nav tab to "Task" with a placeholder Challenge hub (C).
 
-**Architecture:** A widens the *already-fetched* `GET /store/vip` to return the full ladder, then the storefront renders it with the existing `GalleryRail` carousel + pure benefit helpers. B is a display/type/derivation deletion (points is never stored). C is a nav-label + route-disposition change. The leaderboard's own points and the full Weekly Challenge are **out of scope** (deferred to sub-project D).
+**Architecture:** A widens the *already-fetched* `GET /store/vip` to return the full ladder, then the storefront renders it with the existing `GalleryRail` carousel + pure benefit helpers. B is a display/type/derivation deletion (points are never stored). C is a nav-label + route-disposition change. The leaderboard's own points and the full Weekly Challenge are **out of scope** (deferred to sub-project D).
 
 **Tech Stack:** Next.js App Router + TypeScript + Tailwind (storefront `src/`), `motion/react` (Framer Motion v12) for the carousel, Zod (only via `src/lib/data/schemas.ts`), Vitest (storefront unit), Medusa + raw SQL + Jest (backend `backend/packages/api/`).
 

@@ -2,11 +2,11 @@ import { useState } from 'react';
 import {
   Button,
   Input,
+  Label,
   Select,
   Switch,
   Table,
   Text,
-  usePrompt,
 } from '@medusajs/ui';
 import { useVipLevels, useSaveVipLevels, useDailyBoxes } from '../../lib/queries';
 import type { VipLevelDTO } from '../../lib/queries';
@@ -55,13 +55,13 @@ export const VipLevelsTab = () => {
   const { data, isError } = useVipLevels();
   const { data: boxesData } = useDailyBoxes();
   const save = useSaveVipLevels();
-  const prompt = usePrompt();
 
   const [seededFrom, setSeededFrom] = useState<{ levels: VipLevelDTO[] } | undefined>(
     undefined,
   );
   const [rows, setRows] = useState<Row[]>([]);
   const [savedSnapshot, setSavedSnapshot] = useState('');
+  const [reason, setReason] = useState('');
 
   if (data && data !== seededFrom) {
     setSeededFrom(data);
@@ -77,7 +77,8 @@ export const VipLevelsTab = () => {
   const fallbackTier = tiers[0] ?? 'a';
   const dirty = snapshotOf(rows) !== savedSnapshot;
   const errors = validateVipLevelsClient(rows);
-  const canSave = !save.isPending && dirty && errors.length === 0;
+  const reasonValid = reason.trim().length > 0;
+  const canSave = !save.isPending && dirty && errors.length === 0 && reasonValid;
 
   const setRow = (localId: string, patch: Partial<Row>) =>
     setRows((prev) =>
@@ -94,12 +95,6 @@ export const VipLevelsTab = () => {
 
   async function onSave() {
     if (!canSave) return;
-    const reason = await prompt({
-      title: 'Save VIP ladder',
-      description: 'Describe this change for the audit trail (required).',
-      confirmText: 'Save',
-    });
-    if (!reason) return;
     const levels: VipLevelDTO[] = rows.map((r, i) => ({
       level: i + 1,
       spend_threshold: Number(r.thresholdInput) || 0,
@@ -109,10 +104,11 @@ export const VipLevelsTab = () => {
       direct_referral_pct: Number(r.referralInput) || 0,
     }));
     try {
-      const res = await save.mutateAsync({ levels, reason: String(reason) });
+      const res = await save.mutateAsync({ levels, reason: reason.trim() });
       const reseeded = res.levels.map(rowFromDTO);
       setRows(reseeded);
       setSavedSnapshot(snapshotOf(reseeded));
+      setReason('');
     } catch {
       // useSaveVipLevels.onError toasts the backend message.
     }
@@ -224,14 +220,26 @@ export const VipLevelsTab = () => {
         >
           Append level
         </Button>
-        <Button variant="primary" onClick={onSave} isLoading={save.isPending} disabled={!canSave}>
-          Save ladder
-        </Button>
         {dirty && (
           <Text className="text-ui-fg-subtle" size="small">
             Unsaved changes
           </Text>
         )}
+      </div>
+
+      <div className="flex items-end gap-x-3">
+        <div className="flex-1">
+          <Label htmlFor="vip-levels-reason">Reason (audit trail)</Label>
+          <Input
+            id="vip-levels-reason"
+            placeholder="e.g. Rebalance mid-tier thresholds"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+        <Button variant="primary" onClick={onSave} isLoading={save.isPending} disabled={!canSave}>
+          Save ladder
+        </Button>
       </div>
     </div>
   );

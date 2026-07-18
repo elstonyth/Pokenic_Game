@@ -1,24 +1,14 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { AccountHeader, Panel, StatCards } from '@/components/account/ui';
+import { AccountHeader, StatCards } from '@/components/account/ui';
 import { getDaily } from '@/lib/actions/daily';
 import { getVip } from '@/lib/actions/vip';
 import { rm } from '@/lib/format';
+import DailyClient from '@/app/daily/DailyClient';
+import { VipLevelCarousel } from './VipLevelCarousel';
+import { VipBenefits } from './VipBenefits';
 import { VipVouchers } from './VipVouchers';
 
 export const metadata: Metadata = { title: 'VIP' };
-
-function rewardLabel(r: {
-  voucherAmount: number;
-  boxTier: string;
-  frameUnlock: boolean;
-}): string {
-  const parts: string[] = [];
-  if (r.voucherAmount > 0) parts.push(`${rm(r.voucherAmount)} voucher`);
-  if (r.boxTier) parts.push(`Tier ${r.boxTier.toUpperCase()} box`);
-  if (r.frameUnlock) parts.push('a new frame');
-  return parts.join(' + ') || 'rewards';
-}
 
 export default async function VipPage() {
   const [res, dailyRes] = await Promise.all([getVip(), getDaily()]);
@@ -33,13 +23,12 @@ export default async function VipPage() {
     );
   }
   const v = res.vip;
-  const pct =
-    v.next && v.next.threshold > 0
-      ? Math.min(100, Math.round((v.spend / v.next.threshold) * 100))
-      : 100;
   return (
     <>
-      <AccountHeader title="VIP" sub="Your level and progress." />
+      <AccountHeader
+        title="VIP"
+        sub="Swipe your level ladder and see every reward."
+      />
       <StatCards
         items={[
           { label: 'Level', value: `${v.level}` },
@@ -47,32 +36,24 @@ export default async function VipPage() {
           { label: 'Lifetime spend', value: rm(v.spend) },
         ]}
       />
-      {v.next ? (
-        <Panel className="mt-5">
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-white/70">
-              Level {v.level} → {v.next.level}
-            </span>
-            <span className="text-white/50">{rm(v.next.remaining)} to go</span>
-          </div>
-          <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-chase"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="mt-3 text-[13px] text-white/60">
-            Level {v.next.level} unlocks {rewardLabel(v.next.reward)}.
-          </p>
-        </Panel>
-      ) : (
-        <Panel className="mt-5">
-          <p className="text-sm text-white/60">
-            You&apos;ve reached the top VIP level. 🏆
-          </p>
-        </Panel>
+
+      <VipLevelCarousel
+        levels={v.levels}
+        highestLevel={v.highestLevelEver}
+        spend={v.spend}
+      />
+
+      <VipBenefits levels={v.levels} />
+
+      {/* Daily free box (relocated from /daily — a VIP-tier benefit). */}
+      {dailyRes.ok && (
+        <div className="mt-6">
+          <DailyClient initial={dailyRes.state} />
+        </div>
       )}
-      {dailyRes.ok ? (
+
+      {/* Level-up voucher claims. */}
+      {dailyRes.ok && (
         <VipVouchers
           initialClaimable={dailyRes.state.vouchers.claimable.filter(
             (g) => g.kind === 'voucher',
@@ -82,28 +63,7 @@ export default async function VipPage() {
           )}
           redemptionEnabled={dailyRes.state.redemptionEnabled}
         />
-      ) : (
-        <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
-          Couldn&apos;t load your vouchers right now — refresh to try again.
-        </p>
       )}
-      <p className="mt-4 text-[13px] text-white/60">
-        Your free{' '}
-        <Link
-          href="/daily"
-          className="text-white/80 underline-offset-2 hover:text-white hover:underline"
-        >
-          daily box
-        </Link>{' '}
-        upgrades with your level. Frames are equipped on{' '}
-        <Link
-          href="/me"
-          className="text-white/80 underline-offset-2 hover:text-white hover:underline"
-        >
-          your profile
-        </Link>
-        .
-      </p>
     </>
   );
 }

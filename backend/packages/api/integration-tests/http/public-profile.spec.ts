@@ -179,7 +179,6 @@ medusaIntegrationTestRunner({
         expect(p.stats).toEqual({
           pulls: 3,
           volume: Math.round((2 * MYR(RARE_FMV) + MYR(EPIC_FMV)) * 100) / 100,
-          points: 3 * PACK_PRICE * 100,
           by_rarity: {
             Immortal: 0,
             Legendary: 0,
@@ -296,7 +295,6 @@ medusaIntegrationTestRunner({
           // Per-card rounding (MYR rounds each card), summed — the old fold.
           volume:
             Math.round((3 * MYR(RARE_FMV) + MYR(EPIC_FMV)) * 100) / 100,
-          points: 4 * PACK_PRICE * 100,
           by_rarity: {
             Immortal: 0,
             Legendary: 1, // RARE_CARD pulled from pack 2

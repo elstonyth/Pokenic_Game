@@ -78,16 +78,13 @@ export async function GET(
 
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
 
-  // Stats — same definitions as the leaderboard: points = real pack_open
-  // spend from the credit ledger × 100 (spend is RM, so the ledger's sen ARE
-  // the points — exact match with the board). volume = Σ won-card MYR display
-  // value (FMV × multiplier × FX); it can drift from the board by cents
-  // (per-card rounding here vs one sum-level round there) and is computed
-  // over the newest-20k-capped pull set (pre-existing MAX_PULLS cap — the
-  // cap and the C1 source='pack' filter now live inside the SQL aggregate,
-  // see PacksModuleService.profileStatsForCustomer).
+  // Stats — same definitions as the leaderboard: volume = Σ won-card MYR
+  // display value (FMV × multiplier × FX); it can drift from the board by
+  // cents (per-card rounding here vs one sum-level round there) and is
+  // computed over the newest-20k-capped pull set (pre-existing MAX_PULLS cap
+  // — the cap and the C1 source='pack' filter now live inside the SQL
+  // aggregate, see PacksModuleService.profileStatsForCustomer).
   const stats = await packs.profileStatsForCustomer(customer.id);
-  const points = await packs.packOpenSpendCents(customer.id);
   const byRarity = Object.fromEntries(RARITIES.map((r) => [r, 0])) as Record<
     Rarity,
     number
@@ -230,7 +227,6 @@ export async function GET(
     stats: {
       pulls: stats.pulls,
       volume: Math.round(stats.volume * 100) / 100,
-      points: Math.round(points),
       by_rarity: byRarity,
     },
     collection,

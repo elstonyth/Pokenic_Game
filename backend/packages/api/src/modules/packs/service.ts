@@ -2439,27 +2439,6 @@ class PacksModuleService extends MedusaService({
     }));
   }
 
-  // Σ of a customer's pack_open debits, in sen — the same real-spend basis the
-  // leaderboard ranks on (points = spend × 100 = exactly these sen). Public
-  // profile stats read this so both surfaces always show the same number.
-  @InjectManager()
-  async packOpenSpendCents(
-    customerId: string,
-    @MedusaContext() sharedContext: Context = {},
-  ): Promise<number> {
-    const em = (sharedContext.transactionManager ??
-      sharedContext.manager) as unknown as LedgerSqlManager;
-    // NET sum: open-reversals are positive 'pack_open' mirror rows, so a
-    // reversed open cancels out. Floor at 0 defensively.
-    const rows = await em.execute<{ cents: string | null }[]>(
-      'SELECT GREATEST(COALESCE(ROUND(SUM(-amount) * 100), 0), 0)::bigint AS cents ' +
-        'FROM credit_transaction ' +
-        "WHERE customer_id = ? AND reason = 'pack_open' AND deleted_at IS NULL",
-      [customerId],
-    );
-    return Number(rows[0]?.cents ?? 0);
-  }
-
   // Public-profile stats aggregated in the DB (plan 022) — replaces the
   // route's 20k-row JS fold. Same execution shape as leaderboardTop, scoped
   // to one customer. Semantics pinned to the old in-route fold:

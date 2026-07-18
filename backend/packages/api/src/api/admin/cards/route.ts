@@ -42,6 +42,7 @@ export async function GET(
     // it's spread on top rather than baked into the shared shape.
     cards: sorted.map((c) => ({
       ...toAdminCardDto(c, fxRate),
+      id: c.id,
       stock: stockByHandle.get(c.handle) ?? null,
     })),
   });

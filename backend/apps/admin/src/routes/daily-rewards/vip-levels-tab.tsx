@@ -63,7 +63,11 @@ export const VipLevelsTab = () => {
   const [savedSnapshot, setSavedSnapshot] = useState('');
   const [reason, setReason] = useState('');
 
-  if (data && data !== seededFrom) {
+  // Seed the local buffer once per mount only. `data` gets a new object
+  // identity on every React Query refetch (e.g. refetchOnWindowFocus), so
+  // comparing `data !== seededFrom` re-seeds — and silently wipes unsaved
+  // edits — on every background refetch.
+  if (data && seededFrom === undefined) {
     setSeededFrom(data);
     const initial = data.levels.map(rowFromDTO);
     setRows(initial);

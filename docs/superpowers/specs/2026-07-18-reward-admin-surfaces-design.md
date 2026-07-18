@@ -24,7 +24,8 @@ Polycards has two independent reward systems (never conflate them):
 
 **Decided scope for this project** (brainstormed 2026-07-18):
 
-1. **VIP ladder admin** — a new dedicated `/admin/vip-levels` route with **full CRUD**
+1. **VIP ladder admin** — a new **Levels tab on the merged "VIP" admin page**
+   (backed by a new `/admin/vip-levels` API) with **full CRUD**
    (edit fields *and* add/remove rungs; the ladder becomes variable-length).
 2. **Challenge config layer** — inert config a future D reads. Three groups, all
    admin-editable, none of which move money or trigger settlement:
@@ -64,19 +65,18 @@ payout (idempotency-critical), and any storefront challenge UI.
   components; React Query hooks in `admin/src/lib/queries.ts`; REST helpers in
   `admin/src/lib/admin-rest.ts`; `LoadingSkeleton`; `toast` + `usePrompt` for
   save/confirm flows.
-- **Sidebar organization — the two systems get separate top-level homes** (decided
-  2026-07-19, operator-friendliness). `RouteConfig` supports `nested` (parent menu
-  path) and `rank` (ordering). **Neither system lives under Promotions:**
-  - **VIP system → two adjacent top-level entries:** the new **"VIP Levels"** page
-    and the existing daily-rewards page — renamed **"Daily Rewards" → "VIP Daily
-    Rewards"** and **un-nested from `/promotions`** — sit side by side via `rank`
-    (config-only changes to the existing page; route, page body and APIs
-    untouched). Custom-route nesting (one custom page under another) is unproven
-    in this SDK, so adjacency-by-rank, not nesting, groups the family.
-  - **Milestone system → its own top-level entry:** the challenge page appears as
-    a top-level sidebar item **"Weekly Challenge"**, ranked after the VIP pair,
-    keeping the community-milestone system visually separate from the per-user
-    VIP system (the two must never be conflated).
+- **Sidebar organization — exactly one top-level entry per reward system**
+  (decided 2026-07-19, operator-friendliness). **Neither lives under Promotions:**
+  - **VIP system → one page, "VIP":** the existing daily-rewards page is renamed
+    **"Daily Rewards" → "VIP"**, un-nested from `/promotions`, and gains a new
+    **Levels** tab — giving five tabs: **Levels, Boxes, Vouchers, Frames,
+    Engine**. Levels goes first (the ladder is the system's overview; the other
+    tabs configure what its rungs reference). There is **no separate
+    `/vip-levels` admin route.**
+  - **Milestone system → one page, "Weekly Challenge":** a top-level sidebar
+    item, ranked after VIP, with tabs **Milestone Stages** and **Week & Payout**.
+    Keeps the community-milestone system visually separate from the per-user VIP
+    system (the two must never be conflated).
 
 ---
 
@@ -141,8 +141,12 @@ follow-up**, not part of this project.
 
 ### 3.3 Frontend
 
-`backend/apps/admin/src/routes/vip-levels/page.tsx` — top-level sidebar entry
-"VIP Levels", ranked beside the renamed "VIP Daily Rewards" (see §2):
+The ladder editor is a new **Levels tab** on the existing daily-rewards page
+(renamed "VIP", §2) — built as its own component file
+`backend/apps/admin/src/routes/daily-rewards/vip-levels-tab.tsx` that `page.tsx`
+imports and wires as the first tab. The page file is already ~1,330 lines (over
+the repo's 800-line guideline), so the tab component owns all Levels UI and state;
+`page.tsx` grows only by the tab registration.
 
 - `@medusajs/ui` `Table` of editable rows (level, threshold RM, voucher RM, box tier
   select from live `reward_box` tiers, frame toggle, referral %).
@@ -289,10 +293,11 @@ migration — this project does not pre-build for that.
 - All of sub-project D's runtime (snapshot column, re-rank, pool, weekly buckets,
   settlement, payout, Task-hub UI).
 - Editing `vip_level.prizes` (unused JSON, null throughout the seed).
-- The daily-rewards admin page and the avatar-frames validator — unchanged except
-  the daily-rewards page's **`RouteConfig` block** (label → "VIP Daily Rewards",
-  `nested: '/promotions'` removed, `rank` added; §2 — config-only, no
-  route/page-body/API changes). Frame milestones stay fixed per
+- The daily-rewards admin page's existing four tabs (Boxes / Vouchers / Frames /
+  Engine) and the avatar-frames validator — behavior unchanged. The page only
+  gains the imported Levels tab plus its `RouteConfig` update (label → "VIP",
+  `nested: '/promotions'` removed, `rank` added; §2). Frame milestones stay
+  fixed per
   §3.2; ladder-driven frames are a documented follow-up.
 - Seed-file changes (`vip-levels.data.ts`) and the workbook pin test.
 - Optimistic-concurrency/versioning on admin writes (documented trade-off, §5).

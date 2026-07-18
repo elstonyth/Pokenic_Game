@@ -1,7 +1,7 @@
 import {
-  CalendarCheck,
   CircleUserRound,
   Home,
+  ListChecks,
   Trophy,
   Vault,
   type LucideIcon,
@@ -19,7 +19,7 @@ export type Tab = {
 
 /** The five app destinations, in the boss-specified order (Home center). */
 export const TABS: Tab[] = [
-  { label: 'Daily', href: '/daily', icon: CalendarCheck },
+  { label: 'Task', href: '/task', icon: ListChecks },
   { label: 'Ranks', href: '/leaderboard', icon: Trophy },
   { label: 'Home', href: '/', icon: Home },
   { label: 'Vault', href: '/vault', icon: Vault, gated: true },

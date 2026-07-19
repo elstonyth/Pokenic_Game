@@ -1,12 +1,22 @@
 import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
+import { Modules } from '@medusajs/framework/utils';
 import { PACKS_MODULE } from '../../src/modules/packs';
 import type PacksModuleService from '../../src/modules/packs/service';
-import { mintSuperAdmin, unwrapResponse } from './utils';
+import { seedOf } from '../../src/utils/profile-handle';
+import { clearChallengeCache } from '../../src/api/store/challenge/route';
+import { mintSuperAdmin, myrDisplay as MYR, unwrapResponse } from './utils';
 
 jest.setTimeout(240 * 1000);
 
 const PASSWORD = 'challenge-test-pw-1';
 const ADMIN_EMAIL = 'challenge-admin@test.dev';
+
+// Store-side fixtures (GET /store/challenge). No FxRate row is seeded and cards
+// keep the model-default multiplier, so MYR values follow the myrDisplay helper.
+const SC_PACK = 'sc-pack';
+const SC_X = 'sc-x'; // mv 50 USD
+const SC_Y = 'sc-y'; // mv 30 USD
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 medusaIntegrationTestRunner({
   inApp: true,
@@ -22,7 +32,12 @@ medusaIntegrationTestRunner({
 
       beforeEach(async () => {
         const container = getContainer();
-        adminToken = await mintSuperAdmin(container, api, ADMIN_EMAIL, PASSWORD);
+        adminToken = await mintSuperAdmin(
+          container,
+          api,
+          ADMIN_EMAIL,
+          PASSWORD,
+        );
         // Seed one card so the existence check has something to accept.
         const [card] = await packs().createCards([
           {
@@ -76,7 +91,9 @@ medusaIntegrationTestRunner({
         );
         expect(res.status).toBe(200);
         expect(res.data.stages).toEqual([]);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(0);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(0);
       });
 
       it('POST stages: happy path persists + writes one audit row', async () => {
@@ -85,8 +102,18 @@ medusaIntegrationTestRunner({
             '/admin/challenge/stages',
             {
               stages: [
-                { stage_number: 1, threshold_myr: 100, reward_credits: 10, reward_card_ids: [cardId] },
-                { stage_number: 2, threshold_myr: 200, reward_credits: 20, reward_card_ids: [] },
+                {
+                  stage_number: 1,
+                  threshold_myr: 100,
+                  reward_credits: 10,
+                  reward_card_ids: [cardId],
+                },
+                {
+                  stage_number: 2,
+                  threshold_myr: 200,
+                  reward_credits: 20,
+                  reward_card_ids: [],
+                },
               ],
               reason: 'configure stages',
             },
@@ -95,7 +122,9 @@ medusaIntegrationTestRunner({
         );
         expect(res.status).toBe(200);
         expect(res.data.stages).toHaveLength(2);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(2);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(2);
 
         const audits = await packs().listAdminActionAudits(
           { entity_type: 'challenge_stages', action: 'replace' },
@@ -111,7 +140,12 @@ medusaIntegrationTestRunner({
             '/admin/challenge/stages',
             {
               stages: [
-                { stage_number: 1, threshold_myr: 100, reward_credits: 10, reward_card_ids: ['card_does_not_exist'] },
+                {
+                  stage_number: 1,
+                  threshold_myr: 100,
+                  reward_credits: 10,
+                  reward_card_ids: ['card_does_not_exist'],
+                },
               ],
               reason: 'bad card',
             },
@@ -120,14 +154,31 @@ medusaIntegrationTestRunner({
         );
         expect(res.status).toBe(400);
         expect(String(res.data.message)).toMatch(/Unknown featured card id/);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(0);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(0);
       });
 
       it('POST stages: shrink → regrow succeeds (hard delete, no unique collision on stage_number)', async () => {
         const full = [
-          { stage_number: 1, threshold_myr: 100, reward_credits: 10, reward_card_ids: [] },
-          { stage_number: 2, threshold_myr: 200, reward_credits: 20, reward_card_ids: [] },
-          { stage_number: 3, threshold_myr: 300, reward_credits: 30, reward_card_ids: [] },
+          {
+            stage_number: 1,
+            threshold_myr: 100,
+            reward_credits: 10,
+            reward_card_ids: [],
+          },
+          {
+            stage_number: 2,
+            threshold_myr: 200,
+            reward_credits: 20,
+            reward_card_ids: [],
+          },
+          {
+            stage_number: 3,
+            threshold_myr: 300,
+            reward_credits: 30,
+            reward_card_ids: [],
+          },
         ];
         const first = await unwrapResponse(
           api.post(
@@ -147,7 +198,9 @@ medusaIntegrationTestRunner({
           ),
         );
         expect(shrink.status).toBe(200);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(2);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(2);
 
         // Recreate stage 3 — a soft-deleted stage_number=3 would collide here.
         const regrow = await unwrapResponse(
@@ -159,7 +212,9 @@ medusaIntegrationTestRunner({
         );
         expect(regrow.status).toBe(200);
         expect(regrow.data.stages).toHaveLength(3);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(3);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(3);
       });
 
       it('POST settings: valid patch persists + audit; GET reflects it', async () => {
@@ -167,7 +222,12 @@ medusaIntegrationTestRunner({
           api.post(
             '/admin/challenge/settings',
             {
-              patch: { reset_day: 3, reset_hour: 6, payout_credits: 500, payout_card_ids: [cardId] },
+              patch: {
+                reset_day: 3,
+                reset_hour: 6,
+                payout_credits: 500,
+                payout_card_ids: [cardId],
+              },
               reason: 'set payout',
             },
             { headers: adminHeaders() },
@@ -204,6 +264,168 @@ medusaIntegrationTestRunner({
         );
         expect(res.status).toBe(400);
         expect(String(res.data.message)).toMatch(/valid IANA time zone/);
+      });
+    });
+
+    // GET /store/challenge — the public read. Pins the community-pool +
+    // Weekly-Pull-Value contract (challengeWeekPool / challengeWeekTop):
+    //  - pool = Σ(card FMV × multiplier × FX) across THIS challenge week's PACK
+    //    pulls; reward draws and pulls before the week anchor are excluded.
+    //    With no settings row the anchor defaults to Monday 00:00 MYT, so an
+    //    8-day-old pull is excluded on every run day.
+    //  - top[] is the same pulled-value ranking, PII-safe.
+    //  - stages map 1:1 and referenced card ids resolve to {name, image}.
+    describe('/store/challenge', () => {
+      let storeHeaders: Record<string, string>;
+      let cxId: string;
+      let cyId: string;
+      const packs = () =>
+        getContainer().resolve<PacksModuleService>(PACKS_MODULE);
+
+      beforeEach(async () => {
+        // Per-process cache outlives each test's fixtures — clear it so a prior
+        // test's challenge is never served against this test's data.
+        clearChallengeCache();
+
+        const apiKeyModule = getContainer().resolve(Modules.API_KEY);
+        const key = await apiKeyModule.createApiKeys({
+          title: 'store-challenge-test',
+          type: 'publishable',
+          created_by: 'store-challenge-test',
+        });
+        storeHeaders = { 'x-publishable-api-key': key.token };
+
+        await packs().createPacks([
+          {
+            slug: SC_PACK,
+            title: 'SC Pack',
+            category: 'pokemon',
+            price: 20,
+            image: '/x.webp',
+          },
+        ]);
+        await packs().createCards([
+          {
+            handle: SC_X,
+            name: 'X',
+            set: 'S',
+            grader: 'PSA',
+            grade: '10',
+            market_value: 50,
+            image: '/x.webp',
+          },
+          {
+            handle: SC_Y,
+            name: 'Y',
+            set: 'S',
+            grader: 'PSA',
+            grade: '10',
+            market_value: 30,
+            image: '/x.webp',
+          },
+        ]);
+        const cards = await packs().listCards(
+          { handle: [SC_X, SC_Y] },
+          { select: ['id', 'handle'], take: 2 },
+        );
+        cxId = cards.find((c) => c.handle === SC_X)!.id;
+        cyId = cards.find((c) => c.handle === SC_Y)!.id;
+
+        const now = new Date();
+        const old = new Date(Date.now() - 8 * DAY_MS); // before any week anchor
+        const pull = (
+          customer_id: string,
+          card_id: string,
+          rolled_at: Date,
+          n: number,
+          source: 'pack' | 'reward' = 'pack',
+        ) =>
+          Array.from({ length: n }, () => ({
+            customer_id,
+            pack_id: SC_PACK,
+            card_id,
+            rolled_at,
+            source,
+          }));
+        await packs().createPulls([
+          ...pull('cus_sc_1', SC_X, now, 3), // 150 USD (recent)
+          ...pull('cus_sc_2', SC_Y, now, 1), // 30 USD (recent)
+          ...pull('cus_sc_1', SC_X, now, 1, 'reward'), // EXCLUDED (reward)
+          ...pull('cus_sc_3', SC_X, old, 5), // EXCLUDED (pre-anchor)
+        ]);
+
+        await packs().saveChallengeStages({
+          stages: [
+            {
+              stage_number: 1,
+              threshold_myr: 100,
+              reward_credits: 1000,
+              reward_card_ids: [cxId],
+            },
+            {
+              stage_number: 2,
+              threshold_myr: 500,
+              reward_credits: 5000,
+              reward_card_ids: [cxId, cyId],
+            },
+          ],
+          adminId: 'store-challenge-test',
+          reason: 'test seed',
+        });
+      });
+
+      const getStore = () =>
+        unwrapResponse(
+          api.get('/store/challenge', { headers: storeHeaders }),
+        ).then((r) => r.data);
+
+      it("pools ONLY this week's pack pulls (reward + pre-anchor excluded)", async () => {
+        const body = await getStore();
+        expect(body.active).toBe(true);
+        // 3×50 + 1×30 = 180 USD → MYR. Reward draw and 8-day-old pulls add 0.
+        expect(body.progress.pooledMyr).toBe(MYR(180));
+      });
+
+      it('ranks top pullers by pulled value, PII-safe', async () => {
+        const body = await getStore();
+        expect(body.top.map((t: { seed: number }) => t.seed)).toEqual([
+          seedOf('cus_sc_1'),
+          seedOf('cus_sc_2'),
+        ]);
+        expect(body.top[0]).toMatchObject({
+          rank: 1,
+          volumeMyr: MYR(150),
+          pulls: 3, // the reward draw is not counted
+          name: expect.stringMatching(/^Collector /), // no real customer → anon
+        });
+        expect(body.top[1]).toMatchObject({ rank: 2, volumeMyr: MYR(30) });
+        expect(JSON.stringify(body.top)).not.toContain('cus_sc_1'); // no raw id
+      });
+
+      it('maps stages and resolves referenced card art', async () => {
+        const body = await getStore();
+        expect(body.stages).toHaveLength(2);
+        expect(body.stages[0]).toMatchObject({
+          stageNumber: 1,
+          thresholdMyr: 100,
+          rewardCredits: 1000,
+          rewardCardIds: [cxId],
+        });
+        expect(body.stages[1].rewardCardIds).toEqual([cxId, cyId]);
+        expect(body.cards[cxId]).toEqual({ name: 'X', image: '/x.webp' });
+        expect(body.cards[cyId]).toEqual({ name: 'Y', image: '/x.webp' });
+      });
+
+      it('reports inactive with no stages', async () => {
+        await packs().saveChallengeStages({
+          stages: [],
+          adminId: 'store-challenge-test',
+          reason: 'clear',
+        });
+        clearChallengeCache();
+        const body = await getStore();
+        expect(body.active).toBe(false);
+        expect(body.stages).toHaveLength(0);
       });
     });
   },

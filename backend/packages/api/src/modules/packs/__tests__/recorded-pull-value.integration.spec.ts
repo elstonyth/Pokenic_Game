@@ -155,7 +155,7 @@ moduleIntegrationTestRunner<PacksModuleService>({
         // The pool is a global aggregate, but the equality below is still
         // order-independent: the price mutation touches ONLY this test's card,
         // and every other test's pulls reference their own cards.
-        const { pooledMyr: poolBefore } = await service.challengeWeekPool(WEEK);
+        const poolBefore = await service.challengeWeekPool(WEEK);
 
         // Mid-week price sync: FMV 20 → 999.
         await service.updateCards([{ id: card.id, market_value: 999 }]);
@@ -163,7 +163,7 @@ moduleIntegrationTestRunner<PacksModuleService>({
 
         expect(await volumeFor(ids.customer)).toBe(myr(24));
         expect(await weekTopFor(ids.customer)).toBe(myr(24));
-        const { pooledMyr: poolAfter } = await service.challengeWeekPool(WEEK);
+        const poolAfter = await service.challengeWeekPool(WEEK);
         expect(poolAfter).toBe(poolBefore);
 
         // Snapshot outlives the card row: soft-deleting the card drops it from
@@ -172,9 +172,7 @@ moduleIntegrationTestRunner<PacksModuleService>({
         await service.softDeleteCards([card.id]);
         expect(await volumeFor(ids.customer)).toBe(myr(24));
         expect(await weekTopFor(ids.customer)).toBe(myr(24));
-        expect((await service.challengeWeekPool(WEEK)).pooledMyr).toBe(
-          poolBefore,
-        );
+        expect(await service.challengeWeekPool(WEEK)).toBe(poolBefore);
       });
 
       it('a null recorded_value_usd (pre-backfill row) degrades to live pricing', async () => {

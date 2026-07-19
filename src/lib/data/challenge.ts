@@ -22,6 +22,12 @@ export interface ChallengeCard {
   name: string;
   image: string;
 }
+/** A stage's featured card WITH its podium rank. `rank` is the 1-based position
+ *  in reward_card_ids (1=#1st … 3=#3rd), carried explicitly so an unresolvable
+ *  id drops its own tile without shifting a lower card under the wrong numeral. */
+export interface ChallengeRankCard extends ChallengeCard {
+  rank: number;
+}
 export type ChallengeStageState = 'complete' | 'active' | 'locked';
 export interface ChallengeStage {
   stageNumber: number;
@@ -31,8 +37,8 @@ export interface ChallengeStage {
   thresholdCompact: string;
   /** Formatted MYR credit reward for ranks 4-10, e.g. "RM 1,000". */
   reward: string;
-  /** Featured cards for ranks 1-3. */
-  cards: ChallengeCard[];
+  /** Featured cards for ranks 1-3, each tagged with its podium rank. */
+  rankCards: ChallengeRankCard[];
   /** Derived from the real pool; null when the backend sent no progress. */
   state: ChallengeStageState | null;
   /** Marker position along the pool bar (threshold / top threshold, 0-100). */
@@ -117,10 +123,20 @@ export async function getChallenge(): Promise<Challenge | null> {
     const data = parseOne(ChallengeSchema, raw);
     if (!data || !data.active || data.stages.length === 0) return null;
 
-    const cardsFor = (ids: string[]): ChallengeCard[] =>
+    // Flat resolver: drop ids the backend couldn't resolve (deleted card).
+    // Used for the summary, where order/rank don't matter.
+    const resolveCards = (ids: string[]): ChallengeCard[] =>
       ids.flatMap((id) => {
         const c = data.cards[id];
         return c ? [{ name: c.name, image: c.image }] : [];
+      });
+    // Rank-preserving resolver for a stage's podium (top 3). Each surviving
+    // card keeps its ORIGINAL 1-based position as `rank`, so dropping the #1
+    // id leaves #2/#3 under their correct numerals instead of shifting up.
+    const rankCardsFor = (ids: string[]): ChallengeRankCard[] =>
+      ids.slice(0, 3).flatMap((id, i) => {
+        const c = data.cards[id];
+        return c ? [{ rank: i + 1, name: c.name, image: c.image }] : [];
       });
 
     const ordered = data.stages
@@ -165,7 +181,13 @@ export async function getChallenge(): Promise<Challenge | null> {
           ? null
           : {
               unlockedCount: unlocked.length,
-              cards: unlocked.flatMap((s) => cardsFor(s.rewardCardIds)),
+              // Dedupe by card IDENTITY (id), not image: the same card featured
+              // in two unlocked stages shows one thumb, while two distinct cards
+              // that happen to share fallback art are NOT collapsed. Dedupe the
+              // ids first, then resolve.
+              cards: resolveCards([
+                ...new Set(unlocked.flatMap((s) => s.rewardCardIds)),
+              ]),
               credits: rm0(
                 unlocked.reduce((sum, s) => sum + s.rewardCredits, 0),
               ),
@@ -175,7 +197,7 @@ export async function getChallenge(): Promise<Challenge | null> {
         threshold: rm0(s.thresholdMyr),
         thresholdCompact: `RM ${compact(s.thresholdMyr)}`,
         reward: rm0(s.rewardCredits),
-        cards: cardsFor(s.rewardCardIds),
+        rankCards: rankCardsFor(s.rewardCardIds),
         pct: top > 0 ? Math.min(100, (s.thresholdMyr / top) * 100) : 0,
         progressPct:
           pooled === null

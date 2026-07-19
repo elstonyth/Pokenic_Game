@@ -8,9 +8,15 @@ const BASE = process.argv[2] ?? 'http://127.0.0.1:4000';
 const OUT = process.argv[3] ?? 'docs/research/task-challenge';
 mkdirSync(OUT, { recursive: true });
 
+// Mobile-first sweep: the small-phone floor (SE), the Android/iPhone middle,
+// the Pro Max ceiling, tablet, and desktop.
 const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900 },
+  { name: 'se-320', width: 320, height: 568 },
+  { name: 'android-360', width: 360, height: 800 },
   { name: 'mobile', width: 390, height: 844 },
+  { name: 'promax-430', width: 430, height: 932 },
+  { name: 'tablet-768', width: 768, height: 1024 },
 ];
 
 const browser = await chromium.launch();
@@ -37,6 +43,15 @@ for (const vp of VIEWPORTS) {
     await page.goto(BASE + route.path, {
       waitUntil: 'networkidle',
       timeout: 30000,
+    });
+    // Scroll-prime loading=lazy images (fullPage alone never enters their
+    // viewport, so below-fold art captures as empty gaps).
+    await page.evaluate(async () => {
+      for (let y = 0; y < document.body.scrollHeight; y += 400) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      window.scrollTo(0, 0);
     });
     await page.waitForTimeout(1200);
     const file = path.join(OUT, `${route.name}-${vp.name}.png`);

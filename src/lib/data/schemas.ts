@@ -133,10 +133,7 @@ export const ChallengeSchema = z.looseObject({
    *  deploy skew — an older backend without it renders the page without the
    *  pool panel. `.catch(undefined)` so a MALFORMED progress also degrades to
    *  absent instead of dropping the whole challenge. */
-  progress: z
-    .looseObject({ pooledMyr: finite, weekStartIso: z.string() })
-    .optional()
-    .catch(undefined),
+  progress: z.looseObject({ pooledMyr: finite }).optional().catch(undefined),
   settings: z.looseObject({
     timezone: z.string(),
     resetDay: finite,

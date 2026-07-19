@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Check, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ChallengeStage } from '@/lib/data/challenge';
+import type { ChallengeStage, ChallengeStageState } from '@/lib/data/challenge';
 import { GalleryRail } from '@/app/slots/[slug]/GalleryRail';
 
 // Medal-gradient rank numerals (#1ST gold / #2ND silver / #3RD bronze) — the
@@ -45,6 +45,16 @@ function RankNumeral({ rank }: { rank: (typeof RANKS)[number] }) {
   );
 }
 
+// Card surface (border + tint) per stage state. `null` (backend sent no
+// progress) falls to the muted locked surface. Icon/badge rendering below stays
+// inline — each state renders a structurally different element, so a map there
+// would obscure more than it collapses.
+const STAGE_SURFACE: Record<ChallengeStageState, string> = {
+  active: 'border-chase/60 bg-chase/[0.06]',
+  complete: 'border-white/15 bg-white/[0.04]',
+  locked: 'border-white/5 bg-white/[0.02]',
+};
+
 function StageCard({
   stage,
   pooled,
@@ -56,12 +66,10 @@ function StageCard({
   return (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-[300px] flex-col rounded-2xl border p-5',
-        stage.state === 'active'
-          ? 'border-chase/60 bg-chase/[0.06]'
-          : stage.state === 'complete'
-            ? 'border-white/15 bg-white/[0.04]'
-            : 'border-white/5 bg-white/[0.02]',
+        // Width comes from the rail item (--slab-w on the wrapper below) so
+        // the prize grid scales with the phone instead of clamping at 300px.
+        'mx-auto flex w-full flex-col rounded-2xl border p-4 sm:p-5',
+        STAGE_SURFACE[stage.state ?? 'locked'],
       )}
     >
       <div className="flex items-center justify-between">
@@ -93,16 +101,17 @@ function StageCard({
       </p>
 
       {/* Prize grid (reference design): each podium rank gets ITS card —
-          reward_card_ids order is the ranking — plus the 4th-10th credits
-          tile. Plain <img> (admin picker pattern) so backend-hosted art needs
-          no Next remote-image config. */}
+          reward_card_ids order is the ranking, carried as `rank` so a dropped
+          card never shifts a lower one under the wrong numeral — plus the
+          4th-10th credits tile. Plain <img> (admin picker pattern) so
+          backend-hosted art needs no Next remote-image config. */}
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {stage.cards.slice(0, 3).map((c, i) => (
+        {stage.rankCards.map((c) => (
           <div
-            key={`${c.name}-${i}`}
+            key={c.rank}
             className="flex flex-col rounded-xl border border-white/5 bg-white/[0.04] p-2.5"
           >
-            <RankNumeral rank={RANKS[i]!} />
+            <RankNumeral rank={RANKS[c.rank - 1]!} />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={c.image}
@@ -111,7 +120,7 @@ function StageCard({
               decoding="async"
               className="mx-auto mt-2 h-20 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
             />
-            <p className="mt-2 line-clamp-2 text-[9px] leading-tight font-semibold tracking-wide text-neutral-300 uppercase">
+            <p className="mt-2 line-clamp-2 text-[10px] leading-tight font-semibold tracking-wide text-neutral-300 uppercase">
               {c.name}
             </p>
           </div>
@@ -128,9 +137,9 @@ function StageCard({
             decoding="async"
             className="mx-auto mt-2 h-20 object-contain"
           />
-          <p className="mt-2 text-[9px] leading-tight font-semibold tracking-wide text-neutral-300 uppercase">
+          <p className="mt-2 text-[10px] leading-tight font-semibold tracking-wide text-neutral-300 uppercase">
             Credits{' '}
-            <span className="text-chase block text-[11px]">{stage.reward}</span>
+            <span className="text-chase block text-xs">{stage.reward}</span>
           </p>
         </div>
       </div>
@@ -171,7 +180,52 @@ export function StageCarousel({
   if (stages.length === 0) return null;
 
   return (
-    <div className="mt-2">
+    // GalleryRail sizes items from --slab-w (default min(64vw,300px), tuned
+    // for a single slab image). The 2×2 prize grid needs more room on phones —
+    // 82vw keeps a neighbor-peek sliver while the tiles stay comfortable from
+    // 320px (SE) up; 360px caps desktop. VIP/reveal rails are untouched.
+    <div className="mt-2 [--slab-w:min(82vw,360px)]">
+      {/* Stage pills (the VIP-reference tab row): the always-visible map of
+          every stage + its state. On phones the dimmed neighbor peek reads as
+          background and the chevrons are sm+-only, so without this row nothing
+          says other stages exist. Tap = jump; stays in sync with swipes. */}
+      <div
+        role="group"
+        aria-label="Challenge stages"
+        className="mb-3 flex flex-wrap items-center justify-center gap-2"
+      >
+        {stages.map((s, i) => (
+          <button
+            key={s.stageNumber}
+            type="button"
+            aria-pressed={i === index}
+            aria-label={`Stage ${s.stageNumber}${
+              s.state === 'complete'
+                ? ' (unlocked)'
+                : s.state === 'locked'
+                  ? ' (locked)'
+                  : ''
+            }`}
+            onClick={() => setIndex(i)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-colors',
+              i === index
+                ? 'bg-chase text-neutral-950'
+                : s.state === 'complete'
+                  ? 'text-chase bg-neutral-800 hover:bg-neutral-700'
+                  : 'bg-neutral-900 text-white/40 hover:text-white/70',
+            )}
+          >
+            {s.state === 'complete' && i !== index && (
+              <Check className="h-3 w-3" aria-hidden />
+            )}
+            {s.state === 'locked' && i !== index && (
+              <Lock className="h-3 w-3" aria-hidden />
+            )}
+            Stage {s.stageNumber}
+          </button>
+        ))}
+      </div>
       <GalleryRail
         count={stages.length}
         activeIndex={index}

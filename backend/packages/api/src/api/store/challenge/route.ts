@@ -2,7 +2,7 @@ import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
 import { Modules } from '@medusajs/framework/utils';
 import PacksModuleService from '../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../modules/packs';
-import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
+import { publicProfileFields, seedOf } from '../../../utils/profile-handle';
 
 // GET /store/challenge — public read of the Weekly Pulled Value Challenge.
 // Plain publishable-key store route, read-only, mirrors GET /store/leaderboard.
@@ -18,16 +18,17 @@ import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
 // anonymous "Collector ####", plus the stable avatar seed; never email/id).
 const TOP_N = 10;
 
-// ponytail: per-process 30s cache — this public route runs two ledger/pull
-// aggregates (challengeWeekPool + challengeWeekTop) plus card/customer lookups
-// on every hit, so cache the assembled body exactly like GET /store/leaderboard
-// does. ONE global slot (the route takes no params). Worst case a milestone/
-// ranking is 30s stale. Single-instance; upgrade to Redis if we ever run >1.
+// ponytail: per-process 30s cache — this route runs TWO whole-`pull`-table
+// aggregates (community pool + top-N pull value) whose cost grows with pull
+// history, on a public unauthenticated route. Same TTL as the sibling
+// leaderboard board (so /task and the weekly board converge within one
+// window); upgrade to Redis if we ever run >1 instance. No query params → one
+// entry.
 const CACHE_TTL_MS = 30_000;
 let challengeCache: { expires: number; body: unknown } | null = null;
 
-/** Test seam: module state outlives a test's fixtures (one jest process = one
- *  module instance), so a stale cached body would leak across tests. */
+/** Test seam: module state outlives a test's fixtures — the http suite runs in
+ *  one process, so test A's cached challenge would be served to test B. */
 export function clearChallengeCache(): void {
   challengeCache = null;
 }
@@ -36,9 +37,8 @@ export async function GET(
   req: MedusaRequest,
   res: MedusaResponse,
 ): Promise<void> {
-  const cached = challengeCache;
-  if (cached && cached.expires > Date.now()) {
-    res.json(cached.body);
+  if (challengeCache && challengeCache.expires > Date.now()) {
+    res.json(challengeCache.body);
     return;
   }
 
@@ -96,39 +96,30 @@ export async function GET(
     }
   }
 
-  // PII-safe display names for the ranked customers (leaderboard rules).
+  // PII-safe display fields for the ranked customers (shared with the store
+  // leaderboard — never leaks email/id).
   const ids = ranked.map((r) => r.customer_id);
   const customers = ids.length
     ? await customerService.listCustomers({ id: ids }, { take: ids.length })
     : [];
   const byId = new Map(customers.map((c) => [c.id, c]));
   const top = ranked.map((r, i) => {
-    const c = byId.get(r.customer_id);
-    const first = (c?.first_name || '').trim();
     const seed = seedOf(r.customer_id);
-    const meta = (c?.metadata ?? {}) as Record<string, unknown>;
-    const handle = meta['handle'];
+    const p = publicProfileFields(byId.get(r.customer_id), seed);
     return {
       rank: i + 1,
-      name: first.length > 0 ? first : `Collector ${String(seed).slice(0, 4)}`,
-      handle:
-        typeof handle === 'string' && HANDLE_RE.test(handle) ? handle : null,
+      name: p.name,
+      handle: p.handle,
       volumeMyr: r.volumeMyr,
       pulls: r.pulls,
       seed,
-      avatar_url:
-        typeof meta['avatar_url'] === 'string'
-          ? (meta['avatar_url'] as string)
-          : null,
+      avatar_url: p.avatarUrl,
     };
   });
 
   const body = {
     active: stages.length > 0,
-    progress: {
-      pooledMyr: pool.pooledMyr,
-      weekStartIso: pool.weekStartIso,
-    },
+    progress: { pooledMyr: pool },
     settings: {
       timezone: settings.timezone,
       resetDay: settings.reset_day,

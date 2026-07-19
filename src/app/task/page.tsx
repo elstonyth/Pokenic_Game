@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { Trophy, Coins } from 'lucide-react';
 import { pillVariants } from '@/components/ui/pill';
 import { cn } from '@/lib/utils';
-import { getChallenge, type ChallengeCard } from '@/lib/data/challenge';
+import { getChallenge } from '@/lib/data/challenge';
 import { StageCarousel } from './StageCarousel';
 
 // Live challenge config + real community pool + Weekly Pull Value standings,
@@ -24,36 +24,6 @@ const RULES = [
   'Rewards are cumulative — a higher stage includes every reward from the stages before it.',
   'At the end of the week, the top 10 on the Weekly Pull Value board receive all rewards unlocked that week.',
 ];
-
-// Featured-card thumbnails — a plain <img> (the admin picker's pattern) so we
-// don't need Next remote-image config for backend-hosted card art.
-function CardThumbs({
-  cards,
-  size = 'sm',
-}: {
-  cards: ChallengeCard[];
-  size?: 'sm' | 'lg';
-}) {
-  if (cards.length === 0) return null;
-  return (
-    <div className="flex shrink-0 -space-x-3">
-      {cards.map((c, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={`${c.name}-${i}`}
-          src={c.image}
-          alt={c.name}
-          loading="lazy"
-          decoding="async"
-          className={cn(
-            'shrink-0 rounded-md object-contain ring-2 ring-neutral-900',
-            size === 'lg' ? 'h-20 w-14' : 'h-14 w-10',
-          )}
-        />
-      ))}
-    </div>
-  );
-}
 
 export default async function TaskPage() {
   const challenge = await getChallenge();
@@ -122,7 +92,7 @@ export default async function TaskPage() {
           </div>
 
           {/* The standard's "RM X / RM Y ── NN%" readout. */}
-          <p className="font-heading mt-4 text-center text-xl text-white sm:text-2xl">
+          <p className="font-heading mt-4 text-center text-lg text-white sm:text-2xl">
             <span className="text-chase [text-shadow:0_0_10px_rgb(255_176_32_/_0.3)]">
               {pool.pooled}
             </span>
@@ -219,33 +189,56 @@ export default async function TaskPage() {
           ) : (
             <>
               <p className="mt-1 text-sm text-neutral-400">
-                {summary.unlockedCount} of {challenge.stages.length} stages
-                unlocked so far — rewards stack, nothing is replaced.
+                {`${summary.unlockedCount} of ${challenge.stages.length} stages unlocked. Rewards stack — reaching a stage unlocks its rewards on top of every stage before it, so the week's top 10 claim them all together, nothing replaced.`}
               </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-xl border border-white/5 bg-neutral-900 p-4">
+              {/* Full-width stacked tiles: the deduped card row gets room to
+                  breathe (gap, no overlap) instead of a cramped half column. */}
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-white/5 bg-neutral-900 p-5">
                   <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-neutral-300 uppercase">
                     <Trophy className="text-chase h-4 w-4" aria-hidden />
                     Top 3 will receive
                   </p>
-                  <div className="mt-3 flex items-center gap-3">
-                    <CardThumbs cards={summary.cards} size="lg" />
-                    <p className="text-sm text-neutral-400">
-                      Every featured card from stages 1–{summary.unlockedCount}
-                    </p>
+                  <div className="mt-4 flex flex-wrap items-end justify-center gap-4 sm:justify-start">
+                    {summary.cards.map((c, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`${c.name}-${i}`}
+                        src={c.image}
+                        alt={c.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-32 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)]"
+                      />
+                    ))}
                   </div>
+                  <p className="mt-3 text-sm text-neutral-400">
+                    Every featured card from stages 1–{summary.unlockedCount}
+                  </p>
                 </div>
-                <div className="rounded-xl border border-white/5 bg-neutral-900 p-4">
+                <div className="rounded-xl border border-white/5 bg-neutral-900 p-5">
                   <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-neutral-300 uppercase">
                     <Coins className="text-chase h-4 w-4" aria-hidden />
                     Top 4–10 will receive
                   </p>
-                  <p className="font-heading text-chase mt-3 text-3xl">
-                    {summary.credits}
-                  </p>
-                  <p className="text-sm text-neutral-400">
-                    Combined credits from stages 1–{summary.unlockedCount}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-heading text-chase text-3xl">
+                        {summary.credits}
+                      </p>
+                      <p className="text-sm text-neutral-400">
+                        Combined credits from stages 1–{summary.unlockedCount}
+                      </p>
+                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/images/task/credits-coins.webp"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="h-24 shrink-0 object-contain"
+                    />
+                  </div>
                 </div>
               </div>
             </>

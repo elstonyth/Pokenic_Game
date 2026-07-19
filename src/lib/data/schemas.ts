@@ -92,6 +92,53 @@ export const LeaderboardEntrySchema = z.looseObject({
   equipped_frame_level: finite.nullable().optional(),
 });
 
+// --- data/challenge.ts ------------------------------------------------------
+
+/** GET /store/challenge — the Weekly Challenge structure. `active:false` (or any
+ *  parse failure) makes the seam return null → the /task page shows its "launching
+ *  soon" empty state. `cards` maps referenced card ids to a display thumbnail. */
+export const ChallengeSchema = z.looseObject({
+  active: z.boolean(),
+  /** Real community pulled-value this week (ledger aggregate). Optional for
+   *  deploy skew — an older backend without it renders the page without the
+   *  pool panel rather than dropping the whole challenge. */
+  progress: z
+    .looseObject({ pooledMyr: finite, weekStartIso: z.string() })
+    .optional(),
+  settings: z.looseObject({
+    timezone: z.string(),
+    resetDay: finite,
+    resetHour: finite,
+  }),
+  stages: z.array(
+    z.looseObject({
+      stageNumber: finite,
+      thresholdMyr: finite,
+      rewardCredits: finite,
+      rewardCardIds: z.array(z.string()),
+    }),
+  ),
+  cards: z.record(
+    z.string(),
+    z.looseObject({ name: z.string(), image: z.string() }),
+  ),
+  /** Weekly Pull Value top-10 (pulled-value ranked, PII-safe names). Optional
+   *  for deploy skew — absent hides the standings section. */
+  top: z
+    .array(
+      z.looseObject({
+        rank: finite,
+        name: z.string(),
+        handle: z.string().nullable().optional(),
+        volumeMyr: finite,
+        pulls: finite,
+        seed: finite,
+        avatar_url: z.string().nullable().optional(),
+      }),
+    )
+    .optional(),
+});
+
 // --- data/profiles.ts -------------------------------------------------------
 
 /** GET /store/profiles/:handle — handle string + a stats object present. */

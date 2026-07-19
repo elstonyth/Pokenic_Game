@@ -68,8 +68,9 @@ export default function LeaderboardClient({
 
       {/* How the board works — honest, no payout promise. */}
       <p className="mt-3 text-[12px] text-neutral-400">
-        Points come from every ringgit you spend on packs. The weekly board
-        covers the last 7 days.
+        {period === 'This Week'
+          ? 'This week ranks by pulled value — every eligible pack draw counts. It is the Weekly Challenge board.'
+          : 'All Time ranks by points — every ringgit you spend on packs.'}
       </p>
 
       {/* Standings */}
@@ -129,11 +130,14 @@ export default function LeaderboardClient({
                       </span>
                     )}
                     <p className="truncate text-[12px] text-neutral-400">
-                      {entry.volume} · {entry.pulls} pulls
+                      {period === 'This Week'
+                        ? `${entry.pulls} pulls`
+                        : `${entry.volume} · ${entry.pulls} pulls`}
                     </p>
                   </div>
+                  {/* Big figure = the ranking metric for the active tab. */}
                   <span className="font-heading shrink-0 text-base tabular-nums text-white">
-                    {entry.points}
+                    {period === 'This Week' ? entry.volume : entry.points}
                   </span>
                 </li>
               );
@@ -157,10 +161,10 @@ export default function LeaderboardClient({
               </div>
               <div className="text-right">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                  Points
+                  {period === 'This Week' ? 'Pulled' : 'Points'}
                 </p>
                 <p className="font-heading text-chase text-2xl tabular-nums">
-                  {own.points}
+                  {period === 'This Week' ? own.volume : own.points}
                 </p>
               </div>
             </div>

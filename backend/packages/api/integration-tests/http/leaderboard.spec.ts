@@ -9,12 +9,17 @@ import { myrDisplay as MYR, unwrapResponse } from './utils';
 jest.setTimeout(240 * 1000);
 
 // The leaderboard is aggregated in the DB (GROUP BY + ORDER BY + LIMIT). These
-// pin the REAL-TRANSACTION contract: ranking comes from the credit ledger's
-// pack_open debits (points = spend × 100) — NOT from re-joining pulls to the
-// pack's CURRENT price — and `volume` (winnings) is the won cards' MYR display
-// value (market_value × multiplier × FX), matching every other money surface.
-// Also pinned: points-desc ordering with a deterministic tie-break, top-N
-// truncation, and the weekly window on both aggregates.
+// pin the two ranking contracts (Weekly Pulled Value Challenge standard,
+// 2026-07-19):
+//  - weekly  = the Weekly Pull Value board: ranked by pulled value (won cards'
+//    MYR display value: market_value × multiplier × FX) over the CHALLENGE-
+//    ANCHORED week (latest reset from challenge_settings; defaults Monday
+//    00:00 Asia/Kuala_Lumpur). `points` mirrors `volume` on this period (the
+//    wire shape requires a finite points field).
+//  - alltime = REAL spend from the credit ledger's pack_open debits
+//    (points = spend × 100) — NOT re-joined to the pack's CURRENT price.
+// Also pinned: the weekly board ignores spend-side changes entirely, while
+// all-time still nets pack_open reversals.
 
 const PACK_A = 'lb-a'; // price 10
 const PACK_B = 'lb-b'; // price 20
@@ -138,12 +143,14 @@ medusaIntegrationTestRunner({
           }),
         ).then((r) => r.data.entries as Array<Record<string, number>>);
 
-      it('ranks the weekly window by ledger spend with a deterministic tie-break', async () => {
+      it('ranks the weekly window by pulled value (points mirrors volume)', async () => {
         const entries = await board(); // default = weekly
-        expect(entries).toHaveLength(3); // C4's old spend is excluded
+        // C4's 8-day-old pulls predate ANY challenge-anchored week start (the
+        // anchor is at most 7 days back), so they are excluded on every run day.
+        expect(entries).toHaveLength(3);
 
-        // C3 (6000) > C1 (2000, 2 pulls) > C2 (2000, 1 pull) — the equal-points
-        // pair is broken by pulls DESC.
+        // Pulled value: C3 (3×50 USD) > C1 (2×50) > C2 (1×30) — spend never
+        // enters this ranking (C1 outspends C2 but that is irrelevant here).
         expect(entries.map((e) => e.seed)).toEqual([
           seedOf('cus_lb_3'),
           seedOf('cus_lb_1'),
@@ -151,19 +158,19 @@ medusaIntegrationTestRunner({
         ]);
         expect(entries[0]).toMatchObject({
           rank: 1,
-          points: 6000,
+          points: MYR(150),
           volume: MYR(150),
           pulls: 3,
         });
         expect(entries[1]).toMatchObject({
           rank: 2,
-          points: 2000,
+          points: MYR(100),
           volume: MYR(100),
           pulls: 2,
         });
         expect(entries[2]).toMatchObject({
           rank: 3,
-          points: 2000,
+          points: MYR(30),
           volume: MYR(30),
           pulls: 1,
         });
@@ -181,12 +188,11 @@ medusaIntegrationTestRunner({
         });
       });
 
-      it('repricing a pack after the fact does NOT rewrite the ranking', async () => {
+      it('weekly ignores spend-side changes; all-time still nets reversals', async () => {
         const container = getContainer();
         const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
-        // The old metric joined pulls to the CURRENT pack price — repricing
-        // pack A to 1000 would have catapulted C1 to #1. Ledger spend is
-        // immutable history, so the board must not move.
+        // Repricing a pack never feeds pulled value (that is the CARDS' FMV),
+        // so the weekly board must not move.
         const [packA] = await packs.listPacks({ slug: PACK_A }, { take: 1 });
         await packs.updatePacks([{ id: packA.id, price: 1000 }]);
 
@@ -196,24 +202,27 @@ medusaIntegrationTestRunner({
           seedOf('cus_lb_1'),
           seedOf('cus_lb_2'),
         ]);
-        expect(entries[1]).toMatchObject({ points: 2000 });
 
-        // A reversed open nets out too: the reversal is a POSITIVE mirror row
-        // with the same 'pack_open' reason, so C1 drops 2000 → 1000 and falls
-        // below C2's intact 2000.
+        // A pack_open reversal (positive mirror row) changes SPEND only. The
+        // weekly Pull Value board must not move — but all-time (spend-ranked)
+        // still nets it: C1's points drop 2000 → 1000.
         await packs.createCreditTransactions([
           { customer_id: 'cus_lb_1', amount: 10, reason: 'pack_open' },
         ] as Parameters<typeof packs.createCreditTransactions>[0]);
-        // The board is deliberately ≤30s stale (per-process cache) — this
-        // test pins the ranking METRIC, so read past the cache.
+        // The board is deliberately ≤30s stale (per-process cache) — these
+        // tests pin the ranking METRIC, so read past the cache.
         clearLeaderboardCache();
-        const afterReversal = await board();
-        expect(afterReversal.map((e) => e.seed)).toEqual([
+        const weeklyAfter = await board();
+        expect(weeklyAfter.map((e) => e.seed)).toEqual([
           seedOf('cus_lb_3'),
-          seedOf('cus_lb_2'),
           seedOf('cus_lb_1'),
+          seedOf('cus_lb_2'),
         ]);
-        expect(afterReversal[2]).toMatchObject({ points: 1000 });
+        expect(weeklyAfter[1]).toMatchObject({ volume: MYR(100) });
+
+        const alltimeAfter = await board('alltime');
+        const c1 = alltimeAfter.find((e) => e.seed === seedOf('cus_lb_1'));
+        expect(c1).toMatchObject({ points: 1000 });
       });
     });
   },

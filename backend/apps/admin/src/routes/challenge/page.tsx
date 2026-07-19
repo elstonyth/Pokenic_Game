@@ -267,7 +267,6 @@ const PayoutTab = () => {
   const save = useSaveChallengeSettings();
   const [seededFrom, setSeededFrom] = useState<ChallengeSettingsDTO | undefined>();
   const [form, setForm] = useState<ChallengeSettingsDTO | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [reason, setReason] = useState('');
 
   // Seed once per mount only — see StagesTab above for why comparing
@@ -287,8 +286,6 @@ const PayoutTab = () => {
     errors.push('Reset day must be an integer between 0 and 6.');
   if (!Number.isInteger(form.reset_hour) || form.reset_hour < 0 || form.reset_hour > 23)
     errors.push('Reset hour must be an integer between 0 and 23.');
-  if (!(form.payout_credits >= 0))
-    errors.push('Payout credits must be ≥ 0.');
   const reasonValid = reason.trim().length > 0;
   const canSave = !save.isPending && dirty && errors.length === 0 && reasonValid;
   const set = (patch: Partial<ChallengeSettingsDTO>) => setForm((f) => (f ? { ...f, ...patch } : f));
@@ -315,8 +312,9 @@ const PayoutTab = () => {
   return (
     <div className="flex max-w-[520px] flex-col gap-y-4 px-6 py-4">
       <Text className="text-ui-fg-subtle" size="small">
-        Fixed-weekly cadence anchored at a timezone + reset day/hour, plus the
-        flat top-10 payout (inert config).
+        Fixed-weekly cadence anchored at a timezone + reset day/hour. The
+        weekly prize pool is the CUMULATIVE unlocked stage rewards (Milestone
+        Stages tab) — the old flat top-10 payout is retired.
       </Text>
       {errors.length > 0 && (
         <div className="rounded-lg border border-ui-border-error p-3">
@@ -346,22 +344,6 @@ const PayoutTab = () => {
         <Text size="small" weight="plus">Reset hour (0–23)</Text>
         <Input type="number" min={0} max={23} value={String(form.reset_hour)} onChange={(e) => set({ reset_hour: Number(e.target.value) })} />
       </div>
-      <div>
-        <Text size="small" weight="plus">Top-10 payout credits (RM)</Text>
-        <Input type="number" min={0} value={String(form.payout_credits)} onChange={(e) => set({ payout_credits: Number(e.target.value) })} />
-      </div>
-      <div>
-        <Text size="small" weight="plus">Top-10 featured cards</Text>
-        <div className="flex items-center gap-x-2">
-          <Text size="small">{form.payout_card_ids.length} card(s)</Text>
-          <Button size="small" variant="secondary" onClick={() => setPickerOpen(true)}>Add</Button>
-          {form.payout_card_ids.length > 0 && (
-            <Button size="small" variant="transparent" onClick={() => set({ payout_card_ids: form.payout_card_ids.slice(0, -1) })}>
-              Remove last
-            </Button>
-          )}
-        </div>
-      </div>
       <div className="flex items-end gap-x-3">
         <div className="flex-1">
           <Label htmlFor="payout-reason">Reason (audit trail)</Label>
@@ -372,9 +354,8 @@ const PayoutTab = () => {
             onChange={(e) => setReason(e.target.value)}
           />
         </div>
-        <Button variant="primary" onClick={onSave} isLoading={save.isPending} disabled={!canSave}>Save week & payout</Button>
+        <Button variant="primary" onClick={onSave} isLoading={save.isPending} disabled={!canSave}>Save week & reset</Button>
       </div>
-      <CardPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={(id) => set({ payout_card_ids: [...form.payout_card_ids, id] })} />
     </div>
   );
 };
@@ -388,13 +369,14 @@ const ChallengePage = () => {
           <div>
             <Heading level="h2">Weekly Challenge</Heading>
             <Text className="text-ui-fg-subtle mt-1" size="small">
-              Milestone stages and the weekly reset + top-10 payout. Inert config
-              a future settlement engine will read.
+              Cumulative milestone stages (the top-10 prize pool: cards → ranks
+              1-3, credits → ranks 4-10) and the weekly reset. Inert config a
+              future settlement engine will read.
             </Text>
           </div>
           <Tabs.List>
             <Tabs.Trigger value="stages">Milestone Stages</Tabs.Trigger>
-            <Tabs.Trigger value="payout">Week & Payout</Tabs.Trigger>
+            <Tabs.Trigger value="payout">Week & Reset</Tabs.Trigger>
           </Tabs.List>
         </div>
         <Tabs.Content value="stages"><StagesTab /></Tabs.Content>

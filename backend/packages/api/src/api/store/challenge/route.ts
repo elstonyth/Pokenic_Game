@@ -18,10 +18,30 @@ import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
 // anonymous "Collector ####", plus the stable avatar seed; never email/id).
 const TOP_N = 10;
 
+// ponytail: per-process 30s cache — this public route runs two ledger/pull
+// aggregates (challengeWeekPool + challengeWeekTop) plus card/customer lookups
+// on every hit, so cache the assembled body exactly like GET /store/leaderboard
+// does. ONE global slot (the route takes no params). Worst case a milestone/
+// ranking is 30s stale. Single-instance; upgrade to Redis if we ever run >1.
+const CACHE_TTL_MS = 30_000;
+let challengeCache: { expires: number; body: unknown } | null = null;
+
+/** Test seam: module state outlives a test's fixtures (one jest process = one
+ *  module instance), so a stale cached body would leak across tests. */
+export function clearChallengeCache(): void {
+  challengeCache = null;
+}
+
 export async function GET(
   req: MedusaRequest,
   res: MedusaResponse,
 ): Promise<void> {
+  const cached = challengeCache;
+  if (cached && cached.expires > Date.now()) {
+    res.json(cached.body);
+    return;
+  }
+
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerService = req.scope.resolve(Modules.CUSTOMER);
 
@@ -103,7 +123,7 @@ export async function GET(
     };
   });
 
-  res.json({
+  const body = {
     active: stages.length > 0,
     progress: {
       pooledMyr: pool.pooledMyr,
@@ -117,5 +137,7 @@ export async function GET(
     stages,
     cards,
     top,
-  });
+  };
+  challengeCache = { expires: Date.now() + CACHE_TTL_MS, body };
+  res.json(body);
 }

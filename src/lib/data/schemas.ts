@@ -279,6 +279,20 @@ export const VipSchema = z.looseObject({
       }),
     })
     .nullable(),
+  levels: z
+    .array(
+      z.looseObject({
+        level: finite,
+        threshold: finite,
+        reward: z.looseObject({
+          voucher_amount: finite,
+          box_tier: z.string(),
+          frame_unlock: z.boolean(),
+          direct_referral_pct: finite,
+        }),
+      }),
+    )
+    .default([]),
 });
 
 // --- actions/referral.ts ----------------------------------------------------

@@ -14,6 +14,11 @@ import { logger } from '@/lib/logger';
 import { getAuthToken } from '@/lib/data/customer';
 import { friendlyError, isAuthError, type ErrorRule } from '@/lib/errors';
 import { parseOne, VipSchema } from '@/lib/data/schemas';
+// mapVipLevels is a sync helper, so it lives in ./vip-map.ts rather than here
+// — a 'use server' file may only export async functions as values (same
+// reason pack-batch-map.ts / vault-map.ts exist). Re-export the type only.
+import { mapVipLevels, type VipLevel } from './vip-map';
+export type { VipLevel } from './vip-map';
 
 export type VipReward = {
   voucherAmount: number;
@@ -33,6 +38,7 @@ export type Vip = {
   highestLevelEver: number;
   spend: number;
   next: VipNext | null;
+  levels: VipLevel[];
 };
 
 export type VipResult =
@@ -92,6 +98,7 @@ export async function getVip(): Promise<VipResult> {
               },
             }
           : null,
+        levels: mapVipLevels(v.levels),
       },
     };
   } catch (error) {

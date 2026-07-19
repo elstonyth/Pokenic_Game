@@ -15,7 +15,7 @@ import { FramedAvatar } from '@/components/FramedAvatar';
 import { AnimatedFrame } from '@/components/AnimatedFrame';
 import { FRAME_LEVELS } from '@/lib/frame-levels';
 import { uploadAvatar, setAvatarFrame } from '@/lib/actions/profile-appearance';
-import { compact, num } from '@/lib/format';
+import { num } from '@/lib/format';
 
 /**
  * Me-page appearance pieces, split from the old AppearanceCard so the header
@@ -69,7 +69,6 @@ export function MeHeader({
   displayName,
   handle,
   pulls,
-  points,
   avatarUrl,
   frames,
 }: {
@@ -77,7 +76,6 @@ export function MeHeader({
   handle: string | null;
   /** null = profile read unavailable — the stats row is hidden. */
   pulls: number | null;
-  points: number | null;
   avatarUrl: string | null;
   frames: Record<string, string>;
 }) {
@@ -155,14 +153,10 @@ export function MeHeader({
           <h1 className="font-heading truncate text-2xl text-white">
             {displayName}
           </h1>
-          {pulls !== null && points !== null && (
+          {pulls !== null && (
             <p className="mt-1 text-[13px] text-neutral-400">
               <span className="font-semibold text-white">{num(pulls)}</span>{' '}
-              Pulls{' '}
-              <span className="ml-2 font-semibold text-white">
-                {compact(points)}
-              </span>{' '}
-              Points
+              Pulls
             </p>
           )}
           {handle && (

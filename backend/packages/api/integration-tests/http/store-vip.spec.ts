@@ -7,11 +7,31 @@
 //              next.reward has box_tier
 import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
 import { Modules } from '@medusajs/framework/utils';
+import { PACKS_MODULE } from '../../src/modules/packs';
+import type PacksModuleService from '../../src/modules/packs/service';
+import { VIP_LEVELS } from '../../src/scripts/vip-levels.data';
 import { unwrapResponse } from './utils';
 
 jest.setTimeout(120 * 1000);
 
 const PASSWORD = 'store-vip-test-pw-1';
+
+async function seedLadder(packs: PacksModuleService) {
+  const existing = await packs.listVipLevels({}, { take: 1 });
+  if (existing.length === 0) {
+    await packs.createVipLevels(
+      VIP_LEVELS.map((r) => ({
+        level: r.level,
+        spend_threshold: r.spend_threshold,
+        voucher_amount: r.voucher_amount,
+        box_tier: r.box_tier,
+        frame_unlock: r.frame_unlock,
+        direct_referral_pct: r.direct_referral_pct,
+        prizes: r.prizes ?? null,
+      })),
+    );
+  }
+}
 
 medusaIntegrationTestRunner({
   inApp: true,
@@ -83,6 +103,31 @@ medusaIntegrationTestRunner({
           );
           expect(res.data.next.reward).toHaveProperty('box_tier');
         }
+      });
+
+      it('returns the full 100-level ladder with reward columns', async () => {
+        await seedLadder(
+          getContainer().resolve<PacksModuleService>(PACKS_MODULE),
+        );
+        const res = await unwrapResponse(
+          api.get('/store/vip', { headers: authed(customerToken) }),
+        );
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.data.levels)).toBe(true);
+        expect(res.data.levels).toHaveLength(100);
+        const l2 = res.data.levels.find((l: any) => l.level === 2);
+        expect(l2).toMatchObject({
+          level: 2,
+          reward: {
+            voucher_amount: expect.any(Number),
+            box_tier: expect.any(String),
+            frame_unlock: expect.any(Boolean),
+            direct_referral_pct: expect.any(Number),
+          },
+        });
+        // strictly increasing thresholds
+        const thresholds = res.data.levels.map((l: any) => l.threshold);
+        expect([...thresholds].sort((a, b) => a - b)).toEqual(thresholds);
       });
     });
   },

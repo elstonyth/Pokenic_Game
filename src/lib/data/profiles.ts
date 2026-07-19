@@ -55,7 +55,6 @@ export interface PublicProfile {
   stats: {
     pulls: number;
     volume: number;
-    points: number;
     by_rarity: Record<ProfileRarity, number>;
   };
   collection?: PublicProfileCard[]; // showcased-only; optional: absent = empty (pre-migration compat)

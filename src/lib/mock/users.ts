@@ -6,7 +6,6 @@ export type MockUser = {
   username: string;
   pfp: string;
   rank: number;
-  points: number;
   pulls: number;
   volume: number; // USD traded
   joined: string;
@@ -46,7 +45,6 @@ export const MOCK_USERS: MockUser[] = USERNAMES.map((username, i) => ({
   username,
   pfp: PFP(i * 4 + 2),
   rank: i + 1,
-  points: Math.round(900_000_000 / (i + 1.4)),
   pulls: 1800 - i * 73,
   volume: Math.round(9_000_000 / (i + 1.2)),
   joined: `${2021 + (i % 4)}`,
@@ -69,7 +67,6 @@ export function userOrGeneric(username: string): MockUser {
     username,
     pfp: `/images/pfps/pfp-${(h % 81) + 1}.webp`,
     rank: 100 + (h % 900),
-    points: 1_000_000 + (h % 40_000_000),
     pulls: 50 + (h % 900),
     volume: 5_000 + (h % 200_000),
     joined: `${2022 + (h % 3)}`,

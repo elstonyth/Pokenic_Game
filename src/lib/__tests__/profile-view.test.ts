@@ -88,3 +88,41 @@ describe('toProfileView — never falls back to raw USD market_value', () => {
     expect(view.collection[0]?.price).toBe(9.99);
   });
 });
+
+// Tier-frame contract: rarity drives the slab's tier frame, and a wrong-tier
+// frame is worse than none — so an old backend that omits collection[].rarity
+// (or a new one that nulls it on an odds-row miss) must map to null, never a
+// guessed tier. SlabImage skips the frame for a falsy rarity.
+describe('toProfileView — collection rarity degrades to null', () => {
+  const base = {
+    name: 'Ash',
+    seed: 1,
+    joined_at: '2026-01-01T00:00:00Z',
+    stats: { pulls: 1, volume: 0 },
+    recent: [],
+  };
+  const card = {
+    handle: 'c1',
+    name: 'Card',
+    grader: 'PSA',
+    grade: '10',
+    image: '/x.webp',
+    market_value: 1,
+  };
+
+  it('maps an omitted rarity (old backend) to null', () => {
+    const view = toProfileView({
+      ...base,
+      collection: [card],
+    } as unknown as PublicProfile);
+    expect(view.collection[0]?.rarity).toBeNull();
+  });
+
+  it('passes a present rarity through', () => {
+    const view = toProfileView({
+      ...base,
+      collection: [{ ...card, rarity: 'Legendary' }],
+    } as unknown as PublicProfile);
+    expect(view.collection[0]?.rarity).toBe('Legendary');
+  });
+});

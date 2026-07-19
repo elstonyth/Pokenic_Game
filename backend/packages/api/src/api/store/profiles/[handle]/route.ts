@@ -134,22 +134,73 @@ export async function GET(
   }
   const recentTop = recentKept.slice(0, RECENT_N);
 
-  // Per-pack rarity for the recent rows only (collection items carry no
-  // rarity): rarity belongs to the (pack, card) odds row.
-  const recentPackIds = [...new Set(recentTop.map((k) => k.pull.pack_id))];
-  const recentCardIds = [...new Set(recentTop.map((k) => k.pull.card_id))];
-  const odds =
-    recentPackIds.length && recentCardIds.length
-      ? await packs.listPackOdds(
-          { pack_id: recentPackIds, card_id: recentCardIds },
-          { take: recentPackIds.length * recentCardIds.length },
-        )
-      : [];
-  // Reward rows (card_id null) carry no card rarity — exclude before the lookup.
-  const cardOdds = odds.filter(
-    (o): o is typeof o & { card_id: string } => o.card_id != null,
+  // Collection: only pulls the customer has opted to showcase (showcased=true,
+  // still vaulted). Now its own filtered, bounded query (opt-in rows only)
+  // instead of a JS filter over the 20k list. The activity feed (recent)
+  // stays ungated as decided at spec time.
+  const showcasePulls = await packs.listPulls(
+    {
+      customer_id: customer.id,
+      source: 'pack',
+      showcased: true,
+      status: 'vaulted',
+    },
+    { take: SHOWCASE_MAX, order: { rolled_at: 'DESC' } },
   );
+
+  // Per-pack rarity for BOTH the recent rows and the showcased ones (the
+  // storefront draws the tier frame around showcased slabs too): rarity
+  // belongs to the (pack, card) odds row, not the card.
+  //
+  // One query PER PACK with only that pack's card ids. A single
+  // {pack_id: [...], card_id: [...]} filter is a cross-product — it also
+  // matches pairs this customer never pulled, so with a large showcase it can
+  // exceed any `take` and get truncated. A truncated fetch is worse than a
+  // slow one: makeRarityOf falls back to 'Common' on a miss, which would paint
+  // a Legendary slab with a grey Common frame.
+  const rarityPulls = [...recentTop.map((k) => k.pull), ...showcasePulls];
+  const cardsByPack = new Map<string, Set<string>>();
+  for (const p of rarityPulls) {
+    // Reward rows (card_id null) carry no card rarity.
+    if (!p.card_id) continue;
+    const cards = cardsByPack.get(p.pack_id) ?? new Set<string>();
+    cards.add(p.card_id);
+    cardsByPack.set(p.pack_id, cards);
+  }
+  // Chunked fan-out: one query per distinct pack, at most ODDS_CONCURRENCY in
+  // flight — a showcase spanning many packs must not burst the pg pool on a
+  // cache-miss load (this repo has been pool-full-bitten before).
+  const ODDS_CONCURRENCY = 5;
+  const packEntries = [...cardsByPack];
+  const oddsPerPack: Awaited<ReturnType<typeof packs.listPackOdds>>[] = [];
+  for (let i = 0; i < packEntries.length; i += ODDS_CONCURRENCY) {
+    oddsPerPack.push(
+      ...(await Promise.all(
+        packEntries.slice(i, i + ODDS_CONCURRENCY).map(([packId, cardIds]) =>
+          packs.listPackOdds(
+            { pack_id: packId, card_id: [...cardIds] },
+            // NOT take: cardIds.size — nothing enforces (pack, card) uniqueness
+            // on pack_odds, so an exact-size take would silently drop a row if
+            // a duplicate ever existed. The filter is narrow; bound loosely.
+            { take: 10_000 },
+          ),
+        ),
+      )),
+    );
+  }
+  const cardOdds = oddsPerPack
+    .flat()
+    .filter((o): o is typeof o & { card_id: string } => o.card_id != null);
   const rarityOf = makeRarityOf(cardOdds) as (p: string, c: string) => Rarity;
+  // Collection items skip the frame on a genuine odds-row miss (an admin
+  // removed/re-keyed the odds row after pulls existed): the storefront renders
+  // no tier frame for null, whereas rarityOf's 'Common' fallback would paint a
+  // WRONG-tier frame — worse than none. `recent` keeps the Common fallback
+  // (pre-existing convention, pinned by the stats-parity spec).
+  const rarityOrNull = (packId: string, cardId: string): Rarity | null =>
+    cardOdds.some((o) => o.pack_id === packId && o.card_id === cardId)
+      ? rarityOf(packId, cardId)
+      : null;
 
   const recent = recentTop.map(({ pull: p, card }) => ({
     pack_id: p.pack_id,
@@ -168,19 +219,6 @@ export async function GET(
     },
   }));
 
-  // Collection: only pulls the customer has opted to showcase (showcased=true,
-  // still vaulted). Now its own filtered, bounded query (opt-in rows only)
-  // instead of a JS filter over the 20k list. The activity feed (recent)
-  // stays ungated as decided at spec time.
-  const showcasePulls = await packs.listPulls(
-    {
-      customer_id: customer.id,
-      source: 'pack',
-      showcased: true,
-      status: 'vaulted',
-    },
-    { take: SHOWCASE_MAX, order: { rolled_at: 'DESC' } },
-  );
   const showcaseHandles = [...new Set(showcasePulls.map((p) => p.card_id))];
   const showcaseCards = showcaseHandles.length
     ? await packs.listCards(
@@ -203,6 +241,7 @@ export async function GET(
         marketPriceMyr: cardMyr(card),
         image: card.image,
         slab_image: card.slab_image ?? null,
+        rarity: rarityOrNull(p.pack_id, p.card_id),
       },
     ];
   });

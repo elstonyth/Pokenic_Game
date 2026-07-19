@@ -36,6 +36,10 @@ export interface PublicProfileCard {
   marketPriceMyr?: number;
   image: string;
   slab_image?: string | null;
+  /** Gacha tier of the (pack, card) pull — drives the slab's tier frame.
+   *  Optional: older backends omit it on collection items; null: the odds row
+   *  is gone (admin re-keyed it). Both render frameless — never a guessed tier. */
+  rarity?: ProfileRarity | null;
 }
 
 export interface PublicProfilePull {

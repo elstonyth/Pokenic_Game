@@ -1,0 +1,121 @@
+import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
+import { Modules } from '@medusajs/framework/utils';
+import PacksModuleService from '../../../modules/packs/service';
+import { PACKS_MODULE } from '../../../modules/packs';
+import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
+
+// GET /store/challenge — public read of the Weekly Pulled Value Challenge.
+// Plain publishable-key store route, read-only, mirrors GET /store/leaderboard.
+//
+// Standard ("Weekly Pulled Value Challenge"): every eligible pack draw feeds
+// BOTH the community pool and the personal Weekly Pull Value ranking; community
+// milestones unlock CUMULATIVE reward stages (top 3 → featured cards, ranks
+// 4-10 → credits); the week's top-10 receive everything unlocked. There is NO
+// separate flat payout — stages ARE the prize pool (the old settings payout
+// fields are retired and not exposed here).
+//
+// 🔒 PII: public — names follow the leaderboard rules (first_name or an
+// anonymous "Collector ####", plus the stable avatar seed; never email/id).
+const TOP_N = 10;
+
+export async function GET(
+  req: MedusaRequest,
+  res: MedusaResponse,
+): Promise<void> {
+  const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
+  const customerService = req.scope.resolve(Modules.CUSTOMER);
+
+  const settings = await packs.challengeSettings();
+  const week = {
+    timezone: settings.timezone,
+    resetDay: settings.reset_day,
+    resetHour: settings.reset_hour,
+  };
+  const [pool, ranked, stageRows] = await Promise.all([
+    // Real community pulled-value this week (ledger aggregate) — the anchor
+    // comes from the same settings row the reset line renders.
+    packs.challengeWeekPool(week),
+    // Weekly Pull Value ranking (pulled value, NOT spend) — the challenge's
+    // own top-10, distinct from the spend-ranked main leaderboard.
+    packs.challengeWeekTop({ ...week, limit: TOP_N }),
+    packs.listChallengeStages(
+      {},
+      {
+        select: [
+          'stage_number',
+          'threshold_myr',
+          'reward_credits',
+          'reward_card_ids',
+        ],
+        take: 1000,
+      },
+    ),
+  ]);
+
+  const stages = stageRows
+    .map((r) => ({
+      stageNumber: r.stage_number,
+      thresholdMyr: Number(r.threshold_myr),
+      rewardCredits: Number(r.reward_credits),
+      rewardCardIds: (r.reward_card_ids as unknown as string[]) ?? [],
+    }))
+    .sort((a, b) => a.stageNumber - b.stageNumber);
+
+  // Resolve every referenced card id to a thumbnail in ONE query so the
+  // storefront renders featured-card art without a round-trip per id.
+  // image = slab_image ?? image (graded composite preferred).
+  const cardIds = [...new Set(stages.flatMap((s) => s.rewardCardIds))];
+  const cards: Record<string, { name: string; image: string }> = {};
+  if (cardIds.length > 0) {
+    const rows = await packs.listCards(
+      { id: cardIds },
+      { select: ['id', 'name', 'image', 'slab_image'], take: cardIds.length },
+    );
+    for (const c of rows) {
+      cards[c.id] = { name: c.name, image: c.slab_image ?? c.image };
+    }
+  }
+
+  // PII-safe display names for the ranked customers (leaderboard rules).
+  const ids = ranked.map((r) => r.customer_id);
+  const customers = ids.length
+    ? await customerService.listCustomers({ id: ids }, { take: ids.length })
+    : [];
+  const byId = new Map(customers.map((c) => [c.id, c]));
+  const top = ranked.map((r, i) => {
+    const c = byId.get(r.customer_id);
+    const first = (c?.first_name || '').trim();
+    const seed = seedOf(r.customer_id);
+    const meta = (c?.metadata ?? {}) as Record<string, unknown>;
+    const handle = meta['handle'];
+    return {
+      rank: i + 1,
+      name: first.length > 0 ? first : `Collector ${String(seed).slice(0, 4)}`,
+      handle:
+        typeof handle === 'string' && HANDLE_RE.test(handle) ? handle : null,
+      volumeMyr: r.volumeMyr,
+      pulls: r.pulls,
+      seed,
+      avatar_url:
+        typeof meta['avatar_url'] === 'string'
+          ? (meta['avatar_url'] as string)
+          : null,
+    };
+  });
+
+  res.json({
+    active: stages.length > 0,
+    progress: {
+      pooledMyr: pool.pooledMyr,
+      weekStartIso: pool.weekStartIso,
+    },
+    settings: {
+      timezone: settings.timezone,
+      resetDay: settings.reset_day,
+      resetHour: settings.reset_hour,
+    },
+    stages,
+    cards,
+    top,
+  });
+}

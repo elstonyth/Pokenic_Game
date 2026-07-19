@@ -499,3 +499,68 @@
     opacity: 0;
   }
 }
+
+/* Weekly Challenge community-pool panel (task/page.tsx) — adapted from the
+   MIT-licensed uiverse.io "strong-parrot-96" progress panel (fthisilak),
+   recolored from its green to the chase gold and squared with the glass
+   system. Three pieces: pulsing LIVE dot, glowing bar fill, particle drift. */
+@keyframes challenge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+}
+@keyframes challenge-glow {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgb(255 176 32 / 0.3);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 30px rgb(255 176 32 / 0.5);
+  }
+}
+@keyframes challenge-particles {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+@layer utilities {
+  .challenge-dot {
+    animation: challenge-pulse 2s ease-in-out infinite;
+  }
+  .challenge-fill {
+    background: linear-gradient(
+      90deg,
+      rgb(255 176 32 / 0.85),
+      rgb(255 176 32 / 0.35)
+    );
+    animation: challenge-glow 2s infinite;
+  }
+  .challenge-particles {
+    background-image: radial-gradient(
+      circle at center,
+      rgb(255 255 255 / 0.2) 1px,
+      transparent 1px
+    );
+    background-size: 8px 8px;
+    animation: challenge-particles 20s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .challenge-dot,
+    .challenge-fill,
+    .challenge-particles {
+      animation: none;
+    }
+  }
+}

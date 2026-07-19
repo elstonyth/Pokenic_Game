@@ -2,9 +2,10 @@
  * Leaderboard data seam.
  *
  * Reads the live leaderboard from the custom Medusa route
- * `GET /store/leaderboard?period=` (ranked by REAL pack-open spend from the
- * credit ledger; winnings shown in RM), and maps it to the presentational
- * shape the standings render. Returns [] when the backend is unreachable or
+ * `GET /store/leaderboard?period=` — weekly ranks by pulled value over the
+ * challenge-anchored week (the Weekly Pull Value board /task settles on);
+ * alltime ranks by REAL pack-open spend ("points") — and maps it to the
+ * presentational shape the standings render. Returns [] when the backend is unreachable or
  * the board is empty — the page shows an honest empty state instead of fake
  * rows (the old mock board actively misled operators).
  *

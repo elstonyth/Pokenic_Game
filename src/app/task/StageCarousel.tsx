@@ -95,16 +95,17 @@ function StageCard({
       </p>
 
       {/* Prize grid (reference design): each podium rank gets ITS card —
-          reward_card_ids order is the ranking — plus the 4th-10th credits
-          tile. Plain <img> (admin picker pattern) so backend-hosted art needs
-          no Next remote-image config. */}
+          reward_card_ids order is the ranking, carried as `rank` so a dropped
+          card never shifts a lower one under the wrong numeral — plus the
+          4th-10th credits tile. Plain <img> (admin picker pattern) so
+          backend-hosted art needs no Next remote-image config. */}
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {stage.cards.slice(0, 3).map((c, i) => (
+        {stage.rankCards.map((c) => (
           <div
-            key={`${c.name}-${i}`}
+            key={c.rank}
             className="flex flex-col rounded-xl border border-white/5 bg-white/[0.04] p-2.5"
           >
-            <RankNumeral rank={RANKS[i]!} />
+            <RankNumeral rank={RANKS[c.rank - 1]!} />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={c.image}

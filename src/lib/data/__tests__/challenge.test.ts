@@ -62,7 +62,13 @@ describe('getChallenge', () => {
         rewardCardIds: [],
       },
     ],
-    cards: { c1: { name: 'Charizard', image: 'http://x/charizard.webp' } },
+    cards: {
+      c1: { name: 'Charizard', image: 'http://x/charizard.webp' },
+      c2: { name: 'Pikachu', image: 'http://x/pikachu.webp' },
+      c3: { name: 'Mewtwo', image: 'http://x/mewtwo.webp' },
+      // Distinct id, SAME image as c1 — the summary must NOT collapse these.
+      dup: { name: 'Alt Charizard', image: 'http://x/charizard.webp' },
+    },
     top: [
       {
         rank: 1,
@@ -95,7 +101,9 @@ describe('getChallenge', () => {
       thresholdCompact: 'RM 500',
       reward: 'RM 50',
     });
-    expect(c!.stages[0]!.cards).toHaveLength(1);
+    expect(c!.stages[0]!.rankCards).toEqual([
+      { rank: 1, name: 'Charizard', image: 'http://x/charizard.webp' },
+    ]);
   });
 
   it('derives pool stats and stage states from the real pool', async () => {
@@ -183,17 +191,39 @@ describe('getChallenge', () => {
     expect(await getChallenge()).toBeNull();
   });
 
-  it('drops a stage card id with no resolved thumbnail', async () => {
+  it('preserves podium rank when a higher-rank card is unresolvable', async () => {
+    // #1 id is missing → #2/#3 must keep ranks 2/3, NOT shift up to 1/2.
     fetchMock.mockResolvedValueOnce({
       ...active,
       stages: [
-        { ...active.stages[0], rewardCardIds: ['c1', 'missing'] },
+        { ...active.stages[0], rewardCardIds: ['missing', 'c2', 'c3'] },
         ...active.stages.slice(1),
       ],
     });
     const c = await getChallenge();
-    expect(c!.stages[0]!.cards).toEqual([
+    expect(c!.stages[0]!.rankCards).toEqual([
+      { rank: 2, name: 'Pikachu', image: 'http://x/pikachu.webp' },
+      { rank: 3, name: 'Mewtwo', image: 'http://x/mewtwo.webp' },
+    ]);
+  });
+
+  it('dedupes the summary by card id, not image', async () => {
+    // Stage 1 features c1 and `dup` (distinct ids, identical image). Both are
+    // real prizes, so the summary shows TWO cards — an image-keyed dedupe would
+    // wrongly collapse them to one.
+    fetchMock.mockResolvedValueOnce({
+      ...active,
+      progress: { pooledMyr: 5000, weekStartIso: '2026-07-12T16:00:00Z' },
+      stages: [
+        { ...active.stages[0], rewardCardIds: ['c1', 'dup', 'c1'] },
+        ...active.stages.slice(1),
+      ],
+    });
+    const c = await getChallenge();
+    // c1 (repeated) collapses to one; dup survives as its own card.
+    expect(c!.summary!.cards).toEqual([
       { name: 'Charizard', image: 'http://x/charizard.webp' },
+      { name: 'Alt Charizard', image: 'http://x/charizard.webp' },
     ]);
   });
 });

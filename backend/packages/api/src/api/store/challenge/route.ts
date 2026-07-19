@@ -18,10 +18,30 @@ import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
 // anonymous "Collector ####", plus the stable avatar seed; never email/id).
 const TOP_N = 10;
 
+// ponytail: per-process 30s cache — this route runs TWO whole-`pull`-table
+// aggregates (community pool + top-N pull value) whose cost grows with pull
+// history, on a public unauthenticated route. Same TTL as the sibling
+// leaderboard board (so /task and the weekly board converge within one
+// window); upgrade to Redis if we ever run >1 instance. No query params → one
+// entry.
+const CACHE_TTL_MS = 30_000;
+let challengeCache: { expires: number; body: unknown } | null = null;
+
+/** Test seam: module state outlives a test's fixtures — the http suite runs in
+ *  one process, so test A's cached challenge would be served to test B. */
+export function clearChallengeCache(): void {
+  challengeCache = null;
+}
+
 export async function GET(
   req: MedusaRequest,
   res: MedusaResponse,
 ): Promise<void> {
+  if (challengeCache && challengeCache.expires > Date.now()) {
+    res.json(challengeCache.body);
+    return;
+  }
+
   const packs: PacksModuleService = req.scope.resolve(PACKS_MODULE);
   const customerService = req.scope.resolve(Modules.CUSTOMER);
 
@@ -103,7 +123,7 @@ export async function GET(
     };
   });
 
-  res.json({
+  const body = {
     active: stages.length > 0,
     progress: {
       pooledMyr: pool.pooledMyr,
@@ -117,5 +137,7 @@ export async function GET(
     stages,
     cards,
     top,
-  });
+  };
+  challengeCache = { expires: Date.now() + CACHE_TTL_MS, body };
+  res.json(body);
 }

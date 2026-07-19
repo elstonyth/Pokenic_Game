@@ -523,6 +523,52 @@ medusaIntegrationTestRunner({
           rarity: "Immortal",
         });
       });
+
+      // A showcased pull whose odds row is GONE (admin removed/re-keyed it
+      // after the pull existed) must render frameless (rarity null) — the
+      // 'Common' fallback would draw a wrong-tier frame, worse than none.
+      it("collection rarity is null when the (pack, card) odds row is missing", async () => {
+        const container = getContainer();
+        const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
+        const customerModule = container.resolve(Modules.CUSTOMER);
+
+        const ORPHAN_PACK = "pp-orphan-pack";
+        await packs.createPacks([
+          {
+            slug: ORPHAN_PACK,
+            title: "PP Orphan Pack",
+            category: "pokemon",
+            price: PACK_PRICE,
+            image: "/cdn/orphan-pack.webp",
+            buyback_percent: 90,
+          },
+        ]);
+        // Deliberately NO createPackOdds for (ORPHAN_PACK, EPIC_CARD).
+
+        const collector = await customerModule.createCustomers({
+          email: "pp-orphan@test.dev",
+          first_name: "Orphan",
+          metadata: { handle: "orphan-test" },
+        });
+        await packs.createPulls([
+          {
+            customer_id: collector.id,
+            pack_id: ORPHAN_PACK,
+            card_id: EPIC_CARD,
+            rolled_at: new Date("2026-06-06T10:00:00Z"),
+            status: "vaulted" as const,
+            showcased: true,
+          },
+        ]);
+
+        const res = await getProfile("orphan-test");
+        expect(res.status).toBe(200);
+        expect(res.data.collection).toHaveLength(1);
+        expect(res.data.collection[0]).toMatchObject({
+          handle: EPIC_CARD,
+          rarity: null,
+        });
+      });
     });
   },
 });

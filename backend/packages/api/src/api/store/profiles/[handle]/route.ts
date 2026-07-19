@@ -171,7 +171,10 @@ export async function GET(
     [...cardsByPack].map(([packId, cardIds]) =>
       packs.listPackOdds(
         { pack_id: packId, card_id: [...cardIds] },
-        { take: cardIds.size },
+        // NOT take: cardIds.size — nothing enforces (pack, card) uniqueness on
+        // pack_odds, so an exact-size take would silently drop a row if a
+        // duplicate ever existed. The filter is already narrow; bound loosely.
+        { take: 10_000 },
       ),
     ),
   );
@@ -179,6 +182,15 @@ export async function GET(
     .flat()
     .filter((o): o is typeof o & { card_id: string } => o.card_id != null);
   const rarityOf = makeRarityOf(cardOdds) as (p: string, c: string) => Rarity;
+  // Collection items skip the frame on a genuine odds-row miss (an admin
+  // removed/re-keyed the odds row after pulls existed): the storefront renders
+  // no tier frame for null, whereas rarityOf's 'Common' fallback would paint a
+  // WRONG-tier frame — worse than none. `recent` keeps the Common fallback
+  // (pre-existing convention, pinned by the stats-parity spec).
+  const rarityOrNull = (packId: string, cardId: string): Rarity | null =>
+    cardOdds.some((o) => o.pack_id === packId && o.card_id === cardId)
+      ? rarityOf(packId, cardId)
+      : null;
 
   const recent = recentTop.map(({ pull: p, card }) => ({
     pack_id: p.pack_id,
@@ -219,7 +231,7 @@ export async function GET(
         marketPriceMyr: cardMyr(card),
         image: card.image,
         slab_image: card.slab_image ?? null,
-        rarity: rarityOf(p.pack_id, p.card_id),
+        rarity: rarityOrNull(p.pack_id, p.card_id),
       },
     ];
   });

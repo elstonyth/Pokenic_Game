@@ -35,7 +35,6 @@ export interface ProfileViewUser {
   frameLevel: number | null;
   /** Global rank is a leaderboard concern — null (rendered "—") for real profiles. */
   rank: number | null;
-  points: number;
   pulls: number;
   volume: number;
   joined: string;
@@ -107,7 +106,6 @@ export function toProfileView(
         ? profile.equipped_frame_level
         : null,
     rank: null,
-    points: profile.stats.points,
     pulls: profile.stats.pulls,
     volume: profile.stats.volume,
     joined: joinedYear(profile.joined_at),
@@ -130,7 +128,6 @@ export function mockProfileView(user: MockUser): ProfileViewUser {
     frame: null,
     frameLevel: null,
     rank: user.rank,
-    points: user.points,
     pulls: user.pulls,
     volume: user.volume,
     joined: user.joined,

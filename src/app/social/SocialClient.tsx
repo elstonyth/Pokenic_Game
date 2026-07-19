@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import Reveal from '@/components/Reveal';
-import { compact } from '@/lib/format';
 import { MOCK_USERS } from '@/lib/mock/users';
 
 export default function SocialClient() {
@@ -41,9 +40,7 @@ export default function SocialClient() {
                   <p className="truncate font-semibold text-white">
                     {u.username}
                   </p>
-                  <p className="text-[12px] text-white/50">
-                    {compact(u.points)} pts · #{u.rank}
-                  </p>
+                  <p className="text-[12px] text-white/50">#{u.rank}</p>
                 </div>
               </div>
               <div className="mt-4">

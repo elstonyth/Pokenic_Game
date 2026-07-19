@@ -122,7 +122,7 @@ const CAPABILITIES: Capability[] = [
   {
     icon: Trophy,
     title: 'Leaderboard',
-    body: 'Earn points on every purchase. Top collectors win weekly prizes and exclusive rewards.',
+    body: 'Rip packs to climb the weekly leaderboard. Top collectors win prizes and exclusive rewards.',
   },
 ];
 

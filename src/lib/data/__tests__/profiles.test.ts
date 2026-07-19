@@ -28,7 +28,6 @@ const validProfile = {
   stats: {
     pulls: 3,
     volume: 100,
-    points: 50,
     by_rarity: {
       Immortal: 0,
       Legendary: 0,

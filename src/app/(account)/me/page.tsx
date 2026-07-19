@@ -21,7 +21,7 @@ import { getWallet } from '@/lib/actions/wallet';
 import { getVip } from '@/lib/actions/vip';
 import { getDaily } from '@/lib/actions/daily';
 import { getAvatarFrames } from '@/lib/data/avatar-frames';
-import { compact, rm, rm0 } from '@/lib/format';
+import { rm, rm0 } from '@/lib/format';
 import { SlabImage } from '@/components/SlabImage';
 import { LogoutButton, TopUpButton } from './MeActions';
 import { EquippedFrameProvider, FramesCard, MeHeader } from './MeAppearance';
@@ -64,8 +64,8 @@ export default async function MePage() {
       getDaily(),
       getAvatarFrames(),
     ]);
-  // Second wave — needs the handle. Supplies header stats, points balance,
-  // and the showcase strip in one cached public-route read.
+  // Second wave — needs the handle. Supplies header stats and the showcase
+  // strip in one cached public-route read.
   const profileResult = handle ? await getPublicProfile(handle) : null;
   const profile = profileResult?.status === 'ok' ? profileResult.profile : null;
   const showcased = profile?.collection ?? [];
@@ -92,7 +92,6 @@ export default async function MePage() {
           displayName={displayName}
           handle={handle}
           pulls={profile ? profile.stats.pulls : null}
-          points={profile ? profile.stats.points : null}
           avatarUrl={avatarUrl}
           frames={avatarFrames}
         />
@@ -179,7 +178,7 @@ export default async function MePage() {
             </Link>
             {dailyResult.ok && (
               <p className="mt-2 border-t border-white/5 pt-2 text-[12px] text-neutral-400">
-                <Link href="/daily" className="hover:text-white">
+                <Link href="/vip" className="hover:text-white">
                   Today&rsquo;s box:{' '}
                   <span className="font-semibold text-white">
                     {dailyResult.state.box &&
@@ -309,55 +308,30 @@ export default async function MePage() {
           )}
         </section>
 
-        {/* Invite friends + points balance */}
-        <div className="grid grid-cols-2 gap-4">
-          <Link
-            href="/referrals"
-            className="border-chase/30 bg-chase/10 hover:border-chase/60 rounded-2xl border p-4 transition-colors"
-          >
-            <Image
-              src="/images/app/invite-gift.webp"
-              alt=""
+        {/* Invite friends */}
+        <Link
+          href="/referrals"
+          className="border-chase/30 bg-chase/10 hover:border-chase/60 block rounded-2xl border p-4 transition-colors"
+        >
+          <Image
+            src="/images/app/invite-gift.webp"
+            alt=""
+            aria-hidden
+            width={239}
+            height={240}
+            className="h-12 w-12 mix-blend-screen"
+          />
+          <p className="mt-3 flex items-center gap-1 text-sm font-semibold text-white">
+            Invite friends
+            <ChevronRight
+              className="h-3.5 w-3.5 text-neutral-500"
               aria-hidden
-              width={239}
-              height={240}
-              className="h-12 w-12 mix-blend-screen"
             />
-            <p className="mt-3 flex items-center gap-1 text-sm font-semibold text-white">
-              Invite friends
-              <ChevronRight
-                className="h-3.5 w-3.5 text-neutral-500"
-                aria-hidden
-              />
-            </p>
-            <p className="mt-0.5 text-[12px] text-neutral-400">
-              Easy cash rewards
-            </p>
-          </Link>
-          <Link
-            href={handle ? `/profile/${handle}` : '/vault'}
-            className="rounded-2xl border border-white/10 bg-neutral-900 p-4 transition-colors hover:border-white/25"
-          >
-            <Image
-              src="/images/app/points-coin.webp"
-              alt=""
-              aria-hidden
-              width={212}
-              height={240}
-              className="h-12 w-auto mix-blend-screen"
-            />
-            <p className="mt-3 flex items-center gap-1 text-sm font-semibold text-white">
-              Points balance
-              <ChevronRight
-                className="h-3.5 w-3.5 text-neutral-500"
-                aria-hidden
-              />
-            </p>
-            <p className="font-heading mt-0.5 text-xl text-white">
-              {profile ? compact(profile.stats.points) : '—'}
-            </p>
-          </Link>
-        </div>
+          </p>
+          <p className="mt-0.5 text-[12px] text-neutral-400">
+            Easy cash rewards
+          </p>
+        </Link>
 
         {/* Quick access grid */}
         <section className="rounded-2xl border border-white/10 bg-neutral-900 p-5">

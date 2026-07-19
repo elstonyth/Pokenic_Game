@@ -11,7 +11,7 @@ describe('toProfileView — tolerates a missing recent array', () => {
       name: 'Ash',
       seed: 1,
       joined_at: '2026-01-01T00:00:00Z',
-      stats: { points: 0, pulls: 0, volume: 0 },
+      stats: { pulls: 0, volume: 0 },
       collection: [],
       // `recent` deliberately omitted
     } as unknown as PublicProfile;
@@ -26,7 +26,7 @@ describe('toProfileView — tolerates a missing recent array', () => {
       name: 'Ash',
       seed: 1,
       joined_at: '2026-01-01T00:00:00Z',
-      stats: { points: 0, pulls: 0, volume: 0 },
+      stats: { pulls: 0, volume: 0 },
       collection: [],
       recent: {}, // regressed to a non-array — Array.isArray guard must catch it
     } as unknown as PublicProfile;
@@ -46,7 +46,7 @@ describe('toProfileView — never falls back to raw USD market_value', () => {
       name: 'Ash',
       seed: 1,
       joined_at: '2026-01-01T00:00:00Z',
-      stats: { points: 0, pulls: 0, volume: 0 },
+      stats: { pulls: 0, volume: 0 },
       collection: [
         {
           handle: 'x',
@@ -69,7 +69,7 @@ describe('toProfileView — never falls back to raw USD market_value', () => {
       name: 'Ash',
       seed: 1,
       joined_at: '2026-01-01T00:00:00Z',
-      stats: { points: 0, pulls: 0, volume: 0 },
+      stats: { pulls: 0, volume: 0 },
       collection: [
         {
           handle: 'x',

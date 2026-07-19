@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Trophy, Layers, TrendingUp, CalendarDays, Star } from 'lucide-react';
+import { Trophy, Layers, TrendingUp, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
 import { SlabImage } from '@/components/SlabImage';
 import { FramedAvatar } from '@/components/FramedAvatar';
-import { rm, num, compact } from '@/lib/format';
+import { rm, num } from '@/lib/format';
 import { type ProfileViewUser } from '@/lib/profile-view';
 
 const TABS = ['Collection', 'Activity'] as const;
@@ -22,7 +22,6 @@ export default function ProfileClient({ user }: { user: ProfileViewUser }) {
       label: 'Rank',
       value: user.rank == null ? '—' : `#${num(user.rank)}`,
     },
-    { icon: Star, label: 'Points', value: compact(user.points) },
     { icon: Layers, label: 'Pulls', value: num(user.pulls) },
     { icon: TrendingUp, label: 'Volume', value: rm(user.volume) },
   ];

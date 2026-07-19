@@ -130,7 +130,10 @@ const StagesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
     setRows(initial);
     setSavedSnapshot(snapshotStages(initial));
   }
-  const dirty = snapshotStages(rows) !== savedSnapshot;
+  // `seededFrom !== undefined` keeps the pre-load/error states ([] vs '')
+  // from reading as dirty and trapping the operator in a discard prompt.
+  const dirty =
+    seededFrom !== undefined && snapshotStages(rows) !== savedSnapshot;
   // Sync the parent's dirty ref in an effect — writing a ref during render is
   // a React anti-pattern; switchTab only reads it in an event handler.
   useEffect(() => {

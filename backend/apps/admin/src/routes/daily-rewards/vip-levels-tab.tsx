@@ -82,7 +82,10 @@ export const VipLevelsTab = ({
     setSavedSnapshot(snapshotOf(initial));
   }
 
-  const dirty = snapshotOf(rows) !== savedSnapshot;
+  // `seededFrom !== undefined` keeps the pre-load/error states ([] vs '')
+  // from reading as dirty and trapping the operator in a discard prompt.
+  const dirty =
+    seededFrom !== undefined && snapshotOf(rows) !== savedSnapshot;
   // Sync the parent's dirty ref in an effect — writing a ref during render is
   // a React anti-pattern; switchTab only reads it in an event handler.
   useEffect(() => {

@@ -102,9 +102,7 @@ export const ChallengeSchema = z.looseObject({
   /** Real community pulled-value this week (ledger aggregate). Optional for
    *  deploy skew — an older backend without it renders the page without the
    *  pool panel rather than dropping the whole challenge. */
-  progress: z
-    .looseObject({ pooledMyr: finite, weekStartIso: z.string() })
-    .optional(),
+  progress: z.looseObject({ pooledMyr: finite }).optional(),
   settings: z.looseObject({
     timezone: z.string(),
     resetDay: finite,

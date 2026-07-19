@@ -2,7 +2,7 @@ import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
 import { Modules } from '@medusajs/framework/utils';
 import PacksModuleService from '../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../modules/packs';
-import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
+import { publicProfileFields, seedOf } from '../../../utils/profile-handle';
 
 // GET /store/challenge — public read of the Weekly Pulled Value Challenge.
 // Plain publishable-key store route, read-only, mirrors GET /store/leaderboard.
@@ -96,39 +96,30 @@ export async function GET(
     }
   }
 
-  // PII-safe display names for the ranked customers (leaderboard rules).
+  // PII-safe display fields for the ranked customers (shared with the store
+  // leaderboard — never leaks email/id).
   const ids = ranked.map((r) => r.customer_id);
   const customers = ids.length
     ? await customerService.listCustomers({ id: ids }, { take: ids.length })
     : [];
   const byId = new Map(customers.map((c) => [c.id, c]));
   const top = ranked.map((r, i) => {
-    const c = byId.get(r.customer_id);
-    const first = (c?.first_name || '').trim();
     const seed = seedOf(r.customer_id);
-    const meta = (c?.metadata ?? {}) as Record<string, unknown>;
-    const handle = meta['handle'];
+    const p = publicProfileFields(byId.get(r.customer_id), seed);
     return {
       rank: i + 1,
-      name: first.length > 0 ? first : `Collector ${String(seed).slice(0, 4)}`,
-      handle:
-        typeof handle === 'string' && HANDLE_RE.test(handle) ? handle : null,
+      name: p.name,
+      handle: p.handle,
       volumeMyr: r.volumeMyr,
       pulls: r.pulls,
       seed,
-      avatar_url:
-        typeof meta['avatar_url'] === 'string'
-          ? (meta['avatar_url'] as string)
-          : null,
+      avatar_url: p.avatarUrl,
     };
   });
 
   const body = {
     active: stages.length > 0,
-    progress: {
-      pooledMyr: pool.pooledMyr,
-      weekStartIso: pool.weekStartIso,
-    },
+    progress: { pooledMyr: pool },
     settings: {
       timezone: settings.timezone,
       resetDay: settings.reset_day,

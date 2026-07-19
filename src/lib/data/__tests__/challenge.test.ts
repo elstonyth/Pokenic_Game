@@ -35,7 +35,7 @@ describe('getChallenge', () => {
 
   const active = {
     active: true,
-    progress: { pooledMyr: 750, weekStartIso: '2026-07-12T16:00:00Z' },
+    progress: { pooledMyr: 750 },
     settings: {
       timezone: 'Asia/Kuala_Lumpur',
       resetDay: 1,
@@ -139,7 +139,7 @@ describe('getChallenge', () => {
   it('marks every stage complete and sums all credits when cleared', async () => {
     fetchMock.mockResolvedValueOnce({
       ...active,
-      progress: { pooledMyr: 5000, weekStartIso: '2026-07-12T16:00:00Z' },
+      progress: { pooledMyr: 5000 },
     });
     const c = await getChallenge();
     expect(c!.pool).toMatchObject({ overallPct: 100, next: null });
@@ -213,7 +213,7 @@ describe('getChallenge', () => {
     // wrongly collapse them to one.
     fetchMock.mockResolvedValueOnce({
       ...active,
-      progress: { pooledMyr: 5000, weekStartIso: '2026-07-12T16:00:00Z' },
+      progress: { pooledMyr: 5000 },
       stages: [
         { ...active.stages[0], rewardCardIds: ['c1', 'dup', 'c1'] },
         ...active.stages.slice(1),

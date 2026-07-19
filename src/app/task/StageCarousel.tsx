@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Check, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ChallengeStage } from '@/lib/data/challenge';
+import type { ChallengeStage, ChallengeStageState } from '@/lib/data/challenge';
 import { GalleryRail } from '@/app/slots/[slug]/GalleryRail';
 
 // Medal-gradient rank numerals (#1ST gold / #2ND silver / #3RD bronze) — the
@@ -45,6 +45,16 @@ function RankNumeral({ rank }: { rank: (typeof RANKS)[number] }) {
   );
 }
 
+// Card surface (border + tint) per stage state. `null` (backend sent no
+// progress) falls to the muted locked surface. Icon/badge rendering below stays
+// inline — each state renders a structurally different element, so a map there
+// would obscure more than it collapses.
+const STAGE_SURFACE: Record<ChallengeStageState, string> = {
+  active: 'border-chase/60 bg-chase/[0.06]',
+  complete: 'border-white/15 bg-white/[0.04]',
+  locked: 'border-white/5 bg-white/[0.02]',
+};
+
 function StageCard({
   stage,
   pooled,
@@ -59,11 +69,7 @@ function StageCard({
         // Width comes from the rail item (--slab-w on the wrapper below) so
         // the prize grid scales with the phone instead of clamping at 300px.
         'mx-auto flex w-full flex-col rounded-2xl border p-4 sm:p-5',
-        stage.state === 'active'
-          ? 'border-chase/60 bg-chase/[0.06]'
-          : stage.state === 'complete'
-            ? 'border-white/15 bg-white/[0.04]'
-            : 'border-white/5 bg-white/[0.02]',
+        STAGE_SURFACE[stage.state ?? 'locked'],
       )}
     >
       <div className="flex items-center justify-between">

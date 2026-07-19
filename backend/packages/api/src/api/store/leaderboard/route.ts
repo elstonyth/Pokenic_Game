@@ -2,7 +2,7 @@ import { MedusaRequest, MedusaResponse } from '@medusajs/framework/http';
 import { Modules } from '@medusajs/framework/utils';
 import PacksModuleService from '../../../modules/packs/service';
 import { PACKS_MODULE } from '../../../modules/packs';
-import { HANDLE_RE, seedOf } from '../../../utils/profile-handle';
+import { publicProfileFields, seedOf } from '../../../utils/profile-handle';
 
 // GET /store/leaderboard?period=weekly|alltime — public leaderboard. A plain
 // publishable-key store route (read-only, no workflow).
@@ -83,52 +83,35 @@ export async function GET(
     return;
   }
 
-  // Names for the ranked customers only — first_name ONLY (never email).
-  // The public profile handle (customer metadata.handle, PII-safe by design)
-  // rides along so the storefront can link each row to /profile/<handle>.
-  // Customers that predate handle assignment return null — NO mutation here
-  // (handles are assigned by the ensure-profile-handle workflow, not a GET).
+  // PII-safe display fields (name / handle / avatar) come from the shared
+  // publicProfileFields helper — first_name or an anonymous "Collector ####",
+  // never email/id; the handle links each row to /profile/<handle>. Customers
+  // that predate handle assignment return null (handles are assigned by the
+  // ensure-profile-handle workflow, not a GET). equipped_frame_level is
+  // leaderboard-specific, so it stays inline.
   const ids = ranked.map((r) => r.customer_id);
   const customers = ids.length
     ? await customerService.listCustomers({ id: ids }, { take: ids.length })
     : [];
-  const firstNameById = new Map(
-    customers.map((c) => [c.id, (c.first_name || '').trim()]),
-  );
-  const handleById = new Map(
-    customers.map((c) => {
-      const handle = (c.metadata ?? {})['handle'];
-      return [
-        c.id,
-        typeof handle === 'string' && HANDLE_RE.test(handle) ? handle : null,
-      ];
-    }),
-  );
-  const metaById = new Map(
-    customers.map((c) => [c.id, (c.metadata ?? {}) as Record<string, unknown>]),
-  );
+  const byId = new Map(customers.map((c) => [c.id, c]));
 
   const entries = ranked.map((r, i) => {
-    const first = firstNameById.get(r.customer_id);
     const seed = seedOf(r.customer_id);
+    const c = byId.get(r.customer_id);
+    const p = publicProfileFields(c, seed);
+    const meta = (c?.metadata ?? {}) as Record<string, unknown>;
     return {
       rank: i + 1,
-      name:
-        first && first.length > 0
-          ? first
-          : `Collector ${String(seed).slice(0, 4)}`,
-      handle: handleById.get(r.customer_id) ?? null,
+      name: p.name,
+      handle: p.handle,
       volume: r.volume,
       pulls: r.pulls,
       points: r.points,
       seed,
-      avatar_url:
-        typeof metaById.get(r.customer_id)?.avatar_url === 'string'
-          ? (metaById.get(r.customer_id)!.avatar_url as string)
-          : null,
+      avatar_url: p.avatarUrl,
       equipped_frame_level:
-        typeof metaById.get(r.customer_id)?.equipped_frame_level === 'number'
-          ? (metaById.get(r.customer_id)!.equipped_frame_level as number)
+        typeof meta['equipped_frame_level'] === 'number'
+          ? (meta['equipped_frame_level'] as number)
           : null,
     };
   });

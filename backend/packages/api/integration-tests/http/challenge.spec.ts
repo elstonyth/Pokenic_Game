@@ -32,7 +32,12 @@ medusaIntegrationTestRunner({
 
       beforeEach(async () => {
         const container = getContainer();
-        adminToken = await mintSuperAdmin(container, api, ADMIN_EMAIL, PASSWORD);
+        adminToken = await mintSuperAdmin(
+          container,
+          api,
+          ADMIN_EMAIL,
+          PASSWORD,
+        );
         // Seed one card so the existence check has something to accept.
         const [card] = await packs().createCards([
           {
@@ -86,7 +91,9 @@ medusaIntegrationTestRunner({
         );
         expect(res.status).toBe(200);
         expect(res.data.stages).toEqual([]);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(0);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(0);
       });
 
       it('POST stages: happy path persists + writes one audit row', async () => {
@@ -95,8 +102,18 @@ medusaIntegrationTestRunner({
             '/admin/challenge/stages',
             {
               stages: [
-                { stage_number: 1, threshold_myr: 100, reward_credits: 10, reward_card_ids: [cardId] },
-                { stage_number: 2, threshold_myr: 200, reward_credits: 20, reward_card_ids: [] },
+                {
+                  stage_number: 1,
+                  threshold_myr: 100,
+                  reward_credits: 10,
+                  reward_card_ids: [cardId],
+                },
+                {
+                  stage_number: 2,
+                  threshold_myr: 200,
+                  reward_credits: 20,
+                  reward_card_ids: [],
+                },
               ],
               reason: 'configure stages',
             },
@@ -105,7 +122,9 @@ medusaIntegrationTestRunner({
         );
         expect(res.status).toBe(200);
         expect(res.data.stages).toHaveLength(2);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(2);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(2);
 
         const audits = await packs().listAdminActionAudits(
           { entity_type: 'challenge_stages', action: 'replace' },
@@ -121,7 +140,12 @@ medusaIntegrationTestRunner({
             '/admin/challenge/stages',
             {
               stages: [
-                { stage_number: 1, threshold_myr: 100, reward_credits: 10, reward_card_ids: ['card_does_not_exist'] },
+                {
+                  stage_number: 1,
+                  threshold_myr: 100,
+                  reward_credits: 10,
+                  reward_card_ids: ['card_does_not_exist'],
+                },
               ],
               reason: 'bad card',
             },
@@ -130,14 +154,31 @@ medusaIntegrationTestRunner({
         );
         expect(res.status).toBe(400);
         expect(String(res.data.message)).toMatch(/Unknown featured card id/);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(0);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(0);
       });
 
       it('POST stages: shrink → regrow succeeds (hard delete, no unique collision on stage_number)', async () => {
         const full = [
-          { stage_number: 1, threshold_myr: 100, reward_credits: 10, reward_card_ids: [] },
-          { stage_number: 2, threshold_myr: 200, reward_credits: 20, reward_card_ids: [] },
-          { stage_number: 3, threshold_myr: 300, reward_credits: 30, reward_card_ids: [] },
+          {
+            stage_number: 1,
+            threshold_myr: 100,
+            reward_credits: 10,
+            reward_card_ids: [],
+          },
+          {
+            stage_number: 2,
+            threshold_myr: 200,
+            reward_credits: 20,
+            reward_card_ids: [],
+          },
+          {
+            stage_number: 3,
+            threshold_myr: 300,
+            reward_credits: 30,
+            reward_card_ids: [],
+          },
         ];
         const first = await unwrapResponse(
           api.post(
@@ -157,7 +198,9 @@ medusaIntegrationTestRunner({
           ),
         );
         expect(shrink.status).toBe(200);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(2);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(2);
 
         // Recreate stage 3 — a soft-deleted stage_number=3 would collide here.
         const regrow = await unwrapResponse(
@@ -169,7 +212,9 @@ medusaIntegrationTestRunner({
         );
         expect(regrow.status).toBe(200);
         expect(regrow.data.stages).toHaveLength(3);
-        expect(await packs().listChallengeStages({}, { take: 10 })).toHaveLength(3);
+        expect(
+          await packs().listChallengeStages({}, { take: 10 }),
+        ).toHaveLength(3);
       });
 
       it('POST settings: valid patch persists + audit; GET reflects it', async () => {
@@ -177,7 +222,12 @@ medusaIntegrationTestRunner({
           api.post(
             '/admin/challenge/settings',
             {
-              patch: { reset_day: 3, reset_hour: 6, payout_credits: 500, payout_card_ids: [cardId] },
+              patch: {
+                reset_day: 3,
+                reset_hour: 6,
+                payout_credits: 500,
+                payout_card_ids: [cardId],
+              },
               reason: 'set payout',
             },
             { headers: adminHeaders() },
@@ -334,7 +384,6 @@ medusaIntegrationTestRunner({
         expect(body.active).toBe(true);
         // 3×50 + 1×30 = 180 USD → MYR. Reward draw and 8-day-old pulls add 0.
         expect(body.progress.pooledMyr).toBe(MYR(180));
-        expect(typeof body.progress.weekStartIso).toBe('string');
       });
 
       it('ranks top pullers by pulled value, PII-safe', async () => {

@@ -454,7 +454,6 @@ export type Routes = {
             boxes: typeof import("../../src/api/admin/daily-rewards/boxes/route") & {
                 $tier: typeof import("../../src/api/admin/daily-rewards/boxes/[tier]/route");
             };
-            vouchers: typeof import("../../src/api/admin/daily-rewards/vouchers/route");
         };
         deliveryOrders: typeof import("../../src/api/admin/delivery-orders/route") & {
             $id: typeof import("../../src/api/admin/delivery-orders/[id]/route");

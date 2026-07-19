@@ -22,12 +22,7 @@ import {
 } from '@/lib/data/schemas';
 
 export type ProfileRarity =
-  | 'Immortal'
-  | 'Legendary'
-  | 'Mythical'
-  | 'Rare'
-  | 'Uncommon'
-  | 'Common';
+  'Immortal' | 'Legendary' | 'Mythical' | 'Rare' | 'Uncommon' | 'Common';
 
 export interface PublicProfileCard {
   handle: string;

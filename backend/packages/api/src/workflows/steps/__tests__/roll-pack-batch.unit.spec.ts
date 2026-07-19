@@ -169,6 +169,10 @@ describe('rollOne', () => {
       name: 'Pikachu',
       rarity: expect.any(String),
       market_value: expect.any(Number),
+      // Draw-time pulled-value snapshot: FMV × multiplier (card row carries
+      // none → DEFAULT_MARKET_MULTIPLIER 1.2). Pins the stamping expression
+      // the recorded-pull-value integration spec assumes.
+      recorded_value_usd: 12,
     });
     // These keys MUST exist (even if null) — batch step relies on them.
     expect('pokemon_dex' in result).toBe(true);

@@ -55,6 +55,7 @@ export const openPackWorkflow = createWorkflow(
       customer_id: d.input.customer_id,
       pack_id: d.input.pack_id,
       card_id: d.card.handle,
+      recorded_value_usd: d.card.recorded_value_usd,
     }));
     const pull = recordPullStep(recordInput);
 

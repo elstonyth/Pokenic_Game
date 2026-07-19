@@ -230,6 +230,27 @@ type LedgerSqlManager = {
   execute<T = unknown>(query: string, params?: unknown[]): Promise<T>;
 };
 
+// Live card value in USD: FMV × the card's multiplier (default when the row
+// carries none). Requires alias `card c`; binds ONE `?`
+// (DEFAULT_MARKET_MULTIPLIER). Shared by PULLED_VALUE_USD_SQL's fallback and
+// the backfill (which pins exactly this expression).
+const LIVE_VALUE_USD_SQL = 'c.market_value * COALESCE(c.market_multiplier, ?)';
+
+// Pulled value of one pull row in USD: the draw-time snapshot when stamped,
+// live fallback for pre-backfill rows. Shared by the three pulled-value
+// aggregates (leaderboardTop wins CTE, challengeWeekPool, challengeWeekTop)
+// so the expression can't drift between boards. Requires aliases `pull pu` /
+// `card c` and binds ONE `?`. Snapshot semantics: a stamped pull KEEPS its
+// value even if the card row is later deleted (the snapshot outlives the
+// LEFT JOIN); an un-stamped one drops to NULL — the pre-snapshot behavior.
+const PULLED_VALUE_USD_SQL =
+  'COALESCE(pu.recorded_value_usd, ' + LIVE_VALUE_USD_SQL + ')';
+
+// MikroORM bigNumber raw-column shape is {value: string, precision: number}
+// with this default precision — mirrored when the backfill hand-writes the
+// raw_ twin (see @medusajs/utils BigNumber DEFAULT_PRECISION).
+const BIG_NUMBER_RAW_PRECISION = 20;
+
 // ---- Daily Rewards (Task 5): getDailyState / drawDailyBox + admin authoring ----
 // Types match the task-5 brief verbatim — later tasks (routes, storefront) depend
 // on these exact shapes.
@@ -2405,10 +2426,11 @@ class PacksModuleService extends MedusaService({
   // whenever a pack was repriced or deleted. points = spend(MYR) × 100 (the
   // display convention the storefront always used).
   //
-  // volume ("winnings") = Σ won-card VALUE in MYR — market_value(USD) × the
-  // card's own multiplier, × the live FX rate — the same displayMarketPrice
-  // seam as the vault/open/Top Hits, so the board matches every other surface.
-  // Reward-box pulls stay excluded from winnings (source <> 'reward').
+  // volume ("winnings") = Σ won-card VALUE in MYR — the pull's RECORDED
+  // draw-time USD value (recorded_value_usd, stamped by the open workflows so a
+  // mid-week price sync can't rewrite history), falling back to live
+  // market_value(USD) × the card's multiplier for pre-backfill rows — × the
+  // live FX rate. Reward-box pulls stay excluded (source <> 'reward').
   //
   // sinceMs = null → all-time; a timestamp → weekly window.
   @InjectManager()
@@ -2455,7 +2477,9 @@ class PacksModuleService extends MedusaService({
         '   HAVING ROUND(SUM(-amount) * 100) > 0 ' +
         '), wins AS ( ' +
         '  SELECT pu.customer_id, COUNT(*) AS pulls, ' +
-        '         SUM(c.market_value * COALESCE(c.market_multiplier, ?)) AS volume_usd ' +
+        '         SUM(' +
+        PULLED_VALUE_USD_SQL +
+        ') AS volume_usd ' +
         '    FROM pull pu ' +
         '    LEFT JOIN card c ON c.handle = pu.card_id AND c.deleted_at IS NULL ' +
         "   WHERE pu.deleted_at IS NULL AND pu.customer_id IS NOT NULL AND pu.source <> 'reward' " +
@@ -2489,7 +2513,10 @@ class PacksModuleService extends MedusaService({
   //  - capped to the NEWEST 20k pulls (the route's documented MAX_PULLS
   //    aggregation cap — now the LIMIT in the `capped` CTE),
   //  - volume = Σ per-card MYR display value with PER-CARD rounding, exactly
-  //    displayMarketPrice(fmv, fx, multiplier): ROUND(fmv × mult × fx, 2),
+  //    displayMarketPrice(fmv, fx, multiplier): ROUND(fmv × mult × fx, 2) —
+  //    deliberately LIVE-priced (vault/display semantics), NOT the
+  //    recorded_value_usd snapshot the leaderboard/challenge boards read, so
+  //    profile volume tracks current prices and may diverge from board volume,
   //    degenerate inputs (fmv < 0 or multiplier ≤ 0) → 0, missing/deleted
   //    card → 0 (the pull still counts). Per-card rounding keeps the
   //    documented cents-level drift vs the leaderboard's sum-level round.
@@ -4673,7 +4700,8 @@ class PacksModuleService extends MedusaService({
   }
 
   // Community pool for the CURRENT challenge week: Σ pulled value across all
-  // customers (card FMV × multiplier × FX → MYR) since the week anchor (shared
+  // customers (recorded draw-time USD value, live FMV × multiplier fallback
+  // for pre-backfill rows, × FX → MYR) since the week anchor (shared
   // CHALLENGE_WEEK_ANCHOR_CTE). Mirrors leaderboardTop's wins CTE
   // (source <> 'reward'); read-only, so the pool is REAL ledger data even while
   // the reward settlement engine is inert.
@@ -4688,7 +4716,9 @@ class PacksModuleService extends MedusaService({
     const [row] = await em.execute<{ pooled_myr: string | null }[]>(
       CHALLENGE_WEEK_ANCHOR_CTE +
         'SELECT ' +
-        '  ROUND(COALESCE(SUM(c.market_value * COALESCE(c.market_multiplier, ?)), 0) * ? * 100) / 100 AS pooled_myr ' +
+        '  ROUND(COALESCE(SUM(' +
+        PULLED_VALUE_USD_SQL +
+        '), 0) * ? * 100) / 100 AS pooled_myr ' +
         '  FROM pull pu ' +
         '  LEFT JOIN card c ON c.handle = pu.card_id AND c.deleted_at IS NULL ' +
         " WHERE pu.deleted_at IS NULL AND pu.customer_id IS NOT NULL AND pu.source <> 'reward' " +
@@ -4716,7 +4746,9 @@ class PacksModuleService extends MedusaService({
     >(
       CHALLENGE_WEEK_ANCHOR_CTE +
         'SELECT pu.customer_id, COUNT(*) AS pulls, ' +
-        '       ROUND(SUM(c.market_value * COALESCE(c.market_multiplier, ?)) * ? * 100) / 100 AS volume_myr ' +
+        '       ROUND(SUM(' +
+        PULLED_VALUE_USD_SQL +
+        ') * ? * 100) / 100 AS volume_myr ' +
         '  FROM pull pu ' +
         '  LEFT JOIN card c ON c.handle = pu.card_id AND c.deleted_at IS NULL ' +
         " WHERE pu.deleted_at IS NULL AND pu.customer_id IS NOT NULL AND pu.source <> 'reward' " +
@@ -4736,6 +4768,64 @@ class PacksModuleService extends MedusaService({
       pulls: Number(r.pulls ?? 0),
       volumeMyr: Number(r.volume_myr ?? 0),
     }));
+  }
+
+  // One-shot backfill for the recorded-pull-value follow-up (spec 2026-07-19
+  // Iteration 3): stamp recorded_value_usd on pre-existing rows from the
+  // CURRENT card values — the same expression the aggregates' COALESCE
+  // fallback computes, so backfilling is observation-neutral at run time and
+  // only pins the value against FUTURE price syncs. Reward pulls stay null
+  // (excluded from every pulled-value board). raw_ twin written alongside so
+  // the ORM's bigNumber hydration matches workflow-stamped rows. Idempotent
+  // (IS NULL guard). Run via src/scripts/backfill-recorded-pull-value.ts.
+  //
+  // Chunked so a large historical pull table isn't pinned under one long
+  // UPDATE competing with live pack-open/buyback writes. Each batch is its own
+  // statement (autocommit when the method runs outside a transaction, as the
+  // medusa-exec script does), so row locks release between chunks. The batch
+  // CTE JOINs card, so it only selects rows that WILL update (missing/deleted-
+  // card pulls stay NULL, same as the aggregates' fallback); every selected
+  // row flips non-null, so the loop makes progress and stops on a short batch.
+  // A mid-run crash resumes on re-run (each batch independently IS-NULL-guarded).
+  @InjectManager()
+  async backfillRecordedPullValues(
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<number> {
+    const em = (sharedContext.transactionManager ??
+      sharedContext.manager) as unknown as LedgerSqlManager;
+    const BATCH = 5_000;
+    let total = 0;
+    for (;;) {
+      const rows = await em.execute<unknown[]>(
+        'WITH batch AS ( ' +
+          '  SELECT pu.id FROM pull pu ' +
+          '    JOIN card c ON c.handle = pu.card_id AND c.deleted_at IS NULL ' +
+          "   WHERE pu.recorded_value_usd IS NULL AND pu.source <> 'reward' " +
+          '   LIMIT ? ' +
+          ') ' +
+          'UPDATE pull pu ' +
+          '   SET recorded_value_usd = ' +
+          LIVE_VALUE_USD_SQL +
+          ', ' +
+          '       raw_recorded_value_usd = jsonb_build_object(' +
+          "'value', (" +
+          LIVE_VALUE_USD_SQL +
+          ")::text, 'precision', ?) " +
+          '  FROM card c, batch b ' +
+          ' WHERE pu.id = b.id ' +
+          '   AND c.handle = pu.card_id AND c.deleted_at IS NULL ' +
+          ' RETURNING 1',
+        [
+          BATCH,
+          DEFAULT_MARKET_MULTIPLIER,
+          DEFAULT_MARKET_MULTIPLIER,
+          BIG_NUMBER_RAW_PRECISION,
+        ],
+      );
+      total += rows.length;
+      if (rows.length < BATCH) break;
+    }
+    return total;
   }
 
   // Challenge singleton read — first row or the §4.1 defaults (never 404s).

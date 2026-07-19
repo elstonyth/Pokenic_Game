@@ -1,4 +1,4 @@
-import { model } from "@medusajs/framework/utils";
+import { model } from '@medusajs/framework/utils';
 
 // Pull — the ledger: one row per opened pack (the rolled result). Written by the
 // open-pack workflow; it is the source of truth for the live-pulls feed, the
@@ -9,7 +9,7 @@ import { model } from "@medusajs/framework/utils";
 // Card.handle). `order_id` ties the pull to the Medusa order that paid for it
 // (nullable until checkout is wired).
 export const Pull = model
-  .define("pull", {
+  .define('pull', {
     id: model.id().primaryKey(),
     customer_id: model.text(),
     pack_id: model.text(), // = Pack.slug
@@ -30,8 +30,15 @@ export const Pull = model
     // vaulted → delivering (in an active delivery order) → delivered (terminal);
     // delivering → vaulted on order cancel. bought_back only reachable while vaulted.
     status: model
-      .enum(["vaulted", "bought_back", "delivering", "delivered"])
-      .default("vaulted"),
+      .enum(['vaulted', 'bought_back', 'delivering', 'delivered'])
+      .default('vaulted'),
+    // USD pulled value (decimal) — a SNAPSHOT taken at DRAW time (card FMV ×
+    // its market_multiplier, default baked in), same discipline as
+    // buyback_amount below. The leaderboard/challenge "pulled value" aggregates
+    // read this so a mid-week price sync can't rewrite past totals. Null on
+    // reward pulls (excluded from those boards) and on pre-migration rows until
+    // the backfill runs — readers COALESCE to live pricing.
+    recorded_value_usd: model.bigNumber().nullable(),
     // MYR actually credited (RM decimal, never sen) — a SNAPSHOT taken at buyback
     // time (current FMV × the pack's buyback_percent), kept since FMV moves.
     buyback_amount: model.bigNumber().nullable(),
@@ -42,21 +49,21 @@ export const Pull = model
     // For reward pulls, card_id holds the product_handle sentinel.
     // Model-owned CHECK (pull_source_check) emitted by db:generate — do NOT
     // hand-write a separate CHECK (would collide → 42710).
-    source: model.enum(["pack", "reward"]).default("pack"),
+    source: model.enum(['pack', 'reward']).default('pack'),
   })
   .indexes([
     // vault + public profile + admin gacha: filter customer_id, order rolled_at.
     {
-      name: "IDX_pull_customer_id_rolled_at",
-      on: ["customer_id", "rolled_at"],
-      where: "deleted_at IS NULL",
+      name: 'IDX_pull_customer_id_rolled_at',
+      on: ['customer_id', 'rolled_at'],
+      where: 'deleted_at IS NULL',
     },
     // global recent-pulls feed + leaderboard window: order/range on rolled_at,
     // no customer predicate (so it can't use the composite above).
     {
-      name: "IDX_pull_rolled_at",
-      on: ["rolled_at"],
-      where: "deleted_at IS NULL",
+      name: 'IDX_pull_rolled_at',
+      on: ['rolled_at'],
+      where: 'deleted_at IS NULL',
     },
   ]);
 

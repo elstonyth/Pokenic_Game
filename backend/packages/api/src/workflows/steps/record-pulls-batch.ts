@@ -5,7 +5,8 @@ import type PacksModuleService from '../../modules/packs/service';
 export type RecordPullsBatchInput = {
   customer_id: string;
   pack_id: string; // = Pack.slug
-  card_ids: string[]; // = Card.handle[] (one per won card)
+  // One entry per won card: Card.handle + the draw-time USD value snapshot.
+  cards: { card_id: string; recorded_value_usd: number }[];
 };
 
 // Compensation data: the IDs of every pull row inserted, so we can delete
@@ -25,6 +26,7 @@ type PullRecord = {
   revealed_at: Date | null;
   stock_earmarked: boolean;
   status: 'vaulted' | 'bought_back' | 'delivering' | 'delivered';
+  recorded_value_usd: number | null;
   buyback_amount: number | null;
   buyback_at: Date | null;
   showcased: boolean;
@@ -43,12 +45,13 @@ export const recordPullsBatchStep = createStep<
     const packs = container.resolve<PacksModuleService>(PACKS_MODULE);
 
     const pulls = await packs.createPulls(
-      input.card_ids.map((card_id) => ({
+      input.cards.map((c) => ({
         customer_id: input.customer_id,
         pack_id: input.pack_id,
-        card_id,
+        card_id: c.card_id,
         order_id: null,
         rolled_at: new Date(),
+        recorded_value_usd: c.recorded_value_usd,
       })),
     ) as PullRecord[];
 

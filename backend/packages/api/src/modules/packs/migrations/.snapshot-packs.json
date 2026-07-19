@@ -2491,6 +2491,24 @@
           "nullable": true,
           "length": 6,
           "mappedType": "datetime"
+        },
+        "recorded_value_usd": {
+          "name": "recorded_value_usd",
+          "type": "numeric",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "decimal"
+        },
+        "raw_recorded_value_usd": {
+          "name": "raw_recorded_value_usd",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
         }
       },
       "name": "pull",

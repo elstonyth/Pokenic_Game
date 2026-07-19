@@ -1,13 +1,12 @@
 import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
 import { PACKS_MODULE } from '../../src/modules/packs';
 import type PacksModuleService from '../../src/modules/packs/service';
-import { mintSuperAdmin, unwrapResponse } from './utils';
+import { BOX_TIERS, mintSuperAdmin, unwrapResponse } from './utils';
 
 jest.setTimeout(240 * 1000);
 
 const PASSWORD = 'daily-boxes-meta-test-pw-1';
 const ADMIN_EMAIL = 'daily-boxes-meta-admin@test.dev';
-const BOX_TIERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'Z'];
 
 medusaIntegrationTestRunner({
   inApp: true,
@@ -73,6 +72,12 @@ medusaIntegrationTestRunner({
         }
       });
 
+      it('401s without an admin token', async () => {
+        expect(
+          (await unwrapResponse(api.get('/admin/daily-rewards/boxes'))).status,
+        ).toBe(401);
+      });
+
       it('counts an above-ladder peak in the top rung tier only; in-range peaks in their exact tier', async () => {
         await packs().createVipMemberStates([
           // Monotonic peak (50) above the 3-rung ladder — the tier-count join
@@ -116,10 +121,15 @@ medusaIntegrationTestRunner({
           level_from: 1,
           level_to: 2,
         });
-        // Each member lands in exactly one bucket — every other tier stays 0.
-        for (const tier of BOX_TIERS.filter((t) => t !== 'a' && t !== 'b')) {
-          expect(byTier.get(tier)?.customer_count).toBe(0);
-        }
+        // No member leaks into another bucket and none is double-counted: the
+        // two seeded members are the ONLY counts across all 11 tiers, so with
+        // a=1 and b=1 the remaining nine tiers are necessarily 0.
+        const totalCounted = res.data.boxes.reduce(
+          (sum: number, b: { customer_count: number }) =>
+            sum + b.customer_count,
+          0,
+        );
+        expect(totalCounted).toBe(2);
       });
     });
   },

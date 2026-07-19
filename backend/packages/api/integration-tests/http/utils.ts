@@ -10,6 +10,25 @@ import {
 // copy-pasting. Not a spec file (jest's http testMatch only picks *.spec.ts).
 
 /**
+ * The 11 reward_box tiers (the distinct box_tier values in VIP_LEVELS: a..j
+ * plus the Z whale rung). Suites re-create these rows in beforeEach because
+ * the test runner TRUNCATEs between suites.
+ */
+export const BOX_TIERS = [
+  "a",
+  "b",
+  "c",
+  "d",
+  "e",
+  "f",
+  "g",
+  "h",
+  "i",
+  "j",
+  "Z",
+] as const;
+
+/**
  * Resolves to the axios response for BOTH 2xx and error statuses — the suites
  * assert on 4xx/429 bodies, so HTTP errors must come back as values, while
  * transport errors (no response at all) still throw.

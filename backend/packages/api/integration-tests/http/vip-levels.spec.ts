@@ -2,13 +2,12 @@ import { medusaIntegrationTestRunner } from '@medusajs/test-utils';
 import { PACKS_MODULE } from '../../src/modules/packs';
 import type PacksModuleService from '../../src/modules/packs/service';
 import { VIP_LEVELS } from '../../src/scripts/vip-levels.data';
-import { mintSuperAdmin, unwrapResponse } from './utils';
+import { BOX_TIERS, mintSuperAdmin, unwrapResponse } from './utils';
 
 jest.setTimeout(240 * 1000);
 
 const PASSWORD = 'vip-levels-test-pw-1';
 const ADMIN_EMAIL = 'vip-levels-admin@test.dev';
-const BOX_TIERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'Z'];
 
 // A small valid ladder reused across POST cases: 3 contiguous rungs, rung 1
 // threshold 0, strictly increasing, no frames (all non-decade), box_tier 'a'.

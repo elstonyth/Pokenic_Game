@@ -191,4 +191,63 @@ describe('getChallenge', () => {
       { name: 'Charizard', image: 'http://x/charizard.webp' },
     ]);
   });
+
+  // --- graceful degradation: one bad section must not blank the /task page ----
+
+  it('drops a malformed stage/reward row and keeps the survivors', async () => {
+    // Corrupt the middle stage's reward — a null `rewardCredits` fails `finite`.
+    fetchMock.mockResolvedValueOnce({
+      ...active,
+      stages: [
+        active.stages[0],
+        { ...active.stages[1], rewardCredits: null },
+        active.stages[2],
+      ],
+    });
+    const c = await getChallenge();
+    expect(c).not.toBeNull();
+    expect(c!.stages).toHaveLength(2); // survivors, not a blanked page
+    expect(c!.stages.map((s) => s.stageNumber)).toEqual([1, 3]);
+    expect(c!.stages[0]).toMatchObject({
+      threshold: 'RM 500',
+      reward: 'RM 50',
+    });
+  });
+
+  it('drops a malformed top-standings row and keeps the survivors', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ...active,
+      top: [active.top[0], { ...active.top[1], volumeMyr: null }],
+    });
+    const c = await getChallenge();
+    expect(c).not.toBeNull();
+    expect(c!.top).toHaveLength(1);
+    expect(c!.top[0]).toMatchObject({ rank: 1, name: 'Ash' });
+  });
+
+  it('drops a malformed card entry without blanking the challenge', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ...active,
+      cards: { ...active.cards, bad: { name: 5, image: null } },
+    });
+    const c = await getChallenge();
+    expect(c).not.toBeNull();
+    // The valid card still resolves for the stage that references it.
+    expect(c!.stages[0]!.cards).toEqual([
+      { name: 'Charizard', image: 'http://x/charizard.webp' },
+    ]);
+  });
+
+  it('degrades a malformed progress section to absent (stages still render)', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ...active,
+      progress: { pooledMyr: 'not-a-number', weekStartIso: 5 },
+    });
+    const c = await getChallenge();
+    expect(c).not.toBeNull();
+    expect(c!.pool).toBeNull();
+    expect(c!.summary).toBeNull();
+    expect(c!.stages).toHaveLength(3);
+    expect(c!.stages.every((s) => s.state === null)).toBe(true);
+  });
 });

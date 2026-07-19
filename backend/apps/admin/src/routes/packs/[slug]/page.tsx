@@ -40,8 +40,14 @@ import {
   type EditRow,
 } from '../../../lib/odds-rows';
 import { resolveImageUrl } from '../../../lib/image-url';
+import { shouldSeedBuffer } from '../../../lib/seed-buffer';
 import { LoadingSkeleton } from '../../../components/LoadingSkeleton';
 
+/**
+ * Pack odds editor (`/packs/:slug`): edit a pack's prize-pool membership and
+ * per-card odds. The odds buffer seeds once per slug and reseeds after a pool
+ * save; the router reuses this component across `:slug` changes.
+ */
 const PackOddsEditorPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -81,15 +87,19 @@ const PackOddsEditorPage = () => {
     }
   };
 
-  // Seed (and reseed) the editable buffer from the server snapshot, during render
-  // (not an effect) per react.dev "you might not need an effect". React Query keeps
-  // a stable `data` reference until the content changes, so this reseeds only on
-  // initial load and after our explicit post-save-members invalidation — never
-  // clobbering in-progress edits.
+  // Seed the editable buffer from the server snapshot during render (not an
+  // effect) per react.dev "you might not need an effect". Seed once per slug:
+  // the router reuses this route component across `:slug` changes (no remount),
+  // so reseed when the seeded snapshot's slug no longer matches. saveMembers
+  // resets seededFrom so a pool save reseeds. This cannot loop — usePackOdds
+  // sets no keepPreviousData, so `data` is either undefined or the requested
+  // slug's payload and the route echoes the exact slug back; once seeded,
+  // `seededFrom.pack.slug === slug` and the stale check goes quiet. See
+  // shouldSeedBuffer for why a plain identity check would wipe edits on refetch.
   const [seededFrom, setSeededFrom] = useState<PackOddsResponse | undefined>(
     undefined,
   );
-  if (data && data !== seededFrom) {
+  if (shouldSeedBuffer(data, seededFrom, (s) => s.pack.slug !== slug)) {
     setSeededFrom(data);
     setRows(mapOddsToRows(data.odds));
   }
@@ -173,7 +183,11 @@ const PackOddsEditorPage = () => {
         t('packs.pool.saved', { added: res.added, removed: res.removed }),
       );
       setPoolOpen(false);
-      // Invalidation (in the hook) refetches the odds → the seeding effect reseeds.
+      // The hook's onSuccess returns the packOdds invalidation promise, so
+      // mutateAsync resolves only after the refetch — the cache is fresh
+      // here. Reset the seed so the render-time seeding reseeds the rows
+      // from the new membership.
+      setSeededFrom(undefined);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     }

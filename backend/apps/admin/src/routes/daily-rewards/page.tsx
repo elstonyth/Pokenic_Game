@@ -42,6 +42,7 @@ import { resolveImageUrl } from '../../lib/image-url';
 import { validateImageFile } from '../../lib/image-validation';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { snapshotOf } from './box-snapshot';
+import { shouldSeedBuffer } from '../../lib/seed-buffer';
 import { VipLevelsTab } from './vip-levels-tab';
 
 const TIERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'Z'] as const;
@@ -150,6 +151,11 @@ const DailyRewardsPage = () => {
   );
 };
 
+/**
+ * Daily-rewards "Boxes" tab: edit one tier's box settings and prize rows,
+ * seeded once from the server snapshot and reseeded from the canonical save
+ * response. `dirtyRef` lets the parent block a tab switch over unsaved edits.
+ */
 const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   const { data: boxesData } = useDailyBoxes();
   const boxes = boxesData?.boxes ?? [];
@@ -171,7 +177,10 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   const [rows, setRows] = useState<EditRow[]>([]);
   const [reason, setReason] = useState('');
   const [serverSnap, setServerSnap] = useState('');
-  if (data && data !== seededFrom) {
+  // Seed once per mount; handleTierChange resets seededFrom to undefined so a
+  // tier switch reseeds from the next tier's snapshot. See shouldSeedBuffer for
+  // why a plain identity check would wipe edits on every background refetch.
+  if (shouldSeedBuffer(data, seededFrom)) {
     setSeededFrom(data);
     setName(data.box.name);
     setEnabled(data.box.enabled);
@@ -318,7 +327,7 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
   async function save() {
     if (!canSave) return;
     try {
-      await saveBox.mutateAsync({
+      const saved = await saveBox.mutateAsync({
         tier,
         body: {
           name,
@@ -341,9 +350,25 @@ const BoxesTab = ({ dirtyRef }: { dirtyRef: MutableRefObject<boolean> }) => {
           })),
         },
       });
+      // Seed-once means the post-save invalidation refetch no longer reseeds
+      // the buffer, so reseed it here from the save response — the
+      // server-canonical form (real prize ids, any normalized values) — and
+      // record that as the server snapshot so hasUnsavedEdits reads false.
+      // Mirrors VipLevelsTab.onSave.
+      const savedRows = saved.prizes.map(rowFromPrize);
+      setName(saved.box.name);
+      setEnabled(saved.box.enabled);
+      setDrawsPerDay(String(saved.box.draws_per_day));
+      setRows(savedRows);
+      setServerSnap(
+        snapshotOf({
+          name: saved.box.name,
+          enabled: saved.box.enabled,
+          drawsPerDay: String(saved.box.draws_per_day),
+          rows: savedRows,
+        }),
+      );
       setReason('');
-      // useSaveDailyBox invalidates qk.dailyBoxes + qk.dailyBox(tier) → the
-      // buffer reseeds from the refetch above.
     } catch {
       // useSaveDailyBox.onError already toasts the backend message.
     }

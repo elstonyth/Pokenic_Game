@@ -12,6 +12,7 @@ import {
   createAuthRateLimit,
   createCreditTopupRateLimit,
   createDeliveryWriteRateLimit,
+  createNotificationReadAllRateLimit,
   createNotificationReadRateLimit,
   createPackOpenBatchRateLimit,
   createPackOpenRateLimit,
@@ -404,6 +405,19 @@ export default defineMiddlewares({
       matcher: '/store/notifications',
       method: 'GET',
       middlewares: [authenticate('customer', ['bearer']), storeReadRateLimit],
+    },
+    {
+      // Bulk mark-read (POST /store/notifications/read-all). The write set is
+      // derived from the caller's own owner-scoped feed inside the handler —
+      // there is no id input to forge, so this entry is the auth +
+      // rate-limit gate only. Its own limiter tier: a runaway read-all loop
+      // must not eat the per-id budget normal feed interaction depends on.
+      matcher: '/store/notifications/read-all',
+      method: 'POST',
+      middlewares: [
+        authenticate('customer', ['bearer']),
+        createNotificationReadAllRateLimit(),
+      ],
     },
     {
       // Mark a feed notification as read (POST /store/notifications/:id/read).

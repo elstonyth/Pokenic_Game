@@ -4,6 +4,11 @@ import {
 } from '@medusajs/framework/http';
 import { MedusaError } from '@medusajs/framework/utils';
 import { topUpCreditsWorkflow } from '../../../../workflows/topup-credits';
+import { notifyFeed } from '../../../../modules/packs/notify-feed';
+import {
+  shouldNotifyTopup,
+  topupFeedKey,
+} from '../../../../modules/packs/feed-events';
 
 // POST /store/credits/topup — buy site credit through the payment gateway
 // seam (mock today: always approves except amounts ending in .13). Appends a
@@ -42,6 +47,29 @@ export async function POST(
   const { result } = await topUpCreditsWorkflow(req.scope).run({
     input: { customer_id: customerId, amount, idempotency_key },
   });
+
+  // Feed receipt for the credit. A replay credited NOTHING (it returned the
+  // pre-existing row), so it must not produce a second row. Keyed on the
+  // gateway charge reference — the workflow exposes no ledger-row id.
+  //
+  // Toast policy for this template is 'never' on the storefront: the top-up
+  // sheet already confirms the charge on the tab that made it. This row is the
+  // durable receipt, and it is what a real gateway webhook will reuse when the
+  // charge stops being synchronous.
+  //
+  // Non-fatal: the credit is already committed.
+  if (shouldNotifyTopup(result)) {
+    try {
+      await notifyFeed(req.scope, {
+        receiverId: customerId,
+        template: 'topup_credited',
+        data: { amount_myr: result.amount, reference: result.reference },
+        idempotencyKey: topupFeedKey(result.reference),
+      });
+    } catch {
+      // Non-fatal — never fail a committed top-up over a notification.
+    }
+  }
 
   res.json(result);
 }

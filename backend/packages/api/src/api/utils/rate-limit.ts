@@ -658,6 +658,28 @@ export function createNotificationReadRateLimit(): MiddlewareHandler {
 }
 
 /**
+ * The bulk mark-read limiter (POST /store/notifications/read-all). One call
+ * clears the whole feed page, so a human needs this only a handful of times a
+ * minute — far tighter than the per-id limiter it replaces for bulk work, and
+ * deliberately its own tier so a runaway read-all loop cannot eat the per-id
+ * budget a normal feed interaction depends on. Env-tunable:
+ * NOTIFICATION_READ_ALL_RATE_BURST_LIMIT / _BURST_WINDOW_MS (default 5/10s)
+ * NOTIFICATION_READ_ALL_RATE_LIMIT / _WINDOW_MS (default 30/60s)
+ */
+export function createNotificationReadAllRateLimit(): MiddlewareHandler {
+  return createEnvRateLimit({
+    name: 'notification-read-all',
+    message: 'Too many mark-all-read requests.',
+    defaults: {
+      burstLimit: 5,
+      burstWindowMs: 10_000,
+      limit: 30,
+      windowMs: 60_000,
+    },
+  });
+}
+
+/**
  * Rate-limiter for admin money-mutation routes (freeze/unfreeze, commission
  * reverse/suspend/unsuspend, rewards-settings, credit-adjust). Admins are
  * trusted operators, so the budget is deliberately generous — this is

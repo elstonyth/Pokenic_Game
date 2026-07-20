@@ -5,6 +5,11 @@ import type {
 import { MedusaError } from '@medusajs/framework/utils';
 import { drawDailyBoxWorkflow } from '../../../../workflows/draw-daily-box';
 import { rewardsRedemptionEnabled } from '../../../../modules/packs/rewards-gate';
+import { notifyFeed } from '../../../../modules/packs/notify-feed';
+import {
+  shouldNotifyRewardWon,
+  rewardWonFeedKey,
+} from '../../../../modules/packs/feed-events';
 
 // POST /store/daily/draw — open today's daily box (reward_box model). The whole
 // daily-capped draw (tier resolve → cap COUNT → pick → payout → reward_draw
@@ -34,6 +39,35 @@ export async function POST(
   const { result } = await drawDailyBoxWorkflow(req.scope).run({
     input: { customer_id: customerId },
   });
+
+  // Feed record of the prize. reward_won has been in FeedTemplate since the
+  // feed shipped with no producer at all — this is it. Toast policy is
+  // 'never' on the storefront: PrizeReveal is already a full-screen
+  // announcement on the tab that drew, so the row is the durable history
+  // entry, not a second announcement.
+  //
+  // Non-fatal: the draw is already committed.
+  if (shouldNotifyRewardWon(result)) {
+    try {
+      await notifyFeed(req.scope, {
+        receiverId: customerId,
+        template: 'reward_won',
+        data: {
+          prize_kind: result.prize?.kind ?? '',
+          title: result.prize?.title ?? '',
+          amount_myr: result.prize?.amount_myr ?? 0,
+          draw_ordinal: result.draw_ordinal ?? 0,
+        },
+        idempotencyKey: rewardWonFeedKey(
+          customerId,
+          result.draw_day as string,
+          result.draw_ordinal as number,
+        ),
+      });
+    } catch {
+      // Non-fatal — never fail a committed draw over a notification.
+    }
+  }
 
   // A "nothing" prize is a normal drawn outcome, not a failure — say so in
   // human words (sim finding P3-7: the bare {kind:"nothing"} read like an

@@ -304,6 +304,10 @@ export type DrawDailyBoxResult = {
     product_handle?: string;
   };
   draw_ordinal?: number;
+  /** UTC yyyy-mm-dd the draw was settled under — the notification key uses
+   *  this rather than recomputing the date in the route, which can disagree
+   *  across a midnight boundary. */
+  draw_day?: string;
 };
 
 // Defensive depth bound for referralSummary's downward fan-out CTE. linkSponsor
@@ -4244,6 +4248,7 @@ class PacksModuleService extends MedusaService({
       status: 'drawn',
       prize: resultPrize,
       draw_ordinal: drawOrdinal,
+      draw_day: drawDay,
     };
   }
 

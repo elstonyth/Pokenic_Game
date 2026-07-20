@@ -23,7 +23,7 @@
 - **Preserve `motion-safe:` prefixes** on toast animations — that is the repo's reduced-motion mechanism.
 - **Errors stay inline.** No `role="alert"` inline error in any touched component may be converted to a toast. Several carry interactive content (a `Log in` button) or diagnostics a user needs to read at their own pace.
 - **Commit messages** use Conventional Commits and end with:
-  ```
+  ```text
   Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
   ```
 
@@ -212,6 +212,23 @@ describe('suppression', () => {
   });
 });
 
+describe('reset on identity change', () => {
+  it('clears visible, queued and seen so a new customer sees nothing carried over', () => {
+    let s = enqueue(initialToastState, 'a', 'b', 'c', 'd');
+    s = toastQueue(s, { type: 'reset' });
+    expect(s).toEqual(initialToastState);
+  });
+
+  it('lets a previously-seen key show again for the new customer', () => {
+    // `seen` is keyed by notification id; after a reset the same key must not
+    // be suppressed as a duplicate.
+    let s = enqueue(initialToastState, 'a');
+    s = toastQueue(s, { type: 'reset' });
+    s = enqueue(s, 'a');
+    expect(s.visible.map((t) => t.key)).toEqual(['a']);
+  });
+});
+
 describe('purity', () => {
   it('never mutates the state it is given', () => {
     const before = enqueue(initialToastState, 'a', 'b');
@@ -268,7 +285,8 @@ export type ToastAction =
   | { type: 'enqueue'; toasts: ToastSpec[] }
   | { type: 'dismiss'; key: string }
   | { type: 'suppress' }
-  | { type: 'release' };
+  | { type: 'release' }
+  | { type: 'reset' };
 
 /** Three is the most that fits under the header without covering content. */
 export const MAX_VISIBLE = 3;
@@ -341,6 +359,14 @@ export function toastQueue(state: ToastState, action: ToastAction): ToastState {
       return drain({ ...state, suppressed: false });
     }
 
+    case 'reset': {
+      // Identity changed (logout, or switching accounts). Visible and queued
+      // toasts carry account-specific content, and `seen` is keyed to the old
+      // customer's notification ids — all of it must go, or the next customer
+      // sees the previous one's notifications.
+      return initialToastState;
+    }
+
     default:
       return state;
   }
@@ -353,7 +379,7 @@ export function toastQueue(state: ToastState, action: ToastAction): ToastState {
 npm run test -- src/lib/notifications/__tests__/toast-queue.test.ts
 ```
 
-Expected: PASS — 4 suites, 13 tests.
+Expected: PASS — 5 suites, 16 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -477,24 +503,36 @@ export function watermarkKey(customerId: string): string {
 }
 
 /** The newest created_at already announced on this device, or null. */
+/**
+ * Session fallback for when localStorage is unavailable (Safari private mode,
+ * storage disabled). Without it `readWatermark` returns null on EVERY poll,
+ * `selectToastable` reads that as a fresh device every time, and the silent
+ * seed suppresses toasts for the whole session rather than just re-announcing
+ * next session.
+ */
+const memoryWatermark = new Map<string, string>();
+
 export function readWatermark(customerId: string): string | null {
   try {
     const raw = localStorage.getItem(watermarkKey(customerId));
-    if (!raw) return null;
+    if (!raw) return memoryWatermark.get(customerId) ?? null;
     // A value we cannot compare is worse than none: it would make every
     // comparison fall through and re-announce the whole feed.
     return Number.isFinite(new Date(raw).getTime()) ? raw : null;
   } catch {
-    // Storage disabled or unavailable — behave like a fresh device.
-    return null;
+    // Storage unavailable — fall back to the in-session map.
+    return memoryWatermark.get(customerId) ?? null;
   }
 }
 
 export function writeWatermark(customerId: string, iso: string): void {
+  // Always record in memory so a storage failure cannot mute the session.
+  memoryWatermark.set(customerId, iso);
   try {
     localStorage.setItem(watermarkKey(customerId), iso);
   } catch {
-    // Quota or private-mode failure. The cost is re-announcing next session,
+    // Quota or private-mode failure. The in-memory value above still advances
+    // the watermark for this session; the cost is re-announcing next session,
     // which is strictly better than throwing inside a poll.
   }
 }
@@ -1030,6 +1068,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Toast } from '@/components/ui/Toast';
 import {
   toastQueue,
@@ -1081,6 +1120,16 @@ export function useSuppressToasts(active: boolean): void {
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(toastQueue, initialToastState);
+
+  // This provider outlives logout/login — it wraps NotificationsProvider in the
+  // root layout — and its queue holds account-specific content. Drop everything
+  // when the identity changes so a new customer cannot inherit the previous
+  // customer's toasts.
+  const { customer } = useAuth();
+  const customerId = customer?.id ?? null;
+  useEffect(() => {
+    dispatch({ type: 'reset' });
+  }, [customerId]);
 
   const show = useCallback((spec: ToastSpec) => {
     dispatch({ type: 'enqueue', toasts: [spec] });
@@ -1273,10 +1322,30 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     showManyRef.current = showMany;
   });
 
+  // Identity at the time a refresh was issued. An in-flight getNotifications()
+  // captures the old customerId; without this its response could still write
+  // the old watermark, set unreadCount, and raise the previous customer's
+  // toasts after a logout or account switch.
+  const activeCustomerRef = useRef<string | null>(customerId);
+  useEffect(() => {
+    activeCustomerRef.current = customerId;
+  }, [customerId]);
+
   const refresh = useCallback(async (): Promise<void> => {
     if (!customerId) return;
+    // Guard lives HERE, not at the call sites: route changes and the post-pull
+    // bump timers also call refresh(), and a navigation (or a backgrounded tab
+    // during the +2s/+6s bump window) would otherwise still issue requests,
+    // contradicting the "zero while hidden" criterion.
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      return;
+    }
+
     const res = await getNotifications();
     if (!res.ok) return;
+    // The identity may have changed while this was in flight — drop the result
+    // rather than applying another customer's data.
+    if (activeCustomerRef.current !== customerId) return;
 
     setUnreadCount(res.unreadCount);
 
@@ -1333,9 +1402,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
 
     let timer: number | null = null;
-    const tick = () => {
-      if (document.visibilityState === 'visible') void refresh();
-    };
+    // refresh() owns the visibility guard, so every trigger inherits it.
+    const tick = () => void refresh();
     const start = () => {
       if (timer === null) timer = window.setInterval(tick, POLL_MS);
     };
@@ -1895,5 +1963,8 @@ EOF
 - [ ] A level-up from a pull toasts **after** leaving the slot room, not over the reveal.
 - [ ] Every inline `role="alert"` error still renders inline in all four touched flows.
 - [ ] `grep -rn "SuccessToast" src/` returns nothing.
+- [ ] Logging out and back in as a DIFFERENT customer shows none of the previous
+      customer's toasts — the queue resets on identity change.
 
-Open the PR against `master`. Branch: `claude/notification-popup-coverage-79825a`.
+Open the PR against `master`, on its own branch (PR 1 shipped from
+`claude/notification-popup-coverage-79825a`; do not reuse it).

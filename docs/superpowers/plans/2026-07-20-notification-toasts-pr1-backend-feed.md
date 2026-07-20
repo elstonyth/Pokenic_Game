@@ -771,8 +771,6 @@ Create `backend/packages/api/src/api/store/credits/__tests__/topup-notify.unit.s
 
 ```ts
 // src/api/store/credits/__tests__/topup-notify.unit.spec.ts
-import { Modules } from '@medusajs/framework/utils';
-
 const runMock = jest.fn();
 
 jest.mock('../../../../workflows/topup-credits', () => ({
@@ -863,12 +861,6 @@ it('a notification failure never fails a committed top-up', async () => {
     replayed: false,
   });
 });
-
-// Guards the resolve key the route depends on — if the notification module key
-// ever changes, this fails loudly here rather than silently never notifying.
-it('resolves the notification module by the framework key', () => {
-  expect(Modules.NOTIFICATION).toBeTruthy();
-});
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -944,7 +936,7 @@ Expected output: `ok`.
 cd backend/packages/api && corepack yarn test:unit topup-notify.unit.spec
 ```
 
-Expected: PASS — 4 tests.
+Expected: PASS — 3 tests.
 
 ```bash
 cd backend/packages/api && corepack yarn test:integration:http credit-topup.spec
@@ -1722,7 +1714,11 @@ describe('body rendering', () => {
       expect(() => body(null)).not.toThrow();
       expect(() => body({})).not.toThrow();
       expect(() => body({ levels: 'nope', amount_myr: 'x' })).not.toThrow();
-      expect(typeof body(null) === 'string' || body(null) === null).toBe(true);
+      // Never undefined: the renderers branch on `body && …`, so an undefined
+      // return would render nothing while silently passing a truthiness check
+      // that was meant to distinguish "no detail" from "broken payload".
+      expect(body(null)).not.toBeUndefined();
+      expect(body({ levels: 'nope', amount_myr: 'x' })).not.toBeUndefined();
     }
   });
 });

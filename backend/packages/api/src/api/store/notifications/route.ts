@@ -19,9 +19,10 @@ import { parsePaginationParams } from '../../../utils/pagination';
 // read_at: sourced from the notification_read packs side-table (Task 1).
 // Rows that have no entry in that table are returned with read_at: null.
 //
-// unread_count: page-scoped count of rows in the returned page whose read_at is
-// null (limited to PAGE_SIZE items), NOT the total unread across all
-// notifications for this customer.
+// unread_count: TRUE unread total across ALL the customer's feed notifications
+// (not page-scoped): total feed rows minus notification_read rows with a
+// read_at, both counted server-side. The nav badge and the /notifications
+// header rely on this spanning beyond the returned page.
 //
 // Pagination: ?limit=&offset= (parsePaginationParams — shared with the admin
 // audit/commissions routes). take limit + 1 → `has_more` without a separate
@@ -42,7 +43,9 @@ export async function GET(
     Modules.NOTIFICATION,
   );
 
-  const rows = await notif.listNotifications(
+  // listAndCount: the count is the TOTAL matching feed rows (independent of
+  // take/skip), which the true unread_count needs anyway — no extra query.
+  const [rows, totalFeed] = await notif.listAndCountNotifications(
     { receiver_id: receiverId, channel: 'feed' },
     // id tiebreaker: batch creates land sibling rows in the same instant, and
     // created_at alone gives no stable order across offset pages.
@@ -51,8 +54,19 @@ export async function GET(
   const hasMore = rows.length > limit;
   const notifications = rows.slice(0, limit);
 
-  // Batch-fetch read state for this page from the packs side-table.
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
+
+  // True unread total: all feed rows minus the customer's marked-read rows.
+  // Reads are only ever created by the owner-scoped mark-read route against
+  // feed notifications, so the subtraction is exact; clamp guards pathology
+  // (e.g. a read row surviving its notification).
+  const [, readCount] = await packs.listAndCountNotificationReads(
+    { customer_id: receiverId, read_at: { $ne: null } },
+    { take: 1 },
+  );
+  const unreadCount = Math.max(0, totalFeed - readCount);
+
+  // Batch-fetch read state for this page from the packs side-table.
   const notifIds = notifications.map((n) => n.id);
   const reads =
     notifIds.length > 0
@@ -78,7 +92,7 @@ export async function GET(
 
   res.json({
     notifications: mapped,
-    unread_count: mapped.filter((n) => !n.read_at).length,
+    unread_count: unreadCount,
     has_more: hasMore,
   });
 }

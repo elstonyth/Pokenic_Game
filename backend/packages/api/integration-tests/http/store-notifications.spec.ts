@@ -291,6 +291,54 @@ medusaIntegrationTestRunner({
         expect(res.status).toBe(404);
       });
 
+      it('(unread_count) is the TRUE total spanning beyond one page, and mark-read decrements it globally', async () => {
+        // Seed 4 more rows for A (beforeEach seeded 1) → 5 total unread.
+        const container = getContainer();
+        const notif = container.resolve(Modules.NOTIFICATION);
+        await notif.createNotifications(
+          Array.from({ length: 4 }, (_, i) => ({
+            to: customerIdA,
+            receiver_id: customerIdA,
+            channel: 'feed' as const,
+            template: 'reward_won',
+            data: { i },
+          })),
+        );
+
+        // A 2-row page must still report all 5 unread.
+        const p1 = await unwrapResponse(
+          api.get('/store/notifications?limit=2&offset=0', {
+            headers: authed(tokenA),
+          }),
+        );
+        expect(p1.status).toBe(200);
+        expect(p1.data.notifications.length).toBe(2);
+        expect(p1.data.unread_count).toBe(5);
+
+        // Mark one read → the total drops to 4 on EVERY page, including a page
+        // that does not contain the marked row.
+        const markId = p1.data.notifications[0].id as string;
+        const markRes = await unwrapResponse(
+          api.post(
+            `/store/notifications/${markId}/read`,
+            {},
+            { headers: authed(tokenA) },
+          ),
+        );
+        expect(markRes.status).toBe(200);
+
+        const p2 = await unwrapResponse(
+          api.get('/store/notifications?limit=2&offset=2', {
+            headers: authed(tokenA),
+          }),
+        );
+        expect(p2.status).toBe(200);
+        expect(
+          p2.data.notifications.some((n: { id: string }) => n.id === markId),
+        ).toBe(false);
+        expect(p2.data.unread_count).toBe(4);
+      });
+
       it('(pagination) limit/offset walk the feed newest-first with has_more', async () => {
         // Seed 2 more rows for A (beforeEach seeded 1) → 3 total.
         const container = getContainer();

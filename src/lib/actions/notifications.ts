@@ -180,10 +180,9 @@ export async function getUnreadCount(): Promise<number> {
   try {
     const raw = await sdk.client.fetch('/store/notifications', {
       headers: { Authorization: `Bearer ${token}` },
-      // Explicit 50: the backend's default page shrank to 20 with pagination,
-      // which would silently cap the badge below its pre-pagination reach.
-      // unread_count stays page-scoped — a true count is a backend follow-up.
-      query: { limit: 50 },
+      // unread_count is a TRUE total (not page-scoped), so the badge only
+      // needs the envelope — fetch the smallest legal page.
+      query: { limit: 1 },
       cache: 'no-store',
     });
     const envelope = parseOne(NotificationsEnvelopeSchema, raw);

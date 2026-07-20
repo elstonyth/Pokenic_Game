@@ -62,24 +62,15 @@ console.log(`derived: pack slug=${slug}`);
 
 const PUBLIC = [
   '/',
-  '/30th',
   '/about',
-  '/activity',
-  '/airdrop',
   '/contact',
   '/daily',
   '/fairness',
   '/free',
   '/how-it-works',
   '/leaderboard',
-  '/marketplace',
-  '/merchants',
-  '/pack-party',
-  '/pokemon/generation/1',
-  '/repacks',
   '/reset-password',
   '/roulette',
-  '/series',
   '/slots',
   ...(slug ? [`/slots/${slug}`, `/slots/${slug}/spin`] : []),
   '/social',
@@ -176,10 +167,7 @@ try {
   const probeCtx = await browser.newContext();
   const probe = await probeCtx.newPage();
   const derived = [];
-  for (const [route, prefix] of [
-    ['/marketplace', '/card/'],
-    ['/leaderboard', '/profile/'],
-  ]) {
+  for (const [route, prefix] of [['/leaderboard', '/profile/']]) {
     try {
       await probe.goto(`${FRONT}${route}`, {
         waitUntil: 'domcontentloaded',

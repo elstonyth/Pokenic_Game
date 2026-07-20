@@ -1,8 +1,8 @@
 /**
- * Shared "pedestal card" chrome for the marketplace tile (MarketCard) and the
- * recent-pulls tile (PullCard): the dark radial spotlight behind the card art,
- * plus the frame + image hover physics — the three magic strings both tiles
- * had copy-pasted verbatim (and which silently drift apart when one is tweaked).
+ * Shared "pedestal card" chrome for the recent-pulls tile (PullCard): the dark
+ * radial spotlight behind the card art, plus the frame + image hover physics.
+ * Extracted when the marketplace tile (MarketCard, since removed with its
+ * route) carried the same three magic strings copy-pasted verbatim.
  * Per-card differences (aspect ratio, border/bg colour, image padding, the top
  * badge, the footer) stay local to each card — they are genuinely distinct, so
  * forcing them through one component would be a leaky, prop-heavy wrapper.

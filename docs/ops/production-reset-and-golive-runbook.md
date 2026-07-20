@@ -35,7 +35,7 @@ Verified in code 2026-07-19: `src/jobs/` contains only `mature-commissions.ts` a
 the challenge. `service.ts` still comments "the reward settlement engine is inert."
 
 What exists: draw-time value recording, the community pool aggregate, the pulled-value weekly
-ranking (shared by `/task` and `/leaderboard`), admin config, and the storefront page.
+ranking (both on `/leaderboard`), admin config, and the storefront page.
 
 What does **not** exist: at week end, nothing grants featured cards to ranks 1–3 or credits to
 ranks 4–10, and nothing snapshots the closing standings. When the anchor moves, the board
@@ -137,14 +137,15 @@ pulls were already stamped — `{total:153, stamped:153, unstamped:0}`.)
 
 Fresh-DB behaviour is already known-good and should be re-confirmed:
 
-- `/task` → the honest "launching soon" placeholder (0 stages → `active:false`), **not** a
-  crash or a blank page. `challengeSettings()` returns Monday 00:00 `Asia/Kuala_Lumpur`
+- `/leaderboard` → standings only, with the challenge block absent (0 stages →
+  `active:false`), **not** a crash or a blank page. `challengeSettings()` returns Monday 00:00 `Asia/Kuala_Lumpur`
   defaults with no settings row.
 - `/leaderboard` → empty state, not fabricated rows.
 - `/slots` → packs render (proves the publishable key rebuild in step 5 actually took).
 - One real pack open end-to-end → a `pull` row appears **with** a non-null
-  `recorded_value_usd`, and it shows on `/task` + `/leaderboard`.
-- After configuring stages: `/task` shows a sane ladder, not "every stage unlocked".
+  `recorded_value_usd`, and it shows on `/leaderboard`.
+- After configuring stages: `/leaderboard` shows a sane ladder above the standings, not
+  "every stage unlocked".
 
 Read-only prod DB checks can run from the DO app console without touching the DB firewall —
 node-pg needs TLS passed explicitly or it is rejected with `FATAL 28000 ... no encryption`:

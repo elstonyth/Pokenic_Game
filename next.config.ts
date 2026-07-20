@@ -136,14 +136,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
-  // The claw experience was retired in the mobile redesign — old links and
-  // bookmarks land on the slots catalog/detail instead of a 404.
-  async redirects() {
-    return [
-      { source: '/claw', destination: '/slots', permanent: true },
-      { source: '/claw/:slug', destination: '/slots/:slug', permanent: true },
-    ];
-  },
+  // No redirects for retired sections — the claw experience (removed in the
+  // mobile redesign) and the routes deleted 2026-07-20 all 404 by operator
+  // decision. The custom 404 page carries suggested packs, so a stale link
+  // lands somewhere useful without the site claiming those URLs still mean
+  // something.
 };
 
 export default withSentryConfig(nextConfig, {

@@ -79,8 +79,8 @@ const STEPS: Step[] = [
   },
   {
     num: '3',
-    title: 'Keep, ship, or sell for 90% cash back',
-    body: "Hold your card in the vault, flip it on the marketplace, trade with collectors, or redeem and we'll ship the physical slab to your door.",
+    title: 'Keep, ship, or sell back for up to 90%',
+    body: "Hold your card in the vault, sell it back instantly for 85-90% of market value, or redeem and we'll ship the physical slab to your door.",
     pill: 'Ships worldwide',
     pillSub: 'Fully tracked and insured to your door',
     pillVariant: 'ships',
@@ -88,7 +88,7 @@ const STEPS: Step[] = [
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src="/home/hero/trade-sell-ship.webp"
-        alt="Trade, sell, or ship your cards worldwide"
+        alt="Sell back or ship your cards worldwide"
         className="relative h-[88%] w-auto object-contain drop-shadow-[0_16px_40px_rgba(0,0,0,0.3)] transition-transform duration-500 ease-out group-hover:scale-[1.04]"
       />
     ),

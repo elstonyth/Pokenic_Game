@@ -165,16 +165,6 @@
   }
 }
 
-/* Spinning 3D coin on the Marketplace Activity hero (parent sets perspective). */
-@keyframes coinSpin {
-  from {
-    transform: rotateY(0deg);
-  }
-  to {
-    transform: rotateY(360deg);
-  }
-}
-
 /* Leaderboard podium pedestals growing up from the baseline (clipped by the
    fixed-height box, so the layout below never shifts) */
 @keyframes podiumRise {
@@ -563,4 +553,21 @@
       animation: none;
     }
   }
+}
+
+/* iOS Safari zooms the whole page when a focused field renders under 16px, and
+   it never zooms back out. Every form shape in the app is text-sm (14px), so
+   pin the floor once here rather than in eight copies of the same input class
+   string. Deliberately unlayered: an @layer base rule loses to Tailwind's
+   text-sm utility, while unlayered CSS wins the cascade against every layer.
+   Note max() compares against 1em — the PARENT's size — so it raises a small
+   field but would also clobber a deliberately larger one; nothing in the app
+   styles a field above base today. Range and file inputs opt out: their
+   font-size is cosmetic and 16px inflates the control. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+    [type='file']
+  ),
+textarea,
+select {
+  font-size: max(16px, 1em);
 }

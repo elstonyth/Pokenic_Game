@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     template: '%s · Polycards',
   },
   description:
-    'Rip packs. Pull graded cards. Hold, trade, redeem, or sell back at up to 90% value.',
+    'Rip packs. Pull graded cards. Hold, redeem, or sell back at up to 90% value.',
   applicationName: 'Polycards',
   alternates: { canonical: '/' },
   openGraph: {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     siteName: 'Polycards',
     title: 'Polycards — Your Gateway to Physical & Digital Collectibles',
     description:
-      'Rip packs. Pull graded cards. Hold, trade, redeem, or sell back at up to 90% value.',
+      'Rip packs. Pull graded cards. Hold, redeem, or sell back at up to 90% value.',
     url: '/',
     images: [
       { url: '/seo/og.png', width: 2400, height: 1260, alt: 'Polycards' },
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Polycards — Your Gateway to Physical & Digital Collectibles',
     description:
-      'Rip packs. Pull graded cards. Hold, trade, redeem, or sell back at up to 90% value.',
+      'Rip packs. Pull graded cards. Hold, redeem, or sell back at up to 90% value.',
     images: ['/seo/og.png'],
   },
   appleWebApp: { capable: true, title: 'Polycards', statusBarStyle: 'black' },

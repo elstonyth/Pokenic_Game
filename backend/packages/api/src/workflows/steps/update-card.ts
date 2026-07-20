@@ -232,9 +232,9 @@ export const updateCardInvoke = async (
               grader: input.grader,
               set: input.set,
               // Keep the PC-link mirror in sync with the card's new values —
-              // the marketplace listing price reads market_multiplier off
-              // product.metadata (src/lib/data/products.ts), so an edit here
-              // must not leave it stale.
+              // the listing price reads market_multiplier off
+              // product.metadata, so an edit here must not leave it stale.
+              // (The storefront reader was removed with /marketplace.)
               pc_product_id: input.pc_product_id ?? null,
               pc_grade: input.pc_grade ?? null,
               market_multiplier:

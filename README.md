@@ -2,11 +2,11 @@
 
 A physical/digital trading-card-pack collectibles platform — built as a Next.js 16 storefront on top of a Medusa v2 + Mercur marketplace backend.
 
-The experience: pack drops, slot-machine pack opening, a vault, a marketplace, and a leaderboard, in a clean, full-bleed, dark-mode codebase.
+The experience: pack drops, slot-machine pack opening, a vault, and a leaderboard, in a clean, full-bleed, dark-mode codebase.
 
 ## What's inside
 
-- **Storefront** (`src/`) — Next.js 16 (App Router, React 19, TypeScript strict), ~36 routes including the home page, `/slots` (slot-machine pack opening), `/how-it-works`, `/leaderboard`, `/marketplace`, `/pack-party`, and an account area (vault, orders, transactions, settings, referrals).
+- **Storefront** (`src/`) — Next.js 16 (App Router, React 19, TypeScript strict), ~30 routes including the home page, `/slots` (slot-machine pack opening), `/how-it-works`, `/leaderboard` (Ranks — standings plus the Weekly Pulled Value Challenge), and an account area (vault, orders, transactions, settings, referrals).
 - **Backend** (`backend/`) — a [Medusa v2](https://medusajs.com/) + [Mercur](https://mercurjs.com/) (multi-vendor) commerce API at `backend/packages/api`, plus an admin dashboard at `backend/apps/admin`.
 - **Credit economy** — top-up, per-customer credit charging, public profiles, a client-side demo spin, forgot-password, a card vault, two-tier buyback, stock-aware pack pulls, and a DB-aggregated leaderboard.
 
@@ -94,7 +94,7 @@ docker compose up dev --build   # dev mode on port 3001
 ## Architecture
 
 - **Section composition + scroll-in animation is the core pattern.** `src/app/page.tsx` stacks section components, wrapping most in `<Reveal>` (fade-up on scroll-into-view). The engine — `useInView` + `usePrefersReducedMotion` (`src/lib/use-reveal.ts`) — honors `prefers-reduced-motion` everywhere. Sections with their own internal scroll animation (`HowItWorksSection`, `LeaderboardSection`) are intentionally not double-wrapped.
-- **Server/client split.** Route `page.tsx` files stay server components and export `metadata`; interactivity moves to a sibling `'use client'` component (canonical example: `marketplace/page.tsx` → `marketplace/MarketplaceClient.tsx`).
+- **Server/client split.** Route `page.tsx` files stay server components and export `metadata`; interactivity moves to a sibling `'use client'` component (canonical example: `slots/[slug]/page.tsx` → `slots/[slug]/PackDetailClient.tsx`).
 - **Global shell.** `src/app/layout.tsx` forces dark mode and wraps every page in `SiteHeader` + `SiteFooter`. The palette is hardcoded Tailwind neutrals, not the shadcn oklch tokens.
 
 ## Measurement-driven UI

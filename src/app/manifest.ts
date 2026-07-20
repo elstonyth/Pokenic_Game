@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Polycards — Physical & Digital Collectibles',
     short_name: 'Polycards',
     description:
-      'Rip packs. Pull graded cards. Hold, trade, redeem, or sell back at up to 90% value.',
+      'Rip packs. Pull graded cards. Hold, redeem, or sell back at up to 90% value.',
     start_url: '/',
     display: 'standalone',
     background_color: '#171717',

@@ -14,7 +14,6 @@ export const dynamic = 'force-dynamic';
 const UPCOMING = [
   'Email notifications',
   'Pull alerts',
-  'Marketplace activity',
   'Two-factor authentication',
 ];
 

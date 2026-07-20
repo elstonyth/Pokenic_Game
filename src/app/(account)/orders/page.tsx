@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { Package } from 'lucide-react';
 import { AccountHeader, Panel } from '@/components/account/ui';
 import { getDeliveryOrders, getAddresses } from '@/lib/actions/delivery';
-import { features } from '@/lib/features';
 import OrdersClient from './OrdersClient';
 
 export const metadata: Metadata = { title: 'Orders' };
@@ -24,10 +23,10 @@ function EmptyState() {
         Request delivery of a vaulted card and your shipments will show up here.
       </p>
       <Link
-        href={features.marketplace ? '/marketplace' : '/slots'}
+        href="/slots"
         className="mt-1 inline-flex h-10 items-center rounded-xl bg-neutral-200 px-5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-white"
       >
-        {features.marketplace ? 'Browse the marketplace' : 'Open a pack'}
+        Open a pack
       </Link>
     </Panel>
   );

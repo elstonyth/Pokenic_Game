@@ -38,7 +38,9 @@ export default function LeaderboardClient({
   return (
     <div className="px-fluid mx-auto w-full max-w-md pt-6 lg:max-w-3xl">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-3xl text-white">LEADERBOARD</h1>
+        {/* h2: the page's h1 is "Ranks" on the route, which also owns the
+            Weekly Challenge block rendered above these standings. */}
+        <h2 className="font-heading text-3xl text-white">LEADERBOARD</h2>
       </div>
 
       {/* Period toggle — 90scard's Past / This Week pills. Plain toggle
@@ -192,8 +194,8 @@ export default function LeaderboardClient({
         </div>
       )}
 
-      {/* Clearance so the fixed your-rank card never covers the last row. */}
-      {ownHandle != null && <div aria-hidden className="h-24" />}
+      {/* Clearance for the fixed your-rank card lives on the route, after the
+          last block on the page (the rules follow these standings). */}
     </div>
   );
 }

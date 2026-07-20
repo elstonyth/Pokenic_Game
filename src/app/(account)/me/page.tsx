@@ -51,7 +51,6 @@ const ABOUT_LINKS: { label: string; href: string }[] = [
   { label: 'Fairness', href: '/fairness' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
-  { label: 'Activity', href: '/activity' },
 ];
 
 export default async function MePage() {
@@ -224,7 +223,7 @@ export default async function MePage() {
               </p>
               <Link
                 href="/vault"
-                className="text-[12px] font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+                className="inline-flex min-h-6 items-center text-[12px] font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
               >
                 Manage
               </Link>

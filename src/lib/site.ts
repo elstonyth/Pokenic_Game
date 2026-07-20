@@ -1,5 +1,3 @@
-import { features } from '@/lib/features';
-
 // Canonical public origin. Falls back to localhost for dev so metadataBase and
 // the sitemap still resolve; set NEXT_PUBLIC_SITE_URL in the deploy env.
 export const SITE_URL = (
@@ -7,17 +5,13 @@ export const SITE_URL = (
 ).replace(/\/$/, '');
 
 // Indexable, public routes only (no account/auth pages, no dynamic detail
-// pages, no demo pages — /series is reachable but stays out of the sitemap).
-// Feature-flagged sections are included only when enabled.
+// pages, no demo pages).
 export const ROUTES: string[] = [
   '/',
   '/slots',
-  '/task',
   '/leaderboard',
   '/how-it-works',
   '/fairness',
   '/about',
   '/contact',
-  ...(features.marketplace ? ['/marketplace'] : []),
-  ...(features.packParty ? ['/pack-party'] : []),
 ];

@@ -2,8 +2,8 @@
  * Weekly Pulled Value Challenge data seam (GET /store/challenge). Mirrors
  * data/leaderboard.ts: a server-side fetch, zod-validated, mapped to a
  * presentational shape. Returns null when the challenge is OFF (active:false /
- * no stages) or the backend is unreachable — the /task page then renders its
- * honest "launching soon" empty state.
+ * no stages) or the backend is unreachable — the Ranks page (/leaderboard) then
+ * simply omits the challenge block and renders the standings alone.
  *
  * Standard semantics: stages unlock as the REAL community pool (pull-ledger
  * aggregate) crosses thresholds; rewards are CUMULATIVE and form the top-10

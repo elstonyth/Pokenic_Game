@@ -1,15 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { features } from '@/lib/features';
 import {
   Vault,
   ShieldCheck,
   Thermometer,
   Truck,
   Layers,
-  Store,
-  Gamepad2,
   Trophy,
   type LucideIcon,
 } from 'lucide-react';
@@ -93,32 +90,14 @@ const TESTIMONIALS: Testimonial[] = [
 ];
 
 type Capability = { icon: LucideIcon; title: string; body: string };
-// Marketplace/games cards only show while their feature flags are on — the
-// page must not advertise features the deploy has gated off.
+// Only what the storefront actually ships — the marketplace and games cards
+// were removed with their routes. Don't advertise what isn't there.
 const CAPABILITIES: Capability[] = [
   {
     icon: Layers,
     title: 'Open Packs',
     body: 'Hundreds of Pokémon packs. New drops every week.',
   },
-  ...(features.marketplace
-    ? [
-        {
-          icon: Store,
-          title: 'Marketplace',
-          body: 'Buy and sell cards with other collectors. Real cards, real ownership, instant transfers.',
-        },
-      ]
-    : []),
-  ...(features.packParty
-    ? [
-        {
-          icon: Gamepad2,
-          title: 'Games',
-          body: 'Pack Party, Duel, Draft. Compete with friends and other collectors for real cards.',
-        },
-      ]
-    : []),
   {
     icon: Trophy,
     title: 'Leaderboard',
@@ -137,10 +116,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: "What if I don't like my pull?",
-    // Marketplace copy only while the flag is on (see CAPABILITIES above).
-    a: features.marketplace
-      ? 'You can sell any card back instantly for 85-90% of its market value, or list it on the marketplace at your own price. Many collectors also trade cards with each other directly on the platform.'
-      : 'You can sell any card back instantly for 85-90% of its market value — the credit lands on your balance immediately, ready for the next rip.',
+    a: 'You can sell any card back instantly for 85-90% of its market value — the credit lands on your balance immediately, ready for the next rip.',
   },
   {
     q: 'How are pulls determined? Is it fair?',
@@ -152,10 +128,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Can I sell my cards?',
-    // Marketplace copy only while the flag is on (see CAPABILITIES above).
-    a: features.marketplace
-      ? 'Absolutely. You can list any card on the Polycards marketplace and set your own price. When it sells, funds are available immediately. You can also use the instant sell-back feature for a guaranteed payout at 85-90% of market value.'
-      : 'Absolutely. Every card comes with an instant sell-back at 85-90% of its market value — a guaranteed payout, with funds available immediately.',
+    a: 'Absolutely. Every card comes with an instant sell-back at 85-90% of its market value — a guaranteed payout, with funds available immediately.',
   },
 ];
 
@@ -218,14 +191,6 @@ export default function HowItWorksPage() {
               >
                 Start Opening Packs
               </Link>
-              {features.marketplace && (
-                <a
-                  href="/marketplace"
-                  className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-7 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-white/10"
-                >
-                  Browse the marketplace
-                </a>
-              )}
             </Reveal>
           </div>
           {/* pack fan slides/scales in — matches the live site: a center Trainer pack
@@ -410,7 +375,7 @@ export default function HowItWorksPage() {
         <Reveal>
           <SectionHeading
             title="What You Can Do"
-            sub="Everything you need to collect, compete, and trade"
+            sub="Everything you need to collect, compete, and cash out"
           />
         </Reveal>
         {/* Discrete feature cards, 2-up and width-capped with the icon set

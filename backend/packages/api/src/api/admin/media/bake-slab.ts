@@ -517,8 +517,9 @@ export async function deleteSlabFile(
 }
 
 // Mirror slab_image (URL only, never slab_image_key) into the same-handle
-// Product's metadata — src/lib/data/products.ts reads that mirror for the
-// marketplace grid. Card-edit (create/update-card) already writes its own
+// Product's metadata. The storefront marketplace grid that read this mirror
+// was removed 2026-07-20; the mirror stays for the admin/vendor side, which
+// still reads product.metadata. Card-edit (create/update-card) writes its own
 // mirror on the edit path; this covers every OTHER path that changes
 // Card.slab_image (frame-swap rebake, repull, delete) so the grid never
 // points at a composite that's been overwritten or deleted out from under

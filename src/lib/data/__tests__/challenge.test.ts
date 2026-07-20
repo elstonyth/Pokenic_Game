@@ -227,7 +227,7 @@ describe('getChallenge', () => {
     ]);
   });
 
-  // --- graceful degradation: one bad section must not blank the /task page ----
+  // --- graceful degradation: one bad section must not blank the challenge block ----
 
   it('drops a malformed stage/reward row and keeps the survivors', async () => {
     // Corrupt the middle stage's reward — a null `rewardCredits` fails `finite`.

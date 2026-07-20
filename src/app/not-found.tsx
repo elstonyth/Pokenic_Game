@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Press_Start_2P } from 'next/font/google';
-import { features } from '@/lib/features';
 import { cn } from '@/lib/utils';
 import { pillVariants } from '@/components/ui/pill';
 
@@ -9,7 +8,7 @@ import { pillVariants } from '@/components/ui/pill';
 // 404s on live — shots in docs/research/audit/shots/lucky-draw/live-*.png):
 // a graded-slab graphic ("VAULT / GRADE: NOT FOUND", giant metallic 404,
 // "NO CARD ON FILE" / "SLOT EMPTY"), "Page not found." heading, green
-// back-to-marketplace + dark go-home pills, then three suggested packs under
+// back-to-packs + dark go-home pills, then three suggested packs under
 // "OPEN ONE OF THESE INSTEAD". Normal site chrome stays (live keeps it too).
 const pixel = Press_Start_2P({ weight: '400', subsets: ['latin'] });
 
@@ -80,10 +79,10 @@ export default function NotFound() {
 
       <div className="mt-7 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row sm:justify-center">
         <Link
-          href={features.marketplace ? '/marketplace' : '/slots'}
+          href="/slots"
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-buyback px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:w-auto"
         >
-          {features.marketplace ? 'Back to marketplace' : 'Back to packs'}
+          Back to packs
           <ArrowRight className="h-4 w-4" aria-hidden />
         </Link>
         <Link

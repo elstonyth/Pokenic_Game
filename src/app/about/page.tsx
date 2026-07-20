@@ -69,7 +69,7 @@ const FEATURES: Feature[] = [
     icon: Globe,
     stat: '24/7',
     label: 'Always open',
-    body: '24/7 marketplace accessible worldwide. Trade across borders without shipping delays.',
+    body: 'Open around the clock, worldwide. Rip a pack or sell a card back any hour, no waiting on a buyer.',
   },
 ];
 
@@ -204,7 +204,7 @@ export default function AboutPage() {
         <Reveal>
           <SectionHeading
             title="Platform Features"
-            sub="Everything you need to collect, trade, and grow."
+            sub="Everything you need to collect, keep, and cash out."
           />
         </Reveal>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -335,8 +335,8 @@ export default function AboutPage() {
           Start Collecting
         </h2>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/60">
-          Open packs, build your collection, and trade globally — or create your
-          own branded collectibles experience.
+          Open packs, build your collection, and cash out any time — or create
+          your own branded collectibles experience.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link

@@ -121,7 +121,7 @@ export const LeaderboardEntrySchema = z.looseObject({
 /** GET /store/challenge — the Weekly Challenge structure. This seam is
  *  display-only (pool / standings / summary — no sell path), so it FAILS OPEN:
  *  only `active` + `settings` are hard-required; every other section degrades
- *  gracefully so a single malformed row/section can't blank the /task page.
+ *  gracefully so a single malformed row/section can't blank the challenge block.
  *  A malformed `stage`/`top` row is DROPPED (survivors kept, mirroring
  *  `parseList`); a malformed `cards` entry is dropped; a malformed `progress`
  *  degrades to absent (pool/summary hide). Only `active:false`, an empty stage

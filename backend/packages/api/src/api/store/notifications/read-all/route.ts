@@ -80,21 +80,59 @@ export async function POST(
 
   try {
     await packs.createNotificationReads(toCreate);
-  } catch {
-    // TOCTOU: a concurrent per-id mark-read may have inserted between the read
-    // above and this write, tripping the (notification_id, customer_id) unique
-    // index. Re-derive what is actually unread and report that, rather than
-    // failing a request whose intent ("leave nothing unread") is satisfied.
+    res.json({ marked: toCreate.length, read_at: now.toISOString() });
+    return;
+  } catch (err) {
+    // Log every failure — not just the documented race — so operators can
+    // diagnose real infra errors (DB timeout, connection drop, unrelated
+    // bug), even when the recovery below fully accounts for it.
+    try {
+      (req.scope.resolve('logger') as { warn: (m: string) => void }).warn(
+        `[store/notifications/read-all] createNotificationReads failed for customer ${customerId} (${toCreate.length} rows) — attempting per-row recovery: ${String(err)}`,
+      );
+    } catch {
+      // logger not available in test container — silently ignore
+    }
+
+    // A unique-index violation on ANY row aborts the whole multi-row INSERT
+    // — true whether or not the underlying batch is transactionally atomic —
+    // so ids that never collided can be left unpersisted too. Re-derive what
+    // is actually still missing from a fresh read and insert those
+    // individually. Capped at RECENT_NOTIFICATIONS rows, so the worst case
+    // is bounded, and this path only runs on a real race.
     const after = await packs.listNotificationReads(
       { customer_id: customerId, notification_id: ids },
       { take: ids.length },
     );
-    res.json({
-      marked: Math.max(0, after.length - existing.length),
-      read_at: now.toISOString(),
-    });
-    return;
-  }
+    const afterIds = new Set(
+      after.map((r: { notification_id: string }) => r.notification_id),
+    );
+    const stillMissing = toCreate.filter(
+      (row) => !afterIds.has(row.notification_id),
+    );
 
-  res.json({ marked: toCreate.length, read_at: now.toISOString() });
+    // Rows already accounted for by the fresh read (pre-existing or landed
+    // via the failed bulk call itself) count as persisted by this request's
+    // intent — only genuinely-still-missing rows need an individual insert.
+    let persisted = toCreate.length - stillMissing.length;
+    for (const row of stillMissing) {
+      try {
+        await packs.createNotificationReads(row);
+        persisted += 1;
+      } catch (rowErr) {
+        // Row-level TOCTOU: a concurrent per-id mark-read may have won the
+        // race between the re-read above and this insert. Re-check before
+        // treating it as a genuine failure.
+        const [nowExists] = await packs.listNotificationReads(
+          { notification_id: row.notification_id, customer_id: customerId },
+          { take: 1 },
+        );
+        if (!nowExists) {
+          throw rowErr;
+        }
+      }
+    }
+
+    res.json({ marked: persisted, read_at: now.toISOString() });
+  }
 }

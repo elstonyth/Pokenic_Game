@@ -35,6 +35,14 @@ describe('resolveDbPoolMax', () => {
     expect(resolveDbPoolMax({ DB_POOL_MAX: v })).toBe(DEFAULT_DB_POOL_MAX);
   });
 
+  // All-digits but beyond Number.MAX_SAFE_INTEGER — would silently uncap the
+  // pool this module exists to cap.
+  it('rejects an unsafely large DB_POOL_MAX', () => {
+    expect(resolveDbPoolMax({ DB_POOL_MAX: '9'.repeat(22) })).toBe(
+      DEFAULT_DB_POOL_MAX,
+    );
+  });
+
   it('tolerates surrounding whitespace on an otherwise valid value', () => {
     expect(resolveDbPoolMax({ DB_POOL_MAX: ' 8 ' })).toBe(8);
   });
@@ -58,7 +66,7 @@ describe('productionDatabaseDriverOptions', () => {
   // create-pg-connection. Nesting either inside `connection` type-checks and
   // silently does nothing, so assert against the real resolution path rather
   // than against our own object.
-  it('resolves through Medusa’s loader to a capped knex pool', () => {
+  it('resolves through Medusa’s loader to a capped knex pool', async () => {
     const driverOptions: Record<string, unknown> = {
       ...productionDatabaseDriverOptions({ DB_POOL_MAX: '4' }),
     };
@@ -86,7 +94,7 @@ describe('productionDatabaseDriverOptions', () => {
         knex.client.config.connection.idle_in_transaction_session_timeout,
       ).toBe(30_000);
     } finally {
-      void knex.destroy();
+      await knex.destroy();
     }
   });
 });

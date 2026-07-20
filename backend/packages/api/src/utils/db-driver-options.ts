@@ -49,14 +49,19 @@ export type ProductionDatabaseDriverOptions = {
  *   1000 becomes **1**, serializing every query in the process behind a
  *   single connection.
  *
+ * - **Absurdly large.** Enough digits still match `^\d+$` but overflow the safe
+ *   integer range (or evaluate to Infinity), silently uncapping the very pool
+ *   this exists to cap.
+ *
  * Hence a strict digits-only match rather than a lenient parse: anything that
- * isn't unambiguously a positive integer falls back to the default, which is
- * always safe.
+ * isn't unambiguously a positive safe integer falls back to the default, which
+ * is always safe.
  */
 export const resolveDbPoolMax = (env: NodeJS.ProcessEnv): number => {
   const raw = (env.DB_POOL_MAX ?? '').trim();
-  return /^\d+$/.test(raw) && Number(raw) > 0
-    ? Number(raw)
+  const value = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  return Number.isSafeInteger(value) && value > 0
+    ? value
     : DEFAULT_DB_POOL_MAX;
 };
 

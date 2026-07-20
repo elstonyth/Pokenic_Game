@@ -500,24 +500,17 @@ The pool is **per process, not per module** (`medusa-app-loader.js:69-90` inject
 
 Verified out-of-band via read-only `doctl databases list`: `polycards-pg` is `db-s-1vcpu-1gb` — DO's floor plan, **25 connections total, ~22 usable**. No pooler: every `25061` hit in the repo is the Valkey/Redis URL, never a PG pooler endpoint. Failure mode is a full API outage (`KnexTimeoutError` on every acquire) with a healthy DB, reachable by any traffic spike overlapping a deploy.
 
+As applied (`medusa-config.ts`; the option block and `DB_POOL_MAX` parsing live in `src/utils/db-driver-options.ts` — copy from there, not from any older revision of this snippet):
+
 ```ts
 ...(isProduction
-  ? {
-      databaseDriverOptions: {
-        connection: { ssl: { rejectUnauthorized: false } },
-        pool: {
-          min: 0,
-          max: Math.max(1, Number.parseInt(process.env.DB_POOL_MAX ?? '', 10) || 5),
-        },
-        idle_in_transaction_session_timeout: 30_000,   // see C2
-      },
-    }
+  ? { databaseDriverOptions: productionDatabaseDriverOptions(process.env) }
   : {}),
 ```
 
 Non-negotiable details:
 
-- **The parse guard is not stylistic.** `Number(process.env.DB_POOL_MAX ?? 5)` yields `Number('') === 0` for a DO env var that is _declared but blank_ — the common case when adding a per-component var — and `max: 0` means every acquire hangs to the 60s timeout. A total, self-inflicted outage on the very deploy that adds the cap. Non-numeric gives NaN, also broken.
+- **The parse guard is not stylistic.** `Number(process.env.DB_POOL_MAX ?? 5)` yields `Number('') === 0` for a DO env var that is _declared but blank_ — the common case when adding a per-component var — and `max: 0` means every acquire hangs to the 60s timeout. A total, self-inflicted outage on the very deploy that adds the cap. Non-numeric gives NaN, also broken. A lenient `Number.parseInt` is no better: it stops at the first non-digit, so `'1e3'` written for 1000 becomes **1** and serializes every query in the process. Hence `resolveDbPoolMax` accepts only a strict digits-only positive safe integer and falls back to the default for everything else.
 - **`pool` must be a SIBLING of `connection`, not nested inside it.** `pg-connection-loader.js:20-28` reads `driverOptions.pool` at the top level and `delete`s it before forwarding the rest.
 - `min: 0` propagates intact (`?? 2` not `||` at loader:24; `pool?.min ?? 1` then a spread in `create-pg-connection.js`; lodash `defaults` only fills `undefined`). Idle-connection-vs-cold-connect tradeoff only — the `max` cap is the actual fix.
 - Sizing: `max = floor((usable - reserved) / (instances + 1 for the overlapping migrate job))`. Divisor is **3**, not 2. `max 5` per component → 15 peak, leaving room for an admin psql. Set `DB_POOL_MAX` per component in `.do/backend.app.yaml` so the worker can run leaner. (`deploy:migrate-user` chains three Medusa boots — `db:migrate` + two `medusa exec` — but sequentially, so it contributes one pool at a time.)

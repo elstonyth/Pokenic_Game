@@ -19,6 +19,7 @@
  */
 import { sdk } from '@/lib/medusa';
 import { logger } from '@/lib/logger';
+import { sanePage } from '@/lib/page-param';
 import { getAuthToken } from '@/lib/data/customer';
 import { friendlyError, isAuthError, type ErrorRule } from '@/lib/errors';
 import {
@@ -38,8 +39,18 @@ export type Notification = {
 };
 
 export type NotificationsResult =
-  | { ok: true; notifications: Notification[]; unreadCount: number }
+  | {
+      ok: true;
+      notifications: Notification[];
+      unreadCount: number;
+      page: number;
+      hasMore: boolean;
+    }
   | { ok: false; error: string; needsAuth?: boolean };
+
+// Feed page size — matches the backend default (PAGE_SIZE in the route).
+// Not exported: 'use server' modules may only export async functions.
+const PAGE_SIZE = 20;
 
 export type MarkReadResult =
   | { ok: true; id: string; readAt: string }
@@ -62,7 +73,12 @@ function coerceReadAt(value: string | Date | null | undefined): string | null {
   return value;
 }
 
-export async function getNotifications(): Promise<NotificationsResult> {
+export async function getNotifications(
+  page: number = 1,
+): Promise<NotificationsResult> {
+  // Validate at the boundary — server actions are public endpoints.
+  const safePage = sanePage(page);
+
   const token = await getAuthToken();
   if (!token) {
     return {
@@ -75,6 +91,7 @@ export async function getNotifications(): Promise<NotificationsResult> {
   try {
     const raw = await sdk.client.fetch('/store/notifications', {
       headers: { Authorization: `Bearer ${token}` },
+      query: { limit: PAGE_SIZE, offset: (safePage - 1) * PAGE_SIZE },
       cache: 'no-store',
     });
 
@@ -95,6 +112,8 @@ export async function getNotifications(): Promise<NotificationsResult> {
       })),
       unreadCount:
         envelope?.unread_count ?? rows.filter((n) => !n.read_at).length,
+      page: safePage,
+      hasMore: envelope?.has_more ?? false,
     };
   } catch (error) {
     logger.error('[notifications] load failed:', error);

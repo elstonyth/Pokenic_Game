@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import LeaderboardClient from './LeaderboardClient';
-import { WeeklyChallenge } from './WeeklyChallenge';
+import { WeeklyChallenge, ChallengeRules } from './WeeklyChallenge';
 import { getLeaderboard } from '@/lib/data/leaderboard';
 import { getChallenge } from '@/lib/data/challenge';
 import { getOwnProfileHandle } from '@/lib/data/profiles';
@@ -40,6 +40,7 @@ export default async function LeaderboardPage() {
         alltime={alltime}
         ownHandle={ownHandle}
       />
+      {challenge && <ChallengeRules />}
     </>
   );
 }

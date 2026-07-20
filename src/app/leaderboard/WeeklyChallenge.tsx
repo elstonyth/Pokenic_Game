@@ -215,23 +215,34 @@ export function WeeklyChallenge({ challenge }: { challenge: Challenge }) {
           )}
         </section>
       )}
-
-      {/* How it works — the standard's rules, parked below the live content
-          so the standings stay within easy reach (operator request). */}
-      <section className="mt-8" aria-label="How it works">
-        <h3 className="font-heading text-lg text-white">How it works</h3>
-        <ul className="mt-3 space-y-2 rounded-2xl border border-white/5 bg-neutral-900/60 p-5">
-          {RULES.map((rule) => (
-            <li
-              key={rule}
-              className="flex gap-2.5 text-sm leading-relaxed text-neutral-400"
-            >
-              <span className="bg-chase/60 mt-2 h-1 w-1 shrink-0 rounded-full" />
-              {rule}
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
+  );
+}
+
+/**
+ * The challenge rules — rendered at the very bottom of the Ranks page, below
+ * the standings (operator request), so the live content stays in easy reach.
+ */
+export function ChallengeRules() {
+  return (
+    <section
+      // pb clears the logged-in "your rank" card, which floats fixed above the
+      // tab bar and would otherwise sit on the last rules.
+      className="px-fluid mx-auto mt-8 w-full max-w-2xl pb-28 lg:max-w-3xl lg:pb-12"
+      aria-label="How it works"
+    >
+      <h2 className="font-heading text-lg text-white">How it works</h2>
+      <ul className="mt-3 space-y-2 rounded-2xl border border-white/5 bg-neutral-900/60 p-5">
+        {RULES.map((rule) => (
+          <li
+            key={rule}
+            className="flex gap-2.5 text-sm leading-relaxed text-neutral-400"
+          >
+            <span className="bg-chase/60 mt-2 h-1 w-1 shrink-0 rounded-full" />
+            {rule}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

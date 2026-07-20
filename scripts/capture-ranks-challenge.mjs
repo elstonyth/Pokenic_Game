@@ -22,6 +22,12 @@ for (const s of SIZES) {
     h1: [...document.querySelectorAll('h1')].map((n) => n.textContent.trim()),
     hasChallenge: !!document.querySelector('[aria-label="Community progress"]'),
     hasStandings: !!document.querySelector('[aria-label="Standings"]'),
+    // Section order down the page — rules must come last.
+    order: [
+      ...document.querySelectorAll(
+        '[aria-label="Community progress"],[aria-label="Standings"],[aria-label="How it works"]',
+      ),
+    ].map((n) => n.getAttribute('aria-label')),
     scrollW: document.documentElement.scrollWidth,
     clientW: document.documentElement.clientWidth,
   }));

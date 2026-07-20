@@ -37,16 +37,16 @@ async function login(page) {
   return false;
 }
 
+if (!PW) {
+  console.error('CUST_PW not set');
+  process.exit(1);
+}
+
 const browser = await chromium.launch();
 const ctx = await browser.newContext({
   viewport: { width: 1280, height: 1400 },
 });
 const page = await ctx.newPage();
-
-if (!PW) {
-  console.error('CUST_PW not set');
-  process.exit(1);
-}
 const ok = await login(page);
 log(`login=${ok}`);
 if (!ok) {

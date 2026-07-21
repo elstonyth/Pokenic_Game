@@ -10,15 +10,20 @@ import { describe, it, expect } from 'vitest';
 const count = (file: string, needle: RegExp) =>
   (readFileSync(file, 'utf8').match(needle) ?? []).length;
 
+// Only <Tabs.Content …> opening tags count — a bare /forceMount/ also matches
+// the explanatory comments above them, which would keep the count green after
+// a real panel lost the prop.
+const FORCE_MOUNTED_PANEL = /<Tabs\.Content\b[^>]*\bforceMount\b/g;
+
 describe('challenge/VIP tab buffers survive tab switches', () => {
   it('challenge page forceMounts both tab contents', () => {
     const src = join(__dirname, 'page.tsx');
-    expect(count(src, /forceMount/g)).toBeGreaterThanOrEqual(2);
+    expect(count(src, FORCE_MOUNTED_PANEL)).toBe(2);
   });
 
   it('daily-rewards page forceMounts its buffer-holding tabs', () => {
     // levels, frames, settings (boxes is excluded — it has its own discard prompt).
     const src = join(__dirname, '..', 'daily-rewards', 'page.tsx');
-    expect(count(src, /forceMount/g)).toBeGreaterThanOrEqual(3);
+    expect(count(src, FORCE_MOUNTED_PANEL)).toBe(3);
   });
 });

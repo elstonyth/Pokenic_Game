@@ -778,19 +778,19 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (reason) | REJECTED (reason)
 
 Ordered by leverage. Confidence is the advisor's after re-reading the code.
 
-| #   | Finding                                                                                                                                                                                                                                                                                                                                | Category     | Impact                                          | Effort | Risk    | Confidence                | Plan |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------- | ------ | ------- | ------------------------- | ---- |
-| 1   | Playthrough gate: `deposited` sums `amount` (all history) but `used` sums the nullable `external_funded_cents` (no backfill pre-2026-06-21). Deposit+play before 1b → `withdrawable=false` forever. Display-only now; permanent cash-out lockout once the DIR-01 writer ships. Plan 026 didn't cover it.                               | bug (money)  | MED now / HIGH pre-cashout                      | S–M    | LOW     | HIGH                      | 033  |
-| 2   | `seller_registration: true` + `/seller` dashboard + `@mercurjs/core` `/vendor/*` routes ship in the prod image; never auth-audited (prior middleware audits scoped `/admin`+`/store` only). Likely a stock starter default nobody turned off on a single-house-seller app.                                                             | security     | MED-HIGH if registration yields a usable seller | S+S    | LOW-MED | HIGH config / MED exploit | 034  |
-| 3   | Leaderboard prize rail (a primary nav tab) promises weekly payouts no backend pays, no disclosure; profile-fetch failure renders a fabricated persona under a real handle; pack-party fabricated "live" parties undisclosed (mitigated: flag-off, unlinked).                                                                           | bug/trust    | MED                                             | S–M    | LOW     | HIGH                      | 035  |
-| 4   | Daily-reward `voucher_amount` is the one admin money input with no server-side ceiling — a credit-minting lever once the rewards economy launches. Every sibling is capped.                                                                                                                                                            | security     | LOW-MED (latent, admin-only)                    | S      | LOW     | HIGH                      | 036  |
+| #   | Finding                                                                                                                                                                                                                                                                                                                                  | Category     | Impact                                          | Effort | Risk    | Confidence                | Plan |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------- | ------ | ------- | ------------------------- | ---- |
+| 1   | Playthrough gate: `deposited` sums `amount` (all history) but `used` sums the nullable `external_funded_cents` (no backfill pre-2026-06-21). Deposit+play before 1b → `withdrawable=false` forever. Display-only now; permanent cash-out lockout once the DIR-01 writer ships. Plan 026 didn't cover it.                                 | bug (money)  | MED now / HIGH pre-cashout                      | S–M    | LOW     | HIGH                      | 033  |
+| 2   | `seller_registration: true` + `/seller` dashboard + `@mercurjs/core` `/vendor/*` routes ship in the prod image; never auth-audited (prior middleware audits scoped `/admin`+`/store` only). Likely a stock starter default nobody turned off on a single-house-seller app.                                                               | security     | MED-HIGH if registration yields a usable seller | S+S    | LOW-MED | HIGH config / MED exploit | 034  |
+| 3   | Leaderboard prize rail (a primary nav tab) promises weekly payouts no backend pays, no disclosure; profile-fetch failure renders a fabricated persona under a real handle; pack-party fabricated "live" parties undisclosed (mitigated: flag-off, unlinked).                                                                             | bug/trust    | MED                                             | S–M    | LOW     | HIGH                      | 035  |
+| 4   | Daily-reward `voucher_amount` is the one admin money input with no server-side ceiling — a credit-minting lever once the rewards economy launches. Every sibling is capped.                                                                                                                                                              | security     | LOW-MED (latent, admin-only)                    | S      | LOW     | HIGH                      | 036  |
 | 5   | Agent-facing docs contradict reality: tracked DESIGN doc ships as "Polycards" while CLAUDE.md says it doesn't exist; CLAUDE.md still cites removed `@base-ui/react` + a mojibake wrong-repo HANDOFF as source-of-truth; env template omits 6 code-read vars + the `ALLOW_MOCK_TOPUP` prod-checklist note, has 1 stale + 1 duplicate var. | docs/dx      | MED                                             | S      | LOW     | HIGH                      | 037  |
-| 6   | `/store/credits` scans the full customer ledger twice — `walletSummary`'s columns are a strict subset of `creditSummary`'s. The round-4 "MikroORM concurrency" deferral blocker is moot (threads scalars, no shared manager).                                                                                                          | perf         | MED (scales w/ ledger size)                     | S      | LOW     | HIGH                      | 038  |
-| 7   | Test hygiene: the 15.5s real sleep now runs in CI every backend PR (post-027); 9 e2e specs hardcode seed slugs w/ no preflight; `reward-draw.spec.ts` asserts an orphan string id; `test:a11y` runs in no workflow.                                                                                                                    | tests/dx     | MED                                             | S–M    | LOW     | HIGH                      | 039  |
-| 8   | `WalletSchema` hard-requires the new wallet fields (fails the whole page instead of degrading) and is the one schema the contract test skips.                                                                                                                                                                                          | bug (latent) | LOW-MED                                         | S      | LOW     | HIGH                      | 040  |
-| 9   | Mirror-drift class trigger met a cycle ago, module unbuilt: `usdToMyr` hand-mirrors backend `displayMarketPrice` untested; two "canonical" rarity arrays; `RARITY_RGB`/`TIER_COLOR` drift (deferred to redesign).                                                                                                                      | tech-debt    | MED (recurring sync tax)                        | S–M    | LOW     | HIGH                      | 041  |
-| 10  | Admin card catalog renders ≤1000 eager images unpaginated (real as catalog grows); stop-hook banner prints mojibake.                                                                                                                                                                                                                   | perf/dx      | LOW-MED                                         | S      | LOW     | HIGH                      | 042  |
-| 11  | `reset-admin-password.ts` (untracked) deletes the only emailpass identity before registering the replacement — a failed register locks the admin out until re-run.                                                                                                                                                                     | bug          | LOW                                             | S      | LOW     | HIGH                      | 043  |
+| 6   | `/store/credits` scans the full customer ledger twice — `walletSummary`'s columns are a strict subset of `creditSummary`'s. The round-4 "MikroORM concurrency" deferral blocker is moot (threads scalars, no shared manager).                                                                                                            | perf         | MED (scales w/ ledger size)                     | S      | LOW     | HIGH                      | 038  |
+| 7   | Test hygiene: the 15.5s real sleep now runs in CI every backend PR (post-027); 9 e2e specs hardcode seed slugs w/ no preflight; `reward-draw.spec.ts` asserts an orphan string id; `test:a11y` runs in no workflow.                                                                                                                      | tests/dx     | MED                                             | S–M    | LOW     | HIGH                      | 039  |
+| 8   | `WalletSchema` hard-requires the new wallet fields (fails the whole page instead of degrading) and is the one schema the contract test skips.                                                                                                                                                                                            | bug (latent) | LOW-MED                                         | S      | LOW     | HIGH                      | 040  |
+| 9   | Mirror-drift class trigger met a cycle ago, module unbuilt: `usdToMyr` hand-mirrors backend `displayMarketPrice` untested; two "canonical" rarity arrays; `RARITY_RGB`/`TIER_COLOR` drift (deferred to redesign).                                                                                                                        | tech-debt    | MED (recurring sync tax)                        | S–M    | LOW     | HIGH                      | 041  |
+| 10  | Admin card catalog renders ≤1000 eager images unpaginated (real as catalog grows); stop-hook banner prints mojibake.                                                                                                                                                                                                                     | perf/dx      | LOW-MED                                         | S      | LOW     | HIGH                      | 042  |
+| 11  | `reset-admin-password.ts` (untracked) deletes the only emailpass identity before registering the replacement — a failed register locks the admin out until re-run.                                                                                                                                                                       | bug          | LOW                                             | S      | LOW     | HIGH                      | 043  |
 
 ### Round-5 verified clean / considered and rejected
 
@@ -863,3 +863,201 @@ Refreshed from rounds 3–4; the cash-out cluster is now the clear next build.
 - Migration↔model coherence (needs `migrations:check`); admin SPA browser
   walk; vendored/framework internals beyond what a finding required; i18n
   depth; Windows tooling paths.
+
+---
+
+## Round 6 — deep full-repo audit (the #144–#227 delta), 2026-07-20
+
+Generated by the `improve` skill (deep tier) against commit `b5944e26`
+(branch `elstonyth/isopod`). Delta since round 5's `38f7dbdd`: ~83 commits /
+634 files / +47k lines — notifications module (#220–#226), Weekly Pulled
+Value Challenge + recorded pull value (#212/#213/#219), wallet
+withdrawal-gate redesign + open_id provenance (#227), debit-at-press (#200)
+
+- enrichment-failure serving (#201), slab label/compose (#198–#206),
+  liquid-glass UI (#197), Google OAuth (#174), Resend (#199), VIP redesign +
+  admin reward surfaces (#207/#208), rebrand/infra rename, CI reshard (#210).
+  Method: eight parallel read-only audits (backend correctness, frontend
+  correctness, security, performance, tests+CI, tech debt, deps/DX/docs,
+  direction), every table-bound finding re-opened and confirmed by the advisor
+  against live code. Same caveat as rounds 2–5: **static code-read, no runtime
+  exercise.** User selected: all 12 finding plans + the DIR-A design spike.
+
+**Headline.** The money core survived its sixth read — no ledger,
+idempotency, or basis break anywhere in the delta, and the round-4/5 ledger
+diets held under the #227 redesign. Round 6's stories: **(1) the new admin
+reward surfaces (#208) dropped the money-input discipline** every prior
+round enforced (uncapped `voucher_amount`/`reward_credits`, no
+`adminActionRateLimit`) on exactly the three new routes; **(2) the
+notification unread badge fires an unindexable COUNT on every navigation**
+(composite-unique-only index geometry); **(3) two E2E specs silently skip
+every nightly** (card lifecycle, rewards claim) while reading as coverage;
+and **(4) ops docs disagree with reality** — infra names three ways, a fixed
+vendor fence still listed as a BLOCKING gate, a CHANGELOG describing the
+repo's template ancestor. Forward: the operator's own go-live runbook marks
+the Weekly-Challenge settlement engine BLOCKING — board and prize copy
+shipped, nothing snapshots or pays at week close (plan 056 spike).
+
+### Round-6 plans
+
+| Plan | Title                                                                   | Priority | Effort | Depends on | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---- | ----------------------------------------------------------------------- | -------- | ------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 044  | Cap + rate-limit the new admin reward money routes (#208)               | P1       | S      | —          | DONE (APPROVE 2026-07-21; branch `advisor/044-admin-reward-caps`, commit `09f30bb9`, worktree `agent-ab336d4580667b895`. Reviewer re-ran: `adminActionRateLimit` count 13→16, caps live in both validators (voucher/reward/payout ≤ MAX_VOUCHER_MYR, thresholds ≤ 100M), 3 POST matchers verified against real route paths. Full unit tier 828 passed. Documented in-scope deviation accepted: 2 pre-existing negative-value assertions re-aligned to the new message strings)                                                                                                                                                                                                                                  |
+| 045  | Index the notification unread-count path (+ verify core table)          | P1       | S      | —          | DONE (APPROVE 2026-07-21; worktree `agent-a034b72d35edb9465`, commit `4ef61aa1`. Model index + `Migration20260720150000` applied; reviewer re-read the full diff (exactly 2 files, +29) and confirmed the index live in pokenic-postgres `\d notification_read`. Part B verdict: core `notification` table ALREADY has `IDX_notification_receiver_id` — pre-existing, nothing added. EXPLAIN uses both indexes per executor; migration already applied to the shared dev DB (idempotent IF NOT EXISTS, harmless pre-merge))                                                                                                                                                                                     |
+| 046  | update-card: roll back Card mutation when the product mirror fails      | P1       | S–M    | —          | DONE (APPROVE 2026-07-21 after 1 code-review revision; branch `advisor/046-update-card-rollback`, commits `20265acf` + `7589302f`, worktree `agent-046-update-card` (under Desktop\...\.claude\worktrees). Round 0: catch restores all 19 forward-write fields, `newSlabKey` at both return sites, 4 failure cases red→green. Code review caught the one unguarded delete: unchanged-key re-bake + mirror failure would delete the card's ONLY slab — fixed with the sibling equality guard (`:336`, reviewer-verified) + a 5th case proven red (1 failed/9 passed unguarded) → 10/10 green. Full unit tier 827)                                                                                                |
+| 047  | Admin challenge/VIP tabs: preserve edits on switch; retire payout patch | P2       | S–M    | 044        | TODO                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 048  | Unskip the two dark E2E specs (pw-test-card seed + rewards flag)        | P2       | S–M    | —          | DONE (APPROVE-with-caveat 2026-07-21 after 1 code-review revision; worktree `agent-a47d3ce4ab7ce76bb`, commits `625ec383` + `8812eec3` (comment-truth fixes: card-management "CI skip is expected" reworded to skip-is-an-alarm; e2e.yml Claim-button comment corrected). Seed idempotency ×3, fixtures DB-verified, SEED_DEMO confirmed ON in the nightly. Executor finding: no seed had ever minted a grant — rewards.spec's header was aspirational; now real. CAVEAT: **first nightly run is the final proof — both specs must show passed, not skipped**. Follow-up candidate: delete duplicate `create-test-product.ts`)                                                                                  |
+| 049  | CI: dedupe unit specs out of the modules tier; turbo cache for http job | P2       | S      | —          | DONE (APPROVE 2026-07-21; worktree `agent-a0997078dfc46ca83`, commit `4092ca3d`. Reviewer read both diffs — verbatim per plan, pure additions (+19), 4 `Cache turbo` steps. Proven: modules tier 64→21 suites (−43, all `*.unit.spec.ts`, DB run 21/21 green), unit tier unchanged 823 passed, all 43 runner-free. WATCH ON FIRST PR: http-shard log should show a turbo restore + faster workspace-deps build)                                                                                                                                                                                                                                                                                                 |
+| 050  | Docs truth round 4: infra names, runbook vendor bullet, CHANGELOG       | P2       | S      | —          | DONE (APPROVE 2026-07-21; worktree `agent-a01b0d2da17e90983`, commit `7888b138`. Step-1 branch 1 PROVEN: `doctl databases list` → only polycards-pg/valkey (reviewer re-ran independently); pokenic-media 404s → infra-rename runbook marked EXECUTED 2026-07-15; go-live runbook + CHANGELOG + redesign header fixed. Reviewer re-ran all done-criteria greps: 0/0/0; scope exact 4 files)                                                                                                                                                                                                                                                                                                                     |
+| 051  | Storefront: true unread total on Mark-all-read; halt SFX on unmount     | P2       | S      | —          | DONE (APPROVE 2026-07-21 after 2 revisions — limit reached; branch `advisor/051-storefront-small-fixes`, commits `4140ac51`+`f6427fb5`+`42a060f1`+`fa5a3e7a`, worktree `agent-aca981fdd703ea0e8`. Rev 1 (executor-caught plan gap): page-scoped early-return dead-buttoned the total-scoped label — dropped. Rev 2 (code-review-caught plan gap): frozen prop couldn't observe the button's own successful clear ("(15)" after clearing 35) — `serverTotal` lifted to state, zeroed on success (reviewer-verified `:30/:40/:102`), 5th helper case. typecheck/test(290)/check green. Accepted: back-nav skew (clamped); no DOM teardown test (no jsdom harness))                                                |
+| 052  | notifyFeedNonfatal wrapper (kills the 7-site try/catch copy-paste)      | P3       | S      | —          | DONE (APPROVE 2026-07-21; worktree `agent-a058b5928e67b84cc`, commits `3eac438a` + `3f0a8f4f` (post-review touch-up: stale settle-vip catch wording), 9 files net −29 lines. Reviewer grep: 0 direct `notifyFeed(` calls outside module/tests/scripts; wrapper + settle-vip partial swap read + confirmed. 2 documented deviations APPROVED on merit: settle-vip outer catch guards the GRANT; wrapper log carries `idempotencyKey` so existing spec assertions stay meaningful. 3 silent sites now log per #222. Independent code review: Ready-Yes. Unit 827 + HTTP 7/48 green)                                                                                                                               |
+| 053  | Unit-test the Google OAuth server actions                               | P3       | M      | —          | DONE (APPROVE 2026-07-21 after 1 code-review revision; branch `advisor/053-oauth-action-tests`, commits `8a313903` + `0923710c`. Code review PROVED the headline keys-only-log assertion vacuous by mutation (Object.values leak left all 16 green); fix: decoy PII fixtures (`decoy@leak.example`) + key-NAME pins (reviewer-verified `:229/:257/:259`), mutation re-run confirmed 2 RED then restored clean. Refresh assertion tightened to enforce its Bearer-token comment. 16 targeted / 296 full green; still zero production-code changes)                                                                                                                                                               |
+| 054  | Extract the Weekly-Challenge slice + backfills out of service.ts        | P3       | M      | 044, 047   | TODO                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 055  | scripts/ triage: inventory → operator-approved delete (269 files)       | P3       | S–M    | —          | DONE (APPROVE 2026-07-21; branch `advisor/055-scripts-triage`, commits `a87be597` (inventory) + `b69e78a8` (deletions), worktree `.worktrees/055-scripts-triage`. Operator approved the 76-file DELETE list (user: "approve" 2026-07-21); reviewer verified the commit = exactly 76 D + 1 M (README), all 16 externally-referenced KEEPs present post-delete, `ls scripts` = 194. Gates green: reference-scan primary (one benign stale comment in `seam_check.py`), `npm run check` secondary. STILL OPEN: 107 ASK files, 9 grouped family questions in scripts/README.md — per-family operator decisions pending. Repoint later: qa-csp ROUTES lists dead /claw; qa-demo-spin/qa-claw-e2e target dead routes) |
+| 056  | DESIGN SPIKE: Weekly-Challenge settlement engine                        | P2       | M      | —          | DONE (APPROVE 2026-07-21; worktree `agent-a0c3d9912dea85cad`, commit `f592f325` — new `docs/superpowers/specs/2026-07-20-challenge-settlement-design.md`, 320 lines, all 9 sections + sources + appendix; reviewer verified structure + spot-checked citations (reason enum = 11 values confirmed; `challenge_payout` would be the 12th, all four plan-005 mirror surfaces named). 4 operator open questions in §9 — ANSWER BEFORE building plan 057. STOP-greps clean: reward-box `settleRewardDraw` correctly distinguished, no existing challenge settlement)                                                                                                                                                |
+
+Status values: TODO | IN PROGRESS | DONE | BLOCKED (reason) | REJECTED (reason)
+
+### Round-6 dependency & sequencing notes
+
+- **047 after 044** (both edit `challenge-validate.ts`); **054 after 044+047**
+  (service.ts/validator neighbors — 054 is a move-only refactor and must
+  rebase over them, never the reverse).
+- **056 can start any time** (doc-only) but its design ASSUMES 044's caps and
+  047's payout-field retirement; its output becomes plans 057+ after operator
+  sign-off.
+- **050 Step 1 needs operator input** (live `doctl` resource names); Steps
+  2–4 complete regardless (DONE-partial allowed).
+- **055 has a hard human gate** — inventory first, deletions only after
+  explicit approval.
+- All others independent; recommended first three: **044, 045, 046**
+  (security caps, the hottest-path index, the money-display rollback).
+
+### Round-6 findings table (vetted)
+
+Ordered by leverage. Confidence is the advisor's after re-reading the code.
+
+| #   | Finding                                                                                                                                                                                                                                                                      | Category  | Impact                          | Effort | Risk | Confidence              | Plan |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------- | ------ | ---- | ----------------------- | ---- |
+| 1   | `voucher_amount` (`vip-levels-validate.ts:47`) + `reward_credits`/`payout_credits` (`challenge-validate.ts:64,116`) accept any value ≥0; `voucher-ranges.ts:11` caps the SAME column at `MAX_VOUCHER_MYR=10_000` and says an admin write needs the bound.                    | security  | MED-HIGH (latent minting lever) | S      | LOW  | HIGH                    | 044  |
+| 2   | `/admin/vip-levels`, `/admin/challenge/stages`, `/admin/challenge/settings` absent from the `adminActionRateLimit` block (`middlewares.ts:519-596`) — every sibling economy mutation shares that budget.                                                                     | security  | MED                             | S      | LOW  | HIGH                    | 044  |
+| 3   | `notification_read`'s only index is the composite unique `(notification_id, customer_id)`; the true-unread COUNT filters `customer_id` alone (`store/notifications/route.ts:63`) → full scan, fired by the bell every navigation+focus. Core-table index unverified.         | perf      | MED-HIGH (grows globally)       | S      | LOW  | HIGH                    | 045  |
+| 4   | `update-card.ts` commits the Card then mirrors to Product with zero try/catch — mirror throw = Card↔Product divergence + orphaned slab; `create-card.ts:297-306` hand-rolls exactly this rollback; failure path untested.                                                    | bug       | MED (silent admin corruption)   | S–M    | LOW  | MED-HIGH                | 046  |
+| 5   | Admin challenge/VIP tab buffers die on tab switch (Radix unmounts `Tabs.Content`, no `forceMount`; seed-once guard at `challenge/page.tsx:120`); + retired `payout_credits`/`payout_card_ids` still accepted end-to-end though the store route declares them dead.           | bug       | MED (operator data loss)        | S–M    | LOW  | HIGH                    | 047  |
+| 6   | `card-management.spec.ts` needs `pw-test-card` (never seeded → always skips both lifecycle specs); `rewards.spec.ts` needs `REWARDS_REDEMPTION_ENABLED` (never set in e2e.yml → claim path never runs).                                                                      | tests     | MED-HIGH (dark coverage)        | S–M    | LOW  | HIGH                    | 048  |
+| 7   | Modules-tier testMatch re-runs all 43 `*.unit.spec.ts` in the DB-backed `--runInBand` job (`jest.config.js:31,33`); `integration-http` (the 8-shard critical path) lacks the `Cache turbo` step its 3 siblings have.                                                         | tests/dx  | MED                             | S      | LOW  | HIGH                    | 049  |
+| 8   | Docs vs reality ×4: `.do/backend.app.yaml` says `polycards-pg/valkey/media`, both runbooks say the rename never ran; runbook §1.3 lists the already-fenced vendor self-reg (`middlewares.ts:136,193`) as open+BLOCKING; CHANGELOG = template era; redesign doc header false. | docs      | MED (operator hazard)           | S      | LOW  | HIGH (infra half MED)   | 050  |
+| 9   | Mark-all-read counts the current page only (`NotificationsClient.tsx:24`) and its comment claims the server total is page-scoped — backend documents TRUE total (`route.ts:22`); + `use-sound.ts:59-67` pool effect has no cleanup (bigwin bleeds past unmount).             | bug       | LOW-MED                         | S      | LOW  | HIGH                    | 051  |
+| 10  | `notifyFeed` swallow-and-log try/catch copy-pasted across 7 producer sites; topup's variant doesn't even log (contradicts #222's intent).                                                                                                                                    | tech-debt | LOW-MED (recurring)             | S      | LOW  | HIGH                    | 052  |
+| 11  | Google OAuth server actions (`auth.ts:212,246`) + callback route: zero coverage; the harness (`auth.test.ts` sdk mocks) already exists.                                                                                                                                      | tests     | MED                             | M      | LOW  | HIGH                    | 053  |
+| 12  | `service.ts` 4,425 → 5,096 (+671 in one round — 3.5× the prior max): the whole challenge slice + 3 one-shot backfills landed in the god object; slice is self-contained (own models/validators) = the natural first extraction seam.                                         | tech-debt | MED                             | M      | MED  | HIGH                    | 054  |
+| 13  | `scripts/` = 269 files; ~130 reference deleted entities (claw/repacks/pixelslot/pokenic); ~9 more one-offs added this round.                                                                                                                                                 | tech-debt | LOW (nav noise + trap)          | S–M    | LOW  | MED (split needs owner) | 055  |
+
+### Round-6 findings vetted but NOT planned (ask for a plan if wanted)
+
+- **Wallet badge/bar dual-field coupling** (`wallet/page.tsx:32-34` derives
+  `gateOpen` from `remaining` but the bar from `used/deposited`): can't fire
+  under the current backend contract (`remaining = max(0, deposited-used)` by
+  construction). LOW smell; fold into any future wallet-page touch.
+- **`ToastPolicy`/`policy` scaffolding** (`src/lib/notifications/copy.ts:21`)
+  defined+tested, read by zero runtime code — deliberate PR2 scaffolding (the
+  toast-system plan exists in docs/superpowers). Keep, but if PR2 dies, delete.
+- **Batch-count guard untested** (`roll-pack-batch.ts:22-27`, self-documented
+  in its spec) — S; fold into the next roll-pack touch.
+- **Back-nav read-state UI probe is manual-only** (#226 probes aren't wired
+  into any suite; API read-state IS covered) — M if wanted as a Playwright spec.
+- **`/bank-withdrawal` copy overlap** with the #227 wallet gate panel — both
+  honest; consolidation (or pointing Me's "Withdraw" pill at `/wallet`) is a
+  product call.
+- **Prism slab-frame wiring** (paid asset `public/images/slab-frames/prism.webp`,
+  one `FRAME_TIERS` entry away) — direction item DIR-F; wire when a prism tier
+  gets a product decision (unlock rung needed).
+- **PERF-02 core-notification-table index** — folded into plan 045 as the
+  investigate half, listed here so the "verify" nature is on record.
+
+### Round-6 corrected / considered and rejected
+
+- **`/bank-withdrawal` "orphaned route" claim — REFUTED during vetting**: it
+  is linked from `src/app/(account)/me/page.tsx:293` (the "Withdraw" pill).
+  Live surface, not dead code; only the copy-overlap note above survives.
+- **"PayoutTab still titled Week & Payout" — partially stale**: the trigger
+  label already says "Week & Reset" and the form has no payout inputs; what
+  remains is the internal component name, a stale section comment, and the
+  still-accepted payout patch fields (all folded into plan 047).
+- **Weekly Challenge vs leaderboard divergence — cleared**: both
+  `GET /store/challenge` and weekly `GET /store/leaderboard` call the same
+  `challengeWeekTop` aggregation; board and any future payout can't disagree.
+- **Notification producers on money paths — cleared** (perf): every
+  `notifyFeed` fires after commit, best-effort; no round-trips inside ledger
+  transactions.
+- **#227 wallet redesign — cleared** (perf): `walletSummary` reuses
+  `creditSummary`'s single scan via `precomputed`; the round-4/5 diet held.
+- **CI shard divisor — cleared**: `run-http-shards.mjs` forwards `--shard=N/8`
+  straight to jest; matrix has 8 entries; the #210 trap is handled.
+- **Slab pipeline — cleared** (perf): baked once at save time, stored on CDN;
+  no per-request image work. Tier-frame overlay = 6 cached webps + static
+  box-shadow.
+- **Notifications routes — cleared** (security): owner-scoped via bearer token,
+  fail-closed 404, no IDOR; OAuth callback-host allowlist sound; reset-token
+  prod logging fixed (#173) and Resend error path leaks nothing; #186 decode
+  bounds run header-first before full decode; plan-010 metadata guard holds on
+  the profile update paths.
+- **Deps — cleared**: root audit 0 high (2 known moderates under next);
+  backend `yarn npm audit` no high suggestions; multer dedupe held at 2.2.0;
+  new deps (react-easy-crop, @medusajs/auth-google, resend) all justified;
+  #182 audio and #197 liquid-glass added ZERO deps (Web Audio + CSS).
+- **8 new migrations — cleared**: additive, idempotent, nullable columns with
+  COALESCE readers, monotonic timestamps, correct down()s.
+- **CODEBUDDY.md / QODER.md / .cursorrules** — byte-identical deliberate
+  multi-IDE mirrors of the code-review-graph rule (#217). Not stale.
+- **Sentry configs** — real conditional wiring (`enabled: Boolean(dsn)`), not
+  placeholder.
+- **debit-at-press (#200/#204) + enrichment-failure serving (#201)** — read
+  clean: charge/settle identity guards, idempotent `handleSettled`, watchdog
+  paths converge; paid rolls served on enrichment failure covered single+batch.
+- **#219 route deletions** — complete; zero dangling links/imports/sitemap
+  entries.
+- **E2E press-debit guard (#204), #227 basis specs, VIP CRUD spec (#208)** —
+  verified meaningful assertions (not vacuous), incl. anti-vacuous IDOR
+  posture from #221.
+
+### Round-6 Direction (options for the maintainer — not bugs)
+
+1. **DIR-A — Weekly-Challenge settlement engine** → selected as plan 056
+   (design spike). The runbook's BLOCKING go-live item; all data
+   prerequisites exist.
+2. **DIR-B — Cash-out writer + admin payout surface**: every internal
+   prerequisite now landed (#224 backfill, open_id provenance, honest wallet
+   gate); writer + admin approval = M, PSP/KYC = the L/HIGH long pole. The
+   S-size compliance prerequisite: disclose the 100%-playthrough term in
+   `TopUpSheet.tsx` at deposit time (still absent). Sequence the spike after
+   056's build starts, or parallel — operator call.
+3. **DIR-C — Rewards-economy launch spike**: gates, caps (036/044), CI nets,
+   and admin editors all exist; remaining work is product parameters + a
+   rollout runbook. M. Sequence AFTER the challenge settles cleanly (don't
+   launch two reward systems half-settled).
+4. **DIR-D — Operator config flips before launch** (checklist, not plans):
+   Resend env vars at APP level (subscribers run on the worker); publish the
+   Google OAuth consent screen (still Testing mode). Both are silent auth
+   dead-ends at go-live. Also: prod challenge stage thresholds are
+   demo-sized (runbook §1.2); prod external-basis backfill script run state.
+5. **DIR-E — Notification preferences** (create-without-control asymmetry):
+   no repo evidence of user demand — investigate-only. The registry makes
+   `challenge_stage`/`cashout` templates S each when their features land.
+6. **DIR-F — Wire the paid prism frame** (`prism.webp` → one `FRAME_TIERS`
+   entry + an unlock rung): S, needs the product decision first.
+7. **Stale prior-round item**: "6 hero loops never wired" is FALSE as of the
+   delta — `HeroBoard.tsx:50` plays `shop-night`; `factoryVideo()` feeds the
+   pack-detail loops. Dropped from the roadmap.
+
+### Round-6 coverage — what was NOT audited
+
+- **No runtime exercise** — every verdict is a static code-read (plan
+  verification commands are the executors' runtime proof).
+- Live DigitalOcean resource names (the crux of finding 8's infra half —
+  plan 050 Step 1 is the operator tie-break).
+- Admin SPA browser walk; vendored/framework internals beyond what findings
+  required; `backend/apps/vendor` (dormant, fence verified only);
+  `scripts/` file bodies (classified by name/pattern — plan 055 opens them);
+  i18n depth; `.claude/` hook scripts.
+- The ~570 test files outside the delta (scanned, not line-read).

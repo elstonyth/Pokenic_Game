@@ -736,8 +736,6 @@ export interface ChallengeSettingsDTO {
   timezone: string;
   reset_day: number;
   reset_hour: number;
-  payout_credits: number; // MYR credited as store credits
-  payout_card_ids: string[]; // featured card ids
 }
 
 export const getChallengeSettings = () =>

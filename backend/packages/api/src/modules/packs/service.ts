@@ -4945,13 +4945,11 @@ class PacksModuleService extends MedusaService({
       timezone: row?.timezone ?? 'Asia/Kuala_Lumpur',
       reset_day: row ? Number(row.reset_day) : 1,
       reset_hour: row ? Number(row.reset_hour) : 0,
-      payout_credits: row ? Number(row.payout_credits) : 0,
-      payout_card_ids: (row?.payout_card_ids as unknown as string[]) ?? [],
     };
   }
 
   // Audited singleton patch (create-on-first-edit; CHECK id='global' keeps the
-  // create race-safe). payout_card_ids EXISTENCE checked here.
+  // create race-safe).
   @InjectTransactionManager()
   async editChallengeSettings(
     input: {
@@ -4961,22 +4959,6 @@ class PacksModuleService extends MedusaService({
     },
     @MedusaContext() sharedContext: Context = {},
   ): Promise<ChallengeSettingsView> {
-    if (input.patch.payout_card_ids && input.patch.payout_card_ids.length > 0) {
-      const ids = input.patch.payout_card_ids;
-      const found = await this.listCards(
-        { id: ids },
-        { select: ['id'], take: ids.length },
-        sharedContext,
-      );
-      const foundIds = new Set(found.map((c) => c.id));
-      const missing = ids.filter((id) => !foundIds.has(id));
-      if (missing.length > 0)
-        throw new MedusaError(
-          MedusaError.Types.INVALID_DATA,
-          `Unknown payout card id(s): ${missing.join(', ')}.`,
-        );
-    }
-
     const [row] = await this.listChallengeSettings(
       {},
       { take: 1 },
@@ -4987,35 +4969,32 @@ class PacksModuleService extends MedusaService({
       timezone: row?.timezone ?? 'Asia/Kuala_Lumpur',
       reset_day: row ? Number(row.reset_day) : 1,
       reset_hour: row ? Number(row.reset_hour) : 0,
-      payout_credits: row ? Number(row.payout_credits) : 0,
-      payout_card_ids: (row?.payout_card_ids as unknown as string[]) ?? [],
     };
     const after: ChallengeSettingsView = {
       cadence: input.patch.cadence ?? before.cadence,
       timezone: input.patch.timezone ?? before.timezone,
       reset_day: input.patch.reset_day ?? before.reset_day,
       reset_hour: input.patch.reset_hour ?? before.reset_hour,
-      payout_credits: input.patch.payout_credits ?? before.payout_credits,
-      payout_card_ids: input.patch.payout_card_ids ?? before.payout_card_ids,
     };
-    // Same json double-cast as saveChallengeStages' reward_card_ids — the
-    // generated create/update input types payout_card_ids as
-    // Record<string, unknown> (json column), not string[].
-    const data = {
-      ...after,
-      payout_card_ids: after.payout_card_ids as unknown as Record<
-        string,
-        unknown
-      >,
-    };
+    const data = after;
     if (row) {
       await this.updateChallengeSettings(
         { selector: { id: row.id }, data },
         sharedContext,
       );
     } else {
+      // First-edit create. payout is retired (never patched here), but the
+      // model's payout_card_ids json column is non-nullable with no ORM-level
+      // default, so the insert must seed its cold default []. payout_credits
+      // has model .default(0). Same json double-cast as reward_card_ids.
       await this.createChallengeSettings(
-        [{ id: 'global', ...data }],
+        [
+          {
+            id: 'global',
+            ...data,
+            payout_card_ids: [] as unknown as Record<string, unknown>,
+          },
+        ],
         sharedContext,
       );
     }
@@ -5026,10 +5005,9 @@ class PacksModuleService extends MedusaService({
           entity_type: 'challenge_settings',
           entity_id: row?.id ?? 'global',
           action: 'edit',
-          // Same json double-cast as the payout_card_ids write above — the
-          // `before`/`after` json columns type as Record<string, unknown> |
-          // null, and ChallengeSettingsView (a named interface with a
-          // string[] property) doesn't structurally satisfy that directly.
+          // The `before`/`after` audit json columns type as
+          // Record<string, unknown> | null, and ChallengeSettingsView (a named
+          // interface) doesn't structurally satisfy that directly.
           before: before as unknown as Record<string, unknown>,
           after: after as unknown as Record<string, unknown>,
           reason: input.reason,

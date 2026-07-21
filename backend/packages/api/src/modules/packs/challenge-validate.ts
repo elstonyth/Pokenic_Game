@@ -17,8 +17,6 @@ export interface ChallengeSettingsPatch {
   timezone?: string;
   reset_day?: number;
   reset_hour?: number;
-  payout_credits?: number;
-  payout_card_ids?: string[];
 }
 
 export interface ChallengeSettingsView {
@@ -26,8 +24,6 @@ export interface ChallengeSettingsView {
   timezone: string;
   reset_day: number;
   reset_hour: number;
-  payout_credits: number;
-  payout_card_ids: string[];
 }
 
 const bad = (m: string): never => {
@@ -92,8 +88,9 @@ export function validateChallengeStages(raw: unknown): ChallengeStageInput[] {
   return out;
 }
 
-// Settings: shape/range checks only; card EXISTENCE (payout_card_ids) is a
-// service-level DB check. Only present fields are validated + returned.
+// Settings: shape/range checks only. Only present fields are validated +
+// returned. payout fields retired — stages are the prize pool, see
+// store/challenge/route.ts.
 export function validateChallengeSettingsPatch(
   raw: unknown,
 ): ChallengeSettingsPatch {
@@ -126,20 +123,6 @@ export function validateChallengeSettingsPatch(
     if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 23)
       bad('reset_hour must be an integer 0–23.');
     out.reset_hour = v as number;
-  }
-  if (b.payout_credits !== undefined) {
-    const v = b.payout_credits;
-    if (
-      typeof v !== 'number' ||
-      !Number.isFinite(v) ||
-      v < 0 ||
-      v > MAX_VOUCHER_MYR
-    )
-      bad(`payout_credits must be between 0 and ${MAX_VOUCHER_MYR}.`);
-    out.payout_credits = v as number;
-  }
-  if (b.payout_card_ids !== undefined) {
-    out.payout_card_ids = validateCardIds(b.payout_card_ids, 'payout_card_ids');
   }
   if (Object.keys(out).length === 0) bad('No valid settings to update.');
   return out;

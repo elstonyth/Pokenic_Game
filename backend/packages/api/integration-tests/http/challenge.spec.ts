@@ -76,8 +76,6 @@ medusaIntegrationTestRunner({
           timezone: 'Asia/Kuala_Lumpur',
           reset_day: 1,
           reset_hour: 0,
-          payout_credits: 0,
-          payout_card_ids: [],
         });
       });
 
@@ -225,10 +223,8 @@ medusaIntegrationTestRunner({
               patch: {
                 reset_day: 3,
                 reset_hour: 6,
-                payout_credits: 500,
-                payout_card_ids: [cardId],
               },
-              reason: 'set payout',
+              reason: 'move reset',
             },
             { headers: adminHeaders() },
           ),
@@ -237,21 +233,36 @@ medusaIntegrationTestRunner({
         expect(res.data).toMatchObject({
           reset_day: 3,
           reset_hour: 6,
-          payout_credits: 500,
-          payout_card_ids: [cardId],
         });
 
         const get = await unwrapResponse(
           api.get('/admin/challenge/settings', { headers: adminHeaders() }),
         );
         expect(get.data.reset_day).toBe(3);
-        expect(get.data.payout_credits).toBe(500);
+        expect(get.data.reset_hour).toBe(6);
 
         const audits = await packs().listAdminActionAudits(
           { entity_type: 'challenge_settings', action: 'edit' },
           { take: 10 },
         );
         expect(audits).toHaveLength(1);
+      });
+
+      it('POST settings: retired payout-only patch → 400 (no valid fields)', async () => {
+        // payout fields are retired (stages are the prize pool) — a patch that
+        // carries only payout fields has nothing valid to update.
+        const res = await unwrapResponse(
+          api.post(
+            '/admin/challenge/settings',
+            {
+              patch: { payout_credits: 500, payout_card_ids: [cardId] },
+              reason: 'set payout',
+            },
+            { headers: adminHeaders() },
+          ),
+        );
+        expect(res.status).toBe(400);
+        expect(String(res.data.message)).toMatch(/No valid settings/);
       });
 
       it('POST settings: invalid timezone → 400', async () => {

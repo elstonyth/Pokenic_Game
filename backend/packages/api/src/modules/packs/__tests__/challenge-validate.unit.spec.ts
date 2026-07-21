@@ -83,13 +83,12 @@ describe('validateChallengeStages', () => {
 describe('validateChallengeSettingsPatch', () => {
   it('accepts a partial patch of valid fields', () => {
     const out = validateChallengeSettingsPatch({
-      patch: { timezone: 'Asia/Kuala_Lumpur', reset_day: 1, reset_hour: 0, payout_credits: 50 },
+      patch: { timezone: 'Asia/Kuala_Lumpur', reset_day: 1, reset_hour: 0 },
     });
     expect(out).toEqual({
       timezone: 'Asia/Kuala_Lumpur',
       reset_day: 1,
       reset_hour: 0,
-      payout_credits: 50,
     });
   });
 
@@ -114,20 +113,16 @@ describe('validateChallengeSettingsPatch', () => {
     );
   });
 
-  it('rejects negative payout_credits and an empty patch', () => {
-    expect(() => validateChallengeSettingsPatch({ patch: { payout_credits: -1 } })).toThrow(
-      /payout_credits must be between 0 and/,
-    );
+  it('rejects a retired payout-only patch and an empty patch', () => {
+    // payout fields are retired (stages are the prize pool) — the validator now
+    // ignores them, so a payout-only patch has no valid fields to update.
+    expect(() =>
+      validateChallengeSettingsPatch({
+        patch: { payout_credits: 50, payout_card_ids: ['card_1'] },
+      }),
+    ).toThrow(/No valid settings/);
     expect(() => validateChallengeSettingsPatch({ patch: {} })).toThrow(
       /No valid settings/,
     );
-  });
-
-  it('rejects payout_credits above the cap', () => {
-    expect(() =>
-      validateChallengeSettingsPatch({
-        patch: { payout_credits: MAX_VOUCHER_MYR + 1 },
-      }),
-    ).toThrow(/payout_credits must be between 0 and/);
   });
 });

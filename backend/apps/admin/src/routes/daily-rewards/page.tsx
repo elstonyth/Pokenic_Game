@@ -134,16 +134,33 @@ const DailyRewardsPage = () => {
             <Tabs.Trigger value="settings">Engine settings</Tabs.Trigger>
           </Tabs.List>
         </div>
-        <Tabs.Content value="levels">
+        {/* forceMount: these tabs seed their edit buffer once per mount, so
+            unmounting the inactive tab would silently wipe unsaved edits. Hide
+            it with `hidden` instead. Boxes is deliberately excluded — it has its
+            own explicit "Discard changes?" prompt (boxesDirty) on tab switch, so
+            forceMounting it would make that prompt lie. */}
+        <Tabs.Content
+          value="levels"
+          forceMount
+          className={tab === 'levels' ? undefined : 'hidden'}
+        >
           <VipLevelsTab />
         </Tabs.Content>
         <Tabs.Content value="boxes">
           <BoxesTab dirtyRef={boxesDirty} />
         </Tabs.Content>
-        <Tabs.Content value="frames">
+        <Tabs.Content
+          value="frames"
+          forceMount
+          className={tab === 'frames' ? undefined : 'hidden'}
+        >
           <FramesTab />
         </Tabs.Content>
-        <Tabs.Content value="settings">
+        <Tabs.Content
+          value="settings"
+          forceMount
+          className={tab === 'settings' ? undefined : 'hidden'}
+        >
           <SettingsTab />
         </Tabs.Content>
       </Tabs>

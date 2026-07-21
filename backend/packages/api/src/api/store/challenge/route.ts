@@ -85,14 +85,23 @@ export async function GET(
   // storefront renders featured-card art without a round-trip per id.
   // image = slab_image ?? image (graded composite preferred).
   const cardIds = [...new Set(stages.flatMap((s) => s.rewardCardIds))];
-  const cards: Record<string, { name: string; image: string }> = {};
+  // slab_image is carried SEPARATELY from image so the storefront knows when
+  // the art is a real graded slab (frameable) vs raw card art (not).
+  const cards: Record<
+    string,
+    { name: string; image: string; slab_image: string | null }
+  > = {};
   if (cardIds.length > 0) {
     const rows = await packs.listCards(
       { id: cardIds },
       { select: ['id', 'name', 'image', 'slab_image'], take: cardIds.length },
     );
     for (const c of rows) {
-      cards[c.id] = { name: c.name, image: c.slab_image ?? c.image };
+      cards[c.id] = {
+        name: c.name,
+        image: c.slab_image ?? c.image,
+        slab_image: c.slab_image ?? null,
+      };
     }
   }
 

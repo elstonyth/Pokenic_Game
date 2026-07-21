@@ -151,7 +151,13 @@ export const ChallengeSchema = z.looseObject({
   /** A malformed card entry drops that thumbnail (getter tolerates unresolved
    *  ids), not the whole challenge. */
   cards: droppableRecord(
-    z.looseObject({ name: z.string(), image: z.string() }),
+    z.looseObject({
+      name: z.string(),
+      image: z.string(),
+      /** The graded-slab composite when the card has one. Optional for deploy
+       *  skew — an older backend omits it and the card renders unframed. */
+      slab_image: z.string().nullish(),
+    }),
   ),
   /** Weekly Pull Value top-10 (pulled-value ranked, PII-safe names). Optional
    *  for deploy skew — absent hides the standings section. Bad rows drop like

@@ -63,11 +63,19 @@ describe('getChallenge', () => {
       },
     ],
     cards: {
-      c1: { name: 'Charizard', image: 'http://x/charizard.webp' },
+      c1: {
+        name: 'Charizard',
+        image: 'http://x/charizard.webp',
+        slab_image: 'http://x/charizard-slab.webp',
+      },
       c2: { name: 'Pikachu', image: 'http://x/pikachu.webp' },
       c3: { name: 'Mewtwo', image: 'http://x/mewtwo.webp' },
       // Distinct id, SAME image as c1 — the summary must NOT collapse these.
-      dup: { name: 'Alt Charizard', image: 'http://x/charizard.webp' },
+      dup: {
+        name: 'Alt Charizard',
+        image: 'http://x/charizard.webp',
+        slabImage: null,
+      },
     },
     top: [
       {
@@ -102,7 +110,12 @@ describe('getChallenge', () => {
       reward: 'RM 50',
     });
     expect(c!.stages[0]!.rankCards).toEqual([
-      { rank: 1, name: 'Charizard', image: 'http://x/charizard.webp' },
+      {
+        rank: 1,
+        name: 'Charizard',
+        image: 'http://x/charizard.webp',
+        slabImage: 'http://x/charizard-slab.webp',
+      },
     ]);
   });
 
@@ -131,7 +144,11 @@ describe('getChallenge', () => {
     const c = await getChallenge();
     expect(c!.summary).toEqual({
       unlockedCount: 1,
-      cards: [{ name: 'Charizard', image: 'http://x/charizard.webp' }],
+      cards: [{
+        name: 'Charizard',
+        image: 'http://x/charizard.webp',
+        slabImage: 'http://x/charizard-slab.webp',
+      }],
       credits: 'RM 50',
     });
   });
@@ -150,7 +167,11 @@ describe('getChallenge', () => {
     });
     // c1 is featured by BOTH stage 1 and stage 2 — one thumb, not two.
     expect(c!.summary!.cards).toEqual([
-      { name: 'Charizard', image: 'http://x/charizard.webp' },
+      {
+        name: 'Charizard',
+        image: 'http://x/charizard.webp',
+        slabImage: 'http://x/charizard-slab.webp',
+      },
     ]);
   });
 
@@ -202,8 +223,18 @@ describe('getChallenge', () => {
     });
     const c = await getChallenge();
     expect(c!.stages[0]!.rankCards).toEqual([
-      { rank: 2, name: 'Pikachu', image: 'http://x/pikachu.webp' },
-      { rank: 3, name: 'Mewtwo', image: 'http://x/mewtwo.webp' },
+      {
+        rank: 2,
+        name: 'Pikachu',
+        image: 'http://x/pikachu.webp',
+        slabImage: null,
+      },
+      {
+        rank: 3,
+        name: 'Mewtwo',
+        image: 'http://x/mewtwo.webp',
+        slabImage: null,
+      },
     ]);
   });
 
@@ -222,8 +253,16 @@ describe('getChallenge', () => {
     const c = await getChallenge();
     // c1 (repeated) collapses to one; dup survives as its own card.
     expect(c!.summary!.cards).toEqual([
-      { name: 'Charizard', image: 'http://x/charizard.webp' },
-      { name: 'Alt Charizard', image: 'http://x/charizard.webp' },
+      {
+        name: 'Charizard',
+        image: 'http://x/charizard.webp',
+        slabImage: 'http://x/charizard-slab.webp',
+      },
+      {
+        name: 'Alt Charizard',
+        image: 'http://x/charizard.webp',
+        slabImage: null,
+      },
     ]);
   });
 
@@ -269,7 +308,12 @@ describe('getChallenge', () => {
     expect(c).not.toBeNull();
     // The valid card still resolves for the stage that references it.
     expect(c!.stages[0]!.rankCards).toEqual([
-      { rank: 1, name: 'Charizard', image: 'http://x/charizard.webp' },
+      {
+        rank: 1,
+        name: 'Charizard',
+        image: 'http://x/charizard.webp',
+        slabImage: 'http://x/charizard-slab.webp',
+      },
     ]);
   });
 

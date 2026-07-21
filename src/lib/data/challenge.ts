@@ -21,6 +21,9 @@ import { parseOne, ChallengeSchema } from '@/lib/data/schemas';
 export interface ChallengeCard {
   name: string;
   image: string;
+  /** The graded-slab composite, when the card has one. Only a real slab gets
+   *  the prism frame — raw card art has the wrong aspect for the band. */
+  slabImage: string | null;
 }
 /** A stage's featured card WITH its podium rank. `rank` is the 1-based position
  *  in reward_card_ids (1=#1st … 3=#3rd), carried explicitly so an unresolvable
@@ -128,7 +131,9 @@ export async function getChallenge(): Promise<Challenge | null> {
     const resolveCards = (ids: string[]): ChallengeCard[] =>
       ids.flatMap((id) => {
         const c = data.cards[id];
-        return c ? [{ name: c.name, image: c.image }] : [];
+        return c
+          ? [{ name: c.name, image: c.image, slabImage: c.slab_image ?? null }]
+          : [];
       });
     // Rank-preserving resolver for a stage's podium (top 3). Each surviving
     // card keeps its ORIGINAL 1-based position as `rank`, so dropping the #1
@@ -136,7 +141,16 @@ export async function getChallenge(): Promise<Challenge | null> {
     const rankCardsFor = (ids: string[]): ChallengeRankCard[] =>
       ids.slice(0, 3).flatMap((id, i) => {
         const c = data.cards[id];
-        return c ? [{ rank: i + 1, name: c.name, image: c.image }] : [];
+        return c
+          ? [
+              {
+                rank: i + 1,
+                name: c.name,
+                image: c.image,
+                slabImage: c.slab_image ?? null,
+              },
+            ]
+          : [];
       });
 
     const ordered = data.stages

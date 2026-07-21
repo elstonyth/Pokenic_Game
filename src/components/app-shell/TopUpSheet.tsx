@@ -241,7 +241,12 @@ export default function TopUpSheet({
                 </span>
               </div>
               <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                <span className="text-neutral-300">New balance</span>
+                {/* On the gateway path the credit is NOT immediate — it lands
+                    when the provider confirms the payment. Calling this "New
+                    balance" would promise something the button cannot deliver. */}
+                <span className="text-neutral-300">
+                  {USE_GATEWAY ? 'Balance once paid' : 'New balance'}
+                </span>
                 <span className="font-heading text-lg text-white">
                   {balance != null && amountValid ? rm(balance + amount) : '—'}
                 </span>
@@ -264,15 +269,21 @@ export default function TopUpSheet({
               className="mt-4 w-full"
             >
               {submitting
-                ? 'Processing…'
+                ? USE_GATEWAY
+                  ? 'Taking you to payment…'
+                  : 'Processing…'
                 : amountValid
-                  ? `Proceed — add ${rm(amount)}`
+                  ? USE_GATEWAY
+                    ? // Nothing is added here — the button leaves the site.
+                      `Pay ${rm(amount)}`
+                    : `Proceed — add ${rm(amount)}`
                   : 'Enter an amount'}
             </Pill>
 
             <p className="mt-3 text-[12px] leading-relaxed text-neutral-400">
-              Demo checkout: only the amount leaves your browser. Amounts ending
-              in .13 are declined on purpose so you can see the error path.
+              {USE_GATEWAY
+                ? 'You’ll finish paying on GlobePay365, then come back here. Credits appear once your payment is confirmed — usually within a minute.'
+                : 'Demo checkout: only the amount leaves your browser. Amounts ending in .13 are declined on purpose so you can see the error path.'}
             </p>
           </>
         )}

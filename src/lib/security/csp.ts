@@ -23,6 +23,15 @@ function originOf(url: string | undefined): string | null {
   }
 }
 
+/**
+ * Whether the policy ships enforcing (vs report-only). One predicate governs
+ * both the header *name* (next.config.ts) and the `upgrade-insecure-requests`
+ * directive below, so the two can never drift apart.
+ */
+export function cspEnforced(): boolean {
+  return process.env.CSP_ENFORCE === 'true';
+}
+
 export function buildCsp(): string {
   // Default matches lib/medusa.ts (SDK) and next.config.ts (image optimizer): an
   // unset env var means local dev on :9000, so the policy must allow it too.
@@ -58,7 +67,7 @@ export function buildCsp(): string {
   // `upgrade-insecure-requests` does nothing in a report-only policy and the
   // browser logs "directive ... is ignored" on EVERY page load, so only emit it
   // in the enforcing policy (same toggle next.config.ts reads for the header name).
-  if (process.env.CSP_ENFORCE === 'true') {
+  if (cspEnforced()) {
     directives.push(`upgrade-insecure-requests`);
   }
   return directives.join('; ');

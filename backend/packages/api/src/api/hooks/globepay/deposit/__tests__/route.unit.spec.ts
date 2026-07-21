@@ -210,6 +210,24 @@ describe('deposit callback — ack contract', () => {
   });
 });
 
+describe('deposit callback — already-resolved rows', () => {
+  it('ignores a late status 7 on an already-settled deposit', async () => {
+    const h = harness({ ...pendingRow, status: 'settled' });
+    const res = await run(h, callback({ ...settled, Status: 7 }));
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe('success');
+    // The credit stands; the row must not be flipped to failed under it.
+    expect(h.packs.updateGlobePayDeposits).not.toHaveBeenCalled();
+  });
+
+  it('does not re-credit a settled deposit on a repeated status 6', async () => {
+    const h = harness({ ...pendingRow, status: 'settled' });
+    const res = await run(h, callback(settled));
+    expect(res.body).toBe('success');
+    expect(h.packs.mutateCreditAtomic).not.toHaveBeenCalled();
+  });
+});
+
 describe('deposit callback — idempotency', () => {
   it('anchors on THEIR transaction id, so a retry dedupes', async () => {
     const h = harness(pendingRow);

@@ -105,7 +105,17 @@ export async function POST(
     return;
   }
 
-  // 3) Non-final states (their status 4 "VerifyFail" among them) are explicitly
+  // 3) Already resolved. A late status-7 arriving after a deposit settled must
+  // NOT flip the row to failed while the credit stands — that leaves the record
+  // contradicting the ledger. Row-level idempotency, and safe against retries:
+  // the transient-error path below leaves the row 'pending', so a callback we
+  // genuinely failed to process still gets reprocessed.
+  if (deposit.status !== 'pending') {
+    res.status(200).send('success');
+    return;
+  }
+
+  // 4) Non-final states (their status 4 "VerifyFail" among them) are explicitly
   // NOT failures — the deposit can still settle. Acknowledge without touching
   // the ledger; the next callback carries the real outcome.
   if (state === 'pending') {

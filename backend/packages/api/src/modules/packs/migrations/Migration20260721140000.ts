@@ -15,8 +15,15 @@ export class Migration20260721140000 extends Migration {
         "merchant_transaction_id" text not null,
         "gateway_transaction_id" text null,
         "customer_id" text not null,
+        -- model.bigNumber() is TWO columns: the numeric for querying and a
+        -- raw_* jsonb holding the arbitrary-precision value. Omitting the
+        -- raw_* column compiles and passes mocked tests, then fails at the
+        -- first real insert with 'column "raw_amount_requested" does not
+        -- exist'. Matches credit_transaction.amount / raw_amount.
         "amount_requested" numeric not null,
+        "raw_amount_requested" jsonb not null,
         "amount_settled" numeric null,
+        "raw_amount_settled" jsonb null,
         "payment_method_code" text not null,
         "status" text check ("status" in ('pending', 'settled', 'failed')) not null default 'pending',
         "gateway_status" integer null,

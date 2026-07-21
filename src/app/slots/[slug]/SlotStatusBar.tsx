@@ -5,6 +5,10 @@ import { cn } from '@/lib/utils';
 import type { RecentPull } from '@/lib/data/packs';
 import { Meter } from './Meter';
 
+/** Both ends of the recent-wins plate fade out instead of hard-clipping. */
+const MARQUEE_FADE =
+  'linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent)';
+
 export function SlotStatusBar({
   balance,
   recent,
@@ -53,8 +57,12 @@ export function SlotStatusBar({
         <div
           className="relative max-w-full overflow-hidden sm:max-w-[55%]"
           style={{
-            maskImage:
-              'linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent)',
+            // -webkit- twin: Safari (including every iOS browser) still only
+            // honours the prefixed property, and this machine is designed
+            // phone-first — unprefixed alone would leave the guillotined name
+            // exactly where it matters most.
+            maskImage: MARQUEE_FADE,
+            WebkitMaskImage: MARQUEE_FADE,
           }}
         >
           <div

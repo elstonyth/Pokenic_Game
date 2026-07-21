@@ -27,13 +27,13 @@ salt=aesKey, 1000 iters, 32 bytes)`, `AES-256-CBC` + PKCS7, random 16-byte IV
 
 ## Secrets (env, never committed)
 
-| Var                             | What                                            |
-| ------------------------------- | ----------------------------------------------- |
-| `GLOBEPAY_MERCHANT_CODE`        | `Testpolycard` on staging                       |
-| `GLOBEPAY_MERCHANT_PRIVATE_KEY` | our RSA 1024 private key (PEM)                  |
-| `GLOBEPAY_PUBLIC_KEY`           | their RSA public key (base64 SPKI)              |
-| `GLOBEPAY_AES_KEY`              | their AES key                                   |
-| `GLOBEPAY_API_BASE`             | `https://mapi.GlobePay365stg.com` on staging    |
+| Var                             | What                                         |
+| ------------------------------- | -------------------------------------------- |
+| `GLOBEPAY_MERCHANT_CODE`        | `Testpolycard` on staging                    |
+| `GLOBEPAY_MERCHANT_PRIVATE_KEY` | our RSA 1024 private key (PEM)               |
+| `GLOBEPAY_PUBLIC_KEY`           | their RSA public key (base64 SPKI)           |
+| `GLOBEPAY_AES_KEY`              | their AES key                                |
+| `GLOBEPAY_API_BASE`             | `https://mapi.GlobePay365stg.com` on staging |
 
 Merchant keypair was generated **locally with openssl**, not on devglan.com or
 any other web tool — that private key signs withdrawal/payout requests, so a key
@@ -69,13 +69,13 @@ First real deposit created: `D2026072112415767` (`BQR`, MYR 50.00, unpaid).
 **Only `BQR` actually works on staging right now.** The back office lists five
 active MYR methods; four of them fail at the channel level:
 
-| Method | MYR 50 result |
-| --- | --- |
-| `BQR` | works — returns cashier URL + bank details + QR |
-| `FPX` | `PMT10018 Channel is not available` |
-| `OB` | `PMT10005 Invalid Transaction Amount` |
-| `DN` | `isSuccess:false` with an EMPTY errorList — no code, no message |
-| `WD` | payout, not tested |
+| Method | MYR 50 result                                                   |
+| ------ | --------------------------------------------------------------- |
+| `BQR`  | works — returns cashier URL + bank details + QR                 |
+| `FPX`  | `PMT10018 Channel is not available`                             |
+| `OB`   | `PMT10005 Invalid Transaction Amount`                           |
+| `DN`   | `isSuccess:false` with an EMPTY errorList — no code, no message |
+| `WD`   | payout, not tested                                              |
 
 "Active in the back office" ≠ "a channel is provisioned". Ask Bryan to enable
 the methods we actually intend to ship.
@@ -100,6 +100,35 @@ Other confirmed behaviour:
   to the UI.
 - `DN`'s empty-error response is why the client treats `isSuccess:false` with
   no codes as a generic failure rather than assuming a code exists.
+
+### BQR amount limits (probed live, `PMT10005` = out of range)
+
+| Amount               | Result                               |
+| -------------------- | ------------------------------------ |
+| 1 / 5 / 10 / 20 / 25 | rejected                             |
+| 30                   | accepted                             |
+| 30.50                | accepted — 2 decimal places are fine |
+| 1000                 | accepted                             |
+| 5000 / 10000         | rejected                             |
+
+So the usable band is roughly **26–1000 MYR**, exact bounds unconfirmed. Read
+`Merchant Transaction Setting` for the real numbers rather than trusting this.
+
+### GetSupportedBanks
+
+`GET /api/Bank/GetSupportedBanks?MerchantCode=&PaymentMethodCode=WD&CurrencyCode=MYR`
+— plain GET, **no AES and no signature**, unlike every other endpoint. Returns
+31 live MYR banks. Their codes do not all match the doc's Bank Appendix
+(`ACDB`, `AFBQ`, `BIGB`, `KAFD` are missing from it), so drive the payout bank
+picker from this endpoint, never the appendix.
+
+### OPEN QUESTION — `Amount` vs `NetAmount`
+
+The settled callback carries both. `Amount` is the deposit amount; `NetAmount`
+is documented only as "Net Amount submitted from client" (possibly net of
+fees). The route credits **`Amount`** and stores both. Confirm against the
+first genuinely settled callback before this goes near production — crediting
+the wrong field is a silent money error on every single top-up.
 
 ### Live smoke test — PASSED 2026-07-21
 

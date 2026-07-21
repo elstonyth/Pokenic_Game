@@ -10,7 +10,7 @@
     "test": "turbo run test"
   },
   "dependencies": {
-    "@hookform/resolvers": "3.4.2",
+    "@hookform/resolvers": "5.4.0",
     "@medusajs/icons": "2.13.4",
     "@medusajs/ui": "4.1.1",
     "@mercurjs/client": "2.1.6",

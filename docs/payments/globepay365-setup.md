@@ -62,6 +62,45 @@ grep -v '^-----' merchant_public.pem | tr -d '\n'
   Doc error `PMT10007 Merchant Cashier URL not available` is this field. Unset
   as of writing; ask Bryan what it expects before filling it.
 
+### Live SubmitDeposit findings — 2026-07-21
+
+First real deposit created: `D2026072112415767` (`BQR`, MYR 50.00, unpaid).
+
+**Only `BQR` actually works on staging right now.** The back office lists five
+active MYR methods; four of them fail at the channel level:
+
+| Method | MYR 50 result |
+| --- | --- |
+| `BQR` | works — returns cashier URL + bank details + QR |
+| `FPX` | `PMT10018 Channel is not available` |
+| `OB` | `PMT10005 Invalid Transaction Amount` |
+| `DN` | `isSuccess:false` with an EMPTY errorList — no code, no message |
+| `WD` | payout, not tested |
+
+"Active in the back office" ≠ "a channel is provisioned". Ask Bryan to enable
+the methods we actually intend to ship.
+
+**Minimum amount.** `FPX` rejects 10 / 20 / 25 with `PMT10005`, then flips to
+`PMT10018` at 30+ — so the floor is between 25 and 30, and `PMT10005` is
+overloaded (it also fires for `OB` at 50). Do not infer limits from this error;
+read `Merchant Transaction Setting` in the back office instead.
+
+Other confirmed behaviour:
+
+- `Amount` as the 2dp string `"50.00"` is accepted. Format confirmed.
+- The **blank Cashier URL did NOT trip `PMT10007`** — that field is not
+  required for this flow. Open question closed.
+- An unpaid deposit requeries as `statusId 4 "VerifyFail"`, which is
+  **pending**, not failed. Live confirmation that mapping 4 to failure would
+  strand real money.
+- Requery of an unknown id returns HTTP 400 with plain-text `Not found` — not
+  JSON, and not the documented `PMT10016`.
+- The response carries an undocumented `bankBranchCode`, and `qrCode` is a
+  ~130 KB base64 PNG data URI. Never log or persist `qrCode` — pass it straight
+  to the UI.
+- `DN`'s empty-error response is why the client treats `isSuccess:false` with
+  no codes as a generic failure rather than assuming a code exists.
+
 ### Live smoke test — PASSED 2026-07-21
 
 `POST /api/Merchant/CheckBalance` returned `isSuccess: true`, balance `0.00`.

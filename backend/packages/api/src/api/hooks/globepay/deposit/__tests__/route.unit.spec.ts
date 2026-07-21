@@ -54,15 +54,13 @@ function harness(deposit: Record<string, unknown> | null) {
   const packs = {
     listGlobePayDeposits: jest.fn().mockResolvedValue(deposit ? [deposit] : []),
     updateGlobePayDeposits: jest.fn().mockResolvedValue(undefined),
-    mutateCreditAtomic: jest
-      .fn()
-      .mockResolvedValue({
-        id: 'ct_1',
-        balance: 50,
-        amount: 50,
-        replayed: false,
-        reference: null,
-      }),
+    mutateCreditAtomic: jest.fn().mockResolvedValue({
+      id: 'ct_1',
+      balance: 50,
+      amount: 50,
+      replayed: false,
+      reference: null,
+    }),
   };
   const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
   const req = {
@@ -172,7 +170,10 @@ describe('deposit callback — ack contract', () => {
     expect(res.body).toBe('success');
     expect(h.packs.mutateCreditAtomic).not.toHaveBeenCalled();
     expect(h.packs.updateGlobePayDeposits).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'failed' }),
+      expect.objectContaining({
+        selector: { id: 'gpd_1', status: 'pending' },
+        data: expect.objectContaining({ status: 'failed' }),
+      }),
     );
   });
 
@@ -229,7 +230,7 @@ describe('deposit callback — already-resolved rows', () => {
 });
 
 describe('deposit callback — idempotency', () => {
-  it('anchors on THEIR transaction id, so a retry dedupes', async () => {
+  it('anchors on the signed reference, so a retry dedupes', async () => {
     const h = harness(pendingRow);
     await run(h, callback(settled));
     await run(h, callback(settled));
@@ -237,13 +238,54 @@ describe('deposit callback — idempotency', () => {
     expect(first[0].idempotencyReference).toBe(second[0].idempotencyReference);
   });
 
-  it('uses a DIFFERENT anchor for a different gateway transaction', async () => {
+  // SECURITY REGRESSION. TransactionId sits OUTSIDE the signature, so anyone
+  // holding one genuine callback body can vary it freely without invalidating
+  // anything. While it fed the anchor, each replay computed a DIFFERENT anchor,
+  // slipped the ledger dedupe, and minted another credit — one payment became
+  // N. It would also have double-credited with no attacker at all, had the
+  // gateway ever varied that id across its own retries.
+  it('ignores the unsigned TransactionId when anchoring — varying it cannot double-credit', async () => {
+    const h = harness(pendingRow);
+    await run(h, callback(settled, { transactionId: 'D-1' }));
+    await run(h, callback(settled, { transactionId: 'D-ATTACKER-2' }));
+    await run(h, callback(settled, { transactionId: 'D-ATTACKER-3' }));
+
+    const anchors = h.packs.mutateCreditAtomic.mock.calls.map(
+      (c: [{ idempotencyReference: string }]) => c[0].idempotencyReference,
+    );
+    expect(new Set(anchors).size).toBe(1);
+  });
+
+  it('uses a DIFFERENT anchor for a genuinely different deposit', async () => {
     const h = harness(pendingRow);
     await run(h, callback(settled));
-    await run(h, callback(settled, { transactionId: 'D-OTHER' }));
+    await run(h, callback({ ...settled, MerchantTransactionId: 'PG-2' }));
     const [first, second] = h.packs.mutateCreditAtomic.mock.calls;
     expect(first[0].idempotencyReference).not.toBe(
       second[0].idempotencyReference,
+    );
+  });
+
+  it('rejects a callback whose SIGNED payload carries no MerchantTransactionId', async () => {
+    const h = harness(pendingRow);
+    const { MerchantTransactionId: _drop, ...unsignedOnly } = settled;
+    // The unsigned envelope still names a real deposit — it must not be trusted
+    // to select the row, and therefore the customer, that gets credited.
+    const res = await run(h, {
+      ...callback(unsignedOnly),
+      MerchantTransactionId: 'PG-1',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(h.packs.mutateCreditAtomic).not.toHaveBeenCalled();
+  });
+
+  it('claims the row only while it is still pending', async () => {
+    const h = harness(pendingRow);
+    await run(h, callback(settled));
+    expect(h.packs.updateGlobePayDeposits).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selector: { id: 'gpd_1', status: 'pending' },
+      }),
     );
   });
 });

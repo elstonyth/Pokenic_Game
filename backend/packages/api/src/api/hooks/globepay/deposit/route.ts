@@ -78,11 +78,35 @@ export async function POST(
     return;
   }
 
-  // Their id is the reconciliation handle AND the idempotency anchor: globally
-  // unique on their side, and repeated verbatim on every retry.
+  // SIGNED vs UNSIGNED — the distinction the whole route depends on.
+  //
+  // Only `Data` is covered by the signature. Every other top-level field
+  // (TransactionId, MerchantTransactionId, Version) is attacker-mutable on an
+  // otherwise-genuine body, because changing them does not invalidate anything.
+  //
+  // So NOTHING security-relevant may be derived from them. In particular the
+  // idempotency anchor is built from the SIGNED MerchantTransactionId: anchoring
+  // on the unsigned TransactionId would let one captured callback be replayed N
+  // times with N different ids, each computing a different anchor, each slipping
+  // past the ledger dedupe and minting another credit. It would also double-
+  // credit with no attacker at all if the gateway ever varied that id across
+  // retries — an assumption we have never been able to verify.
+  //
+  // TransactionId is kept ONLY as the human-facing reconciliation handle.
   const gatewayTransactionId = body.TransactionId ?? '';
-  const merchantTransactionId =
-    data.MerchantTransactionId || body.MerchantTransactionId || '';
+  const merchantTransactionId = data.MerchantTransactionId ?? '';
+  if (!merchantTransactionId) {
+    // No signed reference means nothing legitimately selects a deposit row —
+    // and therefore a customer. Refuse rather than fall back to the unsigned
+    // envelope copy.
+    req.scope
+      .resolve('logger')
+      .warn(
+        '[globepay] rejected deposit callback: signed payload carried no MerchantTransactionId',
+      );
+    res.status(400).send('rejected');
+    return;
+  }
   const state = depositState(data.Status);
 
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
@@ -125,11 +149,13 @@ export async function POST(
 
   if (state === 'failed') {
     await packs.updateGlobePayDeposits({
-      id: deposit.id,
-      status: 'failed',
-      gateway_status: data.Status,
-      gateway_transaction_id:
-        gatewayTransactionId || deposit.gateway_transaction_id,
+      selector: { id: deposit.id, status: 'pending' },
+      data: {
+        status: 'failed',
+        gateway_status: data.Status,
+        gateway_transaction_id:
+          gatewayTransactionId || deposit.gateway_transaction_id,
+      },
     });
     res.status(200).send('success');
     return;
@@ -155,28 +181,39 @@ export async function POST(
   }
 
   try {
-    // Idempotent on THEIR transaction id: a retried callback (or a lost
-    // response) resolves to the same anchor and returns the original row
-    // instead of crediting twice.
+    // Idempotent on the SIGNED MerchantTransactionId (see the note above). Every
+    // retry of this deposit — however many, however concurrent, whatever the
+    // unsigned TransactionId says — resolves to the same anchor, so the
+    // per-customer locked dedupe in mutateCreditAtomic collapses them to one
+    // credit. This is what makes the status check below a consistency guard
+    // rather than the thing standing between us and a double credit.
     const mutation = await packs.mutateCreditAtomic({
       customerId: deposit.customer_id,
       amount: creditedAmount,
       reason: 'topup',
+      // Their id is the reconciliation handle a human quotes in support — it is
+      // display-only, and unsigned, so it never gates anything.
       reference: gatewayTransactionId || merchantTransactionId,
       idempotencyReference: topupIdempotencyReference(
         deposit.customer_id,
-        gatewayTransactionId || merchantTransactionId,
+        merchantTransactionId,
       ),
     });
 
+    // Conditional flip: only claim a row that is STILL pending. Combined with
+    // the anchor above this is belt-and-braces, but it keeps the row honest if
+    // two callbacks land at once — the loser no-ops instead of overwriting
+    // settled_at and amount_settled with its own copy.
     await packs.updateGlobePayDeposits({
-      id: deposit.id,
-      status: 'settled',
-      gateway_status: data.Status,
-      gateway_transaction_id:
-        gatewayTransactionId || deposit.gateway_transaction_id,
-      amount_settled: creditedAmount,
-      settled_at: new Date(),
+      selector: { id: deposit.id, status: 'pending' },
+      data: {
+        status: 'settled',
+        gateway_status: data.Status,
+        gateway_transaction_id:
+          gatewayTransactionId || deposit.gateway_transaction_id,
+        amount_settled: creditedAmount,
+        settled_at: new Date(),
+      },
     });
 
     // Durable receipt, mirroring the mock top-up path. A replay credited
@@ -191,9 +228,10 @@ export async function POST(
             amount_myr: creditedAmount,
             reference: gatewayTransactionId || merchantTransactionId,
           },
-          idempotencyKey: topupFeedKey(
-            gatewayTransactionId || merchantTransactionId,
-          ),
+          // Keyed on the SIGNED reference for the same reason as the credit
+          // anchor: an unsigned key would let a varied TransactionId produce a
+          // second receipt for one payment.
+          idempotencyKey: topupFeedKey(merchantTransactionId),
         });
       } catch {
         // Never fail a committed credit over a notification.

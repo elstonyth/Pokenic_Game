@@ -136,6 +136,42 @@ medusaIntegrationTestRunner({
         expect(Number(rows[0].amount)).toBe(50);
       });
 
+      // SECURITY REGRESSION, against the real ledger. TransactionId is OUTSIDE
+      // the signature, so a captured callback body can be replayed with that
+      // field varied and the signature still verifies. While the idempotency
+      // anchor was derived from it, each replay produced a fresh anchor, missed
+      // the dedupe, and appended another credit — one payment minting many.
+      it('cannot be double-credited by replaying with a varied unsigned TransactionId', async () => {
+        const mtid = 'PC-integration-varied-txid';
+        await seedDeposit(mtid);
+        const body = settled(mtid);
+
+        expect(
+          (await post(callback(body, { transactionId: 'D-1' }))).data,
+        ).toBe('success');
+        await post(callback(body, { transactionId: 'D-ATTACKER-2' }));
+        await post(callback(body, { transactionId: 'D-ATTACKER-3' }));
+
+        const rows = await ledger();
+        expect(rows).toHaveLength(1);
+        expect(Number(rows[0].amount)).toBe(50);
+      });
+
+      it('rejects a callback whose signed payload has no MerchantTransactionId', async () => {
+        const mtid = 'PC-integration-unsigned-ref';
+        await seedDeposit(mtid);
+        const { MerchantTransactionId: _drop, ...unsignedOnly } = settled(mtid);
+
+        // Signed payload omits the reference; the unsigned envelope supplies a
+        // real one. It must not be trusted to pick the row to credit.
+        const res = await post({
+          ...callback(unsignedOnly),
+          MerchantTransactionId: mtid,
+        });
+        expect(res.status).toBe(400);
+        expect(await ledger()).toHaveLength(0);
+      });
+
       it('credits what the customer actually paid, not what we requested', async () => {
         const mtid = 'PC-integration-partial';
         await seedDeposit(mtid);

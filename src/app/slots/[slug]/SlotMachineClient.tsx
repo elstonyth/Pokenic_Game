@@ -61,7 +61,12 @@ const POKEBALL_PLACEHOLDER =
   );
 
 type Phase =
-  'idle' | 'resolving' | 'spinning' | 'flood' | 'transform' | 'review';
+  | 'idle'
+  | 'resolving'
+  | 'spinning'
+  | 'flood'
+  | 'transform'
+  | 'review';
 
 /** Highest-rarity tier present in a batch, for the room flood color. */
 function topRarityOf(cards: WonCard[]): Rarity {
@@ -280,7 +285,8 @@ export default function SlotMachineClient({
     // odds (static ODDS pre-publication). No backend call, no charge, no Pull
     // row, no sell-back; the reveal shows a sign-up CTA instead.
     if (isDemo) {
-      // eslint-disable-next-line react-hooks/purity -- user-click event handler, never render (same as the real spin's Date.now below)
+      // Impure read is safe here: user-click event handler, never render (same
+      // as the real spin's Date.now below).
       const spinAt = Date.now();
       const rows = publishedOdds ? publishedOddsRows(publishedOdds) : null;
       const cards: WonCard[] = [];
@@ -288,9 +294,8 @@ export default function SlotMachineClient({
         const drawn = demoDraw(
           demoPool,
           rows?.length ? rows : ODDS,
-          // eslint-disable-next-line react-hooks/purity -- see above; nothing real is at stake
+          // see above; nothing real is at stake in a demo draw
           Math.random(),
-          // eslint-disable-next-line react-hooks/purity -- see above
           Math.random(),
         );
         if (!drawn) {
@@ -370,9 +375,7 @@ export default function SlotMachineClient({
     const cards: WonCard[] = [];
     // Single spin timestamp: unique per spin (drives the reel nonce) and the
     // fallback instant-offer deadline. handleSpin is a user-click async event
-    // handler (never render), so this impure read is safe; the purity rule
-    // can't infer that from a bare function declaration.
-    // eslint-disable-next-line react-hooks/purity
+    // handler (never render), so this impure read is safe.
     const spinAt = Date.now();
 
     try {
@@ -546,7 +549,7 @@ export default function SlotMachineClient({
     // customerIdRef (a ref) is intentionally not a dep — the guard reads its
     // live value, so handleSettled stays stable and every caller (reel prop,
     // watchdog, stale catch closure) checks the CURRENT identity.
-  }, [pack.name, pack.image, sfx, play, applyBalance, reduced, isDemo]);
+  }, [pack.name, pack.image, play, applyBalance, reduced, isDemo]);
 
   // Fast-forward the post-landing theater. Lands on 'review' with card backs
   // unflipped (beat 5's skip). Never affects the spin itself — the spin is not

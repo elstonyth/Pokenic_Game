@@ -54,7 +54,12 @@ export function buildCsp(): string {
     `base-uri 'self'`,
     `form-action 'self'`,
     `frame-ancestors 'none'`,
-    `upgrade-insecure-requests`,
   ];
+  // `upgrade-insecure-requests` does nothing in a report-only policy and the
+  // browser logs "directive ... is ignored" on EVERY page load, so only emit it
+  // in the enforcing policy (same toggle next.config.ts reads for the header name).
+  if (process.env.CSP_ENFORCE === 'true') {
+    directives.push(`upgrade-insecure-requests`);
+  }
   return directives.join('; ');
 }

@@ -43,6 +43,24 @@ const eslintConfig = defineConfig([
       '@typescript-eslint/no-unused-expressions': 'off',
     },
   },
+  // The `const { a: _a, ...rest } = obj` omit idiom is how the data tests build
+  // partial backend payloads. Without ignoreRestSiblings each omitted key is a
+  // phantom unused-var warning, so the codebase would have to litter disables
+  // for a deliberate pattern. `^_` also covers intentionally-unused bindings.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          ignoreRestSiblings: true,
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
   // Enforce the single-entry Zod contract: src/lib/data/schemas.ts sets
   // `z.config({ jitless: true })` so Zod 4's JIT parser never calls `new
   // Function` — which our CSP `script-src` forbids ('unsafe-eval' is absent, see

@@ -76,7 +76,7 @@ function StageCard({
         <span
           className={cn(
             'font-heading text-3xl',
-            stage.state === 'locked' ? 'text-white/40' : 'text-chase',
+            stage.state === 'locked' ? 'text-white/60' : 'text-chase',
           )}
         >
           STAGE {stage.stageNumber}
@@ -90,7 +90,7 @@ function StageCard({
           </span>
         )}
         {stage.state === 'locked' && (
-          <Lock className="h-4 w-4 text-white/40" aria-label="Locked" />
+          <Lock className="h-4 w-4 text-white/60" aria-label="Locked" />
         )}
       </div>
       <p className="mt-1 text-xs text-neutral-400">
@@ -153,7 +153,7 @@ function StageCard({
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="mt-1 flex justify-between text-[10px] font-semibold text-neutral-500">
+          <div className="mt-1 flex justify-between text-[10px] font-semibold text-neutral-400">
             <span>{stage.state === 'complete' ? stage.threshold : pooled}</span>
             <span>{stage.threshold}</span>
           </div>
@@ -213,7 +213,7 @@ export function StageCarousel({
                 ? 'bg-chase text-neutral-950'
                 : s.state === 'complete'
                   ? 'text-chase bg-neutral-800 hover:bg-neutral-700'
-                  : 'bg-neutral-900 text-white/40 hover:text-white/70',
+                  : 'bg-neutral-900 text-white/60 hover:text-white/80',
             )}
           >
             {s.state === 'complete' && i !== index && (

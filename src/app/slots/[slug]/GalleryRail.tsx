@@ -121,7 +121,12 @@ export function GalleryRail({
                   }}
                   animate={{
                     scale: isActive ? 1 : 0.9,
-                    opacity: isActive ? 1 : 0.55,
+                    // 0.7, not 0.55: the peek neighbours are real text, and at
+                    // 0.55 even neutral-400 lands under 4.5:1 on these near-black
+                    // surfaces (axe flagged every dimmed slide on /leaderboard).
+                    // Scale + rotateY still carry the "this one is background"
+                    // read without pushing the copy below the contrast floor.
+                    opacity: isActive ? 1 : 0.7,
                     rotateY: reduced ? 0 : (i - activeIndex) * -14,
                   }}
                   transition={

@@ -40,7 +40,7 @@ export function WeeklyChallenge({ challenge }: { challenge: Challenge }) {
         <h2 className="font-heading mt-4 text-4xl text-white">
           WEEKLY PULLED VALUE CHALLENGE
         </h2>
-        <p className="mt-3 text-xs font-medium tracking-wide text-neutral-500 uppercase">
+        <p className="mt-3 text-xs font-medium tracking-wide text-neutral-400 uppercase">
           {challenge.resetLabel}
         </p>
       </header>
@@ -111,7 +111,7 @@ export function WeeklyChallenge({ challenge }: { challenge: Challenge }) {
                 <span
                   className={cn(
                     'mt-1 hidden text-[10px] font-semibold whitespace-nowrap sm:block',
-                    s.state === 'complete' ? 'text-chase' : 'text-neutral-500',
+                    s.state === 'complete' ? 'text-chase' : 'text-neutral-400',
                   )}
                 >
                   {s.thresholdCompact}
@@ -121,7 +121,7 @@ export function WeeklyChallenge({ challenge }: { challenge: Challenge }) {
           </div>
 
           {pool.next ? (
-            <p className="mt-3 text-center text-xs text-neutral-500">
+            <p className="mt-3 text-center text-xs text-neutral-400">
               Stage {pool.next.stageNumber} unlocks at{' '}
               <span className="font-semibold text-neutral-300">
                 {pool.next.threshold}

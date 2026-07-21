@@ -32,7 +32,7 @@ export default function PullsMarquee({ pulls }: { pulls: RecentPull[] }) {
           <span className="font-heading text-sm tabular-nums text-white">
             {pull.value}
           </span>
-          <span className="text-[11px] text-neutral-500">{pull.agoLabel}</span>
+          <span className="text-[11px] text-neutral-400">{pull.agoLabel}</span>
         </span>
       ))}
     </div>

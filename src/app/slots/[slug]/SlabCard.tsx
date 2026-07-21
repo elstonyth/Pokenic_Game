@@ -145,6 +145,10 @@ export function SlabCard({
             } as CSSProperties
           }
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- decorative
+              fixed local asset (one shared card back, already webp) layered
+              inside the flip/morph surface; next/image adds a wrapper + loader
+              to a purely presentational fill with no LCP or bandwidth win. */}
           <img
             src="/images/app/polycards-card-back.webp"
             alt=""

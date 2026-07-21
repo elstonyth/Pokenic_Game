@@ -124,7 +124,7 @@ function StageCard({
                 alt=""
                 frameVariant="prism"
                 glowScale={0.25}
-                sizes="96px"
+                sizes="256px"
                 className="mx-auto mt-2 h-20"
               />
             ) : (

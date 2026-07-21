@@ -182,7 +182,7 @@ export function WeeklyChallenge({ challenge }: { challenge: Challenge }) {
                           alt={c.name}
                           frameVariant="prism"
                           glowScale={0.4}
-                          sizes="152px"
+                          sizes="384px"
                           className="h-32"
                         />
                       ) : (

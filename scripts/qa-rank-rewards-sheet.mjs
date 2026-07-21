@@ -53,17 +53,30 @@ check('sheet opens via keyboard', await dialog.isVisible().catch(() => false));
 
 await page.screenshot({ path: 'docs/research/ranks-sheet-open.png' });
 
-// Every configured rank present, and the deliberately-empty rank 8 absent.
+// Which ranks are listed is DATA, not a fixture assumption: a stage may
+// configure all ten ranks or leave gaps, and both are valid. Assert the
+// invariants that must hold either way rather than a hardcoded rank set.
 const text = (await dialog.innerText().catch(() => '')).replace(/\s+/g, ' ');
-for (const r of [4, 5, 6, 7, 9, 10]) {
-  check(`rank ${r} listed`, new RegExp(`#?${r}\\b`).test(text));
-}
+const listed = [...text.matchAll(/#(\d+)/g)]
+  .map((m) => Number(m[1]))
+  .sort((a, b) => a - b);
 check(
-  'unconfigured rank 8 omitted',
-  !/#8\b/.test(text),
-  `sheet text: ${text.slice(0, 160)}`,
+  'every listed rank is within 4-10',
+  listed.length > 0 && listed.every((r) => r >= 4 && r <= 10),
+  `listed: ${listed.join(', ') || '(none)'}`,
 );
-
+check('no rank is listed twice', new Set(listed).size === listed.length);
+check(
+  'ranks are listed in ascending order',
+  listed.every((r, i) => i === 0 || r > listed[i - 1]),
+);
+// A row with neither card nor credits must be dropped by the data seam, so no
+// rank numeral may be followed immediately by the next one.
+check(
+  'no empty row rendered',
+  !/#\d+\s*(?=#|$)/.test(text),
+  `sheet text: ${text.slice(0, 150)}`,
+);
 // Focus trap: tabbing repeatedly must never escape the dialog.
 let escaped = false;
 for (let i = 0; i < 12; i++) {

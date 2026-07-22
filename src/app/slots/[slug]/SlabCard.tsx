@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
  *  it is the FIRST thing the reveal shows, and mounting this component was also
  *  the first thing that requested it (a fetch + decode landing right on the
  *  transform beat, which stuttered the morph and popped the art in late). */
-export const CARD_BACK_SRC = '/images/app/polycards-card-back.webp';
+export const CARD_BACK_SRC = '/images/app/polycards-slab-back.webp';
 
 export function SlabCard({
   card,
@@ -137,8 +137,9 @@ export function SlabCard({
           },
         }}
       >
-        {/* BACK — the Polycards holo-foil card back (supersedes #34's etched
-            line art; asset: docs/research/polycards-card-back-v2.png cropped).
+        {/* BACK — the Polycards graded slab seen from behind: acrylic case,
+            branded label + QR, matte black card with the flat white monogram
+            inside (asset baked to SLAB_ASPECT from the SnapGen render).
             Opaque raster, so rarity color rides on the outer glow only. */}
         <span
           className={cn(

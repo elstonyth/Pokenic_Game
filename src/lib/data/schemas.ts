@@ -139,19 +139,40 @@ export const ChallengeSchema = z.looseObject({
     resetDay: finite,
     resetHour: finite,
   }),
-  /** A malformed stage is dropped, not fatal — surviving stages still render. */
+  /** A malformed stage is dropped, not fatal — surviving stages still render.
+   *  `rankRewards` is the per-rank prize table (plan 057): SPARSE — an absent
+   *  rank pays nothing, and a rank may carry a card AND/OR credits. A malformed
+   *  RANK ROW drops that row only (droppableArray), a non-array table degrades
+   *  to `[]`, and the whole field is optional for deploy skew (an older backend
+   *  without it renders the stage with no prize tiles rather than vanishing). */
   stages: droppableArray(
     z.looseObject({
       stageNumber: finite,
       thresholdMyr: finite,
-      rewardCredits: finite,
-      rewardCardIds: z.array(z.string()),
+      rankRewards: droppableArray(
+        z.looseObject({
+          // Strict 1-10 integer: StageCarousel indexes RANKS[rank-1] with a
+          // non-null assertion, so a 0 / negative / fractional rank would crash
+          // the whole challenge tile. droppableArray drops the bad row instead.
+          rank: z.number().int().min(1).max(10),
+          cardId: z.string().nullable().catch(null),
+          credits: finite,
+        }),
+      )
+        .optional()
+        .catch(undefined),
     }),
   ),
   /** A malformed card entry drops that thumbnail (getter tolerates unresolved
    *  ids), not the whole challenge. */
   cards: droppableRecord(
-    z.looseObject({ name: z.string(), image: z.string() }),
+    z.looseObject({
+      name: z.string(),
+      image: z.string(),
+      /** The graded-slab composite when the card has one. Optional for deploy
+       *  skew — an older backend omits it and the card renders unframed. */
+      slab_image: z.string().nullish(),
+    }),
   ),
   /** Weekly Pull Value top-10 (pulled-value ranked, PII-safe names). Optional
    *  for deploy skew — absent hides the standings section. Bad rows drop like

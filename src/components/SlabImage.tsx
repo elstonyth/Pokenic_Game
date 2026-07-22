@@ -68,6 +68,19 @@ function frameSrc(rarity: string): string {
 }
 
 /**
+ * Cosmetic frames that are NOT rarity tiers — chosen by the surface, not by the
+ * card. `prism` is cut from the same dark-glass master as the six tiers but
+ * spectrally tinted (see the prism recipe); it marks Weekly Pulled Value
+ * Challenge reward cards on /leaderboard. A variant overrides BOTH the band art
+ * and the halo colour, since `rarityRgb` has no entry for it and would fall
+ * back to Common gray.
+ */
+export type FrameVariant = 'prism';
+const VARIANT_RGB: Record<FrameVariant, string> = {
+  prism: '255, 255, 255', // white — the gradient's own endpoints
+};
+
+/**
  * Static outer halo (box-shadow only — no animation, operator 2026-07-17).
  *
  * GEOMETRY CONTRACT: this glow reaches ~44px past the slab edge (the primary
@@ -109,6 +122,7 @@ export function SlabImage({
   className,
   priority = false,
   rarity,
+  frameVariant,
   glowScale = 1,
 }: {
   src: string;
@@ -118,21 +132,33 @@ export function SlabImage({
   className?: string;
   priority?: boolean;
   rarity?: string | null;
+  /** Cosmetic frame that overrides the rarity tier (band art + halo colour). */
+  frameVariant?: FrameVariant;
   /** Halo size multiplier — drop below 1 on thumbnail-sized slabs. */
   glowScale?: number;
 }) {
+  // A variant frames the slab on its own — no `rarity` needed at the call site.
+  const framed = frameVariant ?? rarity;
+  const bandSrc = frameVariant
+    ? `/images/slab-frames/${frameVariant}.webp`
+    : rarity
+      ? frameSrc(rarity)
+      : null;
+  const glowRgb = frameVariant
+    ? VARIANT_RGB[frameVariant]
+    : rarityRgb(rarity ?? '');
   return (
     <span
       className={cn('relative block', className)}
       style={{ aspectRatio: String(SLAB_ASPECT) }}
     >
       {slabSrc ? (
-        rarity ? (
+        framed && bandSrc ? (
           <>
             <span
               aria-hidden
               className="pointer-events-none absolute"
-              style={glowStyle(rarityRgb(rarity), glowScale)}
+              style={glowStyle(glowRgb, glowScale)}
             />
             <span
               aria-hidden
@@ -140,7 +166,7 @@ export function SlabImage({
               style={{ inset: FRAME_INSET }}
             >
               <Image
-                src={frameSrc(rarity)}
+                src={bandSrc}
                 alt=""
                 fill
                 sizes={sizes}

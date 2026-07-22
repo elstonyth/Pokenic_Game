@@ -380,9 +380,21 @@ export default function SlotMachineClient({
       // not transport back). Telling the player to check their balance while
       // showing the STALE pre-charge figure invites a second, real charge, so
       // refetch before re-enabling Spin. Nothing spun, so hasSpun goes back.
-      // BEST-EFFORT: this fires when the server is unreachable, so the refetch
-      // is likely to fail too — its rejection must NOT re-wedge phase on
-      // 'resolving'. Reset state unconditionally in finally.
+      // Show the error NOW, before the refetch — this path fires when the
+      // server is unreachable, so awaiting a second call to it would leave the
+      // screen looking dead (no message, button still disabled) for the whole
+      // fetch timeout. The message lands immediately instead.
+      setError(
+        "Couldn't reach the machine. Check your balance before spinning again.",
+      );
+      // Then refetch BEFORE re-enabling Spin. Deliberately awaited, not
+      // fire-and-forget: the on-screen balance is the stale PRE-charge figure
+      // and the charge may have landed, so re-enabling over it invites a second
+      // real charge. Keeping phase on 'resolving' through the refetch holds the
+      // button disabled; when the refetch resolves (to the fresh value, or to
+      // null on failure — TopUpProvider swallows its own errors) canAfford is
+      // recomputed and the button gates correctly. finally guarantees the reset
+      // even if the refetch somehow rejects.
       try {
         await refetchBalance();
       } catch (refetchErr) {
@@ -392,9 +404,6 @@ export default function SlotMachineClient({
         );
       } finally {
         setHasSpun(false);
-        setError(
-          "Couldn't reach the machine. Check your balance before spinning again.",
-        );
         setPhase('idle');
       }
       return;

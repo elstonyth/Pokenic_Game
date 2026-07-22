@@ -486,3 +486,16 @@ dropped by the schema before they can reach arithmetic.
   static reel.
 - Entering the account group from outside still blocks on the layout's own
   `await getCustomer()`, which sits outside the Suspense boundary.
+- The spin transport-failure double-charge window is NARROWED, not closed. The
+  client side is largely covered - a failed refetch nulls the balance, and the
+  Spin button's `disabled` includes `!canAfford`, which is false on a null
+  balance, so a logged-in player cannot re-click into a second charge. The true
+  residual is a backend race (the charge landed but a successful refetch returns
+  a not-yet-updated balance that still reads affordable). Only a server-side
+  idempotency key per spin intent closes that, which is a backend change out of
+  this storefront pass's scope.
+- `affordable()` and the "you're X short" line assume prices carry at most 2
+  decimals (true for every pack today; enforced by nothing). A 3-decimal price
+  would break `affordable()`'s sen-rounding comment and could render an
+  "RM 0.00 short" line. If sub-sen prices ever ship, route the shortfall math
+  through the same integer-sen basis and assert the invariant at the boundary.

@@ -369,7 +369,7 @@ Your First Pack`). `TierShelf.tsx:28-37` names a _heading_ `RIP A PACK`,
     renders three "Coming soon" pills filling the entire right column of a
     2-col grid, against three real name/phone fields on the left.
 
-36. **Dead code in the shared account kit, one of it a lie.**
+36. **Dead code in the shared account kit, one piece of it a lie.**
     `account/ui.tsx:59-98,178-184` — `MockTable` and `DemoNote` are exported
     and imported nowhere. `DemoNote` renders "Demo only — this account area
     connects to the backend in a later phase." One stray import from telling a

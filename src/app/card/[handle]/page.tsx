@@ -54,7 +54,7 @@ export default async function CardPage({
           {/* Plain anchor, not Link: a full request re-runs this dynamic page
               instead of a soft nav that can serve the cached error render. */}
           <a
-            href={`/card/${encodeURIComponent(decodeURIComponent(handle))}`}
+            href={`/card/${encodeURIComponent(handle)}`}
             className="mt-5 inline-flex items-center text-sm font-bold text-white underline underline-offset-4"
           >
             Try again

@@ -5,6 +5,7 @@ import { CheckCircle2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { rm, rm0 } from '@/lib/format';
 import { startDeposit, topUpCredits } from '@/lib/actions/vault';
+import { leaveFor } from '@/lib/navigation';
 import { Pill } from '@/components/ui/pill';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useLiquidGlass, GLASS_SUBTLE } from '@/lib/use-liquid-glass';
@@ -104,7 +105,7 @@ export default function TopUpSheet({
         // tab: popup blockers eat a window.open() that follows an await, and
         // the customer must land back on our return URL afterwards. Nothing was
         // credited — the balance updates when their callback settles.
-        window.location.assign(res.url);
+        leaveFor(res.url);
         return;
       }
 

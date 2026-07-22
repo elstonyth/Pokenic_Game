@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MessageCircle, Vault, HelpCircle, ChevronRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
+import { pillVariants } from '@/components/ui/pill';
 
 export const metadata: Metadata = {
   title: 'Contact',
@@ -17,90 +19,149 @@ const VAULTS = [
   { name: 'Vault 3', note: '7-10 business days' },
 ];
 
+const CHANNELS = [
+  {
+    label: 'Email',
+    handle: 'hello@polycards.com',
+    href: 'mailto:hello@polycards.com',
+    external: false,
+  },
+  {
+    label: 'Telegram',
+    handle: '@polycardsgg',
+    href: 'https://t.me/polycardsgg',
+    external: true,
+  },
+  {
+    label: 'Instagram',
+    handle: '@polycards.gg',
+    href: 'https://www.instagram.com/polycards.gg',
+    external: true,
+  },
+  {
+    label: 'Facebook',
+    handle: 'polycards.gg',
+    href: 'https://www.facebook.com/polycards.gg/',
+    external: true,
+  },
+] as const;
+
 export default function ContactPage() {
   return (
-    <div className="mx-auto w-full max-w-5xl px-fluid py-4">
-      {/* 1. HERO */}
-      <section className="relative mb-8 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 px-6 py-14 text-center sm:py-16">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent" />
-        <Reveal
-          as="h1"
-          className="relative font-heading text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl"
-        >
-          How can we help?
-        </Reveal>
+    <div className="px-fluid mx-auto w-full max-w-5xl py-4">
+      {/* 01 — hero lockup */}
+      <section
+        aria-labelledby="contact-heading"
+        className="flex flex-col items-center py-14 text-center sm:py-16"
+      >
         <Reveal
           as="p"
-          delay={90}
-          className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/60 sm:text-base"
+          className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-400"
         >
-          Our team typically responds within a day.
+          Replies within a day
         </Reveal>
-        <Reveal delay={160} className="relative mt-6">
+        <Reveal delay={60}>
+          <h1
+            id="contact-heading"
+            className="font-heading mt-4 text-5xl leading-[0.95] text-white lg:text-6xl"
+          >
+            HOW CAN
+            <br />
+            WE HELP?
+          </h1>
+        </Reveal>
+        <Reveal delay={140} className="mt-8">
           <a
             href="mailto:hello@polycards.com"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/90 px-7 py-3 text-sm font-semibold text-neutral-950 shadow-lg transition-colors duration-300 hover:bg-white"
+            className={cn(pillVariants({ variant: 'primary', size: 'lg' }))}
           >
-            <MessageCircle className="h-4 w-4" aria-hidden />
             Start a conversation
+            <ArrowRight className="h-4 w-4" aria-hidden />
           </a>
         </Reveal>
       </section>
 
-      {/* 2. PROCESSING TIMES + FAQ */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Vault processing times */}
+      {/* 02 — channels */}
+      <section aria-labelledby="channels-heading" className="w-full">
+        <h2 id="channels-heading" className="font-heading text-2xl text-white">
+          REACH US
+        </h2>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {CHANNELS.map((c, i) => (
+            <Reveal key={c.label} delay={i * 60} className="h-full">
+              <a
+                href={c.href}
+                {...(c.external && {
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                })}
+                className="group flex h-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-neutral-900 p-4 transition-colors hover:border-white/20"
+              >
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                    {c.label}
+                  </p>
+                  <p className="font-heading mt-1 text-base text-white">
+                    {c.handle}
+                  </p>
+                </div>
+                <ArrowUpRight
+                  className="h-4 w-4 shrink-0 text-neutral-500 transition-colors group-hover:text-white"
+                  aria-hidden
+                />
+              </a>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* 03 — processing times + FAQ */}
+      <div className="mt-8 grid gap-3 md:grid-cols-2">
         <Reveal className="h-full">
-          <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="mb-1 flex items-center gap-2.5">
-              <Vault className="h-5 w-5 text-white/70" aria-hidden />
-              <h2 className="font-heading text-lg font-bold tracking-tight text-white">
-                Vault Processing Times
-              </h2>
-            </div>
-            <p className="mb-5 text-[13px] text-white/50">
+          <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-neutral-900 p-5">
+            <h2 className="font-heading text-lg leading-snug text-white">
+              VAULT PROCESSING TIMES
+            </h2>
+            <p className="mt-1 text-[13px] text-neutral-400">
               Typical turnaround once you request a shipment
             </p>
-            <ul className="flex flex-col gap-2.5">
+            <ul className="mt-4 divide-y divide-white/10">
               {VAULTS.map((v) => (
                 <li
                   key={v.name}
-                  className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                  className="flex items-center justify-between py-3"
                 >
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-[13px] font-semibold text-white">
                     {v.name}
                   </span>
-                  <span className="text-[13px] text-white/60">{v.note}</span>
+                  <span className="text-[13px] text-neutral-400">{v.note}</span>
                 </li>
               ))}
             </ul>
           </div>
         </Reveal>
 
-        {/* FAQ shortcuts */}
         <Reveal delay={90} className="h-full">
-          <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="mb-1 flex items-center gap-2.5">
-              <HelpCircle className="h-5 w-5 text-white/70" aria-hidden />
-              <h2 className="font-heading text-lg font-bold tracking-tight text-white">
+          {/* justify-center like TheGame's teaser card — this card is shorter
+              than the vault list beside it. */}
+          <div className="flex h-full flex-col justify-center gap-3 rounded-2xl border border-white/10 bg-neutral-900 p-5">
+            <div>
+              <h2 className="font-heading text-lg leading-snug text-white">
                 FAQ
               </h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-neutral-400">
+                Shipping, storage, buyback, and how pulls are decided.
+              </p>
             </div>
-            <p className="mb-5 text-[13px] text-white/50">
-              Shipping, storage, buyback, and how pulls are decided
-            </p>
             {/* One link that actually resolves. The six question shortcuts that
                 used to live here all pointed at /how-it-works and none of them
                 was answered there. */}
             <Link
               href="/how-it-works#faq"
-              className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-[13px] font-medium text-white/80 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+              className="flex min-h-11 w-fit items-center gap-1 text-[13px] font-semibold text-neutral-400 transition-colors hover:text-white"
             >
               Read the full FAQ
-              <ChevronRight
-                className="h-4 w-4 shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5 group-hover:text-white/60"
-                aria-hidden
-              />
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </div>
         </Reveal>

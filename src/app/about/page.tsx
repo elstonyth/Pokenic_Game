@@ -1,18 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  ShoppingBag,
-  Sparkles,
-  Vault,
-  Truck,
-  Layers,
-  Zap,
-  Globe,
-  ShieldCheck,
-  Thermometer,
-  type LucideIcon,
-} from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
+import { pillVariants } from '@/components/ui/pill';
 import { BUYBACK_RATE_LABEL } from '@/lib/buyback-copy';
 
 export const metadata: Metadata = {
@@ -21,70 +12,65 @@ export const metadata: Metadata = {
     'The infrastructure for digital collectibles. Buy digital packs backed by real physical cards. Instantly reveal, securely vault, and ship or sell whenever you want.',
 };
 
-type Step = { icon: LucideIcon; title: string; body: string };
-const STEPS: Step[] = [
+const STEPS = [
   {
-    icon: ShoppingBag,
-    title: 'Buy a Pack',
+    num: '01',
+    title: 'BUY A PACK',
     body: 'Purchase digitally with your card. Real physical cards from our inventory.',
   },
   {
-    icon: Sparkles,
-    title: 'Instant Reveal',
+    num: '02',
+    title: 'INSTANT REVEAL',
     body: 'Watch your cards revealed live. Know exactly what you pulled.',
   },
   {
-    icon: Vault,
-    title: 'Securely Vaulted',
+    num: '03',
+    title: 'SECURELY VAULTED',
     body: 'Cards stored in top-tier insured US facilities.',
   },
   {
-    icon: Truck,
-    title: 'Ship or Sell',
+    num: '04',
+    title: 'SHIP OR SELL',
     body: `Redeem anytime with worldwide shipping, or sell back at ${BUYBACK_RATE_LABEL}.`,
   },
-];
+] as const;
 
-type Feature = { icon: LucideIcon; stat: string; label: string; body: string };
-const FEATURES: Feature[] = [
+const FEATURES = [
   {
-    icon: Layers,
     stat: '100%',
+    statClass: 'text-white',
     label: 'Graded cards vaulted',
     body: 'Every digital card is backed by a real graded card in the vault. Best of both worlds combined.',
   },
   {
-    icon: Zap,
     stat: BUYBACK_RATE_LABEL,
+    // Money-in signal (DESIGN.md Signal Rule) — the one colored stat.
+    statClass: 'text-buyback-fg',
     label: 'Buyback rate',
     body: `${BUYBACK_RATE_LABEL} buyback guarantee on every card. Sell instantly without waiting for buyers.`,
   },
   {
-    icon: Globe,
     stat: '24/7',
+    statClass: 'text-white',
     label: 'Always open',
     body: 'Open around the clock, worldwide. Rip a pack or sell a card back any hour, no waiting on a buyer.',
   },
-];
+] as const;
 
-type VaultCard = { icon: LucideIcon; title: string; body: string };
-const VAULT_CARDS: VaultCard[] = [
+const VAULT_ROWS = [
   {
-    icon: Vault,
-    title: 'Choose Your Vault',
+    title: 'CHOOSE YOUR VAULT',
     body: 'PSA, Alt, or Fanatics facilities',
   },
   {
-    icon: ShieldCheck,
-    title: 'Fully Insured',
+    title: 'FULLY INSURED',
     body: 'Complete coverage for all items',
   },
   {
-    icon: Thermometer,
-    title: 'Climate Controlled',
+    title: 'CLIMATE CONTROLLED',
     body: 'Optimal storage conditions',
   },
-];
+] as const;
 
 const VAULT_LOGOS = [
   { src: '/images/psa.png', alt: 'PSA' },
@@ -92,204 +78,200 @@ const VAULT_LOGOS = [
   { src: '/images/altwhite.png', alt: 'Alt' },
 ];
 
-const SectionHeading = ({ title, sub }: { title: string; sub?: string }) => (
-  <div className="mb-8 text-center">
-    <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
+/** Board lockup (DESIGN.md §5) — ALL-CAPS Nekst head, optional quiet link. */
+const BoardHead = ({
+  id,
+  title,
+  link,
+}: {
+  id: string;
+  title: string;
+  link?: { href: string; label: string };
+}) => (
+  <div className="flex items-baseline justify-between">
+    <h2 id={id} className="font-heading text-2xl text-white">
       {title}
     </h2>
-    {sub && (
-      <p className="mx-auto mt-3 max-w-xl text-sm text-white/55 sm:text-base">
-        {sub}
-      </p>
+    {link && (
+      <Link
+        href={link.href}
+        className="flex min-h-11 items-center gap-1 text-[13px] font-semibold text-neutral-400 transition-colors hover:text-white"
+      >
+        {link.label}
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+      </Link>
     )}
   </div>
 );
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto w-full px-fluid py-4">
-      {/* 1. HERO */}
-      <section className="relative mb-16 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/home/hero/ripped-packs/pokemon.webp"
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-60 blur-[44px] saturate-[1.6] animate-[heroBlob_18s_ease-in-out_infinite] motion-reduce:animate-none"
-        />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950/80 via-neutral-950/70 to-neutral-950/95" />
-        <div className="relative px-6 py-16 text-center sm:px-10 sm:py-20 lg:py-24">
-          <Reveal className="mb-5 flex justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[12px] font-medium text-white/70">
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-buyback"
-                aria-hidden
-              />{' '}
-              Graded cards, real buyback
-            </span>
-          </Reveal>
-          <Reveal
-            as="h1"
-            className="mx-auto max-w-3xl font-heading text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl"
-          >
-            The Infrastructure for{' '}
-            <span className="text-neutral-500">Digital Collectibles</span>
-          </Reveal>
-          <Reveal
-            as="p"
-            delay={90}
-            className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-white/65 sm:text-base"
-          >
-            Buy digital packs backed by real physical cards. Instantly reveal,
-            securely vault, and ship or sell whenever you want.
-          </Reveal>
-          <Reveal
-            delay={180}
-            className="mt-9 flex flex-wrap items-center justify-center gap-3"
-          >
-            <Link
-              href="/slots"
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-7 py-3 text-sm font-semibold text-neutral-950 shadow-lg transition-colors duration-300 hover:bg-white/90"
-            >
-              Explore Packs
-            </Link>
-            <a
-              href="#launch"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-7 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-white/10"
-            >
-              Launch With Us
-            </a>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* 2. HOW IT WORKS */}
-      <section className="mb-16">
-        <Reveal>
-          <SectionHeading
-            title="How It Works"
-            sub="From purchase to ownership in four simple steps."
-          />
-        </Reveal>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <Reveal key={s.title} delay={i * 90} className="h-full">
-                <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-colors duration-300 hover:border-white/20">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-white/15 to-white/5 text-white">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </div>
-                  <h3 className="mb-2 font-heading text-sm font-semibold text-white">
-                    {s.title}
-                  </h3>
-                  <p className="text-[13px] leading-relaxed text-white/55">
-                    {s.body}
-                  </p>
-                </div>
-              </Reveal>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 3. PLATFORM FEATURES */}
-      <section className="mb-16">
-        <Reveal>
-          <SectionHeading
-            title="Platform Features"
-            sub="Everything you need to collect, keep, and cash out."
-          />
-        </Reveal>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {FEATURES.map((f, i) => {
-            const Icon = f.icon;
-            return (
-              <Reveal key={f.label} delay={i * 90} className="h-full">
-                <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-6 transition-colors duration-300 hover:border-white/20">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </div>
-                  <div className="font-heading text-3xl font-bold text-white">
-                    {f.stat}
-                  </div>
-                  <div className="mb-2 mt-1 text-[11px] uppercase tracking-wide text-white/50">
-                    {f.label}
-                  </div>
-                  <p className="text-[13px] leading-relaxed text-white/55">
-                    {f.body}
-                  </p>
-                </div>
-              </Reveal>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 4. LAUNCH WITH US */}
-      <div id="launch" className="scroll-mt-24" />
-      <Reveal
-        as="section"
-        className="mb-16 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-8 sm:p-10"
+    <div className="px-fluid mx-auto w-full py-4">
+      {/* 01 — hero lockup */}
+      <section
+        aria-labelledby="about-heading"
+        className="flex flex-col items-center py-14 text-center sm:py-20"
       >
-        <div className="grid gap-8 md:grid-cols-2 md:items-center">
-          <div>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-widest text-white/60">
-              For Brands
-            </p>
-            <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Launch With Us
-            </h2>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-white/60">
-              Power your brand with our complete infrastructure. Custom
-              branding, payment processing, vault storage, and worldwide
-              fulfillment.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
-            <p className="mb-3 text-[11px] font-medium uppercase tracking-widest text-white/60">
-              Featured Partner
-            </p>
-            <h3 className="font-heading text-xl font-bold text-white">
-              Zardo Cards
-            </h3>
-            <p className="mt-2 text-[13px] leading-relaxed text-white/55">
-              One of the largest online Pokemon stores, now offering digital
-              pack breaks powered by Polycards.
-            </p>
-          </div>
-        </div>
-      </Reveal>
-
-      {/* 5. VAULT & SECURITY */}
-      <section className="mb-16">
-        <Reveal>
-          <SectionHeading
-            title="Vault & Security"
-            sub="Top-tier insured US facilities, managed by industry professionals."
-          />
+        <Reveal
+          as="p"
+          className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-400"
+        >
+          Graded cards · Real buyback
         </Reveal>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {VAULT_CARDS.map((c, i) => {
-            const Icon = c.icon;
-            return (
-              <Reveal key={c.title} delay={i * 90} className="h-full">
-                <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-colors duration-300 hover:border-white/20">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-white/15 to-white/5 text-white">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </div>
-                  <h3 className="mb-2 font-heading text-sm font-semibold text-white">
-                    {c.title}
-                  </h3>
-                  <p className="text-[13px] leading-relaxed text-white/55">
-                    {c.body}
+        <Reveal delay={60}>
+          <h1
+            id="about-heading"
+            className="font-heading mx-auto mt-4 max-w-4xl text-4xl leading-[0.95] text-white sm:text-5xl lg:text-6xl"
+          >
+            THE INFRASTRUCTURE FOR{' '}
+            <span className="text-neutral-500">DIGITAL COLLECTIBLES</span>
+          </h1>
+        </Reveal>
+        <Reveal
+          as="p"
+          delay={120}
+          className="mt-5 max-w-md text-[15px] leading-relaxed text-neutral-300"
+        >
+          Buy digital packs backed by real physical cards. Instantly reveal,
+          securely vault, and ship or sell whenever you want.
+        </Reveal>
+        <Reveal
+          delay={180}
+          className="mt-8 flex flex-wrap justify-center gap-3"
+        >
+          <Link
+            href="/slots"
+            className={cn(pillVariants({ variant: 'primary', size: 'lg' }))}
+          >
+            Explore packs
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+          <a
+            href="#launch"
+            className={cn(pillVariants({ variant: 'ghost', size: 'lg' }))}
+          >
+            Launch with us
+          </a>
+        </Reveal>
+      </section>
+
+      {/* 02 — how it works: numbered editorial rows (HowItRips idiom) */}
+      <section aria-labelledby="how-heading" className="mt-10 w-full">
+        <BoardHead
+          id="how-heading"
+          title="HOW IT WORKS"
+          link={{ href: '/how-it-works', label: 'Full details' }}
+        />
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map((step, i) => (
+            <Reveal key={step.num} delay={i * 90} className="h-full">
+              <div className="flex h-full items-start gap-4 rounded-2xl border border-white/10 bg-neutral-900 p-4">
+                <span className="font-heading text-4xl leading-none text-neutral-700">
+                  {step.num}
+                </span>
+                <div>
+                  <p className="font-heading text-base text-white">
+                    {step.title}
+                  </p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-neutral-400">
+                    {step.body}
                   </p>
                 </div>
-              </Reveal>
-            );
-          })}
+              </div>
+            </Reveal>
+          ))}
         </div>
-        <Reveal className="mt-8 flex flex-wrap items-center justify-center gap-8 opacity-70">
+      </section>
+
+      {/* 03 — platform stats */}
+      <section aria-labelledby="platform-heading" className="mt-14 w-full">
+        <BoardHead id="platform-heading" title="THE PLATFORM" />
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {FEATURES.map((f, i) => (
+            <Reveal key={f.label} delay={i * 90} className="h-full">
+              <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-neutral-900 p-5">
+                <p
+                  className={`font-heading text-4xl leading-none ${f.statClass}`}
+                >
+                  {f.stat}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  {f.label}
+                </p>
+                <p className="mt-3 text-[13px] leading-relaxed text-neutral-400">
+                  {f.body}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* 04 — launch with us */}
+      <section
+        id="launch"
+        aria-labelledby="launch-heading"
+        className="mt-14 w-full scroll-mt-24"
+      >
+        <BoardHead id="launch-heading" title="LAUNCH WITH US" />
+        <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+          <Reveal className="flex-1">
+            <div className="flex h-full flex-col justify-center gap-3 rounded-2xl border border-white/10 bg-neutral-900 p-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  For brands
+                </p>
+                <p className="font-heading mt-2 text-lg leading-snug text-white">
+                  YOUR BRAND, OUR RAILS.
+                </p>
+                <p className="mt-1 max-w-md text-[13px] leading-relaxed text-neutral-400">
+                  Power your brand with our complete infrastructure. Custom
+                  branding, payment processing, vault storage, and worldwide
+                  fulfillment.
+                </p>
+              </div>
+              <a
+                href="mailto:hello@polycards.com"
+                className="flex min-h-11 w-fit items-center gap-1 text-[13px] font-semibold text-neutral-400 transition-colors hover:text-white"
+              >
+                Talk to us
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </a>
+            </div>
+          </Reveal>
+          <Reveal delay={90} className="flex-1">
+            <div className="flex h-full flex-col justify-center rounded-2xl border border-white/10 bg-neutral-900 p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                Featured partner
+              </p>
+              <p className="font-heading mt-2 text-lg leading-snug text-white">
+                ZARDO CARDS
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-neutral-400">
+                One of the largest online Pokemon stores, now offering digital
+                pack breaks powered by Polycards.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 05 — vault & security */}
+      <section aria-labelledby="vault-heading" className="mt-14 w-full">
+        <BoardHead id="vault-heading" title="VAULT & SECURITY" />
+        <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+          {VAULT_ROWS.map((row, i) => (
+            <Reveal key={row.title} delay={i * 90} className="flex-1">
+              <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-neutral-900 p-4">
+                <p className="font-heading text-base text-white">{row.title}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-neutral-400">
+                  {row.body}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+        <Reveal className="mt-6 flex flex-wrap items-center justify-center gap-8 opacity-70">
           {VAULT_LOGOS.map((l) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -302,41 +284,34 @@ export default function AboutPage() {
         </Reveal>
       </section>
 
-      {/* 6. START COLLECTING */}
-      <Reveal
-        as="section"
-        className="mb-8 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent px-6 py-14 text-center sm:py-16"
-      >
-        <h2 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
-          Start Collecting
-        </h2>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/60">
-          Open packs, build your collection, and cash out any time — or create
-          your own branded collectibles experience.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
+      {/* 06 — closer (FinalCta idiom) */}
+      <Reveal as="section" className="mt-16 w-full pb-4">
+        <div className="flex flex-col items-center py-10 text-center">
+          <p className="font-heading text-5xl leading-[0.95] text-white lg:text-7xl">
+            START
+            <br />
+            COLLECTING
+          </p>
           <Link
             href="/slots"
-            className="inline-flex items-center justify-center rounded-2xl bg-white/90 px-8 py-3 text-sm font-semibold text-neutral-950 shadow-lg transition-colors duration-300 hover:bg-white"
+            className={cn(
+              pillVariants({ variant: 'primary', size: 'lg' }),
+              'mt-8',
+            )}
           >
-            Explore Packs
+            EXPLORE PACKS
+            <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
-          <a
-            href="mailto:hello@polycards.com"
-            className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-8 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-white/10"
-          >
-            Launch With Us
-          </a>
+          <p className="mt-4 text-[13px] text-neutral-400">
+            Real graded slabs · {BUYBACK_RATE_LABEL} buyback ·{' '}
+            <a
+              href="mailto:hello@polycards.com"
+              className="text-neutral-300 underline-offset-2 hover:underline"
+            >
+              hello@polycards.com
+            </a>
+          </p>
         </div>
-        <p className="mt-5 text-[13px] text-white/50">
-          Reach out to{' '}
-          <a
-            href="mailto:hello@polycards.com"
-            className="text-white/70 underline-offset-2 hover:underline"
-          >
-            hello@polycards.com
-          </a>
-        </p>
       </Reveal>
     </div>
   );

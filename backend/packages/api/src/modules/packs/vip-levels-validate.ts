@@ -1,5 +1,10 @@
 import { MedusaError } from '@medusajs/framework/utils';
 import { FRAME_LEVELS } from './avatar-frames';
+import { MAX_VOUCHER_MYR } from './voucher-ranges';
+
+// spend_threshold is a lifetime-spend rung, not a payout — the cap only needs
+// to reject absurd values, so a generous sanity ceiling (RM 100M) suffices.
+const MAX_SPEND_THRESHOLD_MYR = 100_000_000;
 
 // POST /admin/vip-levels body → the full renumbered ladder. Pure cross-row
 // validation (contiguity, monotonic thresholds, decade-only frames, non-
@@ -39,13 +44,24 @@ export function validateVipLevels(raw: unknown): VipLevelInput[] {
     const t = threshold as number;
     if (level === 1 && t !== 0) bad('level 1: spend_threshold must be 0.');
     if (t < 0) bad(`level ${level}: spend_threshold must be >= 0.`);
+    if (t > MAX_SPEND_THRESHOLD_MYR)
+      bad(
+        `level ${level}: spend_threshold must be <= ${MAX_SPEND_THRESHOLD_MYR}.`,
+      );
     if (level > 1 && !(t > prevThreshold))
       bad(`level ${level}: spend_threshold must exceed level ${level - 1}'s.`);
     prevThreshold = t;
 
     const voucher = r.voucher_amount;
-    if (typeof voucher !== 'number' || !Number.isFinite(voucher) || voucher < 0)
-      bad(`level ${level}: voucher_amount must be >= 0.`);
+    if (
+      typeof voucher !== 'number' ||
+      !Number.isFinite(voucher) ||
+      voucher < 0 ||
+      voucher > MAX_VOUCHER_MYR
+    )
+      bad(
+        `level ${level}: voucher_amount must be between 0 and ${MAX_VOUCHER_MYR}.`,
+      );
 
     const pct = r.direct_referral_pct;
     if (

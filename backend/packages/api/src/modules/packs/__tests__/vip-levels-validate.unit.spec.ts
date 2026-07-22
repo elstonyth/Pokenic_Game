@@ -1,4 +1,5 @@
 import { validateVipLevels } from '../vip-levels-validate';
+import { MAX_VOUCHER_MYR } from '../voucher-ranges';
 
 const rung = (over: Partial<Record<string, unknown>> = {}) => ({
   level: 1,
@@ -73,7 +74,7 @@ describe('validateVipLevels', () => {
 
   it('rejects negative voucher_amount and out-of-range direct_referral_pct', () => {
     expect(() => validateVipLevels(ladder([rung({ voucher_amount: -1 })]))).toThrow(
-      /voucher_amount must be >= 0/,
+      /voucher_amount must be between 0 and/,
     );
     expect(() =>
       validateVipLevels(ladder([rung({ direct_referral_pct: -1 })])),
@@ -95,6 +96,23 @@ describe('validateVipLevels', () => {
       );
     expect(() => validateVipLevels(ladder(rungs(true)))).toThrow(/decade levels/);
     expect(validateVipLevels(ladder(rungs(false)))).toHaveLength(110);
+  });
+
+  it('accepts voucher_amount exactly at the cap but rejects one above it', () => {
+    expect(
+      validateVipLevels(ladder([rung({ voucher_amount: MAX_VOUCHER_MYR })])),
+    ).toHaveLength(1);
+    expect(() =>
+      validateVipLevels(ladder([rung({ voucher_amount: MAX_VOUCHER_MYR + 1 })])),
+    ).toThrow(/voucher_amount must be between 0 and/);
+  });
+
+  it('rejects a spend_threshold above the sanity ceiling', () => {
+    expect(() =>
+      validateVipLevels(
+        ladder([rung(), rung({ level: 2, spend_threshold: 100_000_001 })]),
+      ),
+    ).toThrow(/spend_threshold must be <=/);
   });
 
   it('rejects a blank box_tier', () => {

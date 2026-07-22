@@ -468,7 +468,7 @@ const StagesTab = () => {
   );
 };
 
-// ── Week & Payout tab ────────────────────────────────────────────────────────
+// ── Week & Reset tab ─────────────────────────────────────────────────────────
 const zones = (Intl as typeof Intl & { supportedValuesOf(k: string): string[] }).supportedValuesOf('timeZone');
 
 const PayoutTab = () => {
@@ -588,8 +588,14 @@ const ChallengePage = () => {
             <Tabs.Trigger value="payout">Week & Reset</Tabs.Trigger>
           </Tabs.List>
         </div>
-        <Tabs.Content value="stages"><StagesTab /></Tabs.Content>
-        <Tabs.Content value="payout"><PayoutTab /></Tabs.Content>
+        {/* forceMount: tab buffers are seeded once per mount; unmounting the
+            inactive tab would wipe unsaved edits. Hide it with `hidden` instead. */}
+        <Tabs.Content value="stages" forceMount className={tab === 'stages' ? undefined : 'hidden'}>
+          <StagesTab />
+        </Tabs.Content>
+        <Tabs.Content value="payout" forceMount className={tab === 'payout' ? undefined : 'hidden'}>
+          <PayoutTab />
+        </Tabs.Content>
       </Tabs>
     </Container>
   );

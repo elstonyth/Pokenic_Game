@@ -572,6 +572,28 @@ export default defineMiddlewares({
       middlewares: [adminActionRateLimit],
     },
     {
+      // VIP-ladder write (POST /admin/vip-levels) — rewrites the ladder incl.
+      // vip_level.voucher_amount, so it shares the admin money-mutation budget.
+      matcher: '/admin/vip-levels',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
+    {
+      // Challenge reward-stage write (POST /admin/challenge/stages) — rewrites
+      // the credit-minting per-rank reward stages; same admin budget.
+      matcher: '/admin/challenge/stages',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
+    {
+      // Challenge settings singleton patch (POST /admin/challenge/settings) —
+      // retimes the reward cycle (cadence/reset), so it shares the admin
+      // money-mutation budget.
+      matcher: '/admin/challenge/settings',
+      method: 'POST',
+      middlewares: [adminActionRateLimit],
+    },
+    {
       // Global USD->MYR FX-rate write. Sets the multiplier behind every
       // displayed price, so it shares the admin money-mutation budget. Auth is
       // the framework default /admin guard (handler is AuthenticatedMedusaRequest);

@@ -17,7 +17,7 @@ jest.setTimeout(240 * 1000);
 // bytes — here the test signs as the gateway using a throwaway keypair.
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-  modulusLength: 1024,
+  modulusLength: 2048,
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
@@ -187,7 +187,7 @@ medusaIntegrationTestRunner({
         const mtid = 'PC-integration-forged';
         const row = await seedDeposit(mtid);
         const attacker = generateKeyPairSync('rsa', {
-          modulusLength: 1024,
+          modulusLength: 2048,
           privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
           publicKeyEncoding: { type: 'spki', format: 'pem' },
         });

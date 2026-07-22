@@ -25,7 +25,7 @@ import { GLOBEPAY_STALE_AFTER_MS } from '../../src/modules/packs/globepay-reconc
 const requery = getDepositDetail as jest.Mock;
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-  modulusLength: 1024,
+  modulusLength: 2048,
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });

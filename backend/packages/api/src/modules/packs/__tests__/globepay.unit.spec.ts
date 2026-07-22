@@ -14,7 +14,7 @@ import {
 // the fixtures are too — testing with 2048/SHA256 would prove nothing about
 // what actually goes on the wire.
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-  modulusLength: 1024,
+  modulusLength: 2048,
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
@@ -83,7 +83,7 @@ describe('globepay RSA-SHA1 (§1.14)', () => {
 
   it('rejects a signature from a different key', () => {
     const other = generateKeyPairSync('rsa', {
-      modulusLength: 1024,
+      modulusLength: 2048,
       privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
       publicKeyEncoding: { type: 'spki', format: 'pem' },
     });

@@ -9,7 +9,7 @@ jest.mock('../../../../../modules/packs/notify-feed', () => ({
 import { POST } from '../route';
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-  modulusLength: 1024,
+  modulusLength: 2048,
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
@@ -103,7 +103,7 @@ const pendingRow = {
 describe('deposit callback — authentication', () => {
   it('rejects a callback signed with the wrong key (no credit, no ack)', async () => {
     const attacker = generateKeyPairSync('rsa', {
-      modulusLength: 1024,
+      modulusLength: 2048,
       privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
       publicKeyEncoding: { type: 'spki', format: 'pem' },
     });

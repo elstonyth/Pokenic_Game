@@ -599,7 +599,14 @@ class PacksModuleService extends MedusaService({
   // resolveBuybackRate re-query the open route did inline.
   async quoteBuyback(
     packSlug: string,
-    pull: { rolled_at: Date | string; revealed_at?: Date | string | null },
+    pull: {
+      rolled_at: Date | string;
+      revealed_at?: Date | string | null;
+      // Forwarded to resolveBuybackRate so a quote through this helper also goes
+      // flat once the reveal closed the window — matching the vault + credit
+      // paths (CodeRabbit). Null/absent for a fresh open-time quote (window open).
+      instant_closed_at?: Date | string | null;
+    },
     // The MYR display Value (raw USD × FX × per-card markup), NOT raw USD —
     // buyback pays MYR credits, so the percent is of what the customer sees.
     valueMyr: number,
@@ -3172,6 +3179,40 @@ class PacksModuleService extends MedusaService({
     return {
       instant_deadline_ms: instantDeadlineMs(pull.rolled_at, pull.revealed_at),
     };
+  }
+
+  // Close the instant-buyback window for the caller's OWN pulls — called when
+  // the reveal ends or the customer leaves it, so the vault (and every later
+  // sell) quotes the flat rate even inside the 30s. CLOSE-ONLY and idempotent:
+  // the filtered update stamps only where instant_closed_at IS NULL, so it can
+  // end the premium early but never re-open it, and a foreign/already-closed id
+  // is a silent no-op (no existence leak). The 30s time deadline stays the
+  // backstop for a hard tab-kill that never calls this.
+  async closeInstantWindow(
+    pullIds: string[],
+    customerId: string,
+    nowMs: number = Date.now(),
+  ): Promise<{ closed: number }> {
+    // Dedupe + bound defensively (the route already does, but a direct caller
+    // must not be able to drive an oversized IN(...) either).
+    const ids = [
+      ...new Set(
+        (pullIds ?? []).filter(
+          (x): x is string => typeof x === 'string' && x.length > 0,
+        ),
+      ),
+    ].slice(0, 50);
+    if (ids.length === 0) return { closed: 0 };
+    const open = await this.listPulls(
+      { id: ids, customer_id: customerId, instant_closed_at: null },
+      { take: ids.length },
+    );
+    if (open.length === 0) return { closed: 0 };
+    await this.updatePulls({
+      selector: { id: open.map((p) => p.id), instant_closed_at: null },
+      data: { instant_closed_at: new Date(nowMs) },
+    });
+    return { closed: open.length };
   }
 
   // Atomic, guarded pull-status transition — THE seam every vaulted→X flip must

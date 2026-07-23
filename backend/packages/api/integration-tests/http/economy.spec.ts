@@ -75,7 +75,8 @@ medusaIntegrationTestRunner({
         ]);
 
         // Cards: $10 and $30 USD FMV. The report converts FMV to MYR at the live
-        // rate (no FxRate row seeded → default 4.7), so $10→RM47, $30→RM141.
+        // rate (no FxRate row seeded → default 4.7), so $10→RM47, $30→RM141;
+        // EV/RTP additionally apply the default 1.2 display multiplier.
         // Vault: TWO vaulted pulls of the $10 card (liability RM94) + one
         // bought-back (excluded).
         await packs.createCards([
@@ -123,9 +124,9 @@ medusaIntegrationTestRunner({
           },
         ]);
 
-        // Pack: price 25 (MYR credits), 50/50 odds over the two cards → EV RM94
-        // (0.5×47 + 0.5×141), RTP 376% (94/25). EV and price are both MYR now, so
-        // RTP compares like-for-like (was a USD-FMV-vs-MYR-price mix). A draft
+        // Pack: price 25 (MYR credits), 50/50 odds over the two cards. EV uses
+        // DISPLAY values (FMV × default 1.2 multiplier): RM56.40 and RM169.20 →
+        // EV RM112.80 (0.5×56.4 + 0.5×169.2), RTP 451.2% (112.8/25). A draft
         // pack must NOT appear in the table.
         await packs.createPacks([
           {
@@ -188,8 +189,8 @@ medusaIntegrationTestRunner({
         expect(res.data.packs[0]).toMatchObject({
           slug: 'eco-pack',
           price: 25,
-          ev: 94,
-          rtp_pct: 376,
+          ev: 112.8,
+          rtp_pct: 451.2,
         });
       });
     });

@@ -370,7 +370,7 @@
     "topups": "Top-ups",
     "adjustments": "Adjustments (net)",
     "rtpTitle": "Pack RTP (theoretical)",
-    "rtpSubtitle": "Expected payout per open from the current odds × card FMVs. Above 100% means the pack loses money.",
+    "rtpSubtitle": "Expected payout per open from the current odds × card display values (FMV × markup, default +20%) — the value buyback rates apply to. Above 100% means the pack loses money.",
     "pack": "Pack",
     "category": "Category",
     "price": "Price",

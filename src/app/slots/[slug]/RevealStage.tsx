@@ -132,21 +132,33 @@ export function RevealStage({
   // Close the instant-buyback window when the reveal ends. This component
   // unmounts when the player concludes (Spin again → phase→idle) or navigates
   // away, so its cleanup is the single "left the reveal" signal (approach A).
-  // The pull ids
-  // are captured ONCE at mount: handleConclude clears `offers` just before the
-  // unmount, so reading it inside the cleanup would find nothing. Demo reveals
-  // carry no real pulls. A hard tab-kill won't run this — the 30s deadline is
-  // the backstop.
+  // The pull ids are captured ONCE at mount: handleConclude clears `offers` just
+  // before the unmount, so reading it inside the cleanup would find nothing.
+  // Demo reveals carry no real pulls. A hard tab-kill won't run this — the 30s
+  // deadline is the backstop.
   const closePullIds = useRef<string[] | null>(null);
   if (closePullIds.current === null) {
     closePullIds.current = offers
       .filter((o): o is SellBackOffer => o !== null)
       .map((o) => o.pullId);
   }
+  // DEFER the close and cancel it on the next effect setup. React Strict Mode
+  // (dev) runs mount→cleanup→mount synchronously; without this the synthetic
+  // cleanup would close the window before the reveal even starts, forcing the
+  // flat rate for the whole local session. The re-setup clears the timer before
+  // it fires; on a REAL unmount nothing re-setups, so the deferred close runs
+  // (timers outlive the component). Prod has no Strict double-invoke — this is a
+  // dev-correctness guard (CodeRabbit).
+  const closeTimer = useRef<number | null>(null);
   useEffect(() => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
     return () => {
       const ids = closePullIds.current ?? [];
-      if (!demo && ids.length > 0) onCloseInstant?.(ids);
+      if (demo || ids.length === 0) return;
+      closeTimer.current = window.setTimeout(() => onCloseInstant?.(ids), 0);
     };
   }, [demo, onCloseInstant]);
 

@@ -294,8 +294,7 @@ export async function openBatch(
 }
 
 export type RevealResult =
-  | { ok: true; instantDeadlineMs: number }
-  | { ok: false };
+  { ok: true; instantDeadlineMs: number } | { ok: false };
 
 // Reveal ping — stamps revealed_at server-side so the 30s instant window counts
 // from when the card is shown. Best-effort: any failure returns { ok: false }

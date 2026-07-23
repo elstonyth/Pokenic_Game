@@ -101,13 +101,20 @@ export const buybackPullStep = createStep(
     // spot"), the flat rate after — decided HERE from rolled_at, never by the
     // caller, so the better rate can't be claimed late via the raw API.
     const [pack] = await packs.listPacks({ slug: pull.pack_id }, { take: 1 });
+    // Re-read the closure stamp right before pricing. `pull` was read several
+    // awaits ago (frozen check + card + pack lookups); the reveal's async
+    // close-instant POST could have landed in that gap, and pricing the instant
+    // premium off the stale pre-close read would let a quick vault sell beat the
+    // close and claim 99% (CodeRabbit). The fresh read collapses that window to
+    // the sub-ms between here and the conditional status flip below.
+    const [fresh] = await packs.listPulls({ id: pull.id }, { take: 1 });
     const { percent, rate_type } = resolveBuybackRate(pack, {
       rolled_at: pull.rolled_at,
       revealed_at: pull.revealed_at,
       // Once the reveal has closed the window (left it / concluded), the credit
       // is the flat vault rate even inside the 30s — the credit must match what
       // the vault quoted.
-      instant_closed_at: pull.instant_closed_at,
+      instant_closed_at: fresh?.instant_closed_at ?? pull.instant_closed_at,
     });
 
     // A money amount must never be computed from a corrupt FMV — refuse rather

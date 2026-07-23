@@ -22,8 +22,16 @@ export async function POST(
 ): Promise<void> {
   const customerId = req.auth_context.actor_id;
   const body = (req.body ?? {}) as { pull_ids?: unknown };
+  // Bound + dedupe before it reaches the DB: an authenticated caller could post
+  // a huge array and drive an oversized IN(...) despite the rate limit. A batch
+  // reveal is a handful of pulls; 50 is generous headroom (CodeRabbit).
+  const MAX_CLOSE_IDS = 50;
   const pullIds = Array.isArray(body.pull_ids)
-    ? body.pull_ids.filter((x): x is string => typeof x === "string")
+    ? [
+        ...new Set(
+          body.pull_ids.filter((x): x is string => typeof x === "string"),
+        ),
+      ].slice(0, MAX_CLOSE_IDS)
     : [];
   const packs = req.scope.resolve<PacksModuleService>(PACKS_MODULE);
   const result = await packs.closeInstantWindow(pullIds, customerId);

@@ -599,7 +599,14 @@ class PacksModuleService extends MedusaService({
   // resolveBuybackRate re-query the open route did inline.
   async quoteBuyback(
     packSlug: string,
-    pull: { rolled_at: Date | string; revealed_at?: Date | string | null },
+    pull: {
+      rolled_at: Date | string;
+      revealed_at?: Date | string | null;
+      // Forwarded to resolveBuybackRate so a quote through this helper also goes
+      // flat once the reveal closed the window — matching the vault + credit
+      // paths (CodeRabbit). Null/absent for a fresh open-time quote (window open).
+      instant_closed_at?: Date | string | null;
+    },
     // The MYR display Value (raw USD × FX × per-card markup), NOT raw USD —
     // buyback pays MYR credits, so the percent is of what the customer sees.
     valueMyr: number,
@@ -3186,9 +3193,15 @@ class PacksModuleService extends MedusaService({
     customerId: string,
     nowMs: number = Date.now(),
   ): Promise<{ closed: number }> {
-    const ids = pullIds.filter(
-      (x): x is string => typeof x === 'string' && x.length > 0,
-    );
+    // Dedupe + bound defensively (the route already does, but a direct caller
+    // must not be able to drive an oversized IN(...) either).
+    const ids = [
+      ...new Set(
+        (pullIds ?? []).filter(
+          (x): x is string => typeof x === 'string' && x.length > 0,
+        ),
+      ),
+    ].slice(0, 50);
     if (ids.length === 0) return { closed: 0 };
     const open = await this.listPulls(
       { id: ids, customer_id: customerId, instant_closed_at: null },

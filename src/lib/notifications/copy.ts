@@ -2,6 +2,7 @@ import {
   Bell,
   CreditCard,
   Gift,
+  Landmark,
   Package,
   Sparkles,
   Ticket,
@@ -185,6 +186,40 @@ export const NOTIFICATION_COPY: Record<string, NotificationCopy> = {
     },
     href: '/transactions',
     action: 'View ledger',
+  },
+
+  withdrawal_paid: {
+    icon: Landmark,
+    variant: 'success',
+    // The outcome lands asynchronously — often after the customer left the
+    // withdrawal page — so this one DOES toast.
+    policy: 'always',
+    title: 'Withdrawal paid',
+    body: (data) => {
+      const amount = numOf(data, 'amount_myr');
+      return amount === null
+        ? null
+        : `${rm(amount)} has been sent to your bank.`;
+    },
+    href: '/transactions',
+    action: 'View ledger',
+  },
+
+  withdrawal_refunded: {
+    icon: Landmark,
+    variant: 'info',
+    // Same reasoning as withdrawal_paid: this is the only place the customer
+    // learns the transfer bounced and the money came back.
+    policy: 'always',
+    title: 'Withdrawal returned',
+    body: (data) => {
+      const amount = numOf(data, 'amount_myr');
+      return amount === null
+        ? null
+        : `Your bank rejected the transfer — ${rm(amount)} is back in your balance.`;
+    },
+    href: '/bank-withdrawal',
+    action: 'Try again',
   },
 };
 

@@ -6,7 +6,9 @@ export type FeedTemplate =
   | 'reward_won'
   | 'voucher_claimed'
   | 'delivery_status'
-  | 'topup_credited';
+  | 'topup_credited'
+  | 'withdrawal_paid'
+  | 'withdrawal_refunded';
 
 // Thin wrapper over the Notification Module 'feed' channel. receiver_id is the
 // owner-scoping column the store route filters on; `to` is the provider's

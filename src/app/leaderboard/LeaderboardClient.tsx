@@ -180,7 +180,7 @@ export default function LeaderboardClient({
                       credits grows past it — deliberate: rewards never clip. */}
                     {prize ? (
                       <span
-                        className="flex min-w-16 shrink-0 flex-wrap items-center justify-end gap-1"
+                        className="flex min-w-16 flex-wrap items-center justify-end gap-1"
                         aria-label={`Current prize: ${[
                           ...prize.cards.map((c) => c.name),
                           prize.creditsLabel
@@ -197,7 +197,7 @@ export default function LeaderboardClient({
                         {prize.cards.map((card, ci) =>
                           card.slabImage ? (
                             <SlabImage
-                              key={ci}
+                              key={`${card.name}-${ci}`}
                               src={card.image}
                               slabSrc={card.slabImage}
                               alt=""
@@ -209,7 +209,7 @@ export default function LeaderboardClient({
                           ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              key={ci}
+                              key={`${card.name}-${ci}`}
                               src={card.image}
                               alt=""
                               loading="lazy"

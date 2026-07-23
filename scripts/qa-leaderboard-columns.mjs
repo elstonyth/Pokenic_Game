@@ -31,6 +31,7 @@ for (const [tag, viewport] of [
     `[${tag}] alltime sublines=${sublines.length} withRM=${rmSubline.length}`,
     rmSubline.length ? `OFFENDERS: ${rmSubline.join(' | ')}` : 'OK',
   );
+  if (rmSubline.length) process.exitCode = 1;
   await page.close();
 }
 await browser.close();

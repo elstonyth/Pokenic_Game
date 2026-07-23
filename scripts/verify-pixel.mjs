@@ -18,10 +18,20 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 
+const FB_HOSTS = ['facebook.net', 'facebook.com'];
+const isFacebookHost = (url) => {
+  try {
+    const host = new URL(url).hostname;
+    return FB_HOSTS.some((h) => host === h || host.endsWith('.' + h));
+  } catch {
+    return false;
+  }
+};
+
 const fbRequests = [];
 page.on('request', (r) => {
   const url = r.url();
-  if (url.includes('facebook.net') || url.includes('facebook.com')) {
+  if (isFacebookHost(url)) {
     fbRequests.push(url);
   }
 });

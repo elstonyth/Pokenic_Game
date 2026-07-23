@@ -11,21 +11,29 @@ const envs = Object.fromEntries(
 );
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-await page.goto('http://localhost:7000/dashboard/login', {
-  waitUntil: 'networkidle',
-});
-await page.fill('input[name="email"]', envs.ADMIN_EMAIL ?? 'admin@pokenic.app');
-await page.fill('input[name="password"]', envs.ADMIN_PW);
-await page.keyboard.press('Enter');
-await page.waitForURL(/dashboard\/(?!login)/, { timeout: 20000 });
-await page.goto('http://localhost:7000/dashboard/economy', {
-  waitUntil: 'networkidle',
-});
-await page.waitForTimeout(1500);
-await page.screenshot({
-  path: 'docs/research/economy-rtp-markup.png',
-  fullPage: true,
-});
-await browser.close();
+try {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 900 },
+  });
+  await page.goto('http://localhost:7000/dashboard/login', {
+    waitUntil: 'networkidle',
+  });
+  await page.fill(
+    'input[name="email"]',
+    envs.ADMIN_EMAIL ?? 'admin@pokenic.app',
+  );
+  await page.fill('input[name="password"]', envs.ADMIN_PW);
+  await page.keyboard.press('Enter');
+  await page.waitForURL(/dashboard\/(?!login)/, { timeout: 20000 });
+  await page.goto('http://localhost:7000/dashboard/economy', {
+    waitUntil: 'networkidle',
+  });
+  await page.waitForTimeout(1500);
+  await page.screenshot({
+    path: 'docs/research/economy-rtp-markup.png',
+    fullPage: true,
+  });
+} finally {
+  await browser.close();
+}
 console.log('done');

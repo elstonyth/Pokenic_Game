@@ -241,15 +241,16 @@ describe('getChallenge', () => {
     expect(c!.rankPrizes).toEqual([
       {
         rank: 1,
-        card: {
-          name: 'Charizard',
-          image: 'http://x/charizard.webp',
-          slabImage: 'http://x/charizard-slab.webp',
-        },
-        moreCards: 0,
+        cards: [
+          {
+            name: 'Charizard',
+            image: 'http://x/charizard.webp',
+            slabImage: 'http://x/charizard-slab.webp',
+          },
+        ],
         creditsLabel: null,
       },
-      { rank: 4, card: null, moreCards: 0, creditsLabel: 'RM 50' },
+      { rank: 4, cards: [], creditsLabel: 'RM 50' },
     ]);
   });
 
@@ -259,21 +260,17 @@ describe('getChallenge', () => {
       progress: { pooledMyr: 5000 },
     });
     const c = await getChallenge();
-    // Rank 1 wins stage 1's AND stage 2's card (same card, twice) — the
-    // headline is the highest stage's, the other collapses into moreCards.
+    // Rank 1 wins stage 1's AND stage 2's card (same card, twice) — BOTH are
+    // listed, highest stage first (the operator rejected a +N collapse).
     // Rank 4's credits sum across the three stages: 50 + 100 + 200.
+    const charizard = {
+      name: 'Charizard',
+      image: 'http://x/charizard.webp',
+      slabImage: 'http://x/charizard-slab.webp',
+    };
     expect(c!.rankPrizes).toEqual([
-      {
-        rank: 1,
-        card: {
-          name: 'Charizard',
-          image: 'http://x/charizard.webp',
-          slabImage: 'http://x/charizard-slab.webp',
-        },
-        moreCards: 1,
-        creditsLabel: null,
-      },
-      { rank: 4, card: null, moreCards: 0, creditsLabel: 'RM 350' },
+      { rank: 1, cards: [charizard, charizard], creditsLabel: null },
+      { rank: 4, cards: [], creditsLabel: 'RM 350' },
     ]);
   });
 
